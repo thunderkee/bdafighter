@@ -1,7 +1,7 @@
 // Synthesised sound effects. Nothing plays until unlock() runs inside a
 // user gesture, which is what mobile browsers and web portals require.
 
-type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose';
+type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose' | 'super' | 'superhit' | 'charge';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -121,6 +121,22 @@ export function play(name: Sfx, intensity = 1) {
     case 'go':
       tone('sawtooth', 440, 880, 0.25, 0.18);
       tone('sine', 880, 880, 0.3, 0.15, 0.05);
+      break;
+    case 'super':
+      // charged launch: rising whoosh over a heavy thump
+      tone('sawtooth', 180, 900, 0.32, 0.22 * v);
+      tone('sine', 120, 50, 0.3, 0.5 * v);
+      burst(0.3, 0.25 * v, 'bandpass', 2400, 0.7);
+      break;
+    case 'superhit':
+      // big boom: deep drop, crunch and a ringing tail
+      tone('sine', 140, 30, 0.6, 0.9);
+      burst(0.45, 0.5, 'lowpass', 1400);
+      tone('square', 900, 300, 0.25, 0.08);
+      tone('triangle', 1760, 1700, 0.5, 0.08, 0.05);
+      break;
+    case 'charge':
+      [880, 1175, 1568].forEach((f, i) => tone('triangle', f, f, 0.12, 0.16, i * 0.06));
       break;
     case 'win':
       [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.22, 0.2, i * 0.11));

@@ -54,6 +54,12 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | Pucks         | **On** / **Off**: the pushable pucks mid-table (applies next match) |
 | Mouse aim     | **On** / **Off**. Off ignores the mouse so keys or buttons aim     |
 
+## Super shot
+
+Every 3 hits charges a super (pips by the SUPER label, and next to the opponent's name). The next marble fired
+is a super: 2.2x size, glowing, dead straight, heavy enough to bulldoze pucks and marble streams, 4x damage,
+with a long hit-stop, heavy shake, knock-back, shockwave and flash. The AI charges and fires supers the same way.
+
 ## How it fits together
 
 | File            | Job                                                                 |
@@ -65,6 +71,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | `src/input.ts`  | Two-thumb touch zones, mouse and keyboard                           |
 | `src/view.ts`   | three.js scene, instanced marbles, sparks, aim dots, chase camera   |
 | `src/robot.ts`  | SD robot models (placeholder 'angel' and 'dragon' styles)           |
+| `src/fx2d.ts`   | ThorVG overlay: shockwaves, starbursts, super glow/trail, flashes   |
 | `src/audio.ts`  | Synthesised SFX, unlocked on first tap                              |
 | `src/storage.ts`| localStorage save with an in-memory fallback                        |
 | `src/app.ts`    | Screens, HUD, fixed-step loop, pause on hidden tab                  |

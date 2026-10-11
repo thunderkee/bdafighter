@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ARENA, COLORS, MATCH } from './config';
 import type { Game, Team } from './game';
 import { ShooterMesh } from './robot';
+import { hex, type Fx2D, type Glow } from './fx2d';
 
 // Physics (x, y) maps to three.js (x, 0, -y): the player sits near the
 // camera at +z and the opponent sits far away at -z.
@@ -45,6 +46,11 @@ export class View {
   private tmpS = new THREE.Vector3();
   private axis = new THREE.Vector3();
   private time = 0;
+  /** optional ThorVG overlay for screen-space effects */
+  fx2d: Fx2D | null = null;
+  private superMeshes: THREE.Mesh[] = [];
+  private trails = new Map<number, { x: number; y: number }[]>();
+  private glows: Glow[] = [];
 
   constructor(
     private host: HTMLElement,
@@ -80,6 +86,15 @@ export class View {
       return mesh;
     }) as unknown as [THREE.InstancedMesh, THREE.InstancedMesh];
     for (let i = 0; i < MATCH.marblePool; i++) this.marbleRot.push(new THREE.Quaternion());
+
+    // super marbles: unlit, over-bright cores so they read as glowing
+    const superGeo = new THREE.SphereGeometry(1, 20, 14);
+    for (let i = 0; i < 4; i++) {
+      const mesh = new THREE.Mesh(superGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
+      mesh.visible = false;
+      this.scene.add(mesh);
+      this.superMeshes.push(mesh);
+    }
 
     // bumps
     const bumpMat = new THREE.MeshLambertMaterial({ color: COLORS.bump });
@@ -185,7 +200,7 @@ export class View {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     // narrow portrait screens need a wider lens to keep the side walls in view
-    this.camera.fov = w / h < 0.75 ? 58 : 48;
+    this.camera.fov = w / h < 0.75 ? 54 : 44;
     this.camera.updateProjectionMatrix();
     this.snapCamera = true;
   }
@@ -197,6 +212,18 @@ export class View {
     this.raycaster.setFromCamera(ndc, this.camera);
     const hit = this.raycaster.ray.intersectPlane(this.floorPlane, this.tmpV);
     return hit ? { x: hit.x, y: -hit.z } : null;
+  }
+
+  /** Physics-space point (x, y) at height h -> CSS pixels in the host. */
+  project(x: number, y: number, h = 0.3) {
+    this.tmpV.set(x, h, -y).project(this.camera);
+    return { x: ((this.tmpV.x + 1) / 2) * this.host.clientWidth, y: ((1 - this.tmpV.y) / 2) * this.host.clientHeight };
+  }
+
+  /** Approximate on-screen radius in CSS pixels of a sphere at a point. */
+  private screenRadius(x: number, y: number, r: number) {
+    const dist = this.camera.position.distanceTo(this.tmpV.set(x, r, -y));
+    return (r * this.host.clientHeight) / (2 * Math.tan((this.camera.fov * Math.PI) / 360) * dist);
   }
 
   shake(amount: number) {
@@ -223,17 +250,47 @@ export class View {
     const g = this.game;
     for (const f of g.fx) {
       switch (f.type) {
-        case 'hit':
-          this.burst(f.x, f.y, f.team === 0 ? COLORS.player : COLORS.enemy, 14, 6);
-          this.burst(f.x, f.y, 0xffffff, 6, 4);
-          this.shake(f.team === 0 ? 0.32 : 0.14);
+        case 'hit': {
+          const color = f.team === 0 ? COLORS.player : COLORS.enemy;
+          const sp = this.project(f.x, f.y, 0.6);
+          if (f.super) {
+            this.burst(f.x, f.y, color, 50, 12);
+            this.burst(f.x, f.y, 0xffe066, 30, 9);
+            this.burst(f.x, f.y, 0xffffff, 20, 7);
+            this.shake(0.95);
+            this.fx2d?.ring(sp.x, sp.y, hex(0xffe066), true);
+            this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
+            this.fx2d?.flash(f.team === 0 ? [255, 90, 80] : [255, 245, 200], 0.3);
+          } else {
+            this.burst(f.x, f.y, color, 14, 6);
+            this.burst(f.x, f.y, 0xffffff, 6, 4);
+            // both sides shake: harder when you're the one hit
+            this.shake(f.team === 0 ? 0.45 : 0.3);
+            this.fx2d?.ring(sp.x, sp.y, hex(f.team === 0 ? 0xff5a4f : 0xfff2b0));
+            this.fx2d?.star(sp.x, sp.y, [255, 255, 255]);
+          }
           break;
+        }
         case 'spark':
           this.burst(f.x, f.y, 0xfff2b0, Math.round(3 + f.intensity * 6), 4);
           break;
         case 'muzzle':
           if (f.team === 0) this.shake(0.015);
           break;
+        case 'super-fire': {
+          const s = g.shooters[f.team];
+          this.shake(f.team === 0 ? 0.35 : 0.15);
+          const sp = this.project(s.x, s.y, 1);
+          this.fx2d?.ring(sp.x, sp.y, hex(0xffe066));
+          break;
+        }
+        case 'super-ready': {
+          const s = g.shooters[f.team];
+          const sp = this.project(s.x, s.y, 1);
+          this.fx2d?.ring(sp.x, sp.y, hex(0xffe066));
+          this.fx2d?.star(sp.x, sp.y, hex(0xffe066));
+          break;
+        }
       }
     }
     g.fx.length = 0;
@@ -248,8 +305,31 @@ export class View {
 
     // marbles + visual rolling
     const counts = [0, 0];
+    let superCount = 0;
+    this.glows.length = 0;
+    const seen = new Set<number>();
     for (const m of g.marbles) {
       if (!m.active) continue;
+      if (m.super) {
+        const p = m.body.translation();
+        const mesh = this.superMeshes[superCount++];
+        if (mesh) {
+          mesh.visible = true;
+          mesh.position.set(p.x, m.radius, -p.y);
+          // shimmer between white-hot and the team colour
+          const pulse = 0.5 + 0.5 * Math.sin(this.time * 30);
+          (mesh.material as THREE.MeshBasicMaterial).color.set(m.team === 0 ? 0x9fd0ff : 0xffb09a).lerp(new THREE.Color(0xffffff), pulse * 0.6);
+          mesh.scale.setScalar(m.radius * (1 + pulse * 0.08));
+        }
+        const sp = this.project(p.x, p.y, m.radius);
+        const trail = this.trails.get(m.idx) ?? [];
+        trail.unshift(sp);
+        if (trail.length > 10) trail.length = 10;
+        this.trails.set(m.idx, trail);
+        seen.add(m.idx);
+        this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(p.x, p.y, m.radius), color: hex(m.team === 0 ? 0x5fa8ff : 0xff6a4a), trail: trail.slice(1) });
+        continue;
+      }
       const p = m.body.translation();
       const v = m.body.linvel();
       const q = this.marbleRot[m.idx];
@@ -270,6 +350,8 @@ export class View {
       this.marbleMesh[t].count = counts[t];
       this.marbleMesh[t].instanceMatrix.needsUpdate = true;
     }
+    for (let i = superCount; i < this.superMeshes.length; i++) this.superMeshes[i].visible = false;
+    for (const idx of this.trails.keys()) if (!seen.has(idx)) this.trails.delete(idx);
 
     g.bumps.forEach((b, i) => {
       this.bumpMeshes[i].visible = g.bumpsOn;
@@ -322,6 +404,7 @@ export class View {
     this.camera.rotateZ(Math.sin(t * 0.9) * sh * 0.04);
 
     this.renderer.render(this.scene, this.camera);
+    this.fx2d?.render(dt, this.glows);
   }
 
   /**
@@ -331,8 +414,8 @@ export class View {
   private followPlayer(dt: number) {
     const p = this.game.shooters[0];
     const lean = Math.sin(p.aim);
-    this.camGoal.set(p.x * 0.85 - lean * 1.1, 8, -p.y + 8.2);
-    this.lookGoal.set(p.x * 0.55 + lean * 3, 0, -p.y - 6.5);
+    this.camGoal.set(p.x * 0.9 - lean * 0.9, 6.4, -p.y + 6.4);
+    this.lookGoal.set(p.x * 0.6 + lean * 3, 0.2, -p.y - 7.5);
     // frame-rate independent smoothing
     const k = this.snapCamera ? 1 : 1 - Math.exp(-dt * 6);
     this.camBase.lerp(this.camGoal, k);

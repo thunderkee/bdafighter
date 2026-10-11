@@ -44,6 +44,7 @@ body {
 
 #stage,
 #stage canvas,
+#fx,
 #touch,
 #vignette {
   position: absolute;
@@ -495,4 +496,55 @@ body.buttons #hints {
 .seg button.on {
   background: var(--accent);
   color: #2a1d00;
+}
+
+/* ---------- ThorVG overlay + super meter ---------- */
+#fx {
+  pointer-events: none;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.super-pips {
+  display: inline-flex;
+  gap: 3px;
+}
+.super-pips i {
+  width: 10px;
+  height: 10px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 0.15s;
+}
+.super-pips i.on {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(255, 194, 61, 0.8);
+}
+.super-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.super-meter.ready,
+.who.ready {
+  color: var(--accent);
+  animation: super-pulse 0.5s ease-in-out infinite alternate;
+}
+.super-meter.ready i,
+.who.ready i {
+  background: #fff3c4;
+  box-shadow: 0 0 10px rgba(255, 194, 61, 1);
+}
+@keyframes super-pulse {
+  to {
+    filter: brightness(1.5);
+    transform: scale(1.06);
+  }
 }

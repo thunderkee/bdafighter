@@ -10,12 +10,13 @@
   <body>
     <div id="app">
       <div id="stage"></div>
+      <canvas id="fx"></canvas>
       <div id="touch"></div>
       <div id="vignette"></div>
 
       <div id="hud" class="hidden">
         <div class="bar-row top">
-          <div class="who"><span id="enemy-name">Sparring Bot</span></div>
+          <div class="who"><span id="enemy-name">Sparring Bot</span><span class="super-pips" id="enemy-super"><i></i><i></i><i></i></span></div>
           <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
         </div>
         <div id="clock">75</div>
@@ -23,7 +24,11 @@
         <button id="hud-settings-btn" class="icon-btn gear" aria-label="Settings">⚙</button>
         <div class="bar-row bottom">
           <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
-          <div class="ammo"><div id="ammo-pips"></div><div id="reload"><div></div></div></div>
+          <div class="ammo">
+            <div id="ammo-pips"></div>
+            <div id="reload"><div></div></div>
+            <div class="super-meter" id="player-super"><span>SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></div>
+          </div>
         </div>
         <div id="pad" class="hidden">
           <div class="pad-dir">

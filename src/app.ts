@@ -4,6 +4,7 @@ import { Game, STEP } from './game';
 import { View } from './view';
 import { Input } from './input';
 import { AIController } from './ai';
+import { Fx2D } from './fx2d';
 import * as sfx from './audio';
 import * as store from './storage';
 
@@ -24,6 +25,12 @@ export function boot() {
   const [player, enemy] = game.shooters;
   const ai = new AIController(game, enemy, player, profile);
   const input = new Input($('touch'), player, (x, y) => view.screenToWorld(x, y));
+
+  // ThorVG effects overlay loads in the background; the game never waits on it
+  const fx2d = new Fx2D($<HTMLCanvasElement>('fx'));
+  void fx2d.init().then(() => {
+    if (fx2d.ready) view.fx2d = fx2d;
+  });
 
   let saveData = store.load();
   sfx.setMuted(saveData.muted);
@@ -46,6 +53,10 @@ export function boot() {
   const reloadBar = $('reload');
   const vignette = $('vignette');
   const hints = $('hints');
+  const superPips = [
+    [...document.querySelectorAll<HTMLElement>('#player-super i')],
+    [...document.querySelectorAll<HTMLElement>('#enemy-super i')],
+  ];
   $('enemy-name').textContent = profile.name;
 
   const buildPips = () => {
@@ -216,7 +227,10 @@ export function boot() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) setPaused(true);
   });
-  window.addEventListener('resize', () => view.resize());
+  window.addEventListener('resize', () => {
+    view.resize();
+    fx2d.resize();
+  });
   input.onFirstInput = () => sfx.unlock();
 
   $('loading').classList.add('hidden');
@@ -336,6 +350,15 @@ export function boot() {
       if (chipDelay[i] <= 0) chip[i] = Math.max(s.health, chip[i] - dt * 40);
       hpChip[i].style.width = (chip[i] / MATCH.maxHealth) * 100 + '%';
     });
+
+    // super meters: pips fill per hit, glow when the next shot is a super
+    for (const [s, el, row] of [
+      [player, superPips[0], $('player-super')],
+      [enemy, superPips[1], document.querySelector<HTMLElement>('.who')!],
+    ] as const) {
+      el.forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));
+      row.classList.toggle('ready', s.superReady);
+    }
 
     const full = Math.floor(player.ammo);
     const kids = pips.children;

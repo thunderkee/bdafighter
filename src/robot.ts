@@ -327,5 +327,16 @@ export class ShooterMesh {
     for (const m of this.mats) m.emissive.setRGB(f, f, f);
     const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
     this.root.position.y = bob + hurt;
+
+    // shudder while flashing from a hit; a super hit also rocks it backwards
+    const jolt = s.flash > 0 ? (s.stagger > 0 ? 0.16 : 0.07) : 0;
+    if (jolt) {
+      this.root.position.x += (Math.random() * 2 - 1) * jolt;
+      this.root.position.z += (Math.random() * 2 - 1) * jolt;
+    }
+    const back = s.stagger > 0 ? Math.sin((s.stagger / 0.45) * Math.PI) * 0.35 : 0;
+    // tip away from the attacker (player leans toward +z, opponent toward -z)
+    this.root.rotation.x = s.team === 0 ? back : -back;
+    this.root.rotation.y = (s.team === 0 ? 0 : Math.PI) + (jolt ? (Math.random() * 2 - 1) * jolt : 0);
   }
 }

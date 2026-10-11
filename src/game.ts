@@ -19,6 +19,11 @@ const GROUPS = {
 
 export const STEP = 1 / 60;
 
+/** hits needed to charge one super shot */
+export const SUPER_HITS = 3;
+/** how a super marble differs from a normal one */
+const SUPER = { radius: 2.2, mass: 40, speed: 1.15, damage: 4 };
+
 const BUMP_SPOTS = [
   [-2.6, -3.2],
   [2.6, -3.2],
@@ -40,6 +45,7 @@ export interface Marble {
   damage: number;
   radius: number;
   spawnOrder: number;
+  super: boolean;
 }
 
 export interface Bump {
@@ -49,7 +55,9 @@ export interface Bump {
 }
 
 export type Fx =
-  | { type: 'hit'; x: number; y: number; team: Team; amount: number }
+  | { type: 'hit'; x: number; y: number; team: Team; amount: number; super: boolean }
+  | { type: 'super-ready'; team: Team }
+  | { type: 'super-fire'; team: Team }
   | { type: 'spark'; x: number; y: number; intensity: number }
   | { type: 'muzzle'; team: Team }
   | { type: 'reload'; team: Team };
@@ -77,6 +85,12 @@ export class Shooter {
   shots = 0;
   hits = 0;
   dealt = 0;
+  /** hits landed toward the next super shot (0..SUPER_HITS) */
+  charge = 0;
+  /** the next marble fired will be a super shot */
+  superReady = false;
+  /** seconds of knock-back stagger after taking a super hit */
+  stagger = 0;
 
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
@@ -125,6 +139,9 @@ export class Shooter {
     this.flash = 0;
     this.recoil = 0;
     this.shots = this.hits = this.dealt = 0;
+    this.charge = 0;
+    this.superReady = false;
+    this.stagger = 0;
     this.body.setTranslation({ x: 0, y: this.y }, true);
   }
 }
@@ -222,7 +239,7 @@ export class Game {
           .setCollisionGroups(GROUPS.marble[0]),
         body,
       );
-      const m: Marble = { idx: i, body, collider, active: false, team: 0, age: 0, bounces: 0, damage: 0, radius: 0.22, spawnOrder: 0 };
+      const m: Marble = { idx: i, body, collider, active: false, team: 0, age: 0, bounces: 0, damage: 0, radius: 0.22, spawnOrder: 0, super: false };
       this.tags.set(collider.handle, { kind: 'marble', m });
       this.marbles.push(m);
     }
@@ -285,7 +302,8 @@ export class Game {
       const p = m.body.translation();
       const v = m.body.linvel();
       const speed2 = v.x * v.x + v.y * v.y;
-      if (m.age > MATCH.marbleLifetime || Math.abs(p.y) > limitY || Math.abs(p.x) > ARENA.width || (m.age > 0.3 && speed2 < 2)) {
+      const life = m.super ? MATCH.marbleLifetime * 1.5 : MATCH.marbleLifetime;
+      if (m.age > life || Math.abs(p.y) > limitY || Math.abs(p.x) > ARENA.width || (m.age > 0.3 && speed2 < 2)) {
         this.toDespawn.add(m);
       }
     }
@@ -313,6 +331,7 @@ export class Game {
     s.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, s.aim));
 
     s.flash = Math.max(0, s.flash - dt);
+    s.stagger = Math.max(0, s.stagger - dt);
     s.recoil = Math.max(0, s.recoil - dt * 8);
     s.cooldown -= dt;
 
@@ -350,27 +369,35 @@ export class Game {
     const m = this.marbles.find((mm) => !mm.active);
     if (!m) return;
     const st = s.stats;
-    const angle = s.aim + (Math.random() * 2 - 1) * st.spread;
+    const isSuper = s.superReady;
+    s.superReady = false;
+    // a super shot flies dead straight
+    const angle = s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread);
     const d = s.dir(angle);
     const p = s.muzzle();
+    const radius = st.marbleRadius * (isSuper ? SUPER.radius : 1);
+    const speed = st.muzzleSpeed * (isSuper ? SUPER.speed : 1);
+    // nudge a big marble forward so it doesn't spawn inside the robot
+    const push = isSuper ? radius : 0;
     m.active = true;
     m.team = s.team;
+    m.super = isSuper;
     m.age = 0;
     m.bounces = 0;
-    m.damage = st.damage;
-    m.radius = st.marbleRadius;
+    m.damage = st.damage * (isSuper ? SUPER.damage : 1);
+    m.radius = radius;
     m.spawnOrder = this.spawnCounter++;
-    m.collider.setRadius(st.marbleRadius);
-    m.collider.setMass(st.marbleMass);
+    m.collider.setRadius(radius);
+    m.collider.setMass(st.marbleMass * (isSuper ? SUPER.mass : 1));
     m.collider.setCollisionGroups(GROUPS.marble[s.team]);
     m.body.setEnabled(true);
-    m.body.setTranslation(p, true);
-    m.body.setLinvel({ x: d.x * st.muzzleSpeed, y: d.y * st.muzzleSpeed }, true);
+    m.body.setTranslation({ x: p.x + d.x * push, y: p.y + d.y * push }, true);
+    m.body.setLinvel({ x: d.x * speed, y: d.y * speed }, true);
     this.activeCount++;
     s.shots++;
     s.recoil = 1;
-    this.fx.push({ type: 'muzzle', team: s.team });
-    sfx.play('fire', s.team === 0 ? 1 : 0.55);
+    this.fx.push({ type: isSuper ? 'super-fire' : 'muzzle', team: s.team });
+    sfx.play(isSuper ? 'super' : 'fire', s.team === 0 ? 1 : 0.55);
   }
 
   private despawn(m: Marble) {
@@ -399,16 +426,27 @@ export class Game {
         if (s.team === m.team) return;
         this.toDespawn.add(m);
         if (this.phase !== 'fight') return;
-        const factor = Math.max(0.45, Math.min(1.25, speed / 15));
+        // supers always land at full power
+        const factor = m.super ? 1 : Math.max(0.45, Math.min(1.25, speed / 15));
         const amount = m.damage * factor;
         s.health = Math.max(0, s.health - amount);
-        s.flash = 0.12;
+        s.flash = m.super ? 0.3 : 0.12;
+        if (m.super) s.stagger = 0.45;
         const attacker = this.shooters[m.team];
         attacker.hits++;
         attacker.dealt += amount;
-        this.hitstop = Math.max(this.hitstop, s.team === 0 ? 0.05 : 0.03);
-        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, amount });
-        sfx.play(s.team === 0 ? 'hurt' : 'hit', factor);
+        if (!m.super && !attacker.superReady) {
+          attacker.charge = Math.min(SUPER_HITS, attacker.charge + 1);
+          if (attacker.charge >= SUPER_HITS) {
+            attacker.charge = 0;
+            attacker.superReady = true;
+            this.fx.push({ type: 'super-ready', team: attacker.team });
+            if (attacker.team === 0) sfx.play('charge');
+          }
+        }
+        this.hitstop = Math.max(this.hitstop, m.super ? 0.16 : s.team === 0 ? 0.06 : 0.04);
+        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, amount, super: m.super });
+        sfx.play(m.super ? 'superhit' : s.team === 0 ? 'hurt' : 'hit', factor);
         if (s.health <= 0) this.finish();
         break;
       }
