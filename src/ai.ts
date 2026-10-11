@@ -92,7 +92,7 @@ export class AIController {
     const r = Math.random();
     const pr = this.profile;
     if (r < pr.bankChance) this.aimMode = 'bank';
-    else if (r < pr.bankChance + pr.bumpChance) {
+    else if (r < pr.bankChance + pr.bumpChance && this.game.bumpsOn) {
       this.aimMode = 'bump';
       this.bumpIdx = Math.floor(Math.random() * this.game.bumps.length);
     } else this.aimMode = 'direct';

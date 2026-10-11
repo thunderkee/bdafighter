@@ -139,6 +139,8 @@ export class Game {
   shooters: [Shooter, Shooter];
   marbles: Marble[] = [];
   bumps: Bump[] = [];
+  /** pushable pucks on the table; off removes them from physics entirely */
+  bumpsOn = true;
   fx: Fx[] = [];
 
   phase: Phase = 'countdown';
@@ -231,6 +233,7 @@ export class Game {
     this.shooters[1].reset(enemyStats);
     for (const m of this.marbles) if (m.active) this.despawn(m);
     this.bumps.forEach((b, i) => {
+      b.body.setEnabled(this.bumpsOn);
       b.body.setTranslation({ x: BUMP_SPOTS[i][0], y: BUMP_SPOTS[i][1] }, true);
       b.body.setLinvel({ x: 0, y: 0 }, true);
       b.body.setAngvel(0, true);
@@ -264,7 +267,7 @@ export class Game {
     for (const s of this.shooters) this.updateShooter(s, dt, canAct);
 
     // bumps drift slowly home so cover never stays piled in one corner
-    this.bumps.forEach((b, i) => {
+    if (this.bumpsOn) this.bumps.forEach((b, i) => {
       const p = b.body.translation();
       const k = 0.9 * b.body.mass() * dt;
       b.body.applyImpulse({ x: (BUMP_SPOTS[i][0] - p.x) * k, y: (BUMP_SPOTS[i][1] - p.y) * k }, true);

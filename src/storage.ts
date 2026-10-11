@@ -10,6 +10,8 @@ export interface Settings {
   arrows: 'move' | 'aim';
   /** touch gestures over the arena, or on-screen ◀ ▶ FIRE buttons */
   layout: 'gestures' | 'buttons';
+  /** pushable pucks in the middle of the table */
+  bumps: boolean;
 }
 
 export interface SaveData {
@@ -19,7 +21,7 @@ export interface SaveData {
   settings: Settings;
 }
 
-export const DEFAULT_SETTINGS: Settings = { mouseAim: true, arrows: 'move', layout: 'gestures' };
+export const DEFAULT_SETTINGS: Settings = { mouseAim: true, arrows: 'move', layout: 'gestures', bumps: true };
 
 const DEFAULTS: SaveData = { matches: 0, wins: 0, muted: false, settings: DEFAULT_SETTINGS };
 

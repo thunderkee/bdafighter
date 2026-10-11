@@ -272,6 +272,7 @@ export class View {
     }
 
     g.bumps.forEach((b, i) => {
+      this.bumpMeshes[i].visible = g.bumpsOn;
       const p = b.body.translation();
       this.bumpMeshes[i].position.set(p.x, 0, -p.y);
       this.bumpMeshes[i].rotation.y = b.body.rotation();

@@ -71,6 +71,7 @@ export function boot() {
   // ---------- screens ----------
   const startMatch = () => {
     sfx.unlock();
+    game.bumpsOn = saveData.settings.bumps;
     game.reset(playerStats(), enemyStats());
     ai.reset();
     input.release();
@@ -139,6 +140,11 @@ export function boot() {
   const applySettings = () => {
     const st = saveData.settings;
     input.settings = { ...st };
+    // outside a match the table updates now; mid-match it waits for the next one
+    if (screen !== 'playing') {
+      game.bumpsOn = st.bumps;
+      for (const b of game.bumps) b.body.setEnabled(st.bumps);
+    }
     document.body.classList.toggle('buttons', st.layout === 'buttons');
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';

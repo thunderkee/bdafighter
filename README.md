@@ -51,6 +51,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | ------------- | ------------------------------------------------------------------ |
 | Controls      | **Gestures** or **Buttons**: ◀ ▶ bottom-left, FIRE bottom-right    |
 | Left / Right  | **Move** slides the robot; **Aim** turns its aim instead (◀ ▶ become ↶ ↷, A / D too) |
+| Pucks         | **On** / **Off**: the pushable pucks mid-table (applies next match) |
 | Mouse aim     | **On** / **Off**. Off ignores the mouse so keys or buttons aim     |
 
 ## How it fits together
