@@ -89,7 +89,11 @@ body {
 }
 .bar-row.top {
   top: max(12px, env(safe-area-inset-top));
-  padding-right: 52px;
+  padding-right: 100px;
+}
+.icon-btn.gear {
+  right: 60px;
+  font-size: 18px;
 }
 .bar-row.bottom {
   bottom: max(14px, env(safe-area-inset-bottom));

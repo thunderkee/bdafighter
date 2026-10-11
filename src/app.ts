@@ -168,6 +168,11 @@ export function boot() {
   };
   $('settings-btn').addEventListener('click', () => openSettings('title'));
   $('pause-settings-btn').addEventListener('click', () => openSettings('paused'));
+  // in-match gear: pause, then jump straight to settings
+  $('hud-settings-btn').addEventListener('click', () => {
+    setPaused(true);
+    openSettings('paused');
+  });
   $('settings-done').addEventListener('click', () => {
     $('settings').classList.add('hidden');
     $(settingsFrom).classList.remove('hidden');
