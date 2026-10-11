@@ -14,6 +14,7 @@ const SPARKS = 220;
 const AIM_DOTS = 26;
 const POWER_BALLS = 16;
 const GHOSTS = 4;
+const SMOKE = 90;
 
 interface Spark {
   life: number;
@@ -152,6 +153,10 @@ export class View {
   private shields: THREE.Mesh[] = [];
   private shieldFlash = [0, 0];
   private robotFx: [RobotFx, RobotFx];
+  /** damage smoke: soft grey puffs that rise, drift and swell */
+  private smokeMesh!: THREE.InstancedMesh;
+  private smoke: { life: number; max: number; p: THREE.Vector3; v: THREE.Vector3; size: number; shade: number }[] = [];
+  private smokeTimer = [0, 0];
 
   constructor(
     private host: HTMLElement,
@@ -184,6 +189,16 @@ export class View {
     );
     this.shadows.frustumCulled = false;
     this.scene.add(this.shadows);
+    this.smokeMesh = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(1, 1),
+      new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.34, depthWrite: false, flatShading: true }),
+      SMOKE,
+    );
+    this.smokeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.smokeMesh.frustumCulled = false;
+    this.smokeMesh.setColorAt(0, new THREE.Color());
+    this.scene.add(this.smokeMesh);
+    for (let i = 0; i < SMOKE; i++) this.smoke.push({ life: 0, max: 1, p: new THREE.Vector3(), v: new THREE.Vector3(), size: 0.2, shade: 0.4 });
     // energy shields: a curved, hex-patterned wall in front of each robot
     const hexTex = this.makeHexTexture();
     for (let i = 0; i < 2; i++) {
@@ -507,6 +522,7 @@ export class View {
     this.updateKo(dt);
     this.updateRobotFx(dt);
     this.updateShields(dt);
+    this.updateSmoke(dt);
     // first person: hide your own robot so it doesn't block the view
     this.shooters[0].root.visible = this.cameraMode !== 'first' || !!this.ko || !!this.cine;
     this.updateMissiles(dt);
@@ -783,6 +799,50 @@ export class View {
   }
 
   /** Shield walls: shown while raised, flicker as energy runs low, flash on blocks. */
+  /** Robots at 30% health or less trail smoke; under 15% they also spit sparks. */
+  private updateSmoke(dt: number) {
+    this.game.shooters.forEach((s, i) => {
+      if (this.shooters[i].broken || s.health <= 0) return;
+      const frac = s.health / s.maxHealth;
+      if (frac > 0.3) return;
+      // thicker smoke the closer to empty
+      const rate = 4 + (1 - frac / 0.3) * 8;
+      this.smokeTimer[i] -= dt;
+      while (this.smokeTimer[i] <= 0) {
+        this.smokeTimer[i] += 1 / rate;
+        const p = this.smoke.find((q) => q.life <= 0);
+        if (!p) break;
+        p.max = p.life = 1.1 + Math.random() * 0.9;
+        // rise from the back of the robot and drift backwards, away from the lane it shoots down
+        p.p.set(s.x + (Math.random() - 0.5) * 0.6, 1.2 + Math.random() * 0.5, -s.y + s.forward * 0.35);
+        p.v.set((Math.random() - 0.5) * 0.35, 1.2 + Math.random() * 0.7, s.forward * (0.5 + Math.random() * 0.4));
+        p.size = 0.09 + Math.random() * 0.07;
+        p.shade = 0.18 + Math.random() * 0.22;
+      }
+      if (frac < 0.15 && Math.random() < dt * 6) {
+        this.burst(s.x + (Math.random() - 0.5) * 0.8, s.y, Math.random() < 0.5 ? 0xffd27a : 0xff7a2a, 3, 3, { h: 1.2 });
+      }
+    });
+    let n = 0;
+    for (const p of this.smoke) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      p.p.addScaledVector(p.v, dt);
+      p.v.x += Math.sin(this.time * 1.7 + p.p.y) * dt * 0.3; // lazy drift
+      const k = 1 - Math.max(0, p.life) / p.max; // 0 -> 1 over its life
+      // swell as it rises, shrink away at the end
+      this.tmpS.setScalar(p.size * (1 + k * 1.8) * (k > 0.8 ? (1 - k) * 5 : 1));
+      this.tmpQ.setFromAxisAngle(this.axis.set(0, 1, 0), k * 2);
+      this.tmpM.compose(p.p, this.tmpQ, this.tmpS);
+      this.smokeMesh.setMatrixAt(n, this.tmpM);
+      this.smokeMesh.setColorAt(n, this.tmpC.setScalar(p.shade + k * 0.25));
+      n++;
+    }
+    this.smokeMesh.count = n;
+    this.smokeMesh.instanceMatrix.needsUpdate = true;
+    if (this.smokeMesh.instanceColor) this.smokeMesh.instanceColor.needsUpdate = true;
+  }
+
   private updateShields(dt: number) {
     this.game.shooters.forEach((s, i) => {
       const mesh = this.shields[i];

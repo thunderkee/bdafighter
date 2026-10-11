@@ -399,6 +399,18 @@ export function boot() {
   $('again-btn').addEventListener('click', startMatch);
   $('pause-btn').addEventListener('click', () => setPaused(true));
   $('resume-btn').addEventListener('click', () => setPaused(false));
+  // restart from round 1, straight into the fight (no intro this time)
+  $('restart-btn').addEventListener('click', () => {
+    paused = false;
+    sfx.resume();
+    pad.clear();
+    replayEl.classList.add('hidden');
+    replayGame = null;
+    view.game = game;
+    last = performance.now();
+    startMatch();
+    endIntro();
+  });
   $('mute-btn').addEventListener('click', () => {
     sfx.unlock();
     saveData = store.save({ muted: !saveData.muted });
