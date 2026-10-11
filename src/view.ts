@@ -5,6 +5,7 @@ import { ShooterMesh, characterById } from './robot';
 import { Stage } from './stage';
 import { GATE, GATES, ITEMS, MISSILE, SHIELD } from './items';
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
+import * as sfx from './audio';
 
 // Physics (x, y) maps to three.js (x, 0, -y): the player sits near the
 // camera at +z and the opponent sits far away at -z.
@@ -32,8 +33,12 @@ interface Debris {
   smoke: number;
 }
 
-/** the loser's breakup: timed explosions, then the robot flies apart */
+/**
+ * KO aftermath. 'down': the loser slumps, sparking (between rounds and at the
+ * final KO). 'explode': timed pops, then the robot flies apart (match end).
+ */
 interface KoState {
+  mode: 'down' | 'explode';
   team: Team;
   t: number;
   pops: number;
@@ -134,6 +139,8 @@ export class View {
   private missileMeshes = new Map<number, { root: THREE.Group; flame: THREE.Mesh }>();
   private missileTrails = new Map<number, { x: number; y: number }[]>();
   private ko: KoState | null = null;
+  /** scripted camera: the VS intro or a replay */
+  cine: { kind: 'intro' | 'replay'; t: number; shot: number; team: Team } | null = null;
   /** each side's marble colour, from its robot */
   private teamBall: [number, number] = [characterById('angel').ball, characterById('dragon').ball];
   /** settings: chase-camera distance, down to a first-person cockpit view */
@@ -148,7 +155,8 @@ export class View {
 
   constructor(
     private host: HTMLElement,
-    private game: Game,
+    /** what to draw; swapped for a ReplayGame during quick replays */
+    public game: Game,
   ) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.renderer = new THREE.WebGLRenderer({ antialias: dpr < 2, powerPreference: 'high-performance' });
@@ -500,7 +508,7 @@ export class View {
     this.updateRobotFx(dt);
     this.updateShields(dt);
     // first person: hide your own robot so it doesn't block the view
-    this.shooters[0].root.visible = this.cameraMode !== 'first' || !!this.ko;
+    this.shooters[0].root.visible = this.cameraMode !== 'first' || !!this.ko || !!this.cine;
     this.updateMissiles(dt);
     this.updateDrops();
     this.updateGates();
@@ -819,10 +827,14 @@ export class View {
   private updateKo(dt: number) {
     const g = this.game;
     if (!this.ko && (g.phase === 'ko' || g.phase === 'over') && (g.winner === 0 || g.winner === 1)) {
-      this.ko = { team: g.winner === 0 ? 1 : 0, t: 0, pops: 0, shattered: false, debris: [] };
+      this.ko = { mode: 'down', team: g.winner === 0 ? 1 : 0, t: 0, pops: 0, shattered: false, debris: [] };
     }
     const ko = this.ko;
     if (!ko) return;
+    if (ko.mode === 'down') {
+      this.updateDown(ko, dt);
+      return;
+    }
     // run the sequence a little slow for drama
     const sdt = dt * 0.6;
     ko.t += sdt;
@@ -832,6 +844,7 @@ export class View {
     // three pops from different spots on the body
     const popAt = [0.05, 0.3, 0.55];
     while (ko.pops < popAt.length && ko.t >= popAt[ko.pops]) {
+      sfx.play('pop', 0.8 + ko.pops * 0.1);
       const ox = (Math.random() - 0.5) * 1.2;
       this.burst(l.x + ox, l.y, 0xffd27a, 18, 6, { h: 0.6 + Math.random() });
       this.burst(l.x + ox, l.y, color, 10, 5, { h: 1 });
@@ -843,6 +856,9 @@ export class View {
     }
     if (!ko.shattered && ko.t >= 0.85) {
       ko.shattered = true;
+      sfx.play('explode');
+      setTimeout(() => sfx.play('clatter', 0.9), 650);
+      setTimeout(() => sfx.play('clatter', 0.6), 1300);
       const sm = this.shooters[ko.team];
       const centre = new THREE.Vector3(l.x, 0.9, -l.y);
       for (const mesh of sm.shatter(this.scene)) {
@@ -885,6 +901,34 @@ export class View {
         this.burst(wp.x, -wp.z, Math.random() < 0.3 ? 0xff8a2a : 0x6a6a74, 1, 1, { h: wp.y, float: true, size: 0.12 });
       }
     }
+  }
+
+  /** Blow the loser apart (called once the final replay is over). */
+  explode(team: Team) {
+    this.resetMatch();
+    this.ko = { mode: 'explode', team, t: 0, pops: 0, shattered: false, debris: [] };
+  }
+
+  /** Between rounds: the loser slumps forward, sparking and smoking. */
+  private updateDown(ko: KoState, dt: number) {
+    ko.t += dt * 0.6;
+    const l = this.game.shooters[ko.team];
+    const sm = this.shooters[ko.team];
+    const k = Math.min(1, ko.t * 3);
+    // tip toward its opponent and sink a little
+    sm.root.rotation.x += (l.team === 0 ? -0.55 : 0.55) * k;
+    sm.root.position.y -= 0.12 * k;
+    sm.turret.rotation.z += Math.sin(ko.t * 3) * 0.05;
+    const popAt = [0.04, 0.35];
+    while (ko.pops < popAt.length && ko.t >= popAt[ko.pops]) {
+      this.burst(l.x + (Math.random() - 0.5), l.y, 0xffd27a, 16, 5, { h: 1 });
+      const p = this.project(l.x, l.y, 1);
+      this.fx2d?.ring(p.x, p.y, hex(0xffd27a));
+      sfx.play('pop', 0.6);
+      this.shake(0.3);
+      ko.pops++;
+    }
+    if (Math.random() < 0.25) this.burst(l.x + (Math.random() - 0.5) * 0.8, l.y, Math.random() < 0.4 ? 0xffd27a : 0x6a6a74, 1, 1.5, { h: 1.2, float: true, size: 0.1 });
   }
 
   /** Homing missiles: body, fins, flickering flame, smoke and a glow trail. */
@@ -1088,6 +1132,10 @@ export class View {
    * with its position and leaning a little into the aim direction.
    */
   private followPlayer(dt: number) {
+    if (this.cine) {
+      this.cinematic(dt);
+      return;
+    }
     if (this.ko) {
       // KO cam: swing in on the wreck (a reverse shot when the player loses)
       const l = this.game.shooters[this.ko.team];
@@ -1125,6 +1173,47 @@ export class View {
     this.camBase.lerp(this.camGoal, k);
     this.camLook.lerp(this.lookGoal, k);
     this.snapCamera = false;
+  }
+
+  /** Scripted shots: orbit each fighter for the VS intro; a sweeping side cam for replays. */
+  private cinematic(dt: number) {
+    const c = this.cine!;
+    c.t += dt;
+    const [p, e] = this.game.shooters;
+    let shot = 0;
+    if (c.kind === 'intro') {
+      if (c.t < 1.7) {
+        // orbit in front of the player's robot
+        const a = -0.9 + c.t * 0.9;
+        this.camGoal.set(p.x + Math.sin(a) * 3.4, 1.4 + c.t * 0.25, -p.y - Math.cos(a) * 3.4);
+        this.lookGoal.set(p.x, 1.15, -p.y);
+      } else if (c.t < 3.4) {
+        shot = 1;
+        const a = 0.9 - (c.t - 1.7) * 0.9;
+        this.camGoal.set(e.x + Math.sin(a) * 3.4, 1.4 + (c.t - 1.7) * 0.25, -e.y + Math.cos(a) * 3.4);
+        this.lookGoal.set(e.x, 1.15, -e.y);
+      } else {
+        // wide establishing shot of the arena
+        shot = 2;
+        this.camGoal.set(Math.sin(c.t * 0.4) * 3, 10, -p.y + 9);
+        this.lookGoal.set(0, 0, 0);
+      }
+    } else {
+      // replay: sweep along the side of the table, framing the loser
+      const l = this.game.shooters[c.team];
+      const side = Math.sin(c.t * 0.35) > 0 ? 1 : -1;
+      shot = side > 0 ? 0 : 1;
+      // camera beside and in front of the loser, sweeping slowly
+      const front = l.team === 0 ? -1 : 1;
+      this.camGoal.set(l.x + side * 5.5, 2.8 + Math.sin(c.t * 0.5) * 0.5, -l.y + front * (4.5 + Math.cos(c.t * 0.4) * 1.2));
+      this.lookGoal.set(l.x, 0.9, -l.y + front * 1.5);
+    }
+    // hard cut between shots, smooth within one
+    const cut = shot !== c.shot;
+    c.shot = shot;
+    const k = cut ? 1 : 1 - Math.exp(-dt * 4);
+    this.camBase.lerp(this.camGoal, k);
+    this.camLook.lerp(this.lookGoal, k);
   }
 
   /** Dots along the predicted path, with one bounce off the side walls. */

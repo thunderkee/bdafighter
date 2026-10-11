@@ -31,7 +31,7 @@
             <div class="side-info">
               <div class="portrait"><canvas id="face-player"></canvas></div>
               <div class="meta">
-                <div class="unit-name"><span class="tag">P1</span><span id="player-name">SERAPH ZERO</span></div>
+                <div class="unit-name"><span class="tag">P1</span><span id="player-name">SERAPH ZERO</span><span class="rounds" id="player-rounds"><i></i><i></i></span></div>
                 <div class="meta-row">
                   <span class="readout" id="player-hp-num">100%</span>
                   <span class="super-meter" id="player-super"><span class="super-pips"><i></i><i></i><i></i></span><span class="sm-label">SUPER</span></span>
@@ -46,7 +46,7 @@
             <div class="side-info">
               <div class="portrait"><canvas id="face-enemy"></canvas></div>
               <div class="meta">
-                <div class="unit-name"><span id="enemy-name">WYVERN</span><span class="tag">CPU</span></div>
+                <div class="unit-name"><span class="rounds" id="enemy-rounds"><i></i><i></i></span><span id="enemy-name">WYVERN</span><span class="tag">CPU</span></div>
                 <div class="meta-row">
                   <span class="readout" id="enemy-hp-num">100%</span>
                   <span class="super-meter" id="enemy-super"><span class="sm-label">SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></span>
@@ -98,6 +98,22 @@
       </div>
 
       <div id="banner"></div>
+
+      <!-- VS intro -->
+      <div id="intro" class="hidden">
+        <div class="intro-card p1"><span class="ic-tag">PLAYER 1</span><b id="intro-p1">SERAPH ZERO</b><span class="ic-sub" id="intro-p1-sub">UNIT 01</span></div>
+        <div class="intro-card p2"><span class="ic-tag">CHALLENGER</span><b id="intro-p2">WYVERN</b><span class="ic-sub" id="intro-p2-sub">UNIT 02</span></div>
+        <div class="intro-vs">VS</div>
+        <div class="intro-skip">TAP TO SKIP</div>
+      </div>
+
+      <!-- quick replay -->
+      <div id="replay" class="hidden">
+        <div class="lb top"></div>
+        <div class="lb bottom"></div>
+        <div class="replay-tag"><i></i>REPLAY</div>
+        <div class="intro-skip">TAP TO SKIP</div>
+      </div>
 
       <!-- ================= TITLE ================= -->
       <div id="title" class="screen">

@@ -1,7 +1,7 @@
 // Synthesised sound effects. Nothing plays until unlock() runs inside a
 // user gesture, which is what mobile browsers and web portals require.
 
-type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose' | 'super' | 'superhit' | 'charge';
+type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose' | 'super' | 'superhit' | 'charge' | 'pop' | 'explode' | 'clatter' | 'whoosh' | 'gong' | 'slam';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -137,6 +137,38 @@ export function play(name: Sfx, intensity = 1) {
       break;
     case 'charge':
       [880, 1175, 1568].forEach((f, i) => tone('triangle', f, f, 0.12, 0.16, i * 0.06));
+      break;
+    case 'pop':
+      // small internal explosion
+      tone('sine', 260 * jitter, 60, 0.22, 0.55 * v);
+      burst(0.2, 0.4 * v, 'lowpass', 1600);
+      tone('square', 1800 * jitter, 600, 0.06, 0.06 * v);
+      break;
+    case 'explode':
+      // the big one: sub drop, long rumble, bright crack and a crackling tail
+      tone('sine', 110, 26, 1.4, 1);
+      tone('triangle', 70, 30, 1.1, 0.5);
+      burst(1.4, 0.75, 'lowpass', 700);
+      burst(0.35, 0.5, 'highpass', 2600);
+      for (let i = 0; i < 6; i++) tone('square', 900 + Math.random() * 1400, 200, 0.05, 0.05, 0.25 + i * 0.12 + Math.random() * 0.05);
+      break;
+    case 'clatter':
+      // metal parts landing
+      for (let i = 0; i < 7; i++) tone('triangle', 1400 + Math.random() * 2200, 700, 0.04, 0.1 * v, i * 0.07 + Math.random() * 0.05);
+      break;
+    case 'whoosh':
+      burst(0.5, 0.3, 'bandpass', 900, 0.6);
+      tone('sine', 300, 900, 0.4, 0.06);
+      break;
+    case 'gong':
+      tone('sine', 196, 190, 1.6, 0.5);
+      tone('sine', 392, 385, 1.2, 0.18);
+      tone('triangle', 588, 580, 0.9, 0.08);
+      break;
+    case 'slam':
+      tone('sine', 150, 40, 0.5, 0.8);
+      burst(0.25, 0.45, 'lowpass', 2200);
+      tone('sawtooth', 880, 220, 0.18, 0.12);
       break;
     case 'win':
       [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.22, 0.2, i * 0.11));

@@ -2,13 +2,14 @@ import { AI_PROFILES, MATCH } from './config';
 import { computeStats, STARTER_BUILD } from './parts';
 import { Game, STEP, type Shooter } from './game';
 import { View } from './view';
-import { Input } from './input';
+import { Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
 import { Portrait } from './face';
 import { CHARACTERS, characterById } from './robot';
 import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, type ItemType } from './items';
+import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import * as store from './storage';
 
@@ -125,8 +126,9 @@ export function boot() {
   const setTouchClass = () => document.body.classList.toggle('touch', input.mode === 'touch');
   setTouchClass();
 
-  const showBanner = (text: string) => {
-    banner.textContent = text;
+  const showBanner = (text: string, big = false, sub?: string) => {
+    banner.innerHTML = sub ? `${text}<span class="sub">${sub}</span>` : text;
+    banner.classList.toggle('big', big);
     banner.classList.remove('pop');
     void banner.offsetWidth; // restart the animation
     banner.classList.add('pop');
@@ -151,7 +153,55 @@ export function boot() {
     faces.forEach((f) => void f.init());
   };
 
-  // ---------- screens ----------
+  // ---------- match flow: intro -> rounds (best of 3) -> replays -> finale ----------
+  type Flow = 'intro' | 'round' | 'replay' | 'finale';
+  let flow: Flow = 'round';
+  let flowT = 0;
+  let roundNo = 1;
+  const roundWins = [0, 0];
+  const totals = { dealt: 0, shots: 0, hits: 0 };
+  let finalRound = false;
+  let replayGame: ReplayGame | null = null;
+  let matchWinner: -1 | 0 | 1 = -1;
+  const recorder = new Recorder();
+  const introEl = $('intro');
+  const replayEl = $('replay');
+  const introStep = [false, false, false];
+
+  const showRounds = () => {
+    for (const [i, id] of [
+      [0, 'player-rounds'],
+      [1, 'enemy-rounds'],
+    ] as const) {
+      $(id)
+        .querySelectorAll('i')
+        .forEach((pip, k) => pip.classList.toggle('won', k < roundWins[i]));
+    }
+  };
+
+  /** fresh table for the next round: health, ammo, marbles, items, gates */
+  const setupRound = () => {
+    const st = saveData.settings;
+    view.resetMatch();
+    game.reset(playerStats(), enemyStats(), { enemyMaxHealth: enemyMaxHealth(), pucks: st.pucks, items: st.items, gates: st.gates });
+    ai.reset();
+    recorder.clear();
+    input.release();
+    chip[0] = chip[1] = 1;
+    acc = 0;
+    lastCount = -1;
+  };
+
+  const startRound = () => {
+    flow = 'round';
+    flowT = 0;
+    hud.classList.remove('hidden');
+    input.enabled = true;
+    finalRound = roundWins[0] === 1 && roundWins[1] === 1;
+    showRounds();
+    lastCount = -1;
+  };
+
   const startMatch = () => {
     sfx.unlock();
     const st = saveData.settings;
@@ -160,43 +210,130 @@ export function boot() {
     ai.agility = AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1];
     view.setCharacters(st.character, enemyCharacter());
     view.setStage(st.stage);
-    view.resetMatch();
-    game.reset(playerStats(), enemyStats(), { enemyMaxHealth: enemyMaxHealth(), pucks: st.pucks, items: st.items, gates: st.gates });
-    ai.reset();
-    input.release();
-    input.enabled = true;
-    chip[0] = chip[1] = 1;
+    roundNo = 1;
+    roundWins[0] = roundWins[1] = 0;
+    totals.dealt = totals.shots = totals.hits = 0;
+    matchWinner = -1;
+    setupRound();
     buildPips();
-    $('player-name').textContent = characterById(st.character).name.toUpperCase();
-    $('enemy-name').textContent = characterById(enemyCharacter()).name.toUpperCase();
+    const pName = characterById(st.character).name.toUpperCase();
+    const eName = characterById(enemyCharacter()).name.toUpperCase();
+    $('player-name').textContent = pName;
+    $('enemy-name').textContent = eName;
+    $('intro-p1').textContent = pName;
+    $('intro-p2').textContent = eName;
+    $('intro-p1-sub').textContent = `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
+    $('intro-p2-sub').textContent = `CPU // ${profile.name.toUpperCase()}`;
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
     for (const id of ['title', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
-    hud.classList.remove('hidden');
     startFaces();
     hints.classList.toggle('hidden', sessionMatches >= 2);
     hints.classList.remove('fade');
     setTouchClass();
     screen = 'playing';
     paused = false;
-    acc = 0;
-    lastCount = -1;
+    showRounds();
+    // VS intro
+    flow = 'intro';
+    flowT = 0;
+    introStep.fill(false);
+    hud.classList.add('hidden');
+    introEl.classList.remove('hidden');
+    introEl.querySelectorAll('.in').forEach((el) => el.classList.remove('in'));
+    input.enabled = false;
+    view.cine = { kind: 'intro', t: 0, shot: -1, team: 0 };
   };
+
+  const endIntro = () => {
+    if (flow !== 'intro') return;
+    introEl.classList.add('hidden');
+    view.cine = null;
+    startRound();
+  };
+  introEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    endIntro();
+  });
+
+  /** the round is over (KO slow-mo finished): score it and roll the replay */
+  const onRoundOver = () => {
+    const w = game.winner;
+    if (w === 0 || w === 1) roundWins[w]++;
+    else {
+      // a drawn round counts for both, unless that would decide nothing forever
+      roundWins[0] = Math.min(roundWins[0] + 1, 2);
+      roundWins[1] = Math.min(roundWins[1] + 1, 2);
+    }
+    totals.dealt += player.dealt;
+    totals.shots += player.shots;
+    totals.hits += player.hits;
+    showRounds();
+    let over = roundWins[0] >= 2 || roundWins[1] >= 2;
+    if (roundWins[0] >= 2 && roundWins[1] >= 2) {
+      // both on two: play a deciding round (cap at 5 rounds)
+      if (roundNo >= 5) matchWinner = -1;
+      else {
+        roundWins[0] = roundWins[1] = 1;
+        over = false;
+      }
+    } else if (over) matchWinner = roundWins[0] >= 2 ? 0 : 1;
+    startReplay(over, w === 0 ? 1 : 0);
+  };
+
+  const startReplay = (final: boolean, loser: 0 | 1) => {
+    input.enabled = false;
+    input.release();
+    if (!recorder.frames.length) return endReplay(final, loser);
+    flow = 'replay';
+    flowT = 0;
+    finalRound = final;
+    replayGame = new ReplayGame(recorder, game);
+    view.resetMatch();
+    view.game = replayGame as unknown as Game;
+    view.cine = { kind: 'replay', t: 0, shot: -1, team: loser };
+    replayEl.classList.remove('hidden');
+    hud.classList.add('hidden');
+    sfx.play('whoosh');
+    replayLoser = loser;
+  };
+  let replayLoser: 0 | 1 = 1;
+
+  const endReplay = (final = finalRound, loser = replayLoser) => {
+    replayEl.classList.add('hidden');
+    view.game = game;
+    view.cine = null;
+    replayGame = null;
+    if (final) {
+      flow = 'finale';
+      flowT = 0;
+      if (matchWinner === 0 || matchWinner === 1) view.explode(loser);
+      return;
+    }
+    roundNo++;
+    setupRound();
+    startRound();
+  };
+  replayEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (flow === 'replay') endReplay();
+  });
 
   const endMatch = () => {
     screen = 'result';
     input.enabled = false;
     input.release();
-    const w = game.winner;
+    view.cine = null;
+    const w = matchWinner;
     sessionMatches++;
     if (w === 0) sessionWins++;
     saveData = store.save({ matches: saveData.matches + 1, wins: saveData.wins + (w === 0 ? 1 : 0) });
     const title = $('result-title');
     title.textContent = w === 0 ? 'VICTORY' : w === 1 ? 'DEFEAT' : 'DRAW';
     title.className = 'result-title ' + (w === 0 ? 'win' : w === 1 ? 'lose' : '');
-    $('result-sub').textContent = w === 0 ? 'MISSION COMPLETE' : w === 1 ? 'UNIT DOWN' : 'STALEMATE';
-    $('r-dealt').textContent = Math.round(player.dealt).toString();
-    $('r-acc').textContent = player.shots ? Math.round((player.hits / player.shots) * 100) + '%' : '–';
+    $('result-sub').textContent = `ROUNDS ${roundWins[0]} – ${roundWins[1]} // ${w === 0 ? 'MISSION COMPLETE' : w === 1 ? 'UNIT DOWN' : 'STALEMATE'}`;
+    $('r-dealt').textContent = Math.round(totals.dealt).toString();
+    $('r-acc').textContent = totals.shots ? Math.round((totals.hits / totals.shots) * 100) + '%' : '–';
     $('r-hp').textContent = Math.ceil(player.hpFrac * 100) + '%';
     $('session').textContent = `SESSION ${sessionWins} / ${sessionMatches} WON`;
     $('result').classList.remove('hidden');
@@ -205,12 +342,40 @@ export function boot() {
     updateRecord();
   };
 
+  /** Per-frame timeline for the intro, the replay and the finale. */
+  const updateFlow = (dt: number) => {
+    flowT += dt;
+    if (flow === 'intro') {
+      const cards = [introEl.querySelector('.p1')!, introEl.querySelector('.p2')!, introEl.querySelector('.intro-vs')!];
+      const at = [0.15, 1.85, 3.5];
+      at.forEach((t, k) => {
+        if (!introStep[k] && flowT >= t) {
+          introStep[k] = true;
+          cards[k].classList.add('in');
+          sfx.play(k === 2 ? 'slam' : 'whoosh');
+          if (k === 2) view.shake(0.4);
+        }
+      });
+      if (flowT > 4.8) endIntro();
+    } else if (flow === 'replay' && replayGame) {
+      replayGame.advance(dt);
+      if (replayGame.done) endReplay();
+    } else if (flow === 'finale') {
+      if (flowT > 1.6 && lastCount !== -9) {
+        lastCount = -9;
+        showBanner(matchWinner === 0 ? 'YOU WIN' : matchWinner === 1 ? 'YOU LOSE' : 'DRAW', true);
+      }
+      if (flowT > 4.6) endMatch();
+    }
+  };
+
   const setPaused = (p: boolean) => {
     if (screen !== 'playing' || paused === p) return;
     paused = p;
     $('paused').classList.toggle('hidden', !p);
     if (p) {
       input.release();
+      pad.clear();
       sfx.suspend();
     } else {
       sfx.resume();
@@ -360,26 +525,12 @@ export function boot() {
     $(settingsFrom).classList.remove('hidden');
   });
 
-  // on-screen buttons: held while a pointer is down on them
-  document.querySelectorAll<HTMLElement>('.pad-btn').forEach((el) => {
-    const name = el.dataset.btn as keyof typeof input.buttons;
-    const set = (held: boolean) => {
-      input.buttons[name] = held;
-      el.classList.toggle('held', held);
-    };
-    el.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      sfx.unlock();
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch {
-        // fine without capture
-      }
-      set(true);
-    });
-    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) el.addEventListener(ev, () => set(false));
-    el.addEventListener('contextmenu', (e) => e.preventDefault());
-  });
+  // on-screen pad: one tracker for every finger on it
+  const pad = new PadTracker($('pad'));
+  pad.onPress = () => sfx.unlock();
+  input.pad = pad;
+  const padButtons = [...document.querySelectorAll<HTMLElement>('.pad-btn')];
+
   window.addEventListener('keydown', (e) => {
     if (!$('settings').classList.contains('hidden')) return;
     if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!paused);
@@ -438,7 +589,8 @@ export function boot() {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
 
-    if (screen === 'playing' && !paused) {
+    if (screen === 'playing' && !paused && flow !== 'round') updateFlow(dt);
+    if (screen === 'playing' && !paused && flow === 'round') {
       if (game.hitstop > 0) {
         game.hitstop -= dt;
       } else {
@@ -448,13 +600,17 @@ export function boot() {
         while (acc >= STEP && steps < 5) {
           input.update(STEP);
           ai.update(STEP);
+          const before = game.phase;
           game.step(STEP);
+          recorder.record(game);
+          if (before === 'fight' && game.phase === 'ko') recorder.markKo();
           acc -= STEP;
           steps++;
         }
         if (steps === 5) acc = 0;
       }
 
+      recorder.addFx(game.fx);
       // fx the HUD cares about; the view consumes the list afterwards
       for (const f of game.fx) {
         if (f.type === 'hit') {
@@ -483,12 +639,13 @@ export function boot() {
       }
 
       updateHud(dt);
-      if (game.phase === 'over') endMatch();
+      if (game.phase === 'over') onRoundOver();
     }
 
-    view.render(paused ? 0 : dt, screen === 'playing' && game.phase !== 'ko' && game.phase !== 'over');
+    for (const el of padButtons) el.classList.toggle('held', pad.held(el.dataset.btn as 'left'));
+    view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
-      game.shooters.forEach((s, i) => faces[i].update(paused ? 0 : dt, s, Portrait.mood(s, game.phase, game.winner)));
+      view.game.shooters.forEach((s, i) => faces[i].update(paused ? 0 : dt, s, Portrait.mood(s, game.phase, game.winner)));
     }
 
     if (debug) {
@@ -509,19 +666,26 @@ export function boot() {
   const updateHud = (dt: number) => {
     // countdown + KO banners
     if (game.phase === 'countdown') {
-      const n = 3 - Math.floor(game.phaseTime / (MATCH.countdown / 3));
-      if (n !== lastCount && n > 0) {
-        lastCount = n;
-        showBanner(String(n));
+      // "ROUND n" then "READY", Tekken style
+      if (lastCount === -1) {
+        lastCount = 2;
+        showBanner(finalRound ? 'FINAL ROUND' : `ROUND ${roundNo}`, true);
+        sfx.play('gong');
+      } else if (lastCount === 2 && game.phaseTime > MATCH.countdown * 0.55) {
+        lastCount = 1;
+        showBanner('READY');
         sfx.play('tick');
       }
     } else if (game.phase === 'fight' && lastCount > 0) {
       lastCount = 0;
-      showBanner('ENGAGE');
+      showBanner('FIGHT!', true);
+      sfx.play('slam');
       setTimeout(() => hints.classList.add('fade'), 3500);
     } else if (game.phase === 'ko' && lastCount === 0) {
       lastCount = -2;
-      showBanner(game.clock <= 0 ? 'TIME UP' : 'K.O.');
+      const w = game.winner;
+      const perfect = (w === 0 || w === 1) && game.shooters[w].health >= game.shooters[w].maxHealth;
+      showBanner(game.clock <= 0 ? 'TIME UP' : 'K.O.', true, perfect ? 'PERFECT' : w === -1 ? 'DRAW' : undefined);
     }
 
     clock.textContent = Math.ceil(game.clock).toString();

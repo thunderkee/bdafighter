@@ -96,9 +96,19 @@ that pass through it are transformed; each gate has limited charges, then shatte
 | POW  | 3       | Turns a basic ball into a power ball (super-shot size and damage)  |
 | DRG  | 1       | Splits the ball into a three-ball dragon-shot braid                |
 
+## Match flow (Tekken style)
+
+1. **VS intro**: the camera orbits each fighter while their name card slides in, then VS slams in (tap to skip).
+2. **Best of 3 rounds**: first to 2 round wins. ROUND n / FINAL ROUND, READY, FIGHT! banners; round markers
+   next to the names; K.O. / TIME UP / PERFECT calls. A drawn round counts for both sides (a deciding round
+   is played if that leaves both on two; capped at 5 rounds).
+3. **Quick replay** after every KO: the last ~2.5 s in slow motion (quarter speed right at the KO) from a
+   sweeping side camera, letterboxed, tap to skip. Between rounds the loser slumps, sparking.
+4. **Finale**: after the deciding replay the loser explodes (pops, boom, clattering debris), then the result.
+
 ## Knockout
 
-The loser sputters through three explosions, then blows apart: every part flies off, tumbles, bounces and
+After the final round the loser sputters through three explosions, then blows apart: every part flies off, tumbles, bounces and
 smokes in slow motion while the camera swings in on the wreck.
 
 ## Portraits

@@ -13,6 +13,73 @@ const TRIPLE_ANGLE = 0.42; // radians for the front-left / front-right fire butt
  * Mouse (can be switched off): cursor aims, hold button to fire.
  * Keyboard: A/D or arrows move (or turn aim, per settings), Q/E nudge aim, Space fires.
  */
+type PadButton = 'left' | 'right' | 'fire' | 'down' | 'fireL' | 'fireR';
+
+/**
+ * On-screen pad that tracks every finger on it. Which button a finger holds
+ * is re-read from the element under it on each move, so sliding between
+ * buttons works, and held state is derived fresh every frame — nothing else
+ * in the game can "forget" a button that is physically still pressed.
+ * Browser gestures (iOS pinch, long-press callouts) are blocked on the pad,
+ * since they cancel touches mid-hold.
+ */
+export class PadTracker {
+  private fingers = new Map<number, PadButton | null>();
+
+  constructor(private el: HTMLElement) {
+    const opts = { passive: false } as const;
+    el.addEventListener('pointerdown', this.down);
+    el.addEventListener('pointermove', this.move);
+    el.addEventListener('pointerup', this.up);
+    el.addEventListener('pointercancel', this.up);
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+    // stop the browser turning a two-thumb hold into a pinch/zoom or callout
+    for (const t of ['touchstart', 'touchmove', 'touchend'] as const) el.addEventListener(t, (e) => e.preventDefault(), opts);
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), opts);
+  }
+
+  onPress: (() => void) | null = null;
+
+  private buttonAt(x: number, y: number): PadButton | null {
+    const hit = document.elementFromPoint(x, y)?.closest<HTMLElement>('.pad-btn');
+    return (hit?.dataset.btn as PadButton | undefined) ?? null;
+  }
+
+  private down = (e: PointerEvent) => {
+    const b = this.buttonAt(e.clientX, e.clientY);
+    if (!b) return;
+    e.preventDefault();
+    try {
+      this.el.setPointerCapture(e.pointerId);
+    } catch {
+      // still tracked without capture
+    }
+    this.fingers.set(e.pointerId, b);
+    this.onPress?.();
+  };
+
+  private move = (e: PointerEvent) => {
+    if (!this.fingers.has(e.pointerId)) return;
+    // slide between buttons; a finger that drifts off keeps its last button
+    const b = this.buttonAt(e.clientX, e.clientY);
+    if (b) this.fingers.set(e.pointerId, b);
+  };
+
+  private up = (e: PointerEvent) => {
+    this.fingers.delete(e.pointerId);
+  };
+
+  held(name: PadButton) {
+    for (const b of this.fingers.values()) if (b === name) return true;
+    return false;
+  }
+
+  /** forget every finger (pause / leaving the match) */
+  clear() {
+    this.fingers.clear();
+  }
+}
+
 export class Input {
   enabled = false;
   /** 'touch' once a finger is seen, so the HUD can show the right hints */
@@ -21,8 +88,9 @@ export class Input {
   /** F key, right-click, or the ITEM button */
   onUseItem: (() => void) | null = null;
   settings: Settings = { ...DEFAULT_SETTINGS };
-  /** held state of the on-screen buttons */
+  /** held state of the on-screen buttons, refreshed from the pad every tick */
   buttons = { left: false, right: false, fire: false, down: false, fireL: false, fireR: false };
+  pad: PadTracker | null = null;
 
   private moveTouch: { id: number; x0: number; y0: number; s0: number } | null = null;
   /** gestures: dragging the move thumb downward raises the shield */
@@ -146,6 +214,7 @@ export class Input {
     }
     const k = this.keys;
     const b = this.buttons;
+    if (this.pad) for (const name of Object.keys(b) as PadButton[]) b[name] = this.pad.held(name);
     const left = k.has('KeyA') || k.has('ArrowLeft') || b.left;
     const right = k.has('KeyD') || k.has('ArrowRight') || b.right;
     const axis = (right ? 1 : 0) - (left ? 1 : 0);
