@@ -64,7 +64,7 @@ export function boot() {
   };
 
   const updateRecord = () => {
-    $('record').textContent = saveData.matches ? `Record: ${saveData.wins} wins / ${saveData.matches} matches` : '';
+    $('record').textContent = saveData.matches ? `Record: ${saveData.wins} ${saveData.wins === 1 ? 'win' : 'wins'} / ${saveData.matches} ${saveData.matches === 1 ? 'match' : 'matches'}` : '';
   };
   updateRecord();
 
