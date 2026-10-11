@@ -17,9 +17,9 @@ export const MATCH = {
   duration: 75,
   maxHealth: 100,
   countdown: 2.4,
-  /** active marble cap across both sides */
-  marbleCap: 70,
-  marblePool: 90,
+  /** active marble cap across both sides (multi-shot volleys need headroom) */
+  marbleCap: 110,
+  marblePool: 140,
   marbleLifetime: 3.6,
   marbleMaxBounces: 4,
 };

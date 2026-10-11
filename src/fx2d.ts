@@ -6,7 +6,14 @@ import wasmUrl from '../node_modules/@thorvg/webcanvas/dist/thorvg.wasm?url';
 // glow and trail, and a full-screen flash. Loads lazily; if it fails, the
 // game simply runs without the overlay.
 
-type TVGNs = Awaited<ReturnType<typeof ThorVG.init>>;
+export type TVGNs = Awaited<ReturnType<typeof ThorVG.init>>;
+
+let tvgPromise: Promise<TVGNs> | null = null;
+/** One ThorVG engine shared by the effects overlay and the portraits. */
+export function loadTVG() {
+  tvgPromise ??= ThorVG.init({ renderer: 'gl', locateFile: () => wasmUrl });
+  return tvgPromise;
+}
 type TShape = InstanceType<TVGNs['Shape']>;
 type RGB = [number, number, number];
 
@@ -41,7 +48,22 @@ export interface Glow {
   trail: { x: number; y: number }[];
 }
 
-const POOL = 40;
+/** a supply-drop pointer: bracket when on screen, edge arrow when off */
+export interface Marker {
+  x: number;
+  y: number;
+  color: RGB;
+  /** -1 / 1 when pinned to the left / right edge, 0 when on screen */
+  edge: number;
+}
+
+const POOL = 48;
+
+/** ThorVG writes the pixel size into the canvas's inline style; keep CSS size fluid. */
+export function fitCss(el: HTMLCanvasElement) {
+  el.style.width = '100%';
+  el.style.height = '100%';
+}
 
 export const hex = (c: number): RGB => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
 
@@ -55,6 +77,7 @@ export class Fx2D {
   private flashDur = 0.2;
   private flashColor: RGB = [255, 255, 255];
   private wasEmpty = true;
+  private time = 0;
   private w = 0;
   private h = 0;
   ready = false;
@@ -63,7 +86,7 @@ export class Fx2D {
 
   async init() {
     try {
-      this.tvg = await ThorVG.init({ renderer: 'gl', locateFile: () => wasmUrl });
+      this.tvg = await loadTVG();
       this.resize();
       // full redraw every frame; effects move constantly
       this.canvas = new this.tvg.Canvas('#' + this.el.id, {
@@ -72,6 +95,7 @@ export class Fx2D {
         enableDevicePixelRatio: false,
         engineOption: this.tvg.EngineOption.None,
       });
+      fitCss(this.el);
       for (let i = 0; i < POOL; i++) {
         const s = new this.tvg.Shape();
         this.shapes.push(s);
@@ -91,6 +115,7 @@ export class Fx2D {
     this.w = Math.max(1, Math.round(r.width * scale));
     this.h = Math.max(1, Math.round(r.height * scale));
     this.canvas?.resize(this.w, this.h);
+    fitCss(this.el);
   }
 
   /** CSS-pixel point -> overlay pixel */
@@ -120,7 +145,7 @@ export class Fx2D {
   }
 
   /** Draw one frame. glows are recomputed by the caller each frame. */
-  render(dt: number, glows: Glow[]) {
+  render(dt: number, glows: Glow[], speed = false, markers: Marker[] = []) {
     if (!this.ready || !this.tvg || !this.canvas) return;
     for (const r of this.rings) r.t += dt;
     for (const s of this.stars) s.t += dt;
@@ -128,7 +153,7 @@ export class Fx2D {
     this.stars = this.stars.filter((s) => s.t < s.dur);
     this.flashT = Math.max(0, this.flashT - dt);
 
-    const empty = !this.rings.length && !this.stars.length && !glows.length && this.flashT <= 0;
+    const empty = !this.rings.length && !this.stars.length && !glows.length && this.flashT <= 0 && !speed && !markers.length;
     if (empty && this.wasEmpty) return; // nothing to draw and already cleared
     this.wasEmpty = empty;
 
@@ -143,6 +168,31 @@ export class Fx2D {
       const s = next();
       const a = Math.round(140 * (this.flashT / this.flashDur));
       s?.appendRect(0, 0, this.w, this.h).fill(...this.flashColor, a);
+    }
+
+    // overdrive: streaks rushing in from the screen edges
+    if (speed) {
+      const s = next();
+      if (s) {
+        const cx = this.w / 2;
+        const cy = this.h * 0.55;
+        for (let k = 0; k < 22; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const r0 = Math.max(this.w, this.h) * (0.42 + Math.random() * 0.2);
+          const len = (40 + Math.random() * 90) * u;
+          const x0 = cx + Math.cos(a) * r0;
+          const y0 = cy + Math.sin(a) * r0;
+          const x1 = cx + Math.cos(a) * (r0 - len);
+          const y1 = cy + Math.sin(a) * (r0 - len);
+          const nx = -Math.sin(a) * 1.4 * u;
+          const ny = Math.cos(a) * 1.4 * u;
+          s.moveTo(x0 + nx, y0 + ny);
+          s.lineTo(x1, y1);
+          s.lineTo(x0 - nx, y0 - ny);
+          s.close();
+        }
+        s.fill(255, 240, 190, 150);
+      }
     }
 
     // super-shot glow: soft halo plus a fading trail of dots
@@ -161,6 +211,42 @@ export class Fx2D {
         const grad = new TVG.RadialGradient(x, y, r * 2.4);
         grad.setStops([0, [255, 255, 255, 230]], [0.35, [...g.color, 170]], [1, [...g.color, 0]]);
         halo.appendCircle(x, y, r * 2.4).fill(grad);
+      }
+    }
+
+    // supply-drop markers
+    this.time += dt;
+    for (const mk of markers) {
+      const s = next();
+      if (!s) break;
+      const x = this.sx(mk.x);
+      const y = this.sy(mk.y);
+      const pulse = 1 + Math.sin(this.time * 8) * 0.12;
+      if (mk.edge) {
+        // chevron pointing off-screen
+        const d = mk.edge;
+        const z = 16 * u * pulse;
+        s.moveTo(x + d * z, y);
+        s.lineTo(x - d * z * 0.6, y - z);
+        s.lineTo(x - d * z * 0.2, y);
+        s.lineTo(x - d * z * 0.6, y + z);
+        s.close();
+        s.fill(...mk.color, 230);
+      } else {
+        // four corner brackets around the crate
+        const r = 22 * u * pulse;
+        const l = 8 * u;
+        for (const [cx, cy] of [
+          [-1, -1],
+          [1, -1],
+          [1, 1],
+          [-1, 1],
+        ]) {
+          s.moveTo(x + cx * r, y + cy * (r - l));
+          s.lineTo(x + cx * r, y + cy * r);
+          s.lineTo(x + cx * (r - l), y + cy * r);
+        }
+        s.stroke({ width: 2.5 * u, color: [...mk.color, 240] });
       }
     }
 

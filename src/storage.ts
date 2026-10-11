@@ -14,8 +14,12 @@ export interface Settings {
   pucks: number;
   /** show the player's dotted shooting line */
   aimLine: boolean;
+  /** opponent health level (1-5 -> 50/75/100/150/200%) */
+  enemyHealth: number;
   /** opponent movement speed level (1-5, 3 = normal) */
   enemySpeed: number;
+  /** opponent dodge skill level (1-5, 3 = normal) */
+  enemyAgility: number;
   /** opponent marble power level (1-5, 3 = normal) */
   enemyPower: number;
   /** 'flexible' aims, leads and banks; 'straight' always fires straight ahead */
@@ -24,6 +28,10 @@ export interface Settings {
   character: string;
   /** buzz the phone on hits */
   vibrate: boolean;
+  /** stage id (see STAGES in stage.ts) */
+  stage: string;
+  /** air-drop items on/off */
+  items: boolean;
 }
 
 export interface SaveData {
@@ -39,11 +47,24 @@ export const DEFAULT_SETTINGS: Settings = {
   layout: 'gestures',
   pucks: 5,
   aimLine: true,
+  enemyHealth: 3,
   enemySpeed: 3,
+  enemyAgility: 3,
   enemyPower: 3,
   enemyAim: 'flexible',
   character: 'angel',
   vibrate: true,
+  stage: 'space',
+  items: true,
+};
+
+/** the opponent settings, for "reset opponent" */
+export const OPPONENT_DEFAULTS: Partial<Settings> = {
+  enemyHealth: 3,
+  enemySpeed: 3,
+  enemyAgility: 3,
+  enemyPower: 3,
+  enemyAim: 'flexible',
 };
 
 const DEFAULTS: SaveData = { matches: 0, wins: 0, muted: false, settings: DEFAULT_SETTINGS };

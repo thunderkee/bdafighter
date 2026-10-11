@@ -45,20 +45,43 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | Right 60%: hold to fire, drag to aim    | Mouse aims, hold click to fire |
 |                                         | Space fires, Q / E nudge aim, P / Esc pause |
 
-**Settings** (Settings button on the title screen, or ⚙ next to pause during a match; saved on the device):
+**Settings** (Settings on the title, pause or result screen, or ⚙ during a match; saved on the device), in four tabs:
 
-| Section   | Setting         | Options                                                                  |
+| Tab       | Setting         | Options                                                                  |
 | --------- | --------------- | ------------------------------------------------------------------------ |
-| Character | Robot           | 8 SD robots (placeholder designs); the opponent picks a different one    |
+| Fighter   | Your unit       | 8 SD robots (placeholder designs); the opponent fields a different one   |
+| Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City (pucks match the theme) |
+|           | Pucks           | 0–5, each count has its own symmetric layout (applies next match)        |
+|           | Air drops       | On / Off                                                                 |
+| Opponent  | Armor           | 50% / 75% / 100% / 150% / 200% health                                    |
+|           | Speed           | 1–5: movement speed                                                      |
+|           | Agility         | 1–5: how often and how quickly it dodges                                 |
+|           | Ball power      | 1–5: marble damage, weight and a little muzzle speed                     |
+|           | Aim             | **Flexible** (aims, leads, banks) or **Straight** (fires straight, walks to line up) |
 | Controls  | Layout          | **Gestures** or **Buttons**: ◀ ▶ bottom-left, FIRE bottom-right          |
 |           | Left / Right    | **Move** slides the robot; **Aim** turns its aim (◀ ▶ become ↶ ↷, A / D too) |
 |           | Mouse aim       | **On** / **Off**. Off ignores the mouse so keys or buttons aim           |
 |           | Shooting line   | Show / hide the dotted aim guide                                         |
 |           | Vibrate on hits | On / Off (Android browsers; iPhone browsers don't support vibration)     |
-| Table     | Pucks           | 0–5, each count has its own symmetric layout (applies next match)        |
-| Opponent  | Speed           | 1–5 (3 = normal): movement and dodge speed                               |
-|           | Ball power      | 1–5 (3 = normal): marble damage, weight and a little muzzle speed        |
-|           | Aim             | **Flexible** (aims, leads, banks) or **Straight** (fires straight, walks to line up) |
+
+## Air drops
+
+A crate parachutes onto one rail every 11–15 s (sides alternate, first at 8 s). Walk under it to grab it;
+the ITEM slot (bottom right) then holds it until you tap it, press **F** / Shift, or right-click. A marker
+points at crates on your rail, even off-screen. The AI grabs and uses items too.
+
+| Item         | Effect                                                              |
+| ------------ | ------------------------------------------------------------------- |
+| Multi Shot   | 6 seconds of 6-marble fans per shot                                 |
+| Overdrive    | 6 seconds of 1.8x movement, with afterimages, thrusters, speed lines |
+| Repair Kit   | Restores 25% of max armor                                           |
+| Dragon Shot  | Three heavy glowing balls that weave in a zig-zag braid             |
+
+## Portraits
+
+Each unit's face is drawn live with ThorVG in the HUD: it glances around, flinches red when hit, grins when
+it lands hits or has an item running, glows gold with a super ready, cracks/smokes/sparks as armor drops
+(crest snaps off below 25%), cheers on a win and shows X eyes on a KO.
 
 ## Super shot
 
@@ -77,7 +100,10 @@ with a long hit-stop, heavy shake, knock-back, shockwave and flash. The AI charg
 | `src/input.ts`  | Two-thumb touch zones, mouse and keyboard                           |
 | `src/view.ts`   | three.js scene, instanced marbles, sparks, aim dots, chase camera   |
 | `src/robot.ts`  | SD robot models (placeholder 'angel' and 'dragon' styles)           |
-| `src/fx2d.ts`   | ThorVG overlay: shockwaves, starbursts, super glow/trail, flashes   |
+| `src/fx2d.ts`   | ThorVG overlay: shockwaves, starbursts, glows/trails, speed lines, drop markers |
+| `src/face.ts`   | ThorVG Doom-style live portraits                                    |
+| `src/stage.ts`  | Five themed stages: floor, sky, lights, scenery, particles, pucks   |
+| `src/items.ts`  | Air-drop item data and tuning                                       |
 | `src/audio.ts`  | Synthesised SFX, unlocked on first tap                              |
 | `src/storage.ts`| localStorage save with an in-memory fallback                        |
 | `src/app.ts`    | Screens, HUD, fixed-step loop, pause on hidden tab                  |

@@ -30,6 +30,9 @@ export class AIController {
   straight = false;
   /** widens how far the opponent strafes (speed itself comes from its stats) */
   speedMul = 1;
+  /** settings: scales dodge chance up and reaction time down */
+  agility = 1;
+  private holdTime = 0;
   private reactQueue: { at: number; target: number }[] = [];
   private t = 0;
 
@@ -48,6 +51,7 @@ export class AIController {
     this.reactQueue.length = 0;
     this.judged = new WeakSet();
     this.t = 0;
+    this.holdTime = 0;
   }
 
   update(dt: number) {
@@ -62,6 +66,7 @@ export class AIController {
     }
 
     this.updateMovement(dt);
+    this.updateItem(dt);
 
     // --- aim ---
     const desired = this.desiredAim();
@@ -90,6 +95,32 @@ export class AIController {
         this.pickAimMode();
       }
     }
+  }
+
+  /** Use held items with a little judgement. */
+  private updateItem(dt: number) {
+    const me = this.me;
+    if (!me.item) {
+      this.holdTime = 0;
+      return;
+    }
+    this.holdTime += dt;
+    let use = false;
+    switch (me.item) {
+      case 'heal':
+        // save the repair kit until it's needed, but don't sit on it forever
+        use = me.hpFrac < 0.6 || this.holdTime > 8;
+        break;
+      case 'boost':
+        use = this.holdTime > 0.4;
+        break;
+      case 'multi':
+      case 'dragon':
+        // fire power items when roughly lined up and loaded
+        use = this.holdTime > 0.6 && me.reload <= 0 && me.ammo >= 4;
+        break;
+    }
+    if (use) this.game.useItem(me);
   }
 
   private pickAimMode() {
@@ -154,12 +185,12 @@ export class AIController {
       const danger = me.halfWidth + m.radius + 0.25;
       if (Math.abs(px - me.x) > danger) continue;
       this.judged.add(m);
-      if (Math.random() > pr.dodge) continue;
+      if (Math.random() > Math.min(0.95, pr.dodge * this.agility)) continue;
       // step to whichever side is clear and inside the rail
       let side = px > me.x ? -1 : 1;
       const target = me.x + side * (danger + 0.4);
       if (Math.abs(target) > ARENA.railHalfWidth) side = -side;
-      this.reactQueue.push({ at: this.t + pr.reaction, target: me.x + side * (danger + 0.4) });
+      this.reactQueue.push({ at: this.t + pr.reaction / this.agility, target: me.x + side * (danger + 0.4) });
     }
     for (let i = this.reactQueue.length - 1; i >= 0; i--) {
       if (this.reactQueue[i].at <= this.t) {
@@ -173,6 +204,13 @@ export class AIController {
       this.dodgeTimer -= dt;
       me.moveTarget = this.dodgeTarget;
       if (this.dodgeTimer <= 0) this.dodgeTarget = null;
+      return;
+    }
+
+    // go and grab a crate dropping on our rail
+    const drop = g.drops.find((d) => d.team === me.team);
+    if (drop && !me.item && drop.h < 6) {
+      me.moveTarget = drop.x;
       return;
     }
 

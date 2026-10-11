@@ -17,6 +17,8 @@ export class Input {
   /** 'touch' once a finger is seen, so the HUD can show the right hints */
   mode: 'touch' | 'mouse' = 'ontouchstart' in window ? 'touch' : 'mouse';
   onFirstInput: (() => void) | null = null;
+  /** F key, right-click, or the ITEM button */
+  onUseItem: (() => void) | null = null;
   settings: Settings = { ...DEFAULT_SETTINGS };
   /** held state of the on-screen buttons */
   buttons = { left: false, right: false, fire: false };
@@ -68,6 +70,7 @@ export class Input {
       this.mode = 'mouse';
       if (!this.settings.mouseAim) return;
       if (e.button === 0) this.mouseDown = true;
+      if (e.button === 2) this.onUseItem?.();
       this.mouseWorld = this.screenToWorld(e.clientX, e.clientY);
       return;
     }
@@ -123,6 +126,7 @@ export class Input {
   private keydown = (e: KeyboardEvent) => {
     this.first();
     if (['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+    if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && this.enabled) this.onUseItem?.();
     this.keys.add(e.code);
   };
 

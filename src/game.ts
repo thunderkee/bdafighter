@@ -1,5 +1,6 @@
 import RAPIER from '@dimforge/rapier2d';
 import { AIM_LIMIT, ARENA, MATCH, type ShooterStats } from './config';
+import { BOOST, DRAGON, DROP, HEAL, ITEMS, ITEM_TYPES, MULTI, type ItemType } from './items';
 import * as sfx from './audio';
 
 // Collision groups: membership in the high 16 bits, filter in the low 16.
@@ -54,6 +55,7 @@ const PUCK_LAYOUTS: [number, number][][] = [
 const MAX_PUCKS = 5;
 
 export type Team = 0 | 1; // 0 = player, 1 = opponent
+export type MarbleKind = 'normal' | 'super' | 'dragon';
 
 export interface Marble {
   idx: number;
@@ -66,7 +68,9 @@ export interface Marble {
   damage: number;
   radius: number;
   spawnOrder: number;
-  super: boolean;
+  kind: MarbleKind;
+  /** dragon balls: which way the weave starts (+1 / -1) */
+  weave: number;
 }
 
 export interface Bump {
@@ -77,13 +81,27 @@ export interface Bump {
   home: [number, number];
 }
 
+export interface Drop {
+  id: number;
+  team: Team;
+  type: ItemType;
+  x: number;
+  /** height above the floor; 0 = landed */
+  h: number;
+  /** seconds left once landed */
+  life: number;
+}
+
 export type Fx =
-  | { type: 'hit'; x: number; y: number; team: Team; amount: number; super: boolean }
+  | { type: 'hit'; x: number; y: number; team: Team; amount: number; power: MarbleKind }
   | { type: 'super-ready'; team: Team }
   | { type: 'super-fire'; team: Team }
   | { type: 'spark'; x: number; y: number; intensity: number }
   | { type: 'muzzle'; team: Team }
-  | { type: 'reload'; team: Team };
+  | { type: 'reload'; team: Team }
+  | { type: 'pickup'; team: Team; item: ItemType }
+  | { type: 'use'; team: Team; item: ItemType }
+  | { type: 'heal'; team: Team; amount: number };
 
 export class Shooter {
   x = 0;
@@ -97,6 +115,7 @@ export class Shooter {
   moveTarget: number | null = null;
   firing = false;
 
+  maxHealth: number = MATCH.maxHealth;
   health: number = MATCH.maxHealth;
   ammo: number;
   reload = 0; // seconds left in a forced reload
@@ -114,6 +133,18 @@ export class Shooter {
   superReady = false;
   /** seconds of knock-back stagger after taking a super hit */
   stagger = 0;
+
+  /** held air-drop item, used on demand */
+  item: ItemType | null = null;
+  /** seconds left on timed item effects */
+  multiT = 0;
+  boostT = 0;
+  /** dragon balls still to launch, and the gap timer */
+  dragonQueue = 0;
+  dragonTimer = 0;
+  /** seconds since this robot last landed a hit / took one (portraits read these) */
+  sinceHit = 99;
+  sinceHurt = 99;
 
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
@@ -137,6 +168,10 @@ export class Shooter {
     return 0.62;
   }
 
+  get hpFrac() {
+    return this.health / this.maxHealth;
+  }
+
   dir(angle = this.aim) {
     return { x: Math.sin(angle), y: Math.cos(angle) * this.forward };
   }
@@ -146,7 +181,7 @@ export class Shooter {
     return { x: this.x + d.x * 0.95, y: this.y + d.y * 0.95 };
   }
 
-  reset(stats: ShooterStats) {
+  reset(stats: ShooterStats, maxHealth: number) {
     this.stats = stats;
     this.x = 0;
     this.vx = 0;
@@ -154,7 +189,8 @@ export class Shooter {
     this.moveAxis = 0;
     this.moveTarget = null;
     this.firing = false;
-    this.health = MATCH.maxHealth;
+    this.maxHealth = maxHealth;
+    this.health = maxHealth;
     this.ammo = stats.capacity;
     this.reload = 0;
     this.idle = 0;
@@ -165,6 +201,10 @@ export class Shooter {
     this.charge = 0;
     this.superReady = false;
     this.stagger = 0;
+    this.item = null;
+    this.multiT = this.boostT = 0;
+    this.dragonQueue = this.dragonTimer = 0;
+    this.sinceHit = this.sinceHurt = 99;
     this.body.setTranslation({ x: 0, y: this.y }, true);
   }
 }
@@ -173,14 +213,23 @@ type Tag = { kind: 'marble'; m: Marble } | { kind: 'shooter'; s: Shooter } | { k
 
 export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 
+export interface MatchOptions {
+  enemyMaxHealth: number;
+  pucks: number;
+  items: boolean;
+}
+
 export class Game {
   world: RAPIER.World;
   events: RAPIER.EventQueue;
   shooters: [Shooter, Shooter];
   marbles: Marble[] = [];
   bumps: Bump[] = [];
+  drops: Drop[] = [];
   /** how many pucks are on the table; unused ones are removed from physics */
   puckCount = MAX_PUCKS;
+  /** air drops on/off */
+  itemsOn = true;
   fx: Fx[] = [];
 
   phase: Phase = 'countdown';
@@ -194,6 +243,9 @@ export class Game {
   private spawnCounter = 0;
   private activeCount = 0;
   private toDespawn = new Set<Marble>();
+  private nextDrop = DROP.first;
+  private dropSide: Team = Math.random() < 0.5 ? 0 : 1;
+  private dropId = 0;
 
   constructor(playerStats: ShooterStats, enemyStats: ShooterStats) {
     this.world = new RAPIER.World({ x: 0, y: 0 });
@@ -263,21 +315,39 @@ export class Game {
           .setCollisionGroups(GROUPS.marble[0]),
         body,
       );
-      const m: Marble = { idx: i, body, collider, active: false, team: 0, age: 0, bounces: 0, damage: 0, radius: 0.22, spawnOrder: 0, super: false };
+      const m: Marble = {
+        idx: i,
+        body,
+        collider,
+        active: false,
+        team: 0,
+        age: 0,
+        bounces: 0,
+        damage: 0,
+        radius: 0.22,
+        spawnOrder: 0,
+        kind: 'normal',
+        weave: 1,
+      };
       this.tags.set(collider.handle, { kind: 'marble', m });
       this.marbles.push(m);
     }
   }
 
-  reset(playerStats: ShooterStats, enemyStats: ShooterStats) {
-    this.shooters[0].reset(playerStats);
-    this.shooters[1].reset(enemyStats);
+  reset(playerStats: ShooterStats, enemyStats: ShooterStats, opts: MatchOptions) {
+    this.shooters[0].reset(playerStats, MATCH.maxHealth);
+    this.shooters[1].reset(enemyStats, opts.enemyMaxHealth);
     for (const m of this.marbles) if (m.active) this.despawn(m);
+    this.puckCount = opts.pucks;
+    this.itemsOn = opts.items;
     this.placePucks();
     this.bumps.forEach((b) => {
       b.body.setLinvel({ x: 0, y: 0 }, true);
       b.body.setAngvel(0, true);
     });
+    this.drops.length = 0;
+    this.nextDrop = DROP.first;
+    this.dropSide = Math.random() < 0.5 ? 0 : 1;
     this.phase = 'countdown';
     this.phaseTime = 0;
     this.clock = MATCH.duration;
@@ -324,6 +394,7 @@ export class Game {
 
     const canAct = this.phase === 'fight';
     for (const s of this.shooters) this.updateShooter(s, dt, canAct);
+    if (canAct) this.updateDrops(dt);
 
     // bumps drift slowly home so cover never stays piled in one corner
     for (const b of this.bumps) {
@@ -331,6 +402,15 @@ export class Game {
       const p = b.body.translation();
       const k = 0.9 * b.body.mass() * dt;
       b.body.applyImpulse({ x: (b.home[0] - p.x) * k, y: (b.home[1] - p.y) * k }, true);
+    }
+
+    // dragon balls weave: lateral velocity follows A·ω·cos(ωt)
+    for (const m of this.marbles) {
+      if (!m.active || m.kind !== 'dragon') continue;
+      const v = m.body.linvel();
+      const w = DRAGON.freq;
+      const dv = DRAGON.amp * w * (Math.cos(w * (m.age + dt)) - Math.cos(w * m.age)) * m.weave;
+      m.body.setLinvel({ x: v.x + dv, y: v.y }, true);
     }
 
     this.world.step(this.events);
@@ -345,7 +425,7 @@ export class Game {
       const p = m.body.translation();
       const v = m.body.linvel();
       const speed2 = v.x * v.x + v.y * v.y;
-      const life = m.super ? MATCH.marbleLifetime * 1.5 : MATCH.marbleLifetime;
+      const life = MATCH.marbleLifetime * (m.kind === 'super' ? 1.5 : m.kind === 'dragon' ? DRAGON.life : 1);
       if (m.age > life || Math.abs(p.y) > limitY || Math.abs(p.x) > ARENA.width || (m.age > 0.3 && speed2 < 2)) {
         this.toDespawn.add(m);
       }
@@ -355,9 +435,9 @@ export class Game {
   }
 
   private updateShooter(s: Shooter, dt: number, canAct: boolean) {
-    // movement
+    // movement (overdrive speeds it up)
     const maxX = ARENA.railHalfWidth;
-    const speed = s.stats.moveSpeed;
+    const speed = s.stats.moveSpeed * (s.boostT > 0 ? BOOST.speed : 1);
     const prevX = s.x;
     if (canAct || this.phase === 'countdown') {
       if (s.moveTarget !== null) {
@@ -377,6 +457,22 @@ export class Game {
     s.stagger = Math.max(0, s.stagger - dt);
     s.recoil = Math.max(0, s.recoil - dt * 8);
     s.cooldown -= dt;
+    s.sinceHit += dt;
+    s.sinceHurt += dt;
+    if (canAct) {
+      s.multiT = Math.max(0, s.multiT - dt);
+      s.boostT = Math.max(0, s.boostT - dt);
+    }
+
+    // dragon salvo launches on its own, a short gap between balls
+    if (canAct && s.dragonQueue > 0) {
+      s.dragonTimer -= dt;
+      if (s.dragonTimer <= 0) {
+        this.fireDragon(s, DRAGON.count - s.dragonQueue);
+        s.dragonQueue--;
+        s.dragonTimer = DRAGON.gap;
+      }
+    }
 
     // magazine: forced reload when empty, slow trickle refill when idle
     if (s.reload > 0) {
@@ -394,53 +490,199 @@ export class Game {
     }
 
     if (canAct && s.firing && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
-      this.fire(s);
-      s.cooldown = s.stats.fireInterval;
+      const multi = s.multiT > 0 && !s.superReady;
+      if (multi) this.fireVolley(s);
+      else this.fire(s);
+      s.cooldown = s.stats.fireInterval * (multi ? MULTI.interval : 1);
       s.idle = 0;
       s.ammo -= 1;
       if (s.ammo < 1) s.reload = s.stats.reloadTime;
     }
   }
 
-  private fire(s: Shooter) {
+  // ---------- air drops ----------
+
+  private updateDrops(dt: number) {
+    if (this.itemsOn) {
+      this.nextDrop -= dt;
+      if (this.nextDrop <= 0) {
+        this.spawnDrop();
+        this.nextDrop = DROP.every[0] + Math.random() * (DROP.every[1] - DROP.every[0]);
+      }
+    }
+    for (let i = this.drops.length - 1; i >= 0; i--) {
+      const d = this.drops[i];
+      if (d.h > 0) d.h = Math.max(0, d.h - DROP.fallSpeed * dt);
+      else d.life -= dt;
+      const s = this.shooters[d.team];
+      // grab it once it's low enough to reach, if the robot's hands are free
+      if (d.h < 1.2 && !s.item && Math.abs(s.x - d.x) < DROP.reach) {
+        s.item = d.type;
+        this.drops.splice(i, 1);
+        this.fx.push({ type: 'pickup', team: s.team, item: d.type });
+        if (s.team === 0) sfx.play('charge');
+        continue;
+      }
+      if (d.life <= 0) this.drops.splice(i, 1);
+    }
+  }
+
+  private spawnDrop() {
+    const team = this.dropSide;
+    this.dropSide = team === 0 ? 1 : 0;
+    // one crate per side at a time
+    if (this.drops.some((d) => d.team === team)) return;
+    const s = this.shooters[team];
+    let total = 0;
+    const weights = ITEM_TYPES.map((t) => {
+      // repair kits mostly arrive when they're needed
+      const w = t === 'heal' ? ITEMS.heal.weight * (s.hpFrac < 0.7 ? 1.6 : 0.25) : ITEMS[t].weight;
+      total += w;
+      return w;
+    });
+    let r = Math.random() * total;
+    let type = ITEM_TYPES[0];
+    for (let i = 0; i < weights.length; i++) {
+      r -= weights[i];
+      if (r <= 0) {
+        type = ITEM_TYPES[i];
+        break;
+      }
+    }
+    const span = ARENA.railHalfWidth - 0.4;
+    this.drops.push({ id: this.dropId++, team, type, x: (Math.random() * 2 - 1) * span, h: DROP.startHeight, life: DROP.landedLife });
+  }
+
+  /** Activate the held item. Returns false when there's nothing to use. */
+  useItem(s: Shooter) {
+    if (!s.item || this.phase !== 'fight') return false;
+    const item = s.item;
+    s.item = null;
+    switch (item) {
+      case 'multi':
+        s.multiT = ITEMS.multi.duration;
+        break;
+      case 'boost':
+        s.boostT = ITEMS.boost.duration;
+        break;
+      case 'heal': {
+        const before = s.health;
+        s.health = Math.min(s.maxHealth, s.health + s.maxHealth * HEAL.fraction);
+        this.fx.push({ type: 'heal', team: s.team, amount: s.health - before });
+        break;
+      }
+      case 'dragon':
+        s.dragonQueue = DRAGON.count;
+        s.dragonTimer = 0;
+        break;
+    }
+    this.fx.push({ type: 'use', team: s.team, item });
+    sfx.play(item === 'dragon' ? 'super' : 'charge', s.team === 0 ? 1 : 0.6);
+    return true;
+  }
+
+  // ---------- firing ----------
+
+  private takeMarble() {
     if (this.activeCount >= MATCH.marbleCap) {
       // recycle the oldest marble rather than refusing to fire
       let oldest: Marble | null = null;
       for (const m of this.marbles) if (m.active && (!oldest || m.spawnOrder < oldest.spawnOrder)) oldest = m;
       if (oldest) this.despawn(oldest);
     }
-    const m = this.marbles.find((mm) => !mm.active);
+    return this.marbles.find((mm) => !mm.active) ?? null;
+  }
+
+  private launch(m: Marble, s: Shooter, o: { angle: number; radius: number; speed: number; mass: number; damage: number; kind: MarbleKind; push?: number; weave?: number }) {
+    const d = s.dir(o.angle);
+    const p = s.muzzle();
+    const push = o.push ?? 0;
+    m.active = true;
+    m.team = s.team;
+    m.kind = o.kind;
+    m.weave = o.weave ?? 1;
+    m.age = 0;
+    m.bounces = 0;
+    m.damage = o.damage;
+    m.radius = o.radius;
+    m.spawnOrder = this.spawnCounter++;
+    m.collider.setRadius(o.radius);
+    m.collider.setMass(o.mass);
+    m.collider.setCollisionGroups(GROUPS.marble[s.team]);
+    m.body.setEnabled(true);
+    m.body.setTranslation({ x: p.x + d.x * push, y: p.y + d.y * push }, true);
+    m.body.setLinvel({ x: d.x * o.speed, y: d.y * o.speed }, true);
+    this.activeCount++;
+  }
+
+  private fire(s: Shooter) {
+    const m = this.takeMarble();
     if (!m) return;
     const st = s.stats;
     const isSuper = s.superReady;
     s.superReady = false;
-    // a super shot flies dead straight
-    const angle = s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread);
-    const d = s.dir(angle);
-    const p = s.muzzle();
     const radius = st.marbleRadius * (isSuper ? SUPER.radius : 1);
-    const speed = st.muzzleSpeed * (isSuper ? SUPER.speed : 1);
-    // nudge a big marble forward so it doesn't spawn inside the robot
-    const push = isSuper ? radius : 0;
-    m.active = true;
-    m.team = s.team;
-    m.super = isSuper;
-    m.age = 0;
-    m.bounces = 0;
-    m.damage = st.damage * (isSuper ? SUPER.damage : 1);
-    m.radius = radius;
-    m.spawnOrder = this.spawnCounter++;
-    m.collider.setRadius(radius);
-    m.collider.setMass(st.marbleMass * (isSuper ? SUPER.mass : 1));
-    m.collider.setCollisionGroups(GROUPS.marble[s.team]);
-    m.body.setEnabled(true);
-    m.body.setTranslation({ x: p.x + d.x * push, y: p.y + d.y * push }, true);
-    m.body.setLinvel({ x: d.x * speed, y: d.y * speed }, true);
-    this.activeCount++;
+    this.launch(m, s, {
+      // a super shot flies dead straight
+      angle: s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread),
+      radius,
+      speed: st.muzzleSpeed * (isSuper ? SUPER.speed : 1),
+      mass: st.marbleMass * (isSuper ? SUPER.mass : 1),
+      damage: st.damage * (isSuper ? SUPER.damage : 1),
+      kind: isSuper ? 'super' : 'normal',
+      // nudge a big marble forward so it doesn't spawn inside the robot
+      push: isSuper ? radius : 0,
+    });
     s.shots++;
     s.recoil = 1;
     this.fx.push({ type: isSuper ? 'super-fire' : 'muzzle', team: s.team });
     sfx.play(isSuper ? 'super' : 'fire', s.team === 0 ? 1 : 0.55);
+  }
+
+  /** Multi shot: a fan of marbles from one trigger pull. */
+  private fireVolley(s: Shooter) {
+    const st = s.stats;
+    for (let i = 0; i < MULTI.count; i++) {
+      const m = this.takeMarble();
+      if (!m) break;
+      const t = MULTI.count === 1 ? 0 : i / (MULTI.count - 1) - 0.5;
+      this.launch(m, s, {
+        angle: s.aim + t * 2 * MULTI.fan,
+        radius: st.marbleRadius,
+        speed: st.muzzleSpeed,
+        mass: st.marbleMass,
+        damage: st.damage * MULTI.damage,
+        kind: 'normal',
+      });
+      s.shots++;
+    }
+    s.recoil = 1;
+    this.fx.push({ type: 'muzzle', team: s.team });
+    sfx.play('fire', s.team === 0 ? 1 : 0.55);
+  }
+
+  private fireDragon(s: Shooter, i: number) {
+    const m = this.takeMarble();
+    if (!m) return;
+    const st = s.stats;
+    const radius = st.marbleRadius * DRAGON.radius;
+    const weave = i % 2 === 0 ? 1 : -1;
+    this.launch(m, s, {
+      angle: s.aim,
+      radius,
+      speed: st.muzzleSpeed * DRAGON.speed,
+      mass: st.marbleMass * DRAGON.mass,
+      damage: st.damage * DRAGON.damage,
+      kind: 'dragon',
+      push: radius,
+      weave,
+    });
+    // start the weave with a sideways kick (velocity = A·ω at t = 0)
+    const v = m.body.linvel();
+    m.body.setLinvel({ x: v.x + DRAGON.amp * DRAGON.freq * weave, y: v.y }, true);
+    s.recoil = 1;
+    this.fx.push({ type: 'super-fire', team: s.team });
+    sfx.play('fire', 1);
   }
 
   private despawn(m: Marble) {
@@ -469,16 +711,19 @@ export class Game {
         if (s.team === m.team) return;
         this.toDespawn.add(m);
         if (this.phase !== 'fight') return;
-        // supers always land at full power
-        const factor = m.super ? 1 : Math.max(0.45, Math.min(1.25, speed / 15));
+        const heavy = m.kind !== 'normal';
+        // power balls always land at full power
+        const factor = heavy ? 1 : Math.max(0.45, Math.min(1.25, speed / 15));
         const amount = m.damage * factor;
         s.health = Math.max(0, s.health - amount);
-        s.flash = m.super ? 0.3 : 0.12;
-        if (m.super) s.stagger = 0.45;
+        s.flash = heavy ? 0.3 : 0.12;
+        s.sinceHurt = 0;
+        if (m.kind === 'super') s.stagger = 0.45;
         const attacker = this.shooters[m.team];
         attacker.hits++;
         attacker.dealt += amount;
-        if (!m.super && !attacker.superReady) {
+        attacker.sinceHit = 0;
+        if (!heavy && !attacker.superReady) {
           attacker.charge = Math.min(SUPER_HITS, attacker.charge + 1);
           if (attacker.charge >= SUPER_HITS) {
             attacker.charge = 0;
@@ -487,9 +732,9 @@ export class Game {
             if (attacker.team === 0) sfx.play('charge');
           }
         }
-        this.hitstop = Math.max(this.hitstop, m.super ? 0.16 : s.team === 0 ? 0.06 : 0.04);
-        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, amount, super: m.super });
-        sfx.play(m.super ? 'superhit' : s.team === 0 ? 'hurt' : 'hit', factor);
+        this.hitstop = Math.max(this.hitstop, m.kind === 'super' ? 0.16 : m.kind === 'dragon' ? 0.09 : s.team === 0 ? 0.06 : 0.04);
+        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, amount, power: m.kind });
+        sfx.play(m.kind === 'super' ? 'superhit' : s.team === 0 ? 'hurt' : 'hit', factor);
         if (s.health <= 0) this.finish();
         break;
       }
@@ -519,7 +764,10 @@ export class Game {
   private finish() {
     if (this.phase !== 'fight') return;
     const [p, e] = this.shooters;
-    this.winner = p.health === e.health ? -1 : p.health > e.health ? 0 : 1;
+    // compare fractions so a boosted-health opponent is judged fairly on time-out
+    const pf = p.hpFrac;
+    const ef = e.hpFrac;
+    this.winner = Math.abs(pf - ef) < 1e-6 ? -1 : pf > ef ? 0 : 1;
     this.phase = 'ko';
     this.phaseTime = 0;
     for (const s of this.shooters) s.firing = false;

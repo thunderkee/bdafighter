@@ -3,9 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#15112a" />
+    <meta name="theme-color" content="#050914" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Marble Fighter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app">
@@ -13,23 +16,52 @@
       <canvas id="fx"></canvas>
       <div id="touch"></div>
       <div id="vignette"></div>
+      <div id="cockpit" aria-hidden="true">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="scan"></div>
+      </div>
 
+      <!-- ================= HUD ================= -->
       <div id="hud" class="hidden">
-        <div class="bar-row top">
-          <div class="who"><span id="enemy-name">Sparring Bot</span><span class="super-pips" id="enemy-super"><i></i><i></i><i></i></span></div>
-          <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
-        </div>
-        <div id="clock">75</div>
-        <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
-        <button id="hud-settings-btn" class="icon-btn gear" aria-label="Settings">⚙</button>
-        <div class="bar-row bottom">
-          <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
-          <div class="ammo">
-            <div id="ammo-pips"></div>
-            <div id="reload"><div></div></div>
-            <div class="super-meter" id="player-super"><span>SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></div>
+        <div class="unit enemy">
+          <div class="portrait"><canvas id="face-enemy"></canvas></div>
+          <div class="unit-info">
+            <div class="unit-label">
+              <span class="tag">OPP</span><span id="enemy-name" class="unit-name">WYVERN</span>
+              <span class="super-pips" id="enemy-super"><i></i><i></i><i></i></span>
+            </div>
+            <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
+            <div class="unit-sub"><span class="readout" id="enemy-hp-num">100%</span><span id="enemy-item" class="item-tag"></span></div>
           </div>
         </div>
+
+        <div id="clock-wrap"><div id="clock">75</div></div>
+        <button id="hud-settings-btn" class="icon-btn gear" aria-label="Settings">⚙</button>
+        <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
+
+        <div class="unit player">
+          <div class="portrait"><canvas id="face-player"></canvas></div>
+          <div class="unit-info">
+            <div class="unit-label">
+              <span class="tag">PILOT</span><span id="player-name" class="unit-name">SERAPH ZERO</span>
+              <span class="super-meter" id="player-super"><span>SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></span>
+            </div>
+            <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
+            <div class="ammo">
+              <span class="readout" id="player-hp-num">100%</span>
+              <div id="ammo-pips"></div>
+              <div id="reload"><div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <button id="item-btn" class="item-slot empty" aria-label="Use item">
+          <span class="item-icon" id="item-icon"></span>
+          <span class="item-name" id="item-name">NO ITEM</span>
+          <span class="item-key">TAP · F</span>
+        </button>
+        <div id="effects"></div>
+
         <div id="pad" class="hidden">
           <div class="pad-dir">
             <button class="pad-btn" data-btn="left" aria-label="Left">◀</button>
@@ -38,123 +70,159 @@
           <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>
         </div>
         <div id="hints">
-          <div class="hint left">◀ drag to move ▶</div>
-          <div class="hint right">hold to fire<br />drag to aim</div>
+          <div class="hint left">◀ DRAG TO MOVE ▶</div>
+          <div class="hint right">HOLD TO FIRE<br />DRAG TO AIM</div>
         </div>
+        <div id="toast"></div>
       </div>
 
       <div id="banner"></div>
 
+      <!-- ================= TITLE ================= -->
       <div id="title" class="screen">
+        <div class="sys-line">MF-01 // COMBAT LINK <b class="blink">ONLINE</b></div>
         <div class="logo"><span>MARBLE</span><span>FIGHTER</span></div>
-        <p class="tag">1v1 marble-shooting duel</p>
-        <button id="play-btn" class="btn">Play</button>
-        <button id="settings-btn" class="btn ghost">⚙ Settings</button>
+        <p class="tag">TACTICAL MARBLE COMBAT</p>
+        <div class="title-card panel">
+          <div class="tc-row"><span>UNIT</span><b id="title-unit">SERAPH ZERO</b></div>
+          <div class="tc-row"><span>ARENA</span><b id="title-stage">ORBITAL DECK</b></div>
+        </div>
+        <button id="play-btn" class="btn">LAUNCH</button>
+        <button id="settings-btn" class="btn ghost">⚙ SETTINGS</button>
         <p class="how touch-only">Left thumb: drag to move · Right thumb: hold to fire, drag to aim</p>
-        <p class="how mouse-only">Mouse aims · hold click or Space to fire · A / D to move</p>
+        <p class="how mouse-only">Mouse aims · hold click / Space to fire · A / D move · F or right-click uses item</p>
         <p id="record" class="record"></p>
         <button id="mute-btn" class="icon-btn small" aria-label="Toggle sound">🔊</button>
       </div>
 
+      <!-- ================= RESULT ================= -->
       <div id="result" class="screen hidden">
-        <div id="result-title" class="result-title">WIN</div>
-        <div class="stats">
-          <div><span>Damage dealt</span><b id="r-dealt">0</b></div>
-          <div><span>Accuracy</span><b id="r-acc">0%</b></div>
-          <div><span>Health left</span><b id="r-hp">0</b></div>
+        <div class="sys-line" id="result-sub">MISSION COMPLETE</div>
+        <div id="result-title" class="result-title">VICTORY</div>
+        <div class="stats panel">
+          <div><span>DAMAGE DEALT</span><b id="r-dealt">0</b></div>
+          <div><span>ACCURACY</span><b id="r-acc">0%</b></div>
+          <div><span>ARMOR LEFT</span><b id="r-hp">0</b></div>
         </div>
-        <button id="again-btn" class="btn">Rematch</button>
+        <button id="again-btn" class="btn">REMATCH</button>
+        <button id="result-settings-btn" class="btn ghost">⚙ SETTINGS</button>
         <p id="session" class="record"></p>
       </div>
 
+      <!-- ================= PAUSE ================= -->
       <div id="paused" class="screen hidden">
+        <div class="sys-line">SYSTEM HOLD</div>
         <div class="result-title">PAUSED</div>
-        <button id="resume-btn" class="btn">Resume</button>
-        <button id="pause-settings-btn" class="btn ghost">Settings</button>
+        <button id="resume-btn" class="btn">RESUME</button>
+        <button id="pause-settings-btn" class="btn ghost">⚙ SETTINGS</button>
       </div>
 
+      <!-- ================= SETTINGS ================= -->
       <div id="settings" class="screen hidden">
-        <div class="result-title small">SETTINGS</div>
-        <div class="settings">
-          <h3>Character</h3>
-          <div class="setting">
-            <div>
-              <b id="char-name">Seraph Zero</b>
-              <span>Your robot. The opponent picks a different one</span>
-            </div>
-            <div class="char-grid" id="char-grid"></div>
-          </div>
-          <h3>Controls</h3>
-          <div class="setting">
-            <div>
-              <b>Layout</b>
-              <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom</span>
-            </div>
-            <div class="seg" data-setting="layout"><button data-value="gestures">Gestures</button><button data-value="buttons">Buttons</button></div>
-          </div>
-          <div class="setting">
-            <div>
-              <b>Left / Right</b>
-              <span>Buttons and A / D keys slide the robot or turn its aim</span>
-            </div>
-            <div class="seg" data-setting="arrows"><button data-value="move">Move</button><button data-value="aim">Aim</button></div>
-          </div>
-          <div class="setting">
-            <div>
-              <b>Mouse aim</b>
-              <span>Cursor aims, click fires. Turn off to aim with keys or buttons</span>
-            </div>
-            <div class="seg" data-setting="mouseAim"><button data-value="true">On</button><button data-value="false">Off</button></div>
-          </div>
-          <div class="setting">
-            <div>
-              <b>Shooting line</b>
-              <span>Dotted guide showing where your marbles will go</span>
-            </div>
-            <div class="seg" data-setting="aimLine"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
-          </div>
-          <div class="setting">
-            <div>
-              <b>Vibrate on hits</b>
-              <span>Buzz when you land or take a hit (Android; iPhone browsers ignore it)</span>
-            </div>
-            <div class="seg" data-setting="vibrate"><button data-value="true">On</button><button data-value="false">Off</button></div>
-          </div>
-          <h3>Table</h3>
-          <div class="setting">
-            <div>
-              <b>Pucks</b>
-              <span>Pushable pucks for cover and trick shots. Applies next match</span>
-            </div>
-            <div class="seg" data-setting="pucks"><button data-value="0">0</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button></div>
-          </div>
-          <h3>Opponent</h3>
-          <div class="setting">
-            <div>
-              <b>Speed</b>
-              <span>How fast the opponent moves and dodges. 3 is normal</span>
-            </div>
-            <div class="seg" data-setting="enemySpeed"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button></div>
-          </div>
-          <div class="setting">
-            <div>
-              <b>Ball power</b>
-              <span>Damage, weight and speed of its marbles. 3 is normal</span>
-            </div>
-            <div class="seg" data-setting="enemyPower"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button></div>
-          </div>
-          <div class="setting">
-            <div>
-              <b>Aim</b>
-              <span>Flexible aims, leads and banks shots. Straight only fires straight ahead</span>
-            </div>
-            <div class="seg" data-setting="enemyAim"><button data-value="flexible">Flexible</button><button data-value="straight">Straight</button></div>
+        <div class="settings-head">
+          <div class="screen-title">SETTINGS</div>
+          <div class="tabs" role="tablist">
+            <button role="tab" data-tab="fighter">Fighter</button>
+            <button role="tab" data-tab="arena">Arena</button>
+            <button role="tab" data-tab="opponent">Opponent</button>
+            <button role="tab" data-tab="controls">Controls</button>
           </div>
         </div>
-        <button id="settings-done" class="btn">Done</button>
+
+        <div class="panels">
+          <section data-panel="fighter">
+            <div class="setting">
+              <div class="set-head"><b>Your unit</b><em id="char-name">Seraph Zero</em></div>
+              <span>The opponent always fields a different unit.</span>
+              <div class="char-grid" id="char-grid"></div>
+            </div>
+          </section>
+
+          <section data-panel="arena">
+            <div class="setting">
+              <div class="set-head"><b>Stage</b><em id="stage-name">Orbital Deck</em></div>
+              <span>Changes the scenery and the pucks to match.</span>
+              <div class="stage-grid" id="stage-grid"></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Pucks</b></div>
+              <span>Pushable cover for trick shots. Applies next match.</span>
+              <div class="seg" data-setting="pucks">
+                <button data-value="0">0</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Air drops</b></div>
+              <span>Item crates parachute onto each rail. Walk over one to grab it.</span>
+              <div class="seg" data-setting="items"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+          </section>
+
+          <section data-panel="opponent">
+            <div class="setting">
+              <div class="set-head"><b>Armor</b><em>health</em></div>
+              <div class="seg" data-setting="enemyHealth">
+                <button data-value="1">50%</button><button data-value="2">75%</button><button data-value="3">100%</button><button data-value="4">150%</button><button data-value="5">200%</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Speed</b><em>how fast it moves</em></div>
+              <div class="seg level" data-setting="enemySpeed">
+                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Agility</b><em>how often &amp; fast it dodges</em></div>
+              <div class="seg level" data-setting="enemyAgility">
+                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Ball power</b><em>damage &amp; weight</em></div>
+              <div class="seg level" data-setting="enemyPower">
+                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Aim</b></div>
+              <span>Flexible aims, leads and banks. Straight only fires straight ahead.</span>
+              <div class="seg" data-setting="enemyAim"><button data-value="flexible">Flexible</button><button data-value="straight">Straight</button></div>
+            </div>
+            <button class="btn ghost small" id="reset-opponent">RESET OPPONENT</button>
+          </section>
+
+          <section data-panel="controls">
+            <div class="setting">
+              <div class="set-head"><b>Layout</b></div>
+              <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom.</span>
+              <div class="seg" data-setting="layout"><button data-value="gestures">Gestures</button><button data-value="buttons">Buttons</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Left / Right</b></div>
+              <span>Buttons and A / D slide the unit or turn its aim.</span>
+              <div class="seg" data-setting="arrows"><button data-value="move">Move</button><button data-value="aim">Aim</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Mouse aim</b></div>
+              <span>Cursor aims, click fires, right-click uses an item.</span>
+              <div class="seg" data-setting="mouseAim"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Shooting line</b></div>
+              <div class="seg" data-setting="aimLine"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Vibrate on hits</b></div>
+              <span>Android browsers. iPhone browsers don't support vibration.</span>
+              <div class="seg" data-setting="vibrate"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+          </section>
+        </div>
+
+        <button id="settings-done" class="btn">DONE</button>
       </div>
 
-      <div id="loading" class="screen"><p>Loading…</p></div>
+      <div id="loading" class="screen"><p class="sys-line">BOOTING COMBAT SYSTEMS<b class="blink">…</b></p></div>
       <div id="debug" class="hidden"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>

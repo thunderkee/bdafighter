@@ -1,11 +1,14 @@
 import { AI_PROFILES, MATCH } from './config';
 import { computeStats, STARTER_BUILD } from './parts';
-import { Game, STEP } from './game';
+import { Game, STEP, type Shooter } from './game';
 import { View } from './view';
 import { Input } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
+import { Portrait } from './face';
 import { CHARACTERS, characterById } from './robot';
+import { STAGES, stageById } from './stage';
+import { ITEMS, type ItemType } from './items';
 import * as sfx from './audio';
 import * as store from './storage';
 
@@ -20,14 +23,30 @@ type Screen = 'title' | 'playing' | 'result';
 /** settings level 1..5 -> multiplier, 3 = 1x */
 const LEVEL = [0.55, 0.8, 1, 1.25, 1.55];
 const level = (n: number) => LEVEL[Math.max(1, Math.min(5, Math.round(n))) - 1];
+/** opponent health levels */
+const HEALTH = [0.5, 0.75, 1, 1.5, 2];
+/** agility: dodge chance and reaction speed multiplier */
+const AGILITY = [0.3, 0.65, 1, 1.35, 1.7];
 
 /** buzz the phone if the browser allows it (Android Chrome; iOS Safari ignores it) */
 const buzz = (pattern: number | number[]) => {
   try {
+    // browsers block vibration until the page has had a real tap
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
     navigator.vibrate?.(pattern);
   } catch {
     // not supported
   }
+};
+
+const hexc = (n: number) => '#' + n.toString(16).padStart(6, '0');
+
+/** small line icons for the items, drawn in currentColor */
+const ITEM_ICONS: Record<ItemType, string> = {
+  multi: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4" r="2.4"/><circle cx="5.5" cy="7" r="2.4"/><circle cx="18.5" cy="7" r="2.4"/><circle cx="3" cy="13" r="2.4"/><circle cx="21" cy="13" r="2.4"/><circle cx="12" cy="11" r="2.4"/><path d="M9 18h6l-3 4z"/></svg>',
+  boost: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M4 5l7 7-7 7M13 5l7 7-7 7"/></svg>',
+  heal: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
+  dragon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 22c-5-3 5-5 0-8s5-5 0-8"/><circle cx="12" cy="3" r="2" fill="currentColor"/></svg>',
 };
 
 export function boot() {
@@ -46,6 +65,7 @@ export function boot() {
       muzzleSpeed: base.muzzleSpeed * (0.85 + 0.15 * power),
     };
   };
+  const enemyMaxHealth = () => MATCH.maxHealth * HEALTH[Math.max(1, Math.min(5, saveData.settings.enemyHealth)) - 1];
   /** opponent robot: the default dragon, unless the player picked it */
   const enemyCharacter = () => (saveData.settings.character === 'dragon' ? 'angel' : 'dragon');
 
@@ -55,11 +75,13 @@ export function boot() {
   const ai = new AIController(game, enemy, player, profile);
   const input = new Input($('touch'), player, (x, y) => view.screenToWorld(x, y));
 
-  // ThorVG effects overlay loads in the background; the game never waits on it
+  // ThorVG effects overlay + portraits load in the background; the game never waits
   const fx2d = new Fx2D($<HTMLCanvasElement>('fx'));
   void fx2d.init().then(() => {
     if (fx2d.ready) view.fx2d = fx2d;
   });
+  const faces = [new Portrait($<HTMLCanvasElement>('face-player'), saveData.settings.character), new Portrait($<HTMLCanvasElement>('face-enemy'), enemyCharacter())];
+  let facesStarted = false;
 
   sfx.setMuted(saveData.muted);
   let screen: Screen = 'title';
@@ -75,17 +97,18 @@ export function boot() {
   const hpFill = [document.querySelector<HTMLElement>('.hp.player .fill')!, document.querySelector<HTMLElement>('.hp.enemy .fill')!];
   const hpChip = [document.querySelector<HTMLElement>('.hp.player .chip')!, document.querySelector<HTMLElement>('.hp.enemy .chip')!];
   const hpBox = [document.querySelector<HTMLElement>('.hp.player')!, document.querySelector<HTMLElement>('.hp.enemy')!];
-  const chip = [MATCH.maxHealth, MATCH.maxHealth];
+  const hpNum = [$('player-hp-num'), $('enemy-hp-num')];
+  const chip = [1, 1];
   const chipDelay = [0, 0];
   const pips = $('ammo-pips');
   const reloadBar = $('reload');
   const vignette = $('vignette');
   const hints = $('hints');
-  const superPips = [
-    [...document.querySelectorAll<HTMLElement>('#player-super i')],
-    [...document.querySelectorAll<HTMLElement>('#enemy-super i')],
-  ];
-  $('enemy-name').textContent = profile.name;
+  const toast = $('toast');
+  const itemBtn = $('item-btn');
+  const effects = $('effects');
+  const superPips = [[...document.querySelectorAll<HTMLElement>('#player-super i')], [...document.querySelectorAll<HTMLElement>('#enemy-super i')]];
+  const superRows = [$('player-super'), document.querySelector<HTMLElement>('.unit.enemy .unit-label')!];
 
   const buildPips = () => {
     pips.innerHTML = '';
@@ -102,32 +125,52 @@ export function boot() {
     banner.classList.add('pop');
   };
 
+  const showToast = (text: string, color: number) => {
+    toast.textContent = text;
+    toast.style.setProperty('--item', hexc(color));
+    toast.classList.remove('show');
+    void toast.offsetWidth;
+    toast.classList.add('show');
+  };
+
   const updateRecord = () => {
-    $('record').textContent = saveData.matches ? `Record: ${saveData.wins} ${saveData.wins === 1 ? 'win' : 'wins'} / ${saveData.matches} ${saveData.matches === 1 ? 'match' : 'matches'}` : '';
+    $('record').textContent = saveData.matches ? `RECORD ${saveData.wins} W / ${saveData.matches - saveData.wins} L` : '';
   };
   updateRecord();
+
+  const startFaces = () => {
+    if (facesStarted) return;
+    facesStarted = true;
+    faces.forEach((f) => void f.init());
+  };
 
   // ---------- screens ----------
   const startMatch = () => {
     sfx.unlock();
     const st = saveData.settings;
-    game.puckCount = st.pucks;
     ai.straight = st.enemyAim === 'straight';
     ai.speedMul = level(st.enemySpeed);
+    ai.agility = AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1];
     view.setCharacters(st.character, enemyCharacter());
-    game.reset(playerStats(), enemyStats());
+    view.setStage(st.stage);
+    game.reset(playerStats(), enemyStats(), { enemyMaxHealth: enemyMaxHealth(), pucks: st.pucks, items: st.items });
     ai.reset();
     input.release();
     input.enabled = true;
-    chip[0] = chip[1] = MATCH.maxHealth;
+    chip[0] = chip[1] = 1;
     buildPips();
-    $('title').classList.add('hidden');
-    $('result').classList.add('hidden');
+    $('player-name').textContent = characterById(st.character).name.toUpperCase();
+    $('enemy-name').textContent = characterById(enemyCharacter()).name.toUpperCase();
+    faces[0].setCharacter(st.character);
+    faces[1].setCharacter(enemyCharacter());
+    for (const id of ['title', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
     hud.classList.remove('hidden');
+    startFaces();
     hints.classList.toggle('hidden', sessionMatches >= 2);
     hints.classList.remove('fade');
     setTouchClass();
     screen = 'playing';
+    paused = false;
     acc = 0;
     lastCount = -1;
   };
@@ -141,12 +184,13 @@ export function boot() {
     if (w === 0) sessionWins++;
     saveData = store.save({ matches: saveData.matches + 1, wins: saveData.wins + (w === 0 ? 1 : 0) });
     const title = $('result-title');
-    title.textContent = w === 0 ? 'WIN' : w === 1 ? 'LOSE' : 'DRAW';
+    title.textContent = w === 0 ? 'VICTORY' : w === 1 ? 'DEFEAT' : 'DRAW';
     title.className = 'result-title ' + (w === 0 ? 'win' : w === 1 ? 'lose' : '');
+    $('result-sub').textContent = w === 0 ? 'MISSION COMPLETE' : w === 1 ? 'UNIT DOWN' : 'STALEMATE';
     $('r-dealt').textContent = Math.round(player.dealt).toString();
     $('r-acc').textContent = player.shots ? Math.round((player.hits / player.shots) * 100) + '%' : '–';
-    $('r-hp').textContent = Math.ceil(player.health).toString();
-    $('session').textContent = `This session: ${sessionWins} / ${sessionMatches} won`;
+    $('r-hp').textContent = Math.ceil(player.hpFrac * 100) + '%';
+    $('session').textContent = `SESSION ${sessionWins} / ${sessionMatches} WON`;
     $('result').classList.remove('hidden');
     hud.classList.add('hidden');
     sfx.play(w === 0 ? 'win' : 'lose');
@@ -165,6 +209,18 @@ export function boot() {
       last = performance.now();
     }
   };
+
+  const useItem = () => {
+    if (screen !== 'playing' || paused) return;
+    game.useItem(player);
+  };
+  input.onUseItem = useItem;
+  itemBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    sfx.unlock();
+    useItem();
+  });
 
   $('play-btn').addEventListener('click', startMatch);
   $('again-btn').addEventListener('click', startMatch);
@@ -188,54 +244,80 @@ export function boot() {
       game.puckCount = st.pucks;
       game.placePucks();
       view.setCharacters(st.character, enemyCharacter());
+      view.setStage(st.stage);
     }
     view.showAimLine = st.aimLine;
     document.querySelectorAll<HTMLElement>('.char').forEach((c) => c.classList.toggle('on', c.dataset.id === st.character));
+    document.querySelectorAll<HTMLElement>('.stage-card').forEach((c) => c.classList.toggle('on', c.dataset.id === st.stage));
     $('char-name').textContent = characterById(st.character).name;
+    $('stage-name').textContent = stageById(st.stage).name;
+    $('title-unit').textContent = characterById(st.character).name.toUpperCase();
+    $('title-stage').textContent = stageById(st.stage).name.toUpperCase();
     document.body.classList.toggle('buttons', st.layout === 'buttons');
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
     padDir[1].textContent = st.arrows === 'aim' ? '↷' : '▶';
     document.querySelectorAll<HTMLElement>('.seg').forEach((seg) => {
       const current = String(st[seg.dataset.setting as keyof store.Settings]);
-      seg.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.value === current));
+      const levelSeg = seg.classList.contains('level');
+      seg.querySelectorAll<HTMLElement>('button').forEach((b) => {
+        b.classList.toggle('on', b.dataset.value === current);
+        // level bars light up to the chosen value
+        if (levelSeg) b.classList.toggle('lit', Number(b.dataset.value) <= Number(current));
+      });
     });
+  };
+  const saveSetting = (patch: Partial<store.Settings>) => {
+    saveData = store.save({ settings: { ...saveData.settings, ...patch } });
+    input.release();
+    applySettings();
   };
   document.querySelectorAll<HTMLElement>('.seg button').forEach((b) =>
     b.addEventListener('click', () => {
       const key = (b.parentElement as HTMLElement).dataset.setting as keyof store.Settings;
       const raw = b.dataset.value!;
       const value = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? Number(raw) : raw;
-      saveData = store.save({ settings: { ...saveData.settings, [key]: value } });
-      input.release();
-      applySettings();
+      saveSetting({ [key]: value } as Partial<store.Settings>);
     }),
   );
+  $('reset-opponent').addEventListener('click', () => saveSetting(store.OPPONENT_DEFAULTS));
 
-  // character picker, built from the robot list
-  const charGrid = $('char-grid');
-  const hexc = (n: number) => '#' + n.toString(16).padStart(6, '0');
+  // character + stage pickers, built from their lists
   for (const c of CHARACTERS) {
     const btn = document.createElement('button');
     btn.className = 'char';
     btn.dataset.id = c.id;
-    btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 55%, ${hexc(c.palette.trim)} 55% 80%, ${hexc(c.palette.accent)} 80%)"></i><span>${c.name}</span>`;
-    btn.addEventListener('click', () => {
-      saveData = store.save({ settings: { ...saveData.settings, character: c.id } });
-      applySettings();
-    });
-    charGrid.appendChild(btn);
+    btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.palette.eye)} 78%)"></i><span>${c.name}</span>`;
+    btn.addEventListener('click', () => saveSetting({ character: c.id }));
+    $('char-grid').appendChild(btn);
   }
+  for (const s of STAGES) {
+    const btn = document.createElement('button');
+    btn.className = 'stage-card';
+    btn.dataset.id = s.id;
+    btn.innerHTML = `<i style="background:linear-gradient(160deg, ${hexc(s.swatch[0])} 0 60%, ${hexc(s.swatch[1])} 60%)"></i><span>${s.name}</span>`;
+    btn.addEventListener('click', () => saveSetting({ stage: s.id }));
+    $('stage-grid').appendChild(btn);
+  }
+
+  // settings tabs
+  const showTab = (tab: string) => {
+    document.querySelectorAll<HTMLElement>('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+    document.querySelectorAll<HTMLElement>('.panels section').forEach((p) => p.classList.toggle('on', p.dataset.panel === tab));
+  };
+  document.querySelectorAll<HTMLElement>('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab!)));
+  showTab('fighter');
   applySettings();
 
-  let settingsFrom: 'title' | 'paused' = 'title';
-  const openSettings = (from: 'title' | 'paused') => {
+  let settingsFrom: 'title' | 'paused' | 'result' = 'title';
+  const openSettings = (from: 'title' | 'paused' | 'result') => {
     settingsFrom = from;
     $(from).classList.add('hidden');
     $('settings').classList.remove('hidden');
   };
   $('settings-btn').addEventListener('click', () => openSettings('title'));
   $('pause-settings-btn').addEventListener('click', () => openSettings('paused'));
+  $('result-settings-btn').addEventListener('click', () => openSettings('result'));
   // in-match gear: pause, then jump straight to settings
   $('hud-settings-btn').addEventListener('click', () => {
     setPaused(true);
@@ -292,6 +374,7 @@ export function boot() {
       game,
       ai,
       view,
+      faces,
       start: startMatch,
       /** a bot that plays the player's side, for bot-vs-bot balance runs */
       bot(name: string) {
@@ -353,11 +436,17 @@ export function boot() {
           }
           if (saveData.settings.vibrate) {
             // taking a hit buzzes harder than landing one
-            if (f.super) buzz(f.team === 0 ? [90, 40, 140] : [40, 30, 60]);
+            if (f.power !== 'normal') buzz(f.team === 0 ? [90, 40, 140] : [40, 30, 60]);
             else buzz(f.team === 0 ? 45 : 14);
           }
         }
         if (f.type === 'super-ready' && f.team === 0 && saveData.settings.vibrate) buzz([20, 40, 20]);
+        if (f.type === 'pickup') {
+          const def = ITEMS[f.item];
+          if (f.team === 0) showToast(`${def.name.toUpperCase()} ACQUIRED`, def.color);
+          if (f.team === 0 && saveData.settings.vibrate) buzz(25);
+        }
+        if (f.type === 'use' && f.team === 1) showToast(`ENEMY ${ITEMS[f.item].name.toUpperCase()}`, 0xff3e5e);
       }
 
       updateHud(dt);
@@ -365,6 +454,9 @@ export function boot() {
     }
 
     view.render(paused ? 0 : dt, screen === 'playing' && game.phase !== 'ko' && game.phase !== 'over');
+    if (screen === 'playing' || screen === 'result') {
+      game.shooters.forEach((s, i) => faces[i].update(paused ? 0 : dt, s, Portrait.mood(s, game.phase, game.winner)));
+    }
 
     if (debug) {
       fpsAcc += dt;
@@ -379,6 +471,8 @@ export function boot() {
     }
   };
 
+  let lastItem: ItemType | null | undefined;
+  let lastEffects = '';
   const updateHud = (dt: number) => {
     // countdown + KO banners
     if (game.phase === 'countdown') {
@@ -390,31 +484,55 @@ export function boot() {
       }
     } else if (game.phase === 'fight' && lastCount > 0) {
       lastCount = 0;
-      showBanner('FIGHT!');
+      showBanner('ENGAGE');
       setTimeout(() => hints.classList.add('fade'), 3500);
     } else if (game.phase === 'ko' && lastCount === 0) {
       lastCount = -2;
-      showBanner(game.clock <= 0 ? 'TIME!' : 'K.O.!');
+      showBanner(game.clock <= 0 ? 'TIME UP' : 'K.O.');
     }
 
     clock.textContent = Math.ceil(game.clock).toString();
     clock.classList.toggle('low', game.clock < 10);
 
-    game.shooters.forEach((s, i) => {
-      const pct = (s.health / MATCH.maxHealth) * 100;
-      hpFill[i].style.width = pct + '%';
+    game.shooters.forEach((s: Shooter, i) => {
+      const frac = s.hpFrac;
+      hpFill[i].style.width = frac * 100 + '%';
       chipDelay[i] -= dt;
-      if (chipDelay[i] <= 0) chip[i] = Math.max(s.health, chip[i] - dt * 40);
-      hpChip[i].style.width = (chip[i] / MATCH.maxHealth) * 100 + '%';
+      if (chipDelay[i] <= 0) chip[i] = Math.max(frac, chip[i] - dt * 0.4);
+      chip[i] = Math.max(chip[i], frac);
+      hpChip[i].style.width = chip[i] * 100 + '%';
+      hpBox[i].classList.toggle('low', frac < 0.25);
+      hpNum[i].textContent = Math.ceil(frac * 100) + '%';
+      // super meters: pips fill per hit, glow when the next shot is a super
+      superPips[i].forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));
+      superRows[i].classList.toggle('ready', s.superReady);
     });
 
-    // super meters: pips fill per hit, glow when the next shot is a super
-    for (const [s, el, row] of [
-      [player, superPips[0], $('player-super')],
-      [enemy, superPips[1], document.querySelector<HTMLElement>('.who')!],
-    ] as const) {
-      el.forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));
-      row.classList.toggle('ready', s.superReady);
+    // item slot + opponent's held item
+    if (player.item !== lastItem) {
+      lastItem = player.item;
+      const it = player.item;
+      itemBtn.classList.toggle('empty', !it);
+      itemBtn.classList.toggle('full', !!it);
+      itemBtn.style.setProperty('--item', it ? hexc(ITEMS[it].color) : 'var(--cyan)');
+      $('item-icon').innerHTML = it ? ITEM_ICONS[it] : '';
+      $('item-name').textContent = it ? ITEMS[it].short : 'NO ITEM';
+    }
+    $('enemy-item').textContent = enemy.item ? `◆ ${ITEMS[enemy.item].short}` : '';
+
+    // active timed effects
+    const fx: string[] = [];
+    if (player.multiT > 0) fx.push(`multi:${Math.ceil(player.multiT)}`);
+    if (player.boostT > 0) fx.push(`boost:${Math.ceil(player.boostT)}`);
+    const key = fx.join('|');
+    if (key !== lastEffects) {
+      lastEffects = key;
+      effects.innerHTML = fx
+        .map((e) => {
+          const [type, secs] = e.split(':') as [ItemType, string];
+          return `<div class="effect" style="--item:${hexc(ITEMS[type].color)}">${ITEM_ICONS[type]}${ITEMS[type].short} ${secs}s</div>`;
+        })
+        .join('');
     }
 
     const full = Math.floor(player.ammo);
@@ -428,4 +546,3 @@ export function boot() {
 
   requestAnimationFrame(frame);
 }
-
