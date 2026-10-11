@@ -149,7 +149,7 @@ with a long hit-stop, heavy shake, knock-back, shockwave and flash. The AI charg
 | `src/ai.ts`     | Opponent: lead aim, bank shots, bump shots, reaction-delayed dodge  |
 | `src/input.ts`  | Two-thumb touch zones, mouse and keyboard                           |
 | `src/view.ts`   | three.js scene, instanced marbles, sparks, aim dots, chase camera   |
-| `src/robot.ts`  | SD robot models (placeholder 'angel' and 'dragon' styles)           |
+| `src/robot.ts`  | Data-driven SD robot models (8 placeholder units, no wings or backpack) |
 | `src/fx2d.ts`   | ThorVG overlay: shockwaves, starbursts, glows/trails, speed lines, drop markers |
 | `src/face.ts`   | ThorVG Doom-style live portraits                                    |
 | `src/stage.ts`  | Five themed stages: floor, sky, lights, scenery, particles, pucks   |

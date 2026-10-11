@@ -36,6 +36,14 @@ export class PadTracker {
     // stop the browser turning a two-thumb hold into a pinch/zoom or callout
     for (const t of ['touchstart', 'touchmove', 'touchend'] as const) el.addEventListener(t, (e) => e.preventDefault(), opts);
     document.addEventListener('gesturestart', (e) => e.preventDefault(), opts);
+    // backup: if a lift lands somewhere other than the pad, still release that finger
+    window.addEventListener('pointerup', this.up);
+    window.addEventListener('pointercancel', this.up);
+  }
+
+  /** which buttons are held, for the debug readout */
+  debug() {
+    return [...this.fingers.values()].filter(Boolean).join(',') || '-';
   }
 
   onPress: (() => void) | null = null;

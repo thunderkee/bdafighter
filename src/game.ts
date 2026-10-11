@@ -180,6 +180,8 @@ export class Shooter {
   /** dragon balls still to launch, and the gap timer */
   dragonQueue = 0;
   dragonTimer = 0;
+  /** -1 / 1 while pushing into the left / right end of the rail, else 0 */
+  railPush = 0;
   /** shield: wanted (input/AI), energy, lockout after a break, regen delay */
   shielding = false;
   shield: number = SHIELD.max;
@@ -722,7 +724,10 @@ export class Game {
         s.x += s.moveAxis * speed * dt;
       }
     }
+    // note when the robot is pressing into an end of its rail
+    const wants = s.moveTarget !== null ? Math.sign(s.moveTarget - s.x) * (Math.abs(s.moveTarget) > maxX ? 1 : 0) : Math.sign(s.moveAxis);
     s.x = Math.max(-maxX, Math.min(maxX, s.x));
+    s.railPush = Math.abs(s.x) >= maxX - 1e-6 && wants === Math.sign(s.x) ? Math.sign(s.x) : 0;
     s.vx = (s.x - prevX) / dt;
     s.body.setNextKinematicTranslation({ x: s.x, y: s.y });
     s.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, s.aim));

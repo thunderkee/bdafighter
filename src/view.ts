@@ -523,6 +523,7 @@ export class View {
     this.updateRobotFx(dt);
     this.updateShields(dt);
     this.updateSmoke(dt);
+    this.updateRailStops(dt);
     // first person: hide your own robot so it doesn't block the view
     this.shooters[0].root.visible = this.cameraMode !== 'first' || !!this.ko || !!this.cine;
     this.updateMissiles(dt);
@@ -799,6 +800,21 @@ export class View {
   }
 
   /** Shield walls: shown while raised, flicker as energy runs low, flash on blocks. */
+  private railTimer = 0;
+  /** Pushing into a rail end: the robot shudders against the wall, with sparks and a clank. */
+  private updateRailStops(dt: number) {
+    const s = this.game.shooters[0];
+    this.railTimer -= dt;
+    if (!s.railPush || this.shooters[0].broken) return;
+    this.shooters[0].root.position.x += (Math.random() - 0.5) * 0.05;
+    if (this.railTimer <= 0) {
+      this.railTimer = 0.28;
+      const wx = s.railPush * (ARENA.width / 2 - 0.05);
+      this.burst(wx, s.y, 0xfff2b0, 5, 3, { h: 0.5 });
+      sfx.play('wall', 0.7);
+    }
+  }
+
   /** Robots at 30% health or less trail smoke; under 15% they also spit sparks. */
   private updateSmoke(dt: number) {
     this.game.shooters.forEach((s, i) => {
@@ -1209,18 +1225,20 @@ export class View {
     }
     const p = this.game.shooters[0];
     const lean = Math.sin(p.aim);
+    // stop following near the rail ends so the robot visibly reaches the wall
+    const follow = (k: number, limit: number) => Math.max(-limit, Math.min(limit, p.x * k));
     switch (this.cameraMode) {
       case 'far':
-        this.camGoal.set(p.x * 0.85 - lean * 1.1, 8.4, -p.y + 8.4);
+        this.camGoal.set(follow(0.85, 2.8) - lean * 1.1, 8.4, -p.y + 8.4);
         this.lookGoal.set(p.x * 0.55 + lean * 3, 0, -p.y - 6.5);
         break;
       case 'mid':
-        this.camGoal.set(p.x * 0.9 - lean * 0.9, 6.4, -p.y + 6.4);
-        this.lookGoal.set(p.x * 0.6 + lean * 3, 0.2, -p.y - 7.5);
+        this.camGoal.set(follow(0.9, 3.15) - lean * 0.9, 6.4, -p.y + 6.4);
+        this.lookGoal.set(follow(0.6, 2.1) + lean * 3, 0.2, -p.y - 7.5);
         break;
       case 'near':
-        this.camGoal.set(p.x * 0.95 - lean * 0.6, 3.8, -p.y + 3.9);
-        this.lookGoal.set(p.x * 0.7 + lean * 3.5, 0.5, -p.y - 8.5);
+        this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, 3.8, -p.y + 3.9);
+        this.lookGoal.set(follow(0.7, 2.3) + lean * 3.5, 0.5, -p.y - 8.5);
         break;
       case 'first':
         // cockpit: eye level on the robot, looking down the aim line

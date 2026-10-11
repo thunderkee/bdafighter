@@ -1,4 +1,4 @@
-import { AI_PROFILES, MATCH } from './config';
+import { AI_PROFILES, ARENA, MATCH } from './config';
 import { computeStats, STARTER_BUILD } from './parts';
 import { Game, STEP, type Shooter } from './game';
 import { View } from './view';
@@ -669,7 +669,7 @@ export function boot() {
       }
       const d = $('debug');
       d.classList.remove('hidden');
-      d.textContent = `fps ${fps}\nmarbles ${game.activeMarbles()}\nai ${profile.name}`;
+      d.textContent = `fps ${fps}\nmarbles ${game.activeMarbles()}\nai ${profile.name}\npad ${pad.debug()}\nx ${player.x.toFixed(2)}${player.railPush ? ' END' : ''}`;
     }
   };
 
@@ -745,6 +745,11 @@ export function boot() {
         })
         .join('');
     }
+
+    // rail gauge: marker slides between the ends, amber when pressing into one
+    const rg = $('rail-gauge');
+    (rg.firstElementChild as HTMLElement).style.left = 50 + (player.x / ARENA.railHalfWidth) * 50 + '%';
+    rg.classList.toggle('end', !!player.railPush);
 
     const full = Math.floor(player.ammo);
     const kids = pips.children;

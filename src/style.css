@@ -1311,3 +1311,36 @@ body.buttons #effects {
   letter-spacing: 0.3em;
   color: var(--amber);
 }
+
+/* rail position gauge: shows where you are between the two ends */
+#rail-gauge {
+  position: relative;
+  width: 54px;
+  height: 8px;
+  border-left: 2px solid var(--line);
+  border-right: 2px solid var(--line);
+}
+#rail-gauge::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 2px;
+  background: var(--line-dim);
+}
+#rail-gauge i {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 6px;
+  height: 8px;
+  margin-left: -3px;
+  background: var(--cyan);
+}
+#rail-gauge.end {
+  border-color: var(--amber);
+}
+#rail-gauge.end i {
+  background: var(--amber);
+}

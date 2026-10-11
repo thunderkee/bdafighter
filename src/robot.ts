@@ -8,13 +8,11 @@ import type { Shooter } from './game';
  * feet — so new robots need no new build code.
  * Part slots stay visible on every robot:
  *   barrel   -> chest cannon       core -> torso
- *   magazine -> clear tube on the back that empties as you fire
  * Footprint matches the physics collider (about 1.24 x 1.0).
  * These are placeholder designs inspired by existing mecha; replace them
  * with original designs before a public release.
  */
 
-const MAG_BALLS = 5;
 
 interface Palette {
   body: number;
@@ -34,7 +32,8 @@ export interface CharacterDef {
   palette: Palette;
   crest: 'vfin' | 'vfin-short' | 'horns' | 'unihorn' | 'fin';
   eyes: 'twin' | 'mono';
-  wings: 'feather' | 'bat' | 'blades' | 'pods' | 'none';
+  /** back thruster pods (wings were removed) */
+  wings: 'pods' | 'none';
   shoulders: 'round' | 'spike' | 'heavy';
   offhand: 'shield' | 'coil' | 'scythe' | 'gatling';
   feet: 'toe' | 'claw';
@@ -42,8 +41,6 @@ export interface CharacterDef {
   darkFace?: boolean;
   /** glowing frame lines on the limbs and torso */
   glow?: number;
-  /** how far the wings sweep upward (radians) */
-  wingLift?: number;
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -54,11 +51,10 @@ export const CHARACTERS: CharacterDef[] = [
     palette: { body: 0xf4f4f8, trim: 0x2f63e8, accent: 0xe8312f, joint: 0x5a5f73, wing: 0xf8f8fc, wingTip: 0x2f63e8, eye: 0x6dff9a },
     crest: 'vfin',
     eyes: 'twin',
-    wings: 'feather',
+    wings: 'none',
     shoulders: 'round',
     offhand: 'shield',
     feet: 'toe',
-    wingLift: 0.2,
   },
   {
     id: 'dragon',
@@ -67,12 +63,11 @@ export const CHARACTERS: CharacterDef[] = [
     palette: { body: 0x9c1b2e, trim: 0x3d3a4c, accent: 0xffc23d, joint: 0x26232f, wing: 0x5e1020, wingTip: 0x9c1b2e, eye: 0xc8ff3d },
     crest: 'horns',
     eyes: 'twin',
-    wings: 'bat',
+    wings: 'none',
     shoulders: 'spike',
     offhand: 'coil',
     feet: 'claw',
     darkFace: true,
-    wingLift: 0.5,
   },
   {
     id: 'pioneer',
@@ -93,11 +88,10 @@ export const CHARACTERS: CharacterDef[] = [
     palette: { body: 0xf6f6fa, trim: 0x2b58d6, accent: 0xffc23d, joint: 0xd9a92a, wing: 0x2346b8, wingTip: 0xffd45e, eye: 0x6dff9a },
     crest: 'vfin',
     eyes: 'twin',
-    wings: 'blades',
+    wings: 'none',
     shoulders: 'round',
     offhand: 'shield',
     feet: 'toe',
-    wingLift: 0.25,
   },
   {
     id: 'monoceros',
@@ -144,12 +138,11 @@ export const CHARACTERS: CharacterDef[] = [
     palette: { body: 0x23212c, trim: 0x4a4658, accent: 0x34e07a, joint: 0x15141b, wing: 0x1a1922, wingTip: 0x34e07a, eye: 0x34e07a },
     crest: 'vfin',
     eyes: 'twin',
-    wings: 'bat',
+    wings: 'none',
     shoulders: 'round',
     offhand: 'scythe',
     feet: 'toe',
     darkFace: true,
-    wingLift: 0.35,
   },
 ];
 
@@ -163,7 +156,6 @@ export class ShooterMesh {
   wings = new THREE.Group();
   trigger: THREE.Mesh;
   legs: THREE.Group[] = [];
-  magBalls: THREE.Mesh[] = [];
   mats: THREE.MeshLambertMaterial[] = [];
   readonly id: string;
   /** the marble colour this model was built with */
@@ -171,11 +163,9 @@ export class ShooterMesh {
   private wingL = new THREE.Group();
   private wingR = new THREE.Group();
   private stride = 0;
-  private def: CharacterDef;
 
   constructor(characterId: string, marbleColor: number) {
     const def = characterById(characterId);
-    this.def = def;
     this.id = def.id;
     this.ball = marbleColor;
     const pal = def.palette;
@@ -193,7 +183,6 @@ export class ShooterMesh {
     const wingTip = lam(pal.wingTip, THREE.DoubleSide);
     const eyeMat = new THREE.MeshBasicMaterial({ color: pal.eye });
     const glowMat = def.glow !== undefined ? new THREE.MeshBasicMaterial({ color: def.glow }) : null;
-    const glass = new THREE.MeshPhongMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.35, shininess: 120, depthWrite: false });
     const ballMat = new THREE.MeshPhongMaterial({ color: marbleColor, shininess: 90, specular: 0xffffff });
 
     const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
@@ -320,29 +309,9 @@ export class ShooterMesh {
     this.wingL.position.x = -0.12;
     this.wingL.scale.x = -1; // mirror
     this.wings.add(this.wingL, this.wingR);
-    for (const w of [this.wingL, this.wingR]) {
-      if (def.wings === 'bat') this.buildBatWing(w, wingMat, wingTip, joint);
-      else if (def.wings === 'feather') this.buildFeatherWing(w, wingMat, wingTip, joint);
-      else if (def.wings === 'blades') this.buildBladeWing(w, wingMat, wingTip, joint);
-      else if (def.wings === 'pods') this.buildPods(w, wingMat, wingTip, joint);
-    }
+    if (def.wings === 'pods') for (const w of [this.wingL, this.wingR]) this.buildPods(w, wingMat, wingTip, joint);
 
-    // magazine slot: clear tube on the back
-    const mag = new THREE.Group();
-    mag.position.set(0, 0.42, 0.42);
-    const tubeGlass = cyl(0.13, 0.13, 0.7, glass);
-    const cap = cyl(0.15, 0.15, 0.06, gold);
-    cap.position.y = 0.37;
-    mag.add(tubeGlass, cap);
-    for (let i = 0; i < MAG_BALLS; i++) {
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), ballMat);
-      ball.position.y = -0.26 + i * 0.13;
-      mag.add(ball);
-      this.magBalls.push(ball);
-    }
-    this.turret.add(mag);
-
-    // trigger under the tube, pushed in on every shot
+    // trigger on the back, pushed in on every shot
     this.trigger = box(0.26, 0.16, 0.16, gold, 0, 0.06, 0.38);
     this.turret.add(this.trigger);
   }
@@ -459,50 +428,9 @@ export class ShooterMesh {
     }
   }
 
-  /** Three long tapered feathers fanning up and out, tipped. */
-  private buildFeatherWing(g: THREE.Group, mat: THREE.Material, tipMat: THREE.Material, joint: THREE.Material) {
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0);
-    shape.lineTo(0.15, 0.04);
-    shape.lineTo(0.13, 0.92);
-    shape.lineTo(0.05, 1.04);
-    shape.lineTo(-0.02, 0.88);
-    shape.closePath();
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: false });
-    const tipGeo = new THREE.BoxGeometry(0.12, 0.2, 0.05);
-    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.12), joint)); // wing root
-    [-0.15, -0.5, -0.88].forEach((rz, i) => {
-      const f = new THREE.Group();
-      f.position.set(0.14, 0.02, 0.02 + i * 0.03);
-      f.rotation.set(0.25, 0, rz);
-      const scale = 1.25 - i * 0.18;
-      const feather = new THREE.Mesh(geo, mat);
-      feather.scale.setScalar(scale);
-      const tip = new THREE.Mesh(tipGeo, tipMat);
-      tip.position.set(0.07 * scale, 0.86 * scale, 0.02);
-      tip.scale.setScalar(scale);
-      f.add(feather, tip);
-      g.add(f);
-    });
-  }
 
-  /** Four slim blades in a gold frame, fanned like a dragoon rack. */
-  private buildBladeWing(g: THREE.Group, mat: THREE.Material, tipMat: THREE.Material, joint: THREE.Material) {
-    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.12), joint));
-    const blade = new THREE.BoxGeometry(0.1, 0.95, 0.04);
-    const edge = new THREE.BoxGeometry(0.03, 0.95, 0.05);
-    [-0.1, -0.42, -0.74, -1.06].forEach((rz, i) => {
-      const f = new THREE.Group();
-      f.position.set(0.12, 0.02, 0.02 + i * 0.025);
-      f.rotation.set(0.2, 0, rz);
-      const b = new THREE.Mesh(blade, mat);
-      b.position.y = 0.48;
-      const e = new THREE.Mesh(edge, tipMat);
-      e.position.set(0.06, 0.48, 0);
-      f.add(b, e);
-      g.add(f);
-    });
-  }
+
+
 
   /** A chunky thruster pod per side (no wings). */
   private buildPods(g: THREE.Group, mat: THREE.Material, tipMat: THREE.Material, joint: THREE.Material) {
@@ -515,37 +443,7 @@ export class ShooterMesh {
     g.add(pod, cap, nozzle);
   }
 
-  /** A scalloped bat wing on a dark spar, with tip spikes. */
-  private buildBatWing(g: THREE.Group, mat: THREE.Material, tipMat: THREE.Material, joint: THREE.Material) {
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0);
-    shape.lineTo(0.85, 0.8);
-    shape.lineTo(1.15, 0.62);
-    shape.quadraticCurveTo(0.95, 0.42, 1.0, 0.18);
-    shape.quadraticCurveTo(0.78, 0.3, 0.68, 0.0);
-    shape.quadraticCurveTo(0.5, 0.18, 0.4, -0.12);
-    shape.quadraticCurveTo(0.24, 0.06, 0.04, -0.06);
-    shape.closePath();
-    const membrane = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.035, bevelEnabled: false }), mat);
-    membrane.position.set(0.08, 0.02, 0);
-    membrane.rotation.x = 0.3;
-    g.add(membrane);
-    const spar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.08), joint);
-    spar.position.set(0.52, 0.42, 0.09);
-    spar.rotation.set(0.3, 0, 0.75);
-    g.add(spar);
-    for (const [x, y] of [
-      [1.2, 0.66],
-      [1.02, 0.14],
-      [0.68, -0.04],
-    ]) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.2, 5), tipMat);
-      spike.position.set(x + 0.08, y, 0.02);
-      spike.rotation.z = -0.6;
-      g.add(spike);
-    }
-    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.12), joint)); // wing root
-  }
+
 
   /** true once the robot has been blown apart */
   broken = false;
@@ -601,13 +499,10 @@ export class ShooterMesh {
     // wings breathe at idle, flare open while firing
     const flare = s.firing ? 0.18 : 0;
     const beat = Math.sin(time * 2.4) * 0.05;
-    const lift = this.def.wingLift ?? 0.2;
+    const lift = 0.2;
     this.wingR.rotation.set(0, -0.35 - flare, lift + beat + flare * 0.5);
     this.wingL.rotation.set(0, 0.35 + flare, -(lift + beat + flare * 0.5));
 
-    // magazine tube shows what's left
-    const filled = s.reload > 0 ? 0 : Math.ceil((s.ammo / s.stats.capacity) * MAG_BALLS);
-    this.magBalls.forEach((b, i) => (b.visible = i < filled));
 
     // hit flash; the player's own robot flashes softer so it never washes out
     const f = s.flash > 0 ? (s.team === 0 ? 0.45 : 0.9) : 0;
