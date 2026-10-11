@@ -1344,3 +1344,21 @@ body.buttons #effects {
 #rail-gauge.end i {
   background: var(--amber);
 }
+
+#fps {
+  position: absolute;
+  left: 12px;
+  top: calc(max(8px, env(safe-area-inset-top)) + 96px);
+  padding: 3px 7px;
+  font: 700 10px var(--display);
+  letter-spacing: 0.08em;
+  color: var(--good);
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+#fps.slow {
+  color: var(--amber);
+}
+#fps.bad {
+  color: var(--enemy);
+}

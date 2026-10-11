@@ -522,6 +522,11 @@ export class Stage {
     return g;
   }
 
+  /** stage particles are part of the realism setting */
+  setParticles(on: boolean) {
+    if (this.particles) this.particles.visible = on;
+  }
+
   update(dt: number, time: number) {
     const kind = this.def.particles;
     if (this.particles && this.pVel && kind !== 'stars') {

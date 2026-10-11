@@ -432,6 +432,9 @@ export function boot() {
       view.setStage(st.stage);
     }
     view.showAimLine = st.aimLine;
+    view.fxOn = st.effects;
+    view.setQuality(st.realism);
+    $('fps').classList.toggle('hidden', !st.showFps);
     if (view.cameraMode !== st.camera) {
       view.cameraMode = st.camera;
       view.resize();
@@ -660,13 +663,20 @@ export function boot() {
       view.game.shooters.forEach((s, i) => faces[i].update(paused ? 0 : dt, s, Portrait.mood(s, game.phase, game.winner)));
     }
 
-    if (debug) {
-      fpsAcc += dt;
-      fpsFrames++;
-      if (fpsAcc > 0.5) {
-        fps = Math.round(fpsFrames / fpsAcc);
-        fpsAcc = fpsFrames = 0;
+    // frame-rate meter (settings) and the debug readout share one counter
+    fpsAcc += dt;
+    fpsFrames++;
+    if (fpsAcc > 0.5) {
+      fps = Math.round(fpsFrames / fpsAcc);
+      fpsAcc = fpsFrames = 0;
+      if (saveData.settings.showFps) {
+        const el = $('fps');
+        el.textContent = `${fps} FPS`;
+        el.classList.toggle('slow', fps < 50 && fps >= 30);
+        el.classList.toggle('bad', fps < 30);
       }
+    }
+    if (debug) {
       const d = $('debug');
       d.classList.remove('hidden');
       d.textContent = `fps ${fps}\nmarbles ${game.activeMarbles()}\nai ${profile.name}\npad ${pad.debug()}\nx ${player.x.toFixed(2)}${player.railPush ? ' END' : ''}`;

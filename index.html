@@ -244,6 +244,21 @@
 
           <section data-panel="controls">
             <div class="setting">
+              <div class="set-head"><b>Special effects</b><em>graphics</em></div>
+              <span>Overlay rings, glows, trails, flashes, sparks, smoke and afterimages.</span>
+              <div class="seg" data-setting="effects"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Realism</b><em>graphics</em></div>
+              <span>Marble hops, spin and shadows, stage particles and full screen resolution.</span>
+              <div class="seg" data-setting="realism"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>FPS meter</b></div>
+              <span>Shows frames per second in the corner, to check performance.</span>
+              <div class="seg" data-setting="showFps"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
+            </div>
+            <div class="setting">
               <div class="set-head"><b>Camera</b></div>
               <span>From a high chase view down to the cockpit.</span>
               <div class="seg" data-setting="camera"><button data-value="far">Far</button><button data-value="mid">Mid</button><button data-value="near">Near</button><button data-value="first">Cockpit</button></div>
@@ -285,6 +300,7 @@
 
       <div id="loading" class="screen"><p class="sys-line">BOOTING COMBAT SYSTEMS<b class="blink">…</b></p></div>
       <div id="debug" class="hidden"></div>
+      <div id="fps" class="hidden"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

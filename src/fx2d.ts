@@ -156,6 +156,14 @@ export class Fx2D {
     this.stars.push({ x, y, t: 0, dur: big ? 0.35 : 0.18, rays: big ? 12 : 7, len: big ? 110 : 34, angle: Math.random() * Math.PI, color });
   }
 
+  /** drop everything queued (effects switched off) */
+  clearQueued() {
+    this.rings.length = 0;
+    this.stars.length = 0;
+    this.ticks.length = 0;
+    this.flashT = 0;
+  }
+
   /** a tiny white impact ring where two marbles clack */
   tick(x: number, y: number, k: number) {
     if (this.ticks.length > 24) return;

@@ -40,6 +40,12 @@ export interface Settings {
   enemyCharacter: string;
   /** chase camera distance, down to a first-person cockpit view */
   camera: 'far' | 'mid' | 'near' | 'first';
+  /** special effects: ThorVG overlay, sparks, smoke, afterimages */
+  effects: boolean;
+  /** realism: marble hops/spin/shadows, stage particles, full pixel density */
+  realism: boolean;
+  /** frame-rate meter in the corner */
+  showFps: boolean;
 }
 
 export interface SaveData {
@@ -68,6 +74,9 @@ export const DEFAULT_SETTINGS: Settings = {
   fireButtons: 'single',
   enemyCharacter: 'auto',
   camera: 'mid',
+  effects: true,
+  realism: true,
+  showFps: false,
 };
 
 /** the opponent settings, for "reset opponent" */

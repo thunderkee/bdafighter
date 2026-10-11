@@ -60,7 +60,10 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Agility         | 1–5: how often and how quickly it dodges                                 |
 |           | Ball power      | 1–5: marble damage, weight and a little muzzle speed                     |
 |           | Aim             | **Flexible** (aims, leads, banks) or **Straight** (fires straight, walks to line up) |
-| Controls  | Camera          | Far / Mid / Near / Cockpit (first person)                                |
+| Controls  | Special effects | On / Off: ThorVG overlay, sparks, smoke, afterimages (performance test)  |
+|           | Realism         | On / Off: marble hops/spin/shadows, stage particles, full pixel density  |
+|           | FPS meter       | Show / Hide                                                              |
+|           | Camera          | Far / Mid / Near / Cockpit (first person)                                |
 |           | Layout          | **Gestures** or **Buttons**: ◀ ▶ bottom-left; ▼ shield above fire, bottom-right |
 |           | Fire buttons    | **Single** FIRE, or **Triple**: front-left / front / front-right         |
 |           | Left / Right    | **Move** slides the robot; **Aim** turns its aim (◀ ▶ become ↶ ↷, A / D too) |

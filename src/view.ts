@@ -128,6 +128,10 @@ export class View {
   fx2d: Fx2D | null = null;
   /** settings: draw the player's dotted shooting line */
   showAimLine = true;
+  /** settings: special effects (ThorVG overlay, sparks, smoke, afterimages) */
+  fxOn = true;
+  /** settings: realism (marble hops/spin/shadows, stage particles, full pixel density) */
+  realismOn = true;
   private powerMeshes: THREE.Mesh[] = [];
   private trails = new Map<number, { x: number; y: number }[]>();
   private glows: Glow[] = [];
@@ -288,6 +292,16 @@ export class View {
     this.puckRot = this.puckMeshes.map(() => new THREE.Quaternion());
   }
 
+  /** Apply the realism setting's pixel density (1x when off). */
+  setQuality(realism: boolean) {
+    this.realismOn = realism;
+    const dpr = realism ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+    if (this.renderer.getPixelRatio() !== dpr) {
+      this.renderer.setPixelRatio(dpr);
+      this.resize();
+    }
+  }
+
   resize() {
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
@@ -346,6 +360,7 @@ export class View {
   }
 
   burst(x: number, y: number, color: THREE.ColorRepresentation, count: number, speed: number, opts: { h?: number; float?: boolean; size?: number } = {}) {
+    if (!this.fxOn) return;
     const col = new THREE.Color(color);
     let n = 0;
     for (const s of this.sparks) {
@@ -515,6 +530,7 @@ export class View {
     this.glows.length = 0;
     this.handleFx();
     this.stage.update(dt, this.time);
+    this.stage.setParticles(this.realismOn);
 
     g.shooters.forEach((s, i) => {
       if (!this.shooters[i].broken) this.shooters[i].sync(s, this.time, dt);
@@ -568,7 +584,7 @@ export class View {
       const v = m.body.linvel();
       const q = this.marbleRot[m.idx];
       const speed = Math.hypot(v.x, v.y);
-      if (speed > 0.01) {
+      if (this.realismOn && speed > 0.01) {
         // roll around the axis perpendicular to travel on the floor
         this.axis.set(-v.y, 0, -v.x).normalize();
         this.tmpQ.setFromAxisAngle(this.axis, (speed * dt) / m.radius);
@@ -581,7 +597,7 @@ export class View {
       const mesh = this.marbleMesh[m.team];
       mesh.setMatrixAt(counts[m.team]++, this.tmpM);
       // fast marbles get a ThorVG motion streak
-      if (speed > 11) {
+      if (this.fxOn && speed > 11) {
         const a = this.project(p.x, p.y, m.radius + h);
         const k = Math.min(0.09, speed * 0.005);
         const b = this.project(p.x - v.x * k, p.y - v.y * k, m.radius + h);
@@ -600,7 +616,7 @@ export class View {
       this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS);
       this.shadows.setMatrixAt(shadowN++, this.tmpM);
     }
-    this.shadows.count = shadowN;
+    this.shadows.count = this.realismOn ? shadowN : 0;
     this.shadows.instanceMatrix.needsUpdate = true;
     for (const t of [0, 1] as Team[]) {
       this.marbleMesh[t].count = counts[t];
@@ -618,7 +634,7 @@ export class View {
       if (!b.active) return;
       const p = b.body.translation();
       mesh.position.set(p.x, 0, -p.y);
-      if (rolls) {
+      if (rolls && this.realismOn) {
         const v = b.body.linvel();
         const speed = Math.hypot(v.x, v.y);
         if (speed > 0.01) {
@@ -663,7 +679,11 @@ export class View {
       const edge = sp.x < margin ? -1 : sp.x > w - margin ? 1 : 0;
       this.markers.push({ x: Math.max(margin, Math.min(w - margin, sp.x)), y: edge ? Math.min(sp.y, this.host.clientHeight * 0.72) : sp.y, color: hex(ITEMS[d.type].color), edge });
     }
-    this.fx2d?.render(dt, this.glows, g.shooters[0].boostT > 0, this.markers, this.streaks, this.teamBall);
+    if (this.fxOn) this.fx2d?.render(dt, this.glows, g.shooters[0].boostT > 0, this.markers, this.streaks, this.teamBall);
+    else {
+      this.fx2d?.clearQueued();
+      this.fx2d?.render(dt, [], false, [], [], this.teamBall);
+    }
   }
 
   private updateSparks(dt: number) {
@@ -694,7 +714,7 @@ export class View {
   private updateRobotFx(dt: number) {
     this.game.shooters.forEach((s, i) => {
       const fx = this.robotFx[i];
-      const boosted = s.boostT > 0;
+      const boosted = s.boostT > 0 && this.fxOn;
       // sample positions so afterimages trail behind the motion
       fx.history.unshift({ x: s.x, t: this.time });
       if (fx.history.length > 24) fx.history.length = 24;
@@ -755,6 +775,11 @@ export class View {
 
   /** Visual hop height for a marble: impacts kick it up, gravity brings it down. */
   private hop(idx: number, m: { hop: number }, dt: number) {
+    if (!this.realismOn) {
+      m.hop = 0;
+      this.hopH[idx] = this.hopV[idx] = 0;
+      return 0;
+    }
     if (m.hop > 0) {
       this.hopV[idx] = Math.max(this.hopV[idx], Math.sqrt(2 * 22 * m.hop));
       m.hop = 0;
@@ -817,6 +842,11 @@ export class View {
 
   /** Robots at 30% health or less trail smoke; under 15% they also spit sparks. */
   private updateSmoke(dt: number) {
+    if (!this.fxOn) {
+      this.smokeMesh.count = 0;
+      for (const p of this.smoke) p.life = 0;
+      return;
+    }
     this.game.shooters.forEach((s, i) => {
       if (this.shooters[i].broken || s.health <= 0) return;
       const frac = s.health / s.maxHealth;
