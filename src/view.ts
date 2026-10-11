@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ARENA, COLORS, MATCH } from './config';
-import type { Game, Shooter, Team } from './game';
+import type { Game, Team } from './game';
+import { ShooterMesh } from './robot';
 
 // Physics (x, y) maps to three.js (x, 0, -y): the player sits near the
 // camera at +z and the opponent sits far away at -z.
@@ -15,166 +16,6 @@ interface Spark {
   v: THREE.Vector3;
   color: THREE.Color;
   size: number;
-}
-
-/**
- * Chibi marble-shooter robot built from primitives. The upper body turns
- * with the aim; the three part slots map to visible pieces:
- *   barrel   -> the chest cannon
- *   core     -> the torso with a marble sitting in its chest window
- *   magazine -> the clear tube on the head, which empties as you fire
- * Footprint matches the physics collider (about 1.24 x 1.0).
- */
-const MAG_BALLS = 5;
-
-class ShooterMesh {
-  root = new THREE.Group();
-  /** everything above the hips; rotates with aim */
-  turret = new THREE.Group();
-  barrel = new THREE.Group();
-  trigger: THREE.Mesh;
-  legs: THREE.Group[] = [];
-  magBalls: THREE.Mesh[] = [];
-  mats: THREE.MeshLambertMaterial[] = [];
-  visorMat: THREE.MeshBasicMaterial;
-  private stride = 0;
-
-  constructor(color: number, visor: number, marble: number) {
-    const main = new THREE.MeshLambertMaterial({ color });
-    const dark = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).multiplyScalar(0.45) });
-    const white = new THREE.MeshLambertMaterial({ color: 0xf2efe9 });
-    const gold = new THREE.MeshLambertMaterial({ color: 0xffc23d });
-    const steel = new THREE.MeshLambertMaterial({ color: 0x3a3550 });
-    this.mats.push(main, dark, white, gold, steel);
-    this.visorMat = new THREE.MeshBasicMaterial({ color: visor });
-    const glass = new THREE.MeshPhongMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.35, shininess: 120, depthWrite: false });
-    const ballMat = new THREE.MeshPhongMaterial({ color: marble, shininess: 90, specular: 0xffffff });
-
-    const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-      mesh.position.set(x, y, z);
-      return mesh;
-    };
-    const cyl = (rt: number, rb: number, h: number, m: THREE.Material, seg = 16) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
-
-    // --- legs: a foot and shin each, swung by the walk cycle ---
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Group();
-      leg.position.set(side * 0.3, 0.5, 0);
-      const shin = box(0.28, 0.36, 0.3, dark, 0, -0.2, 0);
-      const foot = box(0.4, 0.16, 0.6, main, 0, -0.42, -0.06);
-      const toe = box(0.4, 0.1, 0.12, white, 0, -0.45, -0.38);
-      leg.add(shin, foot, toe);
-      this.root.add(leg);
-      this.legs.push(leg);
-    }
-    this.root.add(box(0.78, 0.2, 0.5, steel, 0, 0.6, 0));
-
-    // --- upper body ---
-    this.turret.position.y = 0.68;
-    this.root.add(this.turret);
-
-    // torso (core slot)
-    this.turret.add(box(1.0, 0.72, 0.74, main, 0, 0.38, 0));
-    this.turret.add(box(0.84, 0.3, 0.08, white, 0, 0.56, -0.38)); // chest plate
-    this.turret.add(box(0.7, 0.12, 0.6, dark, 0, 0.04, 0)); // belt
-    const window_ = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), ballMat);
-    window_.position.set(0, 0.6, -0.36);
-    this.turret.add(window_);
-
-    // chest cannon (barrel slot) — recoils when firing
-    this.barrel.position.set(0, 0.28, -0.4);
-    const tube = cyl(0.17, 0.2, 0.42, steel);
-    tube.rotation.x = Math.PI / 2;
-    tube.position.z = -0.12;
-    const ring = cyl(0.22, 0.22, 0.08, gold);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.z = -0.32;
-    const bore = cyl(0.12, 0.12, 0.02, new THREE.MeshBasicMaterial({ color: 0x08060f }));
-    bore.rotation.x = Math.PI / 2;
-    bore.position.z = -0.37;
-    this.barrel.add(tube, ring, bore);
-    this.turret.add(this.barrel);
-
-    // trigger on the back, pushed in on every shot
-    this.trigger = box(0.3, 0.26, 0.2, gold, 0, 0.36, 0.44);
-    this.turret.add(this.trigger);
-
-    // shoulders and arms gripping the sides of the cannon
-    for (const side of [-1, 1]) {
-      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), dark);
-      shoulder.position.set(side * 0.6, 0.62, 0);
-      const pad = box(0.3, 0.1, 0.42, gold, side * 0.62, 0.8, 0);
-      const arm = box(0.2, 0.42, 0.22, main, side * 0.62, 0.32, -0.08);
-      arm.rotation.x = -0.5;
-      const fist = box(0.24, 0.22, 0.24, white, side * 0.5, 0.14, -0.34);
-      this.turret.add(shoulder, pad, arm, fist);
-    }
-
-    // head with visor, ear pods and a V-fin crest
-    const head = new THREE.Group();
-    head.position.set(0, 1.0, 0);
-    head.add(box(0.62, 0.48, 0.56, main, 0, 0, 0));
-    head.add(box(0.66, 0.1, 0.6, white, 0, 0.22, 0)); // helmet brim
-    head.add(box(0.5, 0.14, 0.04, this.visorMat, 0, 0.0, -0.29));
-    head.add(box(0.2, 0.1, 0.06, white, 0, -0.16, -0.28)); // mouth plate
-    for (const side of [-1, 1]) {
-      const ear = cyl(0.12, 0.12, 0.12, dark, 12);
-      ear.rotation.z = Math.PI / 2;
-      ear.position.set(side * 0.36, 0, 0);
-      head.add(ear);
-      const fin = box(0.08, 0.32, 0.06, gold, side * 0.12, 0.38, -0.26);
-      fin.rotation.z = side * -0.55;
-      head.add(fin);
-    }
-    this.turret.add(head);
-
-    // magazine slot: clear tube feeding into the back of the head
-    const mag = new THREE.Group();
-    mag.position.set(0, 1.42, 0.16);
-    const tubeGlass = cyl(0.15, 0.15, 0.74, glass);
-    tubeGlass.position.y = 0.2;
-    const cap = cyl(0.17, 0.17, 0.06, gold);
-    cap.position.y = 0.58;
-    mag.add(tubeGlass, cap);
-    for (let i = 0; i < MAG_BALLS; i++) {
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), ballMat);
-      ball.position.y = -0.1 + i * 0.13;
-      mag.add(ball);
-      this.magBalls.push(ball);
-    }
-    this.turret.add(mag);
-  }
-
-  sync(s: Shooter, time: number, dt: number) {
-    this.root.position.set(s.x, 0, -s.y);
-    // the turret faces -z for the player and +z for the opponent
-    const facing = s.team === 0 ? 0 : Math.PI;
-    this.root.rotation.y = facing;
-    this.turret.rotation.y = s.team === 0 ? -s.aim : s.aim;
-    this.barrel.position.z = -0.4 + s.recoil * 0.14;
-    this.trigger.position.z = 0.44 - s.recoil * 0.12;
-
-    // walk cycle while sliding along the rail
-    const moving = Math.min(1, Math.abs(s.vx) / 3);
-    this.stride += dt * 14 * moving;
-    this.legs[0].rotation.x = Math.sin(this.stride) * 0.5 * moving;
-    this.legs[1].rotation.x = -Math.sin(this.stride) * 0.5 * moving;
-    this.turret.rotation.z = (s.team === 0 ? -1 : 1) * Math.sign(s.vx) * moving * 0.06;
-    const bob = Math.abs(Math.sin(this.stride)) * 0.05 * moving;
-
-    // magazine tube shows what's left
-    const filled = s.reload > 0 ? 0 : Math.ceil((s.ammo / s.stats.capacity) * MAG_BALLS);
-    this.magBalls.forEach((b, i) => (b.visible = i < filled));
-
-    // hit flash: push every material toward white
-    // the player's own robot flashes softer so it never washes out
-    const f = s.flash > 0 ? (s.team === 0 ? 0.45 : 0.9) : 0;
-    for (const m of this.mats) m.emissive.setRGB(f, f, f);
-    // hurt shudder when low on health
-    const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
-    this.root.position.y = bob + hurt;
-  }
 }
 
 export class View {
@@ -194,6 +35,8 @@ export class View {
   private camGoal = new THREE.Vector3();
   private lookGoal = new THREE.Vector3();
   private snapCamera = true;
+  /** debug only: fixed camera [position, lookAt] for inspecting models */
+  debugCam: [THREE.Vector3Like, THREE.Vector3Like] | null = null;
   private raycaster = new THREE.Raycaster();
   private floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private tmpM = new THREE.Matrix4();
@@ -221,8 +64,8 @@ export class View {
 
     this.buildArena();
     this.shooters = [
-      new ShooterMesh(COLORS.player, 0x7ff6ff, COLORS.playerMarble),
-      new ShooterMesh(COLORS.enemy, 0xffe066, COLORS.enemyMarble),
+      new ShooterMesh('angel'),
+      new ShooterMesh('dragon'),
     ];
     for (const s of this.shooters) this.scene.add(s.root);
 
@@ -471,6 +314,10 @@ export class View {
       this.camBase.z + Math.sin(t * 1.3 + 2) * sh * 0.4,
     );
     this.camera.lookAt(this.camLook);
+    if (this.debugCam) {
+      this.camera.position.copy(this.debugCam[0]);
+      this.camera.lookAt(this.tmpV.copy(this.debugCam[1]));
+    }
     this.camera.rotateZ(Math.sin(t * 0.9) * sh * 0.04);
 
     this.renderer.render(this.scene, this.camera);

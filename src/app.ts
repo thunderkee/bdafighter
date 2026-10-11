@@ -220,6 +220,7 @@ export function boot() {
     (window as unknown as Record<string, unknown>).__mf = {
       game,
       ai,
+      view,
       start: startMatch,
       /** a bot that plays the player's side, for bot-vs-bot balance runs */
       bot(name: string) {

@@ -53,12 +53,16 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | `src/game.ts`   | Rapier 2D world: walls, pushable bumps, pooled CCD marbles, damage  |
 | `src/ai.ts`     | Opponent: lead aim, bank shots, bump shots, reaction-delayed dodge  |
 | `src/input.ts`  | Two-thumb touch zones, mouse and keyboard                           |
-| `src/view.ts`   | three.js scene, instanced marbles, sparks, aim dots, camera shake   |
+| `src/view.ts`   | three.js scene, instanced marbles, sparks, aim dots, chase camera   |
+| `src/robot.ts`  | SD robot models (placeholder 'angel' and 'dragon' styles)           |
 | `src/audio.ts`  | Synthesised SFX, unlocked on first tap                              |
 | `src/storage.ts`| localStorage save with an in-memory fallback                        |
 | `src/app.ts`    | Screens, HUD, fixed-step loop, pause on hidden tab                  |
 
 Physics is **2D** (Rapier `rapier2d`) and rendered in 3D: the duel happens on a flat table, so 2D gives the same bank shots and clashes for less CPU on mid-range Android.
+
+> The robots are placeholder art inspired by existing mecha designs. Replace them with original
+> designs before any public release (see "Later: package and release" in the plan).
 
 ## Phase checklist
 
