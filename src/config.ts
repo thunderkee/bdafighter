@@ -14,7 +14,7 @@ export const ARENA = {
 };
 
 export const MATCH = {
-  duration: 75,
+  duration: 60,
   maxHealth: 100,
   countdown: 2.4,
   /** active marble cap across both sides (multi-shot volleys need headroom) */
@@ -45,7 +45,7 @@ export const BASE_STATS: ShooterStats = {
   fireInterval: 0.13,
   marbleRadius: 0.22,
   marbleMass: 1,
-  damage: 4.4,
+  damage: 6.5,
   capacity: 14,
   reloadTime: 1.5,
   moveSpeed: 7,

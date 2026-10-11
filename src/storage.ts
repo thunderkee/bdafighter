@@ -46,6 +46,8 @@ export interface Settings {
   realism: boolean;
   /** frame-rate meter in the corner */
   showFps: boolean;
+  /** marbles per magazine for both robots (3-10) */
+  magazine: number;
 }
 
 export interface SaveData {
@@ -77,6 +79,7 @@ export const DEFAULT_SETTINGS: Settings = {
   effects: true,
   realism: true,
   showFps: false,
+  magazine: 10,
 };
 
 /** the opponent settings, for "reset opponent" */

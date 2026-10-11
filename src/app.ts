@@ -53,13 +53,16 @@ const ITEM_ICONS: Record<ItemType, string> = {
 
 export function boot() {
   let saveData = store.load();
-  const playerStats = () => computeStats(STARTER_BUILD);
+  /** magazine size is a match rule, the same for both robots */
+  const magazine = () => Math.max(3, Math.min(10, Math.round(saveData.settings.magazine || 10)));
+  const playerStats = () => ({ ...computeStats(STARTER_BUILD), capacity: magazine() });
   const enemyStats = () => {
     const st = saveData.settings;
     const base = computeStats(STARTER_BUILD, profile.stats);
     const power = level(st.enemyPower);
     return {
       ...base,
+      capacity: magazine(),
       moveSpeed: base.moveSpeed * level(st.enemySpeed),
       damage: base.damage * power,
       marbleMass: base.marbleMass * power,
@@ -108,7 +111,7 @@ export function boot() {
   const spBox = [document.querySelector<HTMLElement>('.sp.player')!, document.querySelector<HTMLElement>('.sp.enemy')!];
   const chip = [1, 1];
   const chipDelay = [0, 0];
-  const pips = $('ammo-pips');
+  const pips = $('mag-tube');
   const reloadBar = $('reload');
   const vignette = $('vignette');
   const hints = $('hints');
@@ -118,9 +121,11 @@ export function boot() {
   const superPips = [[...document.querySelectorAll<HTMLElement>('#player-super i')], [...document.querySelectorAll<HTMLElement>('#enemy-super i')]];
   const superRows = [$('player-super'), $('enemy-super')];
 
+  /** one marble per magazine slot, tinted with the player's ball colour */
   const buildPips = () => {
     pips.innerHTML = '';
     for (let i = 0; i < player.stats.capacity; i++) pips.appendChild(document.createElement('i'));
+    $('magazine').style.setProperty('--ball', hexc(characterById(saveData.settings.character).ball));
   };
 
   const setTouchClass = () => document.body.classList.toggle('touch', input.mode === 'touch');
@@ -761,9 +766,12 @@ export function boot() {
     (rg.firstElementChild as HTMLElement).style.left = 50 + (player.x / ARENA.railHalfWidth) * 50 + '%';
     rg.classList.toggle('end', !!player.railPush);
 
-    const full = Math.floor(player.ammo);
+    // during a reload the tube refills from the bottom as the bar fills
+    const full = player.reload > 0 ? Math.floor((1 - player.reload / player.stats.reloadTime) * player.stats.capacity) : Math.floor(player.ammo);
     const kids = pips.children;
     for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('empty', i >= full);
+    $('magazine').classList.toggle('reloading', player.reload > 0);
+    $('ammo-count').textContent = `${Math.floor(player.ammo)}/${player.stats.capacity}`;
     reloadBar.classList.toggle('on', player.reload > 0);
     if (player.reload > 0) {
       (reloadBar.firstElementChild as HTMLElement).style.width = (1 - player.reload / player.stats.reloadTime) * 100 + '%';

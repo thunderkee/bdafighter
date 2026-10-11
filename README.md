@@ -53,6 +53,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Opponent unit   | Auto (different from yours) or any of the 8                              |
 | Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City (pucks match the theme) |
 |           | Pucks           | 0–5, each count has its own symmetric layout (applies next match)        |
+|           | Magazine        | 3–10 marbles per load, same for both robots (default 10)                 |
 |           | Air drops       | On / Off                                                                 |
 |           | Power gates     | Show / Hide                                                              |
 | Opponent  | Armor           | 50% / 75% / 100% / 150% / 200% health                                    |
@@ -102,7 +103,7 @@ that pass through it are transformed; each gate has limited charges, then shatte
 ## Match flow (Tekken style)
 
 1. **VS intro**: the camera orbits each fighter while their name card slides in, then VS slams in (tap to skip).
-2. **Best of 3 rounds**: first to 2 round wins. ROUND n / FINAL ROUND, READY, FIGHT! banners; round markers
+2. **Best of 3 rounds** (60 s each): first to 2 round wins. ROUND n / FINAL ROUND, READY, FIGHT! banners; round markers
    next to the names; K.O. / TIME UP / PERFECT calls. A drawn round counts for both sides (a deciding round
    is played if that leaves both on two; capped at 5 rounds).
 3. **Quick replay** after every KO: the last ~2.5 s in slow motion (quarter speed right at the KO) from a

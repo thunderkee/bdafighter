@@ -39,7 +39,7 @@
               </div>
             </div>
           </div>
-          <div id="clock-wrap"><div id="clock">75</div></div>
+          <div id="clock-wrap"><div id="clock">60</div></div>
           <div class="side enemy">
             <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
             <div class="sp enemy"><div class="fill"></div></div>
@@ -61,10 +61,17 @@
           <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
         </div>
 
+        <!-- marble magazine: a glass tube on the left that empties as you fire -->
+        <div class="magazine" id="magazine">
+          <div class="mag-cap"></div>
+          <div class="mag-tube" id="mag-tube"></div>
+          <div class="mag-label">MAG</div>
+        </div>
+
         <!-- player's weapon status, bottom left -->
         <div class="ammo-strip">
           <span class="sm-label">AMMO</span>
-          <div id="ammo-pips"></div>
+          <b class="ammo-count" id="ammo-count">14/14</b>
           <div id="reload"><div></div></div>
           <div id="rail-gauge" title="Position on the rail"><i></i></div>
         </div>
@@ -195,6 +202,13 @@
               <span>Pushable cover for trick shots. Applies next match.</span>
               <div class="seg" data-setting="pucks">
                 <button data-value="0">0</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Magazine</b><em>marbles per load</em></div>
+              <span>How many marbles each robot fires before it must reload. Applies to both.</span>
+              <div class="seg level" data-setting="magazine">
+                <button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button><button data-value="6">6</button><button data-value="7">7</button><button data-value="8">8</button><button data-value="9">9</button><button data-value="10">10</button>
               </div>
             </div>
             <div class="setting">

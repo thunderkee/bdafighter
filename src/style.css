@@ -419,22 +419,6 @@ button {
   color: var(--muted);
 }
 
-/* ammo pips */
-#ammo-pips {
-  display: flex;
-  gap: 2px;
-}
-#ammo-pips i {
-  width: 5px;
-  height: 10px;
-  background: var(--cyan);
-  transform: skewX(-20deg);
-  box-shadow: 0 0 4px rgba(62, 240, 255, 0.6);
-}
-#ammo-pips i.empty {
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: none;
-}
 #reload {
   width: 60px;
   height: 4px;
@@ -733,6 +717,7 @@ body.buttons #hints {
 /* ================= SCREENS ================= */
 .screen {
   position: absolute;
+  z-index: 3;
   inset: 0;
   display: flex;
   flex-direction: column;
@@ -1347,6 +1332,7 @@ body.buttons #effects {
 
 #fps {
   position: absolute;
+  z-index: 2;
   left: 12px;
   top: calc(max(8px, env(safe-area-inset-top)) + 96px);
   padding: 3px 7px;
@@ -1361,4 +1347,71 @@ body.buttons #effects {
 }
 #fps.bad {
   color: var(--enemy);
+}
+
+/* ---------- marble magazine (left edge) ---------- */
+.magazine {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+  --ball: #6fa8ff;
+}
+.mag-cap {
+  width: 26px;
+  height: 6px;
+  background: var(--amber);
+  clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 100%, 0 100%);
+}
+.mag-tube {
+  display: flex;
+  flex-direction: column-reverse; /* fills from the bottom */
+  gap: 2px;
+  padding: 4px 3px;
+  width: 22px;
+  border: 1px solid rgba(160, 220, 255, 0.55);
+  border-radius: 11px;
+  background: linear-gradient(90deg, rgba(160, 220, 255, 0.22), rgba(160, 220, 255, 0.05) 45%, rgba(160, 220, 255, 0.18));
+  box-shadow: inset 0 0 6px rgba(62, 240, 255, 0.25);
+}
+.mag-tube i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0 12%, var(--ball) 45%, color-mix(in srgb, var(--ball) 55%, #000) 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  transition:
+    opacity 0.08s,
+    transform 0.08s;
+}
+.mag-tube i.empty {
+  opacity: 0.12;
+  transform: scale(0.7);
+}
+.magazine.reloading .mag-tube {
+  animation: mag-reload 0.5s ease-in-out infinite alternate;
+}
+@keyframes mag-reload {
+  from {
+    border-color: rgba(255, 194, 61, 0.35);
+  }
+  to {
+    border-color: var(--amber);
+    box-shadow: 0 0 10px rgba(255, 194, 61, 0.6);
+  }
+}
+.mag-label {
+  font: 700 7px var(--display);
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.ammo-count {
+  min-width: 36px;
+  font: 700 11px var(--display);
+  color: var(--ink);
 }

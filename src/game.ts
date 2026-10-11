@@ -1,5 +1,5 @@
 import RAPIER from '@dimforge/rapier2d';
-import { AIM_LIMIT, ARENA, MATCH, type ShooterStats } from './config';
+import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, type ShooterStats } from './config';
 import { BOOST, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, SHIELD, X5, type GateType, type ItemType } from './items';
 import * as sfx from './audio';
 
@@ -563,7 +563,7 @@ export class Game {
       }
       if (m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
         const attacker = this.shooters[m.team];
-        const amount = MISSILE.damage * (attacker.stats.damage / 4.4);
+        const amount = MISSILE.damage * (attacker.stats.damage / BASE_STATS.damage);
         if (this.block(target, amount, m.x, m.y, true)) {
           m.hits++;
           m.heading += Math.PI + (Math.random() - 0.5) * 1.2;
