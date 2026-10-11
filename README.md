@@ -30,11 +30,19 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 
 ## Controls
 
-| Touch (primary)                         | Desktop                       |
+| Touch (Gestures layout, default)        | Desktop                       |
 | --------------------------------------- | ----------------------------- |
 | Left 40%: drag sideways to move         | A / D or ← / →: move          |
 | Right 60%: hold to fire, drag to aim    | Mouse aims, hold click to fire |
 |                                         | Space fires, Q / E nudge aim, P / Esc pause |
+
+**Settings** (⚙ on the title screen, or Settings in the pause menu; saved on the device):
+
+| Setting       | Options                                                            |
+| ------------- | ------------------------------------------------------------------ |
+| Controls      | **Gestures** or **Buttons**: ◀ ▶ bottom-left, FIRE bottom-right    |
+| Left / Right  | **Move** slides the robot; **Aim** turns its aim instead (◀ ▶ become ↶ ↷, A / D too) |
+| Mouse aim     | **On** / **Off**. Off ignores the mouse so keys or buttons aim     |
 
 ## How it fits together
 

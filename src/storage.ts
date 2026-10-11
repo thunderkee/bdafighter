@@ -3,20 +3,35 @@
 
 const KEY = 'marble-fighter:v1';
 
+export interface Settings {
+  /** mouse aims and click fires; off = mouse is ignored in a match */
+  mouseAim: boolean;
+  /** what left/right (keys and buttons) do: slide the shooter or turn its aim */
+  arrows: 'move' | 'aim';
+  /** touch gestures over the arena, or on-screen ◀ ▶ FIRE buttons */
+  layout: 'gestures' | 'buttons';
+}
+
 export interface SaveData {
   matches: number;
   wins: number;
   muted: boolean;
+  settings: Settings;
 }
 
-const DEFAULTS: SaveData = { matches: 0, wins: 0, muted: false };
+export const DEFAULT_SETTINGS: Settings = { mouseAim: true, arrows: 'move', layout: 'gestures' };
+
+const DEFAULTS: SaveData = { matches: 0, wins: 0, muted: false, settings: DEFAULT_SETTINGS };
 
 let memory: SaveData = { ...DEFAULTS };
 
 export function load(): SaveData {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) memory = { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      memory = { ...DEFAULTS, ...parsed, settings: { ...DEFAULT_SETTINGS, ...parsed.settings } };
+    }
   } catch {
     // keep the in-memory copy
   }

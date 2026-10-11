@@ -24,6 +24,13 @@
           <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
           <div class="ammo"><div id="ammo-pips"></div><div id="reload"><div></div></div></div>
         </div>
+        <div id="pad" class="hidden">
+          <div class="pad-dir">
+            <button class="pad-btn" data-btn="left" aria-label="Left">◀</button>
+            <button class="pad-btn" data-btn="right" aria-label="Right">▶</button>
+          </div>
+          <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>
+        </div>
         <div id="hints">
           <div class="hint left">◀ drag to move ▶</div>
           <div class="hint right">hold to fire<br />drag to aim</div>
@@ -39,6 +46,7 @@
         <p class="how touch-only">Left thumb: drag to move · Right thumb: hold to fire, drag to aim</p>
         <p class="how mouse-only">Mouse aims · hold click or Space to fire · A / D to move</p>
         <p id="record" class="record"></p>
+        <button id="settings-btn" class="icon-btn small left" aria-label="Settings">⚙</button>
         <button id="mute-btn" class="icon-btn small" aria-label="Toggle sound">🔊</button>
       </div>
 
@@ -56,6 +64,44 @@
       <div id="paused" class="screen hidden">
         <div class="result-title">PAUSED</div>
         <button id="resume-btn" class="btn">Resume</button>
+        <button id="pause-settings-btn" class="btn ghost">Settings</button>
+      </div>
+
+      <div id="settings" class="screen hidden">
+        <div class="result-title small">SETTINGS</div>
+        <div class="settings">
+          <div class="setting">
+            <div>
+              <b>Controls</b>
+              <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom</span>
+            </div>
+            <div class="seg" data-setting="layout">
+              <button data-value="gestures">Gestures</button>
+              <button data-value="buttons">Buttons</button>
+            </div>
+          </div>
+          <div class="setting">
+            <div>
+              <b>Left / Right</b>
+              <span>Buttons and A / D keys slide the shooter or turn its aim</span>
+            </div>
+            <div class="seg" data-setting="arrows">
+              <button data-value="move">Move</button>
+              <button data-value="aim">Aim</button>
+            </div>
+          </div>
+          <div class="setting">
+            <div>
+              <b>Mouse aim</b>
+              <span>Cursor aims, click fires. Turn off to aim with keys or buttons</span>
+            </div>
+            <div class="seg" data-setting="mouseAim">
+              <button data-value="true">On</button>
+              <button data-value="false">Off</button>
+            </div>
+          </div>
+        </div>
+        <button id="settings-done" class="btn">Done</button>
       </div>
 
       <div id="loading" class="screen"><p>Loading…</p></div>

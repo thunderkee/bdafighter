@@ -133,7 +133,68 @@ export function boot() {
     $('mute-btn').textContent = saveData.muted ? '🔇' : '🔊';
   });
   $('mute-btn').textContent = saveData.muted ? '🔇' : '🔊';
+
+  // ---------- settings ----------
+  const padDir = document.querySelectorAll<HTMLElement>('.pad-dir .pad-btn');
+  const applySettings = () => {
+    const st = saveData.settings;
+    input.settings = { ...st };
+    document.body.classList.toggle('buttons', st.layout === 'buttons');
+    $('pad').classList.toggle('hidden', st.layout !== 'buttons');
+    padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
+    padDir[1].textContent = st.arrows === 'aim' ? '↷' : '▶';
+    document.querySelectorAll<HTMLElement>('.seg').forEach((seg) => {
+      const current = String(st[seg.dataset.setting as keyof store.Settings]);
+      seg.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.value === current));
+    });
+  };
+  document.querySelectorAll<HTMLElement>('.seg button').forEach((b) =>
+    b.addEventListener('click', () => {
+      const key = (b.parentElement as HTMLElement).dataset.setting as keyof store.Settings;
+      const raw = b.dataset.value!;
+      const value = raw === 'true' ? true : raw === 'false' ? false : raw;
+      saveData = store.save({ settings: { ...saveData.settings, [key]: value } });
+      input.release();
+      applySettings();
+    }),
+  );
+  applySettings();
+
+  let settingsFrom: 'title' | 'paused' = 'title';
+  const openSettings = (from: 'title' | 'paused') => {
+    settingsFrom = from;
+    $(from).classList.add('hidden');
+    $('settings').classList.remove('hidden');
+  };
+  $('settings-btn').addEventListener('click', () => openSettings('title'));
+  $('pause-settings-btn').addEventListener('click', () => openSettings('paused'));
+  $('settings-done').addEventListener('click', () => {
+    $('settings').classList.add('hidden');
+    $(settingsFrom).classList.remove('hidden');
+  });
+
+  // on-screen buttons: held while a pointer is down on them
+  document.querySelectorAll<HTMLElement>('.pad-btn').forEach((el) => {
+    const name = el.dataset.btn as keyof typeof input.buttons;
+    const set = (held: boolean) => {
+      input.buttons[name] = held;
+      el.classList.toggle('held', held);
+    };
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      sfx.unlock();
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        // fine without capture
+      }
+      set(true);
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) el.addEventListener(ev, () => set(false));
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
   window.addEventListener('keydown', (e) => {
+    if (!$('settings').classList.contains('hidden')) return;
     if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!paused);
     if ((e.code === 'Enter' || e.code === 'Space') && screen !== 'playing') {
       e.preventDefault();

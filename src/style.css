@@ -382,3 +382,113 @@ body:not(.touch) .touch-only {
   pointer-events: none;
   white-space: pre;
 }
+
+/* ---------- button layout ---------- */
+#pad {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 34px);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+}
+.pad-dir {
+  display: flex;
+  gap: 12px;
+}
+.pad-btn {
+  pointer-events: auto;
+  touch-action: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 99px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(20, 14, 48, 0.55);
+  color: var(--ink);
+  font: 900 24px var(--font);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+.pad-btn.fire {
+  width: 96px;
+  height: 96px;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  background: rgba(255, 74, 61, 0.75);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.pad-btn.held {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.28);
+}
+.pad-btn.fire.held {
+  background: #ff6b5e;
+}
+body.buttons #hints {
+  display: none;
+}
+
+/* ---------- settings ---------- */
+.icon-btn.small.left {
+  right: auto;
+  left: 12px;
+  font-size: 18px;
+}
+.btn.ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  box-shadow: none;
+}
+.result-title.small {
+  font-size: 40px;
+}
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(340px, 100%);
+  margin: 8px 0 12px;
+  text-align: left;
+}
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.setting b {
+  display: block;
+  font-size: 15px;
+}
+.setting span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.seg {
+  display: flex;
+  padding: 4px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.seg button {
+  flex: 1;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--muted);
+  font: 800 14px var(--font);
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--accent);
+  color: #2a1d00;
+}

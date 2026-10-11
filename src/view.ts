@@ -17,55 +17,163 @@ interface Spark {
   size: number;
 }
 
+/**
+ * Chibi marble-shooter robot built from primitives. The upper body turns
+ * with the aim; the three part slots map to visible pieces:
+ *   barrel   -> the chest cannon
+ *   core     -> the torso with a marble sitting in its chest window
+ *   magazine -> the clear tube on the head, which empties as you fire
+ * Footprint matches the physics collider (about 1.24 x 1.0).
+ */
+const MAG_BALLS = 5;
+
 class ShooterMesh {
   root = new THREE.Group();
+  /** everything above the hips; rotates with aim */
   turret = new THREE.Group();
-  barrel: THREE.Mesh;
-  body: THREE.Mesh;
+  barrel = new THREE.Group();
+  trigger: THREE.Mesh;
+  legs: THREE.Group[] = [];
+  magBalls: THREE.Mesh[] = [];
   mats: THREE.MeshLambertMaterial[] = [];
-  baseColor: THREE.Color;
+  visorMat: THREE.MeshBasicMaterial;
+  private stride = 0;
 
-  constructor(color: number) {
-    this.baseColor = new THREE.Color(color);
-    const mat = new THREE.MeshLambertMaterial({ color });
-    const dark = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).multiplyScalar(0.55) });
-    const light = new THREE.MeshLambertMaterial({ color: 0xf2efe9 });
-    this.mats.push(mat, dark, light);
+  constructor(color: number, visor: number, marble: number) {
+    const main = new THREE.MeshLambertMaterial({ color });
+    const dark = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).multiplyScalar(0.45) });
+    const white = new THREE.MeshLambertMaterial({ color: 0xf2efe9 });
+    const gold = new THREE.MeshLambertMaterial({ color: 0xffc23d });
+    const steel = new THREE.MeshLambertMaterial({ color: 0x3a3550 });
+    this.mats.push(main, dark, white, gold, steel);
+    this.visorMat = new THREE.MeshBasicMaterial({ color: visor });
+    const glass = new THREE.MeshPhongMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.35, shininess: 120, depthWrite: false });
+    const ballMat = new THREE.MeshPhongMaterial({ color: marble, shininess: 90, specular: 0xffffff });
 
-    // base chassis — same footprint as the physics collider (1.24 x 1.0)
-    this.body = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.5, 1.0), mat);
-    this.body.position.y = 0.25;
-    this.root.add(this.body);
-    const feet = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.14, 1.1), dark);
-    feet.position.y = 0.07;
-    this.root.add(feet);
+    const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      mesh.position.set(x, y, z);
+      return mesh;
+    };
+    const cyl = (rt: number, rb: number, h: number, m: THREE.Material, seg = 16) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
 
-    // turret holds the three future part slots: core, magazine, barrel
-    this.turret.position.y = 0.5;
+    // --- legs: a foot and shin each, swung by the walk cycle ---
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Group();
+      leg.position.set(side * 0.3, 0.5, 0);
+      const shin = box(0.28, 0.36, 0.3, dark, 0, -0.2, 0);
+      const foot = box(0.4, 0.16, 0.6, main, 0, -0.42, -0.06);
+      const toe = box(0.4, 0.1, 0.12, white, 0, -0.45, -0.38);
+      leg.add(shin, foot, toe);
+      this.root.add(leg);
+      this.legs.push(leg);
+    }
+    this.root.add(box(0.78, 0.2, 0.5, steel, 0, 0.6, 0));
+
+    // --- upper body ---
+    this.turret.position.y = 0.68;
     this.root.add(this.turret);
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.36, 16, 12), light);
-    core.position.y = 0.2;
-    this.turret.add(core);
-    const mag = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.7, 12), dark);
-    mag.position.set(0, 0.62, 0.12);
-    this.turret.add(mag);
-    this.barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.18, 0.8, 12), dark);
-    this.barrel.rotation.x = Math.PI / 2;
-    this.barrel.position.set(0, 0.2, -0.55);
+
+    // torso (core slot)
+    this.turret.add(box(1.0, 0.72, 0.74, main, 0, 0.38, 0));
+    this.turret.add(box(0.84, 0.3, 0.08, white, 0, 0.56, -0.38)); // chest plate
+    this.turret.add(box(0.7, 0.12, 0.6, dark, 0, 0.04, 0)); // belt
+    const window_ = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), ballMat);
+    window_.position.set(0, 0.6, -0.36);
+    this.turret.add(window_);
+
+    // chest cannon (barrel slot) — recoils when firing
+    this.barrel.position.set(0, 0.28, -0.4);
+    const tube = cyl(0.17, 0.2, 0.42, steel);
+    tube.rotation.x = Math.PI / 2;
+    tube.position.z = -0.12;
+    const ring = cyl(0.22, 0.22, 0.08, gold);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.z = -0.32;
+    const bore = cyl(0.12, 0.12, 0.02, new THREE.MeshBasicMaterial({ color: 0x08060f }));
+    bore.rotation.x = Math.PI / 2;
+    bore.position.z = -0.37;
+    this.barrel.add(tube, ring, bore);
     this.turret.add(this.barrel);
+
+    // trigger on the back, pushed in on every shot
+    this.trigger = box(0.3, 0.26, 0.2, gold, 0, 0.36, 0.44);
+    this.turret.add(this.trigger);
+
+    // shoulders and arms gripping the sides of the cannon
+    for (const side of [-1, 1]) {
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), dark);
+      shoulder.position.set(side * 0.6, 0.62, 0);
+      const pad = box(0.3, 0.1, 0.42, gold, side * 0.62, 0.8, 0);
+      const arm = box(0.2, 0.42, 0.22, main, side * 0.62, 0.32, -0.08);
+      arm.rotation.x = -0.5;
+      const fist = box(0.24, 0.22, 0.24, white, side * 0.5, 0.14, -0.34);
+      this.turret.add(shoulder, pad, arm, fist);
+    }
+
+    // head with visor, ear pods and a V-fin crest
+    const head = new THREE.Group();
+    head.position.set(0, 1.0, 0);
+    head.add(box(0.62, 0.48, 0.56, main, 0, 0, 0));
+    head.add(box(0.66, 0.1, 0.6, white, 0, 0.22, 0)); // helmet brim
+    head.add(box(0.5, 0.14, 0.04, this.visorMat, 0, 0.0, -0.29));
+    head.add(box(0.2, 0.1, 0.06, white, 0, -0.16, -0.28)); // mouth plate
+    for (const side of [-1, 1]) {
+      const ear = cyl(0.12, 0.12, 0.12, dark, 12);
+      ear.rotation.z = Math.PI / 2;
+      ear.position.set(side * 0.36, 0, 0);
+      head.add(ear);
+      const fin = box(0.08, 0.32, 0.06, gold, side * 0.12, 0.38, -0.26);
+      fin.rotation.z = side * -0.55;
+      head.add(fin);
+    }
+    this.turret.add(head);
+
+    // magazine slot: clear tube feeding into the back of the head
+    const mag = new THREE.Group();
+    mag.position.set(0, 1.42, 0.16);
+    const tubeGlass = cyl(0.15, 0.15, 0.74, glass);
+    tubeGlass.position.y = 0.2;
+    const cap = cyl(0.17, 0.17, 0.06, gold);
+    cap.position.y = 0.58;
+    mag.add(tubeGlass, cap);
+    for (let i = 0; i < MAG_BALLS; i++) {
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), ballMat);
+      ball.position.y = -0.1 + i * 0.13;
+      mag.add(ball);
+      this.magBalls.push(ball);
+    }
+    this.turret.add(mag);
   }
 
-  sync(s: Shooter, time: number) {
+  sync(s: Shooter, time: number, dt: number) {
     this.root.position.set(s.x, 0, -s.y);
     // the turret faces -z for the player and +z for the opponent
-    this.turret.rotation.y = s.team === 0 ? -s.aim : Math.PI + s.aim;
-    this.barrel.position.z = -0.55 + s.recoil * 0.12;
-    // hit flash: blend every material toward white
-    const f = s.flash > 0 ? 1 : 0;
-    this.mats[0].emissive.setRGB(f, f, f);
-    this.mats[1].emissive.setRGB(f * 0.8, f * 0.8, f * 0.8);
-    // idle bob when low on health reads as "hurt"
-    this.root.position.y = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
+    const facing = s.team === 0 ? 0 : Math.PI;
+    this.root.rotation.y = facing;
+    this.turret.rotation.y = s.team === 0 ? -s.aim : s.aim;
+    this.barrel.position.z = -0.4 + s.recoil * 0.14;
+    this.trigger.position.z = 0.44 - s.recoil * 0.12;
+
+    // walk cycle while sliding along the rail
+    const moving = Math.min(1, Math.abs(s.vx) / 3);
+    this.stride += dt * 14 * moving;
+    this.legs[0].rotation.x = Math.sin(this.stride) * 0.5 * moving;
+    this.legs[1].rotation.x = -Math.sin(this.stride) * 0.5 * moving;
+    this.turret.rotation.z = (s.team === 0 ? -1 : 1) * Math.sign(s.vx) * moving * 0.06;
+    const bob = Math.abs(Math.sin(this.stride)) * 0.05 * moving;
+
+    // magazine tube shows what's left
+    const filled = s.reload > 0 ? 0 : Math.ceil((s.ammo / s.stats.capacity) * MAG_BALLS);
+    this.magBalls.forEach((b, i) => (b.visible = i < filled));
+
+    // hit flash: push every material toward white
+    // the player's own robot flashes softer so it never washes out
+    const f = s.flash > 0 ? (s.team === 0 ? 0.45 : 0.9) : 0;
+    for (const m of this.mats) m.emissive.setRGB(f, f, f);
+    // hurt shudder when low on health
+    const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
+    this.root.position.y = bob + hurt;
   }
 }
 
@@ -112,7 +220,10 @@ export class View {
     this.scene.add(sun);
 
     this.buildArena();
-    this.shooters = [new ShooterMesh(COLORS.player), new ShooterMesh(COLORS.enemy)];
+    this.shooters = [
+      new ShooterMesh(COLORS.player, 0x7ff6ff, COLORS.playerMarble),
+      new ShooterMesh(COLORS.enemy, 0xffe066, COLORS.enemyMarble),
+    ];
     for (const s of this.shooters) this.scene.add(s.root);
 
     // marbles: one instanced mesh per team, hidden instances scaled to 0
@@ -290,7 +401,7 @@ export class View {
     this.time += dt;
     this.handleFx();
 
-    g.shooters.forEach((s, i) => this.shooters[i].sync(s, this.time));
+    g.shooters.forEach((s, i) => this.shooters[i].sync(s, this.time, dt));
 
     // marbles + visual rolling
     const counts = [0, 0];
@@ -372,8 +483,8 @@ export class View {
   private followPlayer(dt: number) {
     const p = this.game.shooters[0];
     const lean = Math.sin(p.aim);
-    this.camGoal.set(p.x * 0.6 - lean * 1.1, 8, -p.y + 8.2);
-    this.lookGoal.set(p.x * 0.35 + lean * 3, 0, -p.y - 6.5);
+    this.camGoal.set(p.x * 0.85 - lean * 1.1, 8, -p.y + 8.2);
+    this.lookGoal.set(p.x * 0.55 + lean * 3, 0, -p.y - 6.5);
     // frame-rate independent smoothing
     const k = this.snapCamera ? 1 : 1 - Math.exp(-dt * 6);
     this.camBase.lerp(this.camGoal, k);

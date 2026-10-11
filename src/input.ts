@@ -1,18 +1,25 @@
 import { AIM_LIMIT, ARENA } from './config';
 import type { Shooter } from './game';
+import { DEFAULT_SETTINGS, type Settings } from './storage';
+
+const AIM_TURN_RATE = 1.7; // rad/s when left/right turn the aim
 
 /**
  * Touch first:
  *   left 40% of the screen  — drag sideways to slide along the rail
  *   right 60% of the screen — hold to fire, drag sideways to aim
- * Mouse: cursor aims, hold button to fire, A/D or arrows move.
- * Keyboard: A/D or arrows move, Q/E nudge aim, Space fires.
+ * Buttons layout: on-screen ◀ ▶ and FIRE replace the gesture zones.
+ * Mouse (can be switched off): cursor aims, hold button to fire.
+ * Keyboard: A/D or arrows move (or turn aim, per settings), Q/E nudge aim, Space fires.
  */
 export class Input {
   enabled = false;
   /** 'touch' once a finger is seen, so the HUD can show the right hints */
   mode: 'touch' | 'mouse' = 'ontouchstart' in window ? 'touch' : 'mouse';
   onFirstInput: (() => void) | null = null;
+  settings: Settings = { ...DEFAULT_SETTINGS };
+  /** held state of the on-screen buttons */
+  buttons = { left: false, right: false, fire: false };
 
   private moveTouch: { id: number; x0: number; s0: number } | null = null;
   private aimTouch: { id: number; x0: number; a0: number } | null = null;
@@ -39,6 +46,7 @@ export class Input {
     this.keys.clear();
     this.moveTouch = this.aimTouch = null;
     this.mouseDown = false;
+    this.buttons.left = this.buttons.right = this.buttons.fire = false;
     this.player.firing = false;
     this.player.moveTarget = null;
     this.player.moveAxis = 0;
@@ -58,11 +66,13 @@ export class Input {
     const r = this.el.getBoundingClientRect();
     if (e.pointerType === 'mouse') {
       this.mode = 'mouse';
+      if (!this.settings.mouseAim) return;
       if (e.button === 0) this.mouseDown = true;
       this.mouseWorld = this.screenToWorld(e.clientX, e.clientY);
       return;
     }
     this.mode = 'touch';
+    if (this.settings.layout === 'buttons') return;
     try {
       this.el.setPointerCapture(e.pointerId);
     } catch {
@@ -124,19 +134,25 @@ export class Input {
       return;
     }
     const k = this.keys;
-    const left = k.has('KeyA') || k.has('ArrowLeft');
-    const right = k.has('KeyD') || k.has('ArrowRight');
+    const b = this.buttons;
+    const left = k.has('KeyA') || k.has('ArrowLeft') || b.left;
+    const right = k.has('KeyD') || k.has('ArrowRight') || b.right;
+    const axis = (right ? 1 : 0) - (left ? 1 : 0);
+    const turning = this.settings.arrows === 'aim';
     if (!this.moveTouch) {
-      p.moveAxis = (right ? 1 : 0) - (left ? 1 : 0);
-      if (left || right) p.moveTarget = null;
+      p.moveAxis = turning ? 0 : axis;
+      if (axis && !turning) p.moveTarget = null;
     }
-    if (k.has('KeyQ')) p.aim -= 1.8 * dt;
-    if (k.has('KeyE')) p.aim += 1.8 * dt;
+    if (turning) p.aim += axis * AIM_TURN_RATE * dt;
+    if (k.has('KeyQ')) p.aim -= AIM_TURN_RATE * dt;
+    if (k.has('KeyE')) p.aim += AIM_TURN_RATE * dt;
+    // key/button aiming wins until the mouse moves again
+    if ((turning && axis) || k.has('KeyQ') || k.has('KeyE')) this.mouseWorld = null;
 
-    if (this.mode === 'mouse' && this.mouseWorld && !k.has('KeyQ') && !k.has('KeyE')) {
+    if (this.settings.mouseAim && this.mode === 'mouse' && this.mouseWorld) {
       const dy = this.mouseWorld.y - p.y;
       if (dy > 0.5) p.aim = Math.atan2(this.mouseWorld.x - p.x, dy);
     }
-    p.firing = !!this.aimTouch || this.mouseDown || k.has('Space');
+    p.firing = !!this.aimTouch || (this.settings.mouseAim && this.mouseDown) || k.has('Space') || b.fire;
   }
 }
