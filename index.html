@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#15112a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Marble Fighter</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage"></div>
+      <div id="touch"></div>
+      <div id="vignette"></div>
+
+      <div id="hud" class="hidden">
+        <div class="bar-row top">
+          <div class="who"><span id="enemy-name">Sparring Bot</span></div>
+          <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
+        </div>
+        <div id="clock">75</div>
+        <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
+        <div class="bar-row bottom">
+          <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
+          <div class="ammo"><div id="ammo-pips"></div><div id="reload"><div></div></div></div>
+        </div>
+        <div id="hints">
+          <div class="hint left">◀ drag to move ▶</div>
+          <div class="hint right">hold to fire<br />drag to aim</div>
+        </div>
+      </div>
+
+      <div id="banner"></div>
+
+      <div id="title" class="screen">
+        <div class="logo"><span>MARBLE</span><span>FIGHTER</span></div>
+        <p class="tag">1v1 marble-shooting duel</p>
+        <button id="play-btn" class="btn">Play</button>
+        <p class="how touch-only">Left thumb: drag to move · Right thumb: hold to fire, drag to aim</p>
+        <p class="how mouse-only">Mouse aims · hold click or Space to fire · A / D to move</p>
+        <p id="record" class="record"></p>
+        <button id="mute-btn" class="icon-btn small" aria-label="Toggle sound">🔊</button>
+      </div>
+
+      <div id="result" class="screen hidden">
+        <div id="result-title" class="result-title">WIN</div>
+        <div class="stats">
+          <div><span>Damage dealt</span><b id="r-dealt">0</b></div>
+          <div><span>Accuracy</span><b id="r-acc">0%</b></div>
+          <div><span>Health left</span><b id="r-hp">0</b></div>
+        </div>
+        <button id="again-btn" class="btn">Rematch</button>
+        <p id="session" class="record"></p>
+      </div>
+
+      <div id="paused" class="screen hidden">
+        <div class="result-title">PAUSED</div>
+        <button id="resume-btn" class="btn">Resume</button>
+      </div>
+
+      <div id="loading" class="screen"><p>Loading…</p></div>
+      <div id="debug" class="hidden"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
