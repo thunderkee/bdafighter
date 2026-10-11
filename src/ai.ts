@@ -1,4 +1,5 @@
 import { ARENA, type AIProfile } from './config';
+import { GATE } from './items';
 import type { Game, Shooter } from './game';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -12,7 +13,7 @@ function foldX(x: number, half: number) {
   return t <= span ? t - half : span * 2 - t - half;
 }
 
-type AimMode = 'direct' | 'bank' | 'bump';
+type AimMode = 'direct' | 'bank' | 'bump' | 'gate' | 'deny';
 
 export class AIController {
   private burstLeft = 0;
@@ -114,6 +115,9 @@ export class AIController {
       case 'boost':
         use = this.holdTime > 0.4;
         break;
+      case 'missile':
+        use = this.holdTime > 0.3;
+        break;
       case 'multi':
       case 'dragon':
         // fire power items when roughly lined up and loaded
@@ -124,6 +128,18 @@ export class AIController {
   }
 
   private pickAimMode() {
+    // sometimes snipe the crate sitting on the opponent's rail
+    if (this.game.drops.some((d) => d.team === this.foe.team && d.h < 1) && Math.random() < 0.35) {
+      this.aimMode = 'deny';
+      this.aimNoise = gauss() * this.profile.aimError * 0.5;
+      return;
+    }
+    // a charged gate is worth shooting through most of the time
+    if (this.game.gates.some((g) => g.charges > 0) && Math.random() < 0.55) {
+      this.aimMode = 'gate';
+      this.aimNoise = gauss() * this.profile.aimError * 0.6;
+      return;
+    }
     const r = Math.random();
     const pr = this.profile;
     if (r < pr.bankChance) this.aimMode = 'bank';
@@ -145,6 +161,20 @@ export class AIController {
     let tx = foe.x + foe.vx * flight * pr.lead;
     const half = ARENA.width / 2 - me.stats.marbleRadius;
 
+    if (this.aimMode === 'deny') {
+      const d = this.game.drops.find((dd) => dd.team === foe.team);
+      if (d) return this.angleTo(d.x, foe.y) + this.aimNoise;
+    }
+    if (this.aimMode === 'gate') {
+      const g = this.game.gates.find((gg) => gg.charges > 0);
+      if (g) {
+        // lead the sliding gate: where will it be when the ball gets there?
+        const t = Math.abs(g.y - me.y) / me.stats.muzzleSpeed;
+        const span = ARENA.width / 2 - GATE.halfWidth;
+        const gx = Math.max(-span, Math.min(span, g.cx + Math.sin((g.age + t) * GATE.swaySpeed + g.phase) * GATE.sway));
+        return this.angleTo(gx, g.y) + this.aimNoise;
+      }
+    }
     if (this.aimMode === 'bank') {
       // mirror the target across the wall on the side the foe is closer to
       const wall = tx >= 0 ? half : -half;

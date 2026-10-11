@@ -53,6 +53,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City (pucks match the theme) |
 |           | Pucks           | 0–5, each count has its own symmetric layout (applies next match)        |
 |           | Air drops       | On / Off                                                                 |
+|           | Power gates     | Show / Hide                                                              |
 | Opponent  | Armor           | 50% / 75% / 100% / 150% / 200% health                                    |
 |           | Speed           | 1–5: movement speed                                                      |
 |           | Agility         | 1–5: how often and how quickly it dodges                                 |
@@ -76,10 +77,32 @@ points at crates on your rail, even off-screen. The AI grabs and uses items too.
 | Overdrive    | 6 seconds of 1.8x movement, with afterimages, thrusters, speed lines |
 | Repair Kit   | Restores 25% of max armor                                           |
 | Dragon Shot  | Three heavy glowing balls that weave in a zig-zag braid             |
+| Homing Missile | Chases the opponent (limited turn rate, so a sharp sidestep can slip it); hits up to 3 times, then explodes |
+
+The opponent can **shoot a crate down** once it's low enough to hit; it's lost for that side. The AI will
+sometimes snipe your crate, and you can snipe its crate.
+
+## Power gates
+
+Every 13–17 s a holographic gate appears mid-table and slides side to side for 5 s. Balls from either side
+that pass through it are transformed; each gate has limited charges, then shatters.
+
+| Gate | Charges | Effect                                                            |
+| ---- | ------- | ----------------------------------------------------------------- |
+| 5×   | 3       | Multiplies the ball's damage by 5 (a basic ball also grows, gold)  |
+| POW  | 3       | Turns a basic ball into a power ball (super-shot size and damage)  |
+| DRG  | 1       | Splits the ball into a three-ball dragon-shot braid                |
+
+## Knockout
+
+The loser sputters through three explosions, then blows apart: every part flies off, tumbles, bounces and
+smokes in slow motion while the camera swings in on the wreck.
 
 ## Portraits
 
-Each unit's face is drawn live with ThorVG in the HUD: it glances around, flinches red when hit, grins when
+The HUD is laid out like a fighting game: both armor bars across the top (player left, opponent right,
+draining toward the centre) with the timer between them and portraits underneath. Each unit's face is drawn
+live with ThorVG: it glances around, flinches red when hit, grins when
 it lands hits or has an item running, glows gold with a super ready, cracks/smokes/sparks as armor drops
 (crest snaps off below 25%), cheers on a win and shows X eyes on a KO.
 

@@ -534,6 +534,29 @@ export class ShooterMesh {
     g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.12), joint)); // wing root
   }
 
+  /** true once the robot has been blown apart */
+  broken = false;
+
+  /**
+   * Blow the robot apart: every mesh is detached into the scene, keeping its
+   * world transform, and returned so the caller can fling it around.
+   */
+  shatter(scene: THREE.Scene): THREE.Mesh[] {
+    this.broken = true;
+    this.root.updateMatrixWorld(true);
+    const pieces: THREE.Mesh[] = [];
+    this.root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) pieces.push(o as THREE.Mesh);
+    });
+    for (const p of pieces) scene.attach(p);
+    // scorch the paint
+    for (const m of this.mats) {
+      m.color.multiplyScalar(0.55);
+      m.emissive.setRGB(0, 0, 0);
+    }
+    return pieces;
+  }
+
   /** Free GPU memory when swapping characters. */
   dispose() {
     this.root.traverse((o) => {

@@ -23,36 +23,47 @@
 
       <!-- ================= HUD ================= -->
       <div id="hud" class="hidden">
-        <div class="unit enemy">
-          <div class="portrait"><canvas id="face-enemy"></canvas></div>
-          <div class="unit-info">
-            <div class="unit-label">
-              <span class="tag">OPP</span><span id="enemy-name" class="unit-name">WYVERN</span>
-              <span class="super-pips" id="enemy-super"><i></i><i></i><i></i></span>
+        <!-- fighting-game top bar: player left, opponent right, timer centre -->
+        <div class="vs-bar">
+          <div class="side player">
+            <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
+            <div class="side-info">
+              <div class="portrait"><canvas id="face-player"></canvas></div>
+              <div class="meta">
+                <div class="unit-name"><span class="tag">P1</span><span id="player-name">SERAPH ZERO</span></div>
+                <div class="meta-row">
+                  <span class="readout" id="player-hp-num">100%</span>
+                  <span class="super-meter" id="player-super"><span class="super-pips"><i></i><i></i><i></i></span><span class="sm-label">SUPER</span></span>
+                </div>
+              </div>
             </div>
+          </div>
+          <div id="clock-wrap"><div id="clock">75</div></div>
+          <div class="side enemy">
             <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
-            <div class="unit-sub"><span class="readout" id="enemy-hp-num">100%</span><span id="enemy-item" class="item-tag"></span></div>
+            <div class="side-info">
+              <div class="portrait"><canvas id="face-enemy"></canvas></div>
+              <div class="meta">
+                <div class="unit-name"><span id="enemy-name">WYVERN</span><span class="tag">CPU</span></div>
+                <div class="meta-row">
+                  <span class="readout" id="enemy-hp-num">100%</span>
+                  <span class="super-meter" id="enemy-super"><span class="sm-label">SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></span>
+                </div>
+                <span id="enemy-item" class="item-tag"></span>
+              </div>
+            </div>
           </div>
         </div>
+        <div class="hud-btns">
+          <button id="hud-settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
+          <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
+        </div>
 
-        <div id="clock-wrap"><div id="clock">75</div></div>
-        <button id="hud-settings-btn" class="icon-btn gear" aria-label="Settings">⚙</button>
-        <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
-
-        <div class="unit player">
-          <div class="portrait"><canvas id="face-player"></canvas></div>
-          <div class="unit-info">
-            <div class="unit-label">
-              <span class="tag">PILOT</span><span id="player-name" class="unit-name">SERAPH ZERO</span>
-              <span class="super-meter" id="player-super"><span>SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></span>
-            </div>
-            <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
-            <div class="ammo">
-              <span class="readout" id="player-hp-num">100%</span>
-              <div id="ammo-pips"></div>
-              <div id="reload"><div></div></div>
-            </div>
-          </div>
+        <!-- player's weapon status, bottom left -->
+        <div class="ammo-strip">
+          <span class="sm-label">AMMO</span>
+          <div id="ammo-pips"></div>
+          <div id="reload"><div></div></div>
         </div>
 
         <button id="item-btn" class="item-slot empty" aria-label="Use item">
@@ -155,6 +166,11 @@
               <div class="set-head"><b>Air drops</b></div>
               <span>Item crates parachute onto each rail. Walk over one to grab it.</span>
               <div class="seg" data-setting="items"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Power gates</b></div>
+              <span>Sliding gates mid-table: 5× multiplies a ball's power, POW makes a power ball, DRG splits it into a dragon shot.</span>
+              <div class="seg" data-setting="gates"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
             </div>
           </section>
 

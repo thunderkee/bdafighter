@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { ARENA, COLORS, MATCH } from './config';
-import type { Drop, Game, Team } from './game';
+import type { Drop, Game, Gate, Team } from './game';
 import { ShooterMesh } from './robot';
 import { Stage } from './stage';
-import { ITEMS } from './items';
+import { GATE, GATES, ITEMS, MISSILE } from './items';
 import { hex, type Fx2D, type Glow, type Marker } from './fx2d';
 
 // Physics (x, y) maps to three.js (x, 0, -y): the player sits near the
@@ -11,7 +11,7 @@ import { hex, type Fx2D, type Glow, type Marker } from './fx2d';
 
 const SPARKS = 220;
 const AIM_DOTS = 26;
-const POWER_BALLS = 8;
+const POWER_BALLS = 16;
 const GHOSTS = 4;
 
 interface Spark {
@@ -23,6 +23,28 @@ interface Spark {
   size: number;
   /** floaty sparks (heal pluses) ignore gravity */
   float: boolean;
+}
+
+interface Debris {
+  mesh: THREE.Mesh;
+  v: THREE.Vector3;
+  spin: THREE.Vector3;
+  smoke: number;
+}
+
+/** the loser's breakup: timed explosions, then the robot flies apart */
+interface KoState {
+  team: Team;
+  t: number;
+  pops: number;
+  shattered: boolean;
+  debris: Debris[];
+}
+
+interface GateMesh {
+  root: THREE.Group;
+  panel: THREE.MeshBasicMaterial;
+  pips: THREE.Mesh[];
 }
 
 interface DropMesh {
@@ -108,6 +130,10 @@ export class View {
   private hemi: THREE.HemisphereLight;
   private sun: THREE.DirectionalLight;
   private dropMeshes = new Map<number, DropMesh>();
+  private gateMeshes = new Map<number, GateMesh>();
+  private missileMeshes = new Map<number, { root: THREE.Group; flame: THREE.Mesh }>();
+  private missileTrails = new Map<number, { x: number; y: number }[]>();
+  private ko: KoState | null = null;
   private robotFx: [RobotFx, RobotFx];
 
   constructor(
@@ -291,11 +317,18 @@ export class View {
             this.fx2d?.ring(sp.x, sp.y, hex(0xffe066), true);
             this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
             this.fx2d?.flash(f.team === 0 ? [255, 90, 80] : [255, 245, 200], 0.3);
-          } else if (f.power === 'dragon') {
-            this.burst(f.x, f.y, ITEMS.dragon.color, 30, 9);
+          } else if (f.power === 'missile') {
+            this.burst(f.x, f.y, ITEMS.missile.color, 26, 8, { h: 0.9 });
+            this.burst(f.x, f.y, 0xffffff, 10, 5, { h: 0.9 });
+            this.shake(f.team === 0 ? 0.6 : 0.4);
+            this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.missile.color), true);
+            this.fx2d?.star(sp.x, sp.y, [255, 255, 255]);
+          } else if (f.power === 'dragon' || f.power === 'x5') {
+            const c = f.power === 'x5' ? GATES.x5.color : ITEMS.dragon.color;
+            this.burst(f.x, f.y, c, 30, 9);
             this.burst(f.x, f.y, 0xffe066, 14, 6);
             this.shake(0.6);
-            this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.dragon.color), true);
+            this.fx2d?.ring(sp.x, sp.y, hex(c), true);
             this.fx2d?.star(sp.x, sp.y, hex(0xffe066));
           } else {
             this.burst(f.x, f.y, color, 14, 6);
@@ -337,6 +370,48 @@ export class View {
           this.burst(s.x, s.y, c, 16, 5, { h: 1 });
           break;
         }
+        case 'missile-launch': {
+          const s = g.shooters[f.team];
+          this.shake(f.team === 0 ? 0.25 : 0.1);
+          const sp = this.project(s.x, s.y, 1);
+          this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.missile.color));
+          break;
+        }
+        case 'missile-end': {
+          const sp = this.project(f.x, f.y, 0.9);
+          this.burst(f.x, f.y, ITEMS.missile.color, 24, 7, { h: 0.9 });
+          this.burst(f.x, f.y, 0xffffff, 10, 5, { h: 0.9 });
+          this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.missile.color), true);
+          this.fx2d?.star(sp.x, sp.y, [255, 255, 255]);
+          this.shake(0.25);
+          break;
+        }
+        case 'drop-destroyed': {
+          const c = ITEMS[f.item].color;
+          const sp = this.project(f.x, f.y, 0.5);
+          this.burst(f.x, f.y, c, 24, 7, { h: 0.5 });
+          this.burst(f.x, f.y, 0x8a90a8, 14, 5, { h: 0.5 });
+          this.fx2d?.ring(sp.x, sp.y, hex(c), true);
+          this.fx2d?.star(sp.x, sp.y, hex(c));
+          this.shake(0.2);
+          break;
+        }
+        case 'gate-pass': {
+          const c = GATES[f.gate].color;
+          const sp = this.project(f.x, f.y, 0.6);
+          this.fx2d?.ring(sp.x, sp.y, hex(c));
+          this.fx2d?.star(sp.x, sp.y, hex(c));
+          this.burst(f.x, f.y, c, 14, 5, { h: 0.6 });
+          this.shake(0.12);
+          break;
+        }
+        case 'gate-break': {
+          const c = GATES[f.gate].color;
+          const sp = this.project(f.x, f.y, 1);
+          this.fx2d?.ring(sp.x, sp.y, hex(c), true);
+          this.burst(f.x, f.y, c, 30, 8, { h: 1 });
+          break;
+        }
         case 'heal': {
           const s = g.shooters[f.team];
           // rising green motes
@@ -351,17 +426,22 @@ export class View {
   render(dt: number, showAim: boolean) {
     const g = this.game;
     this.time += dt;
+    this.glows.length = 0;
     this.handleFx();
     this.stage.update(dt, this.time);
 
-    g.shooters.forEach((s, i) => this.shooters[i].sync(s, this.time, dt));
+    g.shooters.forEach((s, i) => {
+      if (!this.shooters[i].broken) this.shooters[i].sync(s, this.time, dt);
+    });
+    this.updateKo(dt);
     this.updateRobotFx(dt);
+    this.updateMissiles(dt);
     this.updateDrops();
+    this.updateGates();
 
     // marbles + visual rolling
     const counts = [0, 0];
     let powerCount = 0;
-    this.glows.length = 0;
     const seen = new Set<number>();
     for (const m of g.marbles) {
       if (!m.active) continue;
@@ -369,12 +449,13 @@ export class View {
         const p = m.body.translation();
         const mesh = this.powerMeshes[powerCount++];
         const dragon = m.kind === 'dragon';
+        const gold = m.kind === 'x5';
         if (mesh) {
           mesh.visible = true;
           mesh.position.set(p.x, m.radius, -p.y);
           // shimmer between white-hot and the ball's colour
           const pulse = 0.5 + 0.5 * Math.sin(this.time * 30 + m.idx);
-          const base = dragon ? ITEMS.dragon.color : m.team === 0 ? 0x9fd0ff : 0xffb09a;
+          const base = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : m.team === 0 ? 0x9fd0ff : 0xffb09a;
           (mesh.material as THREE.MeshBasicMaterial).color.set(base).lerp(this.tmpC.set(0xffffff), pulse * 0.5);
           mesh.scale.setScalar(m.radius * (1 + pulse * 0.08));
         }
@@ -384,7 +465,7 @@ export class View {
         if (trail.length > (dragon ? 14 : 10)) trail.length = dragon ? 14 : 10;
         this.trails.set(m.idx, trail);
         seen.add(m.idx);
-        const glowColor = dragon ? ITEMS.dragon.color : m.team === 0 ? 0x5fa8ff : 0xff6a4a;
+        const glowColor = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : m.team === 0 ? 0x5fa8ff : 0xff6a4a;
         this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(p.x, p.y, m.radius), color: hex(glowColor), trail: trail.slice(1) });
         continue;
       }
@@ -555,6 +636,257 @@ export class View {
     }
   }
 
+  /** Clear the wreck and rebuild a broken robot before the next match. */
+  resetMatch() {
+    if (this.ko) {
+      for (const d of this.ko.debris) {
+        this.scene.remove(d.mesh);
+        d.mesh.geometry.dispose();
+      }
+      this.ko = null;
+    }
+    this.shooters.forEach((sm, i) => {
+      if (!sm.broken) return;
+      this.scene.remove(sm.root);
+      sm.dispose();
+      const next = new ShooterMesh(sm.id, i === 0 ? COLORS.playerMarble : COLORS.enemyMarble);
+      this.scene.add(next.root);
+      this.shooters[i] = next;
+    });
+    for (const [id, mm] of this.missileMeshes) {
+      this.scene.remove(mm.root);
+      this.missileMeshes.delete(id);
+    }
+    this.snapCamera = true;
+  }
+
+  /** The losing robot sputters, pops three times, then blows apart. */
+  private updateKo(dt: number) {
+    const g = this.game;
+    if (!this.ko && (g.phase === 'ko' || g.phase === 'over') && (g.winner === 0 || g.winner === 1)) {
+      this.ko = { team: g.winner === 0 ? 1 : 0, t: 0, pops: 0, shattered: false, debris: [] };
+    }
+    const ko = this.ko;
+    if (!ko) return;
+    // run the sequence a little slow for drama
+    const sdt = dt * 0.6;
+    ko.t += sdt;
+    const l = g.shooters[ko.team];
+    const color = ko.team === 0 ? COLORS.player : COLORS.enemy;
+    const sp = () => this.project(l.x, l.y, 1);
+    // three pops from different spots on the body
+    const popAt = [0.05, 0.3, 0.55];
+    while (ko.pops < popAt.length && ko.t >= popAt[ko.pops]) {
+      const ox = (Math.random() - 0.5) * 1.2;
+      this.burst(l.x + ox, l.y, 0xffd27a, 18, 6, { h: 0.6 + Math.random() });
+      this.burst(l.x + ox, l.y, color, 10, 5, { h: 1 });
+      const p = sp();
+      this.fx2d?.ring(p.x + ox * 20, p.y, hex(0xffd27a));
+      this.fx2d?.star(p.x + ox * 20, p.y, [255, 255, 255]);
+      this.shake(0.35);
+      ko.pops++;
+    }
+    if (!ko.shattered && ko.t >= 0.85) {
+      ko.shattered = true;
+      const sm = this.shooters[ko.team];
+      const centre = new THREE.Vector3(l.x, 0.9, -l.y);
+      for (const mesh of sm.shatter(this.scene)) {
+        const out = mesh.getWorldPosition(new THREE.Vector3()).sub(centre);
+        out.y = Math.max(0.2, out.y);
+        out.normalize();
+        const v = out.multiplyScalar(2 + Math.random() * 4.5);
+        v.y += 2.5 + Math.random() * 4;
+        const spin = new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+        ko.debris.push({ mesh, v, spin, smoke: Math.random() * 0.3 });
+      }
+      this.burst(l.x, l.y, 0xffffff, 40, 12, { h: 1 });
+      this.burst(l.x, l.y, 0xff8a2a, 50, 10, { h: 0.8 });
+      this.burst(l.x, l.y, color, 30, 9, { h: 1.2 });
+      const p = sp();
+      this.fx2d?.ring(p.x, p.y, hex(0xffd27a), true);
+      this.fx2d?.ring(p.x, p.y, hex(color), true);
+      this.fx2d?.star(p.x, p.y, [255, 255, 255], true);
+      this.fx2d?.flash([255, 240, 210], 0.45);
+      this.shake(1);
+    }
+    // tumbling debris with gravity, floor bounces and smoke
+    for (const d of ko.debris) {
+      d.v.y -= 16 * sdt;
+      d.mesh.position.addScaledVector(d.v, sdt);
+      d.mesh.rotation.x += d.spin.x * sdt;
+      d.mesh.rotation.y += d.spin.y * sdt;
+      d.mesh.rotation.z += d.spin.z * sdt;
+      if (d.mesh.position.y < 0.06) {
+        d.mesh.position.y = 0.06;
+        d.v.y *= -0.32;
+        d.v.x *= 0.7;
+        d.v.z *= 0.7;
+        d.spin.multiplyScalar(0.6);
+      }
+      d.smoke -= sdt;
+      if (d.smoke <= 0 && ko.t < 6) {
+        d.smoke = 0.25 + Math.random() * 0.4;
+        const wp = d.mesh.position;
+        this.burst(wp.x, -wp.z, Math.random() < 0.3 ? 0xff8a2a : 0x6a6a74, 1, 1, { h: wp.y, float: true, size: 0.12 });
+      }
+    }
+  }
+
+  /** Homing missiles: body, fins, flickering flame, smoke and a glow trail. */
+  private updateMissiles(dt: number) {
+    const live = new Set<number>();
+    for (const m of this.game.missiles) {
+      live.add(m.id);
+      let mm = this.missileMeshes.get(m.id);
+      if (!mm) {
+        mm = this.makeMissile(m.team);
+        this.missileMeshes.set(m.id, mm);
+      }
+      mm.root.position.set(m.x, 0.9 + Math.sin(this.time * 6 + m.id) * 0.08, -m.y);
+      // model points along -z; face the heading
+      mm.root.rotation.y = Math.atan2(-Math.cos(m.heading), Math.sin(m.heading));
+      mm.flame.scale.set(1, 0.7 + Math.random() * 0.7, 1);
+      if (Math.random() < 0.7) this.burst(m.x - Math.cos(m.heading) * 0.5, m.y - Math.sin(m.heading) * 0.5, 0x9a9aa6, 1, 0.5, { h: 0.9, float: true, size: 0.1 });
+      const sp = this.project(m.x, m.y, 0.9);
+      const trail = this.missileTrails.get(m.id) ?? [];
+      trail.unshift(sp);
+      if (trail.length > 12) trail.length = 12;
+      this.missileTrails.set(m.id, trail);
+      this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(m.x, m.y, 0.22), color: hex(ITEMS.missile.color), trail: trail.slice(1) });
+    }
+    for (const [id, mm] of this.missileMeshes) {
+      if (live.has(id)) continue;
+      this.scene.remove(mm.root);
+      this.missileMeshes.delete(id);
+      this.missileTrails.delete(id);
+    }
+    void dt;
+    void MISSILE;
+  }
+
+  private makeMissile(team: Team) {
+    const root = new THREE.Group();
+    const bodyMat = new THREE.MeshLambertMaterial({ color: team === 0 ? 0xe8f4ff : 0x3a2a30 });
+    const stripe = new THREE.MeshBasicMaterial({ color: ITEMS.missile.color });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.75, 10), bodyMat);
+    body.rotation.x = Math.PI / 2;
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.3, 10), new THREE.MeshLambertMaterial({ color: team === 0 ? COLORS.player : COLORS.enemy }));
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.z = -0.52;
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 10), stripe);
+    band.rotation.x = Math.PI / 2;
+    band.position.z = -0.2;
+    root.add(body, nose, band);
+    for (let k = 0; k < 4; k++) {
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 0.2), bodyMat);
+      fin.position.z = 0.3;
+      fin.rotation.z = (k * Math.PI) / 2;
+      fin.translateY(0.15);
+      root.add(fin);
+    }
+    const flameGeo = new THREE.ConeGeometry(0.11, 0.5, 8);
+    flameGeo.rotateX(-Math.PI / 2);
+    flameGeo.translate(0, 0, 0.25);
+    const flame = new THREE.Mesh(flameGeo, new THREE.MeshBasicMaterial({ color: 0xffb04a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    flame.position.z = 0.4;
+    root.add(flame);
+    this.scene.add(root);
+    return { root, flame };
+  }
+
+  /** Holographic gates: two posts, a top bar, a label panel and charge pips. */
+  private updateGates() {
+    const live = new Set<number>();
+    for (const g of this.game.gates) {
+      live.add(g.id);
+      let gm = this.gateMeshes.get(g.id);
+      if (!gm) {
+        gm = this.makeGate(g);
+        this.gateMeshes.set(g.id, gm);
+      }
+      // pop in, shrink out
+      const grow = Math.min(1, g.age / 0.3, Math.max(0, (g.life - g.age) / 0.3));
+      gm.root.position.set(g.x, 0, -g.y);
+      gm.root.scale.set(grow, grow, grow);
+      gm.panel.opacity = 0.32 + Math.sin(this.time * 8) * 0.06;
+      gm.pips.forEach((p, i) => (p.visible = i < g.charges));
+    }
+    for (const [id, gm] of this.gateMeshes) {
+      if (live.has(id)) continue;
+      this.scene.remove(gm.root);
+      gm.root.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) {
+          mesh.geometry.dispose();
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          mat.map?.dispose();
+          mat.dispose();
+        }
+      });
+      this.gateMeshes.delete(id);
+    }
+  }
+
+  private makeGate(g: Gate): GateMesh {
+    const def = GATES[g.type];
+    const w = GATE.halfWidth * 2;
+    const h = 1.5;
+    const root = new THREE.Group();
+    const frame = new THREE.MeshBasicMaterial({ color: def.color });
+    for (const side of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, h, 0.1), frame);
+      post.position.set(side * GATE.halfWidth, h / 2, 0);
+      root.add(post);
+    }
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.1, 0.1), frame);
+    bar.position.y = h;
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, 0.14), frame);
+    sill.position.y = 0.02;
+    root.add(bar, sill);
+    // translucent field + label drawn on a canvas
+    const cvs = document.createElement('canvas');
+    cvs.width = 256;
+    cvs.height = 160;
+    const c = cvs.getContext('2d')!;
+    const col = '#' + def.color.toString(16).padStart(6, '0');
+    const grad = c.createLinearGradient(0, 0, 0, 160);
+    grad.addColorStop(0, col + 'cc');
+    grad.addColorStop(1, col + '22');
+    c.fillStyle = grad;
+    c.fillRect(0, 0, 256, 160);
+    c.strokeStyle = 'rgba(255,255,255,0.35)';
+    for (let y = 4; y < 160; y += 8) {
+      c.beginPath();
+      c.moveTo(0, y);
+      c.lineTo(256, y);
+      c.stroke();
+    }
+    c.font = '900 76px Orbitron, sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.lineWidth = 8;
+    c.strokeStyle = 'rgba(5,9,20,0.85)';
+    c.strokeText(def.label, 128, 74);
+    c.fillStyle = '#ffffff';
+    c.fillText(def.label, 128, 74);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const panel = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(w, h), panel);
+    field.position.y = h / 2;
+    root.add(field);
+    // one pip per remaining charge above the bar
+    const pips: THREE.Mesh[] = [];
+    for (let i = 0; i < def.charges; i++) {
+      const pip = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), frame);
+      pip.position.set((i - (def.charges - 1) / 2) * 0.3, h + 0.22, 0);
+      root.add(pip);
+      pips.push(pip);
+    }
+    this.scene.add(root);
+    return { root, panel, pips };
+  }
+
   private makeDrop(d: Drop): DropMesh {
     const c = ITEMS[d.type].color;
     const root = new THREE.Group();
@@ -601,6 +933,17 @@ export class View {
    * with its position and leaning a little into the aim direction.
    */
   private followPlayer(dt: number) {
+    if (this.ko) {
+      // KO cam: swing in on the wreck (a reverse shot when the player loses)
+      const l = this.game.shooters[this.ko.team];
+      // camera sits in front of the loser, a little to the side
+      this.camGoal.set(l.x * 0.6 + 2.6, 4.8, -l.y + (l.team === 0 ? -8.5 : 8.5));
+      this.lookGoal.set(l.x, 0.6, -l.y);
+      const k = 1 - Math.exp(-dt * 2.5);
+      this.camBase.lerp(this.camGoal, k);
+      this.camLook.lerp(this.lookGoal, k);
+      return;
+    }
     const p = this.game.shooters[0];
     const lean = Math.sin(p.aim);
     this.camGoal.set(p.x * 0.9 - lean * 0.9, 6.4, -p.y + 6.4);

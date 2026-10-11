@@ -47,6 +47,7 @@ const ITEM_ICONS: Record<ItemType, string> = {
   boost: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M4 5l7 7-7 7M13 5l7 7-7 7"/></svg>',
   heal: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
   dragon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 22c-5-3 5-5 0-8s5-5 0-8"/><circle cx="12" cy="3" r="2" fill="currentColor"/></svg>',
+  missile: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1c3 2.5 4 6 4 10v6H8v-6c0-4 1-7.5 4-10z"/><path d="M8 13l-4 4v3l4-2zM16 13l4 4v3l-4-2z"/><path d="M10 19h4l-2 4z" opacity=".7"/></svg>',
 };
 
 export function boot() {
@@ -108,7 +109,7 @@ export function boot() {
   const itemBtn = $('item-btn');
   const effects = $('effects');
   const superPips = [[...document.querySelectorAll<HTMLElement>('#player-super i')], [...document.querySelectorAll<HTMLElement>('#enemy-super i')]];
-  const superRows = [$('player-super'), document.querySelector<HTMLElement>('.unit.enemy .unit-label')!];
+  const superRows = [$('player-super'), $('enemy-super')];
 
   const buildPips = () => {
     pips.innerHTML = '';
@@ -153,7 +154,8 @@ export function boot() {
     ai.agility = AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1];
     view.setCharacters(st.character, enemyCharacter());
     view.setStage(st.stage);
-    game.reset(playerStats(), enemyStats(), { enemyMaxHealth: enemyMaxHealth(), pucks: st.pucks, items: st.items });
+    view.resetMatch();
+    game.reset(playerStats(), enemyStats(), { enemyMaxHealth: enemyMaxHealth(), pucks: st.pucks, items: st.items, gates: st.gates });
     ai.reset();
     input.release();
     input.enabled = true;
@@ -447,6 +449,7 @@ export function boot() {
           if (f.team === 0 && saveData.settings.vibrate) buzz(25);
         }
         if (f.type === 'use' && f.team === 1) showToast(`ENEMY ${ITEMS[f.item].name.toUpperCase()}`, 0xff3e5e);
+        if (f.type === 'drop-destroyed') showToast(f.team === 0 ? 'SUPPLY DESTROYED' : 'ENEMY SUPPLY DENIED', f.team === 0 ? 0xff3e5e : ITEMS[f.item].color);
       }
 
       updateHud(dt);

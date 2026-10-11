@@ -32,6 +32,8 @@ export interface Settings {
   stage: string;
   /** air-drop items on/off */
   items: boolean;
+  /** moving power gates on/off */
+  gates: boolean;
 }
 
 export interface SaveData {
@@ -56,6 +58,7 @@ export const DEFAULT_SETTINGS: Settings = {
   vibrate: true,
   stage: 'space',
   items: true,
+  gates: true,
 };
 
 /** the opponent settings, for "reset opponent" */
