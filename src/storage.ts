@@ -48,6 +48,12 @@ export interface Settings {
   showFps: boolean;
   /** marbles per magazine for both robots (3-10) */
   magazine: number;
+  /** opponents in the pack (1-3) */
+  pack: number;
+  /** destructible cover walls per side (0-3) */
+  covers: number;
+  /** pinball pins on the table (0-8) */
+  pins: number;
 }
 
 export interface SaveData {
@@ -80,6 +86,9 @@ export const DEFAULT_SETTINGS: Settings = {
   realism: true,
   showFps: false,
   magazine: 10,
+  pack: 1,
+  covers: 0,
+  pins: 0,
 };
 
 /** the opponent settings, for "reset opponent" */

@@ -1,7 +1,7 @@
 // Air-drop items: data only, so new items are a new entry plus a case in
 // Game.useItem().
 
-export type ItemType = 'multi' | 'boost' | 'heal' | 'dragon' | 'missile';
+export type ItemType = 'multi' | 'slowmo' | 'heal' | 'dragon' | 'missile' | 'wiper';
 
 export interface ItemDef {
   name: string;
@@ -15,10 +15,11 @@ export interface ItemDef {
 
 export const ITEMS: Record<ItemType, ItemDef> = {
   multi: { name: 'Multi Shot', short: 'MULTI', color: 0x3ef0ff, duration: 6, weight: 1 },
-  boost: { name: 'Overdrive', short: 'BOOST', color: 0xffd23e, duration: 6, weight: 1 },
+  slowmo: { name: 'Slow-Mo', short: 'SLOW-MO', color: 0xffd23e, duration: 3, weight: 1 },
   heal: { name: 'Repair Kit', short: 'REPAIR', color: 0x4dff88, duration: 0, weight: 0.8 },
   dragon: { name: 'Dragon Shot', short: 'DRAGON', color: 0xff3e8e, duration: 0, weight: 0.8 },
   missile: { name: 'Homing Missile', short: 'MISSILE', color: 0xff7a2a, duration: 0, weight: 0.8 },
+  wiper: { name: 'Wiper', short: 'WIPER', color: 0xc8925a, duration: 6, weight: 0.9 },
 };
 
 export const ITEM_TYPES = Object.keys(ITEMS) as ItemType[];
@@ -38,8 +39,14 @@ export const DROP = {
 
 /** multi shot: marbles per volley, fan half-angle, damage scale, fire-interval scale */
 export const MULTI = { count: 6, fan: 0.32, damage: 0.6, interval: 2 };
-/** overdrive: move speed multiplier */
-export const BOOST = { speed: 1.8 };
+/**
+ * slow-mo: the whole match runs at `world` speed for `duration` game seconds
+ * (so twice as long in real time), while the robot that used it moves, fires
+ * and reloads at `owner` times real speed
+ */
+export const SLOWMO = { world: 0.5, owner: 1.25 };
+/** wiper: a brick that sweeps in front of the robot and sends enemy balls back as its own */
+export const WIPER = { halfWidth: 1.0, ahead: 1.2, sweep: 0.9, sweepSpeed: 3.2, speedUp: 1.1 };
 /** repair kit: fraction of max health restored */
 export const HEAL = { fraction: 0.25 };
 /**
@@ -52,7 +59,7 @@ export const DRAGON = { count: 3, gap: 0.12, radius: 1.7, mass: 25, damage: 2.6,
 
 // ---------- gates ----------
 
-export type GateType = 'x5' | 'pow' | 'drg';
+export type GateType = 'x5' | 'pow' | 'drg' | 'hom' | 'wall';
 
 export interface GateDef {
   label: string;
@@ -66,6 +73,9 @@ export const GATES: Record<GateType, GateDef> = {
   x5: { label: '5×', name: 'Power ×5', color: 0xffc23d, charges: 3 },
   pow: { label: 'POW', name: 'Power Ball', color: 0x3ef0ff, charges: 3 },
   drg: { label: 'DRG', name: 'Dragon Gate', color: 0xff3e8e, charges: 1 },
+  hom: { label: 'HOM', name: 'Homing Gate', color: 0xff7a2a, charges: 1 },
+  // a solid wall: "charges" are the hits it takes before it breaks
+  wall: { label: 'WALL', name: 'Wall', color: 0x9aa8c4, charges: 5 },
 };
 
 export const GATE_TYPES = Object.keys(GATES) as GateType[];
@@ -103,3 +113,21 @@ export const SHIELD = {
   /** move speed while shielding */
   moveMul: 0.5,
 };
+
+// ---------- table obstacles ----------
+
+/** destructible cover: mirrored pairs in front of each rail */
+export const COVER = { hp: 5, halfWidth: 0.7, halfDepth: 0.18, y: 5.2 };
+export const COVER_X: number[][] = [[], [0], [-2.2, 2.2], [-3, 0, 3]];
+/** pinball pins: point-symmetric so both sides get the same deflections */
+export const PIN = { radius: 0.16 };
+export const PIN_SPOTS: [number, number][] = [
+  [-1.3, 1.7],
+  [1.3, -1.7],
+  [3.3, 1.0],
+  [-3.3, -1.0],
+  [-0.9, 4.3],
+  [0.9, -4.3],
+  [3.6, 6.3],
+  [-3.6, -6.3],
+];

@@ -201,8 +201,18 @@
               <div class="set-head"><b>Pucks</b></div>
               <span>Pushable cover for trick shots. Applies next match.</span>
               <div class="seg" data-setting="pucks">
-                <button data-value="0">0</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+                <button data-value="0">Off</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
               </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Walls</b><em>cover per side</em></div>
+              <span>Crates in front of each rail that block shots. Break after 5 hits.</span>
+              <div class="seg" data-setting="covers"><button data-value="0">Off</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Pins</b><em>pinball posts</em></div>
+              <span>Bouncy posts that redirect balls. Placed so both sides get the same angles.</span>
+              <div class="seg" data-setting="pins"><button data-value="0">Off</button><button data-value="2">2</button><button data-value="4">4</button><button data-value="6">6</button><button data-value="8">8</button></div>
             </div>
             <div class="setting">
               <div class="set-head"><b>Magazine</b><em>marbles per load</em></div>
@@ -218,12 +228,17 @@
             </div>
             <div class="setting">
               <div class="set-head"><b>Power gates</b></div>
-              <span>Sliding gates mid-table: 5× multiplies a ball's power, POW makes a power ball, DRG splits it into a dragon shot.</span>
+              <span>Sliding gates mid-table: 5× multiplies a ball's power, POW makes a power ball, DRG splits it into a dragon shot, HOM turns it into a homing missile, WALL blocks until shot 5 times.</span>
               <div class="seg" data-setting="gates"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
             </div>
           </section>
 
           <section data-panel="opponent">
+            <div class="setting">
+              <div class="set-head"><b>Pack</b><em>opponents at once</em></div>
+              <span>Fight up to three. Bigger packs get less armour and damage each.</span>
+              <div class="seg" data-setting="pack"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
+            </div>
             <div class="setting">
               <div class="set-head"><b>Armor</b><em>health</em></div>
               <div class="seg" data-setting="enemyHealth">

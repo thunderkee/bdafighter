@@ -8,7 +8,7 @@ import { Fx2D } from './fx2d';
 import { Portrait } from './face';
 import { CHARACTERS, characterById } from './robot';
 import { STAGES, stageById } from './stage';
-import { ITEMS, SHIELD, type ItemType } from './items';
+import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import * as store from './storage';
@@ -45,7 +45,8 @@ const hexc = (n: number) => '#' + n.toString(16).padStart(6, '0');
 /** small line icons for the items, drawn in currentColor */
 const ITEM_ICONS: Record<ItemType, string> = {
   multi: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4" r="2.4"/><circle cx="5.5" cy="7" r="2.4"/><circle cx="18.5" cy="7" r="2.4"/><circle cx="3" cy="13" r="2.4"/><circle cx="21" cy="13" r="2.4"/><circle cx="12" cy="11" r="2.4"/><path d="M9 18h6l-3 4z"/></svg>',
-  boost: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M4 5l7 7-7 7M13 5l7 7-7 7"/></svg>',
+  slowmo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>',
+  wiper: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="5" width="9" height="5" rx="1"/><rect x="13" y="5" width="9" height="5" rx="1"/><rect x="7" y="12" width="10" height="5" rx="1"/><rect x="2" y="12" width="3" height="5" rx="1"/><rect x="19" y="12" width="3" height="5" rx="1"/></svg>',
   heal: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
   dragon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 22c-5-3 5-5 0-8s5-5 0-8"/><circle cx="12" cy="3" r="2" fill="currentColor"/></svg>',
   missile: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1c3 2.5 4 6 4 10v6H8v-6c0-4 1-7.5 4-10z"/><path d="M8 13l-4 4v3l4-2zM16 13l4 4v3l-4-2z"/><path d="M10 19h4l-2 4z" opacity=".7"/></svg>',
@@ -71,6 +72,23 @@ export function boot() {
     };
   };
   const enemyMaxHealth = () => MATCH.maxHealth * HEALTH[Math.max(1, Math.min(5, saveData.settings.enemyHealth)) - 1];
+  const packSize = () => Math.max(1, Math.min(3, Math.round(saveData.settings.pack || 1)));
+  /** bigger packs get less armour and punch each, so two or three stay beatable */
+  const PACK_SCALE = [
+    { health: 1, damage: 1 },
+    { health: 0.6, damage: 0.5 },
+    { health: 0.4, damage: 0.38 },
+  ];
+  const packEnemies = () => {
+    const sc = PACK_SCALE[packSize() - 1];
+    const base = enemyStats();
+    return Array.from({ length: packSize() }, () => ({
+      stats: { ...base, damage: base.damage * sc.damage },
+      maxHealth: enemyMaxHealth() * sc.health,
+    }));
+  };
+  /** pack members after the first get random units (fixed for the match) */
+  let packIds: string[] = [];
   /** opponent robot: the chosen one, or on auto the dragon unless the player picked it */
   const enemyCharacter = () => {
     const st = saveData.settings;
@@ -80,8 +98,16 @@ export function boot() {
 
   const game = new Game(playerStats(), enemyStats());
   const view = new View($('stage'), game);
-  const [player, enemy] = game.shooters;
-  const ai = new AIController(game, enemy, player, profile);
+  const player = game.player;
+  /** one controller per opponent slot */
+  const ais = game.shooters.slice(1).map((s) => new AIController(game, s, profile));
+  /** the opponent the HUD shows: the one the player is facing */
+  const focus = () => game.targetFor(player);
+  const unitIds = () => {
+    const ids = [saveData.settings.character, enemyCharacter()];
+    for (let i = 2; i <= 3; i++) ids.push(packIds[i - 2] ?? enemyCharacter());
+    return ids;
+  };
   const input = new Input($('touch'), player, (x, y) => view.screenToWorld(x, y));
 
   // ThorVG effects overlay + portraits load in the background; the game never waits
@@ -188,8 +214,8 @@ export function boot() {
   const setupRound = () => {
     const st = saveData.settings;
     view.resetMatch();
-    game.reset(playerStats(), enemyStats(), { enemyMaxHealth: enemyMaxHealth(), pucks: st.pucks, items: st.items, gates: st.gates });
-    ai.reset();
+    game.reset(playerStats(), { enemies: packEnemies(), pucks: st.pucks, covers: st.covers, pins: st.pins, items: st.items, gates: st.gates });
+    for (const a of ais) a.reset();
     recorder.clear();
     input.release();
     chip[0] = chip[1] = 1;
@@ -210,10 +236,15 @@ export function boot() {
   const startMatch = () => {
     sfx.unlock();
     const st = saveData.settings;
-    ai.straight = st.enemyAim === 'straight';
-    ai.speedMul = level(st.enemySpeed);
-    ai.agility = AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1];
-    view.setCharacters(st.character, enemyCharacter());
+    for (const a of ais) {
+      a.straight = st.enemyAim === 'straight';
+      a.speedMul = level(st.enemySpeed);
+      a.agility = AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1];
+    }
+    // extra pack members: random units, different from yours and from the leader
+    const pool = CHARACTERS.map((c) => c.id).filter((id) => id !== st.character && id !== enemyCharacter());
+    packIds = [0, 1].map(() => pool.splice(Math.floor(Math.random() * pool.length), 1)[0] ?? enemyCharacter());
+    view.setCharacters(unitIds());
     view.setStage(st.stage);
     roundNo = 1;
     roundWins[0] = roundWins[1] = 0;
@@ -222,13 +253,13 @@ export function boot() {
     setupRound();
     buildPips();
     const pName = characterById(st.character).name.toUpperCase();
-    const eName = characterById(enemyCharacter()).name.toUpperCase();
+    const eName = characterById(enemyCharacter()).name.toUpperCase() + (packSize() > 1 ? ` +${packSize() - 1}` : '');
     $('player-name').textContent = pName;
     $('enemy-name').textContent = eName;
     $('intro-p1').textContent = pName;
     $('intro-p2').textContent = eName;
     $('intro-p1-sub').textContent = `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
-    $('intro-p2-sub').textContent = `CPU // ${profile.name.toUpperCase()}`;
+    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : `CPU // ${profile.name.toUpperCase()}`;
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
     for (const id of ['title', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
@@ -247,7 +278,7 @@ export function boot() {
     introEl.classList.remove('hidden');
     introEl.querySelectorAll('.in').forEach((el) => el.classList.remove('in'));
     input.enabled = false;
-    view.cine = { kind: 'intro', t: 0, shot: -1, team: 0 };
+    view.cine = { kind: 'intro', t: 0, shot: -1, slot: 0 };
   };
 
   const endIntro = () => {
@@ -283,10 +314,10 @@ export function boot() {
         over = false;
       }
     } else if (over) matchWinner = roundWins[0] >= 2 ? 0 : 1;
-    startReplay(over, w === 0 ? 1 : 0);
+    startReplay(over, view.loserSlot());
   };
 
-  const startReplay = (final: boolean, loser: 0 | 1) => {
+  const startReplay = (final: boolean, loser: number) => {
     input.enabled = false;
     input.release();
     if (!recorder.frames.length) return endReplay(final, loser);
@@ -296,13 +327,13 @@ export function boot() {
     replayGame = new ReplayGame(recorder, game);
     view.resetMatch();
     view.game = replayGame as unknown as Game;
-    view.cine = { kind: 'replay', t: 0, shot: -1, team: loser };
+    view.cine = { kind: 'replay', t: 0, shot: -1, slot: loser };
     replayEl.classList.remove('hidden');
     hud.classList.add('hidden');
     sfx.play('whoosh');
     replayLoser = loser;
   };
-  let replayLoser: 0 | 1 = 1;
+  let replayLoser = 1;
 
   const endReplay = (final = finalRound, loser = replayLoser) => {
     replayEl.classList.add('hidden');
@@ -433,7 +464,7 @@ export function boot() {
     if (screen !== 'playing') {
       game.puckCount = st.pucks;
       game.placePucks();
-      view.setCharacters(st.character, enemyCharacter());
+      view.setCharacters(unitIds());
       view.setStage(st.stage);
     }
     view.showAimLine = st.aimLine;
@@ -575,20 +606,21 @@ export function boot() {
     // console hook for balance testing: __mf.sim(seconds) fast-forwards the match
     (window as unknown as Record<string, unknown>).__mf = {
       game,
-      ai,
+      ai: ais[0],
+      ais,
       view,
       faces,
       start: startMatch,
       /** a bot that plays the player's side, for bot-vs-bot balance runs */
       bot(name: string) {
-        const b = new AIController(game, player, enemy, AI_PROFILES[name]);
+        const b = new AIController(game, player, AI_PROFILES[name]);
         return (dt: number) => b.update(dt);
       },
       sim(seconds: number, playerBrain?: (dt: number) => void) {
         for (let t = 0; t < seconds && game.phase !== 'over'; t += STEP) {
           if (playerBrain) playerBrain(STEP);
           else input.update(STEP);
-          ai.update(STEP);
+          for (const a of ais) a.update(STEP);
           game.step(STEP);
           game.hitstop = 0;
         }
@@ -614,12 +646,13 @@ export function boot() {
       if (game.hitstop > 0) {
         game.hitstop -= dt;
       } else {
-        const timeScale = game.phase === 'ko' ? 0.3 : 1;
+        // KO slow-mo, or the Slow-Mo item (the whole match at half speed)
+        const timeScale = game.phase === 'ko' ? 0.3 : game.slowT > 0 ? SLOWMO.world : 1;
         acc += dt * timeScale;
         let steps = 0;
         while (acc >= STEP && steps < 5) {
           input.update(STEP);
-          ai.update(STEP);
+          for (const a of ais) a.update(STEP);
           const before = game.phase;
           game.step(STEP);
           recorder.record(game);
@@ -633,6 +666,10 @@ export function boot() {
       recorder.addFx(game.fx);
       // fx the HUD cares about; the view consumes the list afterwards
       for (const f of game.fx) {
+        if (f.type === 'eliminated') {
+          const left = game.aliveEnemies().length;
+          showToast(`UNIT DOWN // ${left} LEFT`, 0xffc23d);
+        }
         if (f.type === 'hit') {
           chipDelay[f.team] = 0.45;
           hpBox[f.team].classList.remove('shake');
@@ -648,13 +685,13 @@ export function boot() {
             else buzz(f.team === 0 ? 45 : 14);
           }
         }
-        if (f.type === 'super-ready' && f.team === 0 && saveData.settings.vibrate) buzz([20, 40, 20]);
+        if (f.type === 'super-ready' && f.slot === 0 && saveData.settings.vibrate) buzz([20, 40, 20]);
         if (f.type === 'pickup') {
           const def = ITEMS[f.item];
-          if (f.team === 0) showToast(`${def.name.toUpperCase()} ACQUIRED`, def.color);
-          if (f.team === 0 && saveData.settings.vibrate) buzz(25);
+          if (f.slot === 0) showToast(`${def.name.toUpperCase()} ACQUIRED`, def.color);
+          if (f.slot === 0 && saveData.settings.vibrate) buzz(25);
         }
-        if (f.type === 'use' && f.team === 1) showToast(`ENEMY ${ITEMS[f.item].name.toUpperCase()}`, 0xff3e5e);
+        if (f.type === 'use' && f.slot !== 0) showToast(`ENEMY ${ITEMS[f.item].name.toUpperCase()}`, 0xff3e5e);
         if (f.type === 'drop-destroyed') showToast(f.team === 0 ? 'SUPPLY DESTROYED' : 'ENEMY SUPPLY DENIED', f.team === 0 ? 0xff3e5e : ITEMS[f.item].color);
       }
 
@@ -665,7 +702,13 @@ export function boot() {
     for (const el of padButtons) el.classList.toggle('held', pad.held(el.dataset.btn as 'left'));
     view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
-      view.game.shooters.forEach((s, i) => faces[i].update(paused ? 0 : dt, s, Portrait.mood(s, game.phase, game.winner)));
+      const shown = [view.game.shooters[0], view.game.shooters[focus().slot] ?? view.game.shooters[1]];
+      if (shown[1] && faceSlot !== shown[1].slot) {
+        faceSlot = shown[1].slot;
+        faces[1].setCharacter(unitIds()[faceSlot]);
+      }
+      shown.forEach((s, i) => faces[i].update(paused ? 0 : dt, s, Portrait.mood(s, game.phase, game.winner)));
+      document.body.classList.toggle('slowmo', game.slowT > 0 && flow === 'round');
     }
 
     // frame-rate meter (settings) and the debug readout share one counter
@@ -689,6 +732,7 @@ export function boot() {
   };
 
   let lastItem: ItemType | null | undefined;
+  let faceSlot = 1;
   let lastEffects = '';
   const updateHud = (dt: number) => {
     // countdown + KO banners
@@ -718,8 +762,9 @@ export function boot() {
     clock.textContent = Math.ceil(game.clock).toString();
     clock.classList.toggle('low', game.clock < 10);
 
-    game.shooters.forEach((s: Shooter, i) => {
-      const frac = s.hpFrac;
+    // left bar: you; right bar: the whole opponent pack (shield/super from the one you face)
+    ([player, focus()] as Shooter[]).forEach((s, i) => {
+      const frac = i === 0 ? s.hpFrac : game.enemyFrac();
       hpFill[i].style.width = frac * 100 + '%';
       chipDelay[i] -= dt;
       if (chipDelay[i] <= 0) chip[i] = Math.max(frac, chip[i] - dt * 0.4);
@@ -744,12 +789,14 @@ export function boot() {
       $('item-icon').innerHTML = it ? ITEM_ICONS[it] : '';
       $('item-name').textContent = it ? ITEMS[it].short : 'NO ITEM';
     }
-    $('enemy-item').textContent = enemy.item ? `◆ ${ITEMS[enemy.item].short}` : '';
+    const foe = focus();
+    $('enemy-item').textContent = foe.item ? `◆ ${ITEMS[foe.item].short}` : '';
 
     // active timed effects
     const fx: string[] = [];
     if (player.multiT > 0) fx.push(`multi:${Math.ceil(player.multiT)}`);
-    if (player.boostT > 0) fx.push(`boost:${Math.ceil(player.boostT)}`);
+    if (game.slowT > 0 && game.slowOwner === 0) fx.push(`slowmo:${Math.ceil(game.slowT / SLOWMO.world)}`);
+    if (player.wiperT > 0) fx.push(`wiper:${Math.ceil(player.wiperT)}`);
     const key = fx.join('|');
     if (key !== lastEffects) {
       lastEffects = key;

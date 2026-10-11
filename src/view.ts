@@ -3,7 +3,7 @@ import { ARENA, COLORS, MATCH } from './config';
 import type { Drop, Game, Gate, Team } from './game';
 import { ShooterMesh, characterById } from './robot';
 import { Stage } from './stage';
-import { GATE, GATES, ITEMS, MISSILE, SHIELD } from './items';
+import { GATE, GATES, ITEMS, MISSILE, SHIELD, WIPER } from './items';
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
 import * as sfx from './audio';
 
@@ -40,7 +40,8 @@ interface Debris {
  */
 interface KoState {
   mode: 'down' | 'explode';
-  team: Team;
+  /** which robot */
+  slot: number;
   t: number;
   pops: number;
   shattered: boolean;
@@ -99,7 +100,8 @@ export class View {
   renderer: THREE.WebGLRenderer;
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(46, 9 / 16, 0.1, 140);
-  shooters: [ShooterMesh, ShooterMesh];
+  /** one model per slot: player + up to three opponents */
+  shooters: ShooterMesh[];
   private marbleMesh: [THREE.InstancedMesh, THREE.InstancedMesh];
   private marbleRot: THREE.Quaternion[] = [];
   private puckMeshes: THREE.Object3D[] = [];
@@ -144,8 +146,14 @@ export class View {
   private missileMeshes = new Map<number, { root: THREE.Group; flame: THREE.Mesh }>();
   private missileTrails = new Map<number, { x: number; y: number }[]>();
   private ko: KoState | null = null;
+  /** opponents knocked out mid-round, blowing apart while the rest fight on */
+  private wrecks: KoState[] = [];
+  private wiperMeshes: THREE.Mesh[] = [];
+  private coverMeshes: THREE.Group[] = [];
+  private pinMeshes: { root: THREE.Group; cap: THREE.MeshBasicMaterial }[] = [];
+  private coverFlash: number[] = [];
   /** scripted camera: the VS intro or a replay */
-  cine: { kind: 'intro' | 'replay'; t: number; shot: number; team: Team } | null = null;
+  cine: { kind: 'intro' | 'replay'; t: number; shot: number; slot: number } | null = null;
   /** each side's marble colour, from its robot */
   private teamBall: [number, number] = [characterById('angel').ball, characterById('dragon').ball];
   /** settings: chase-camera distance, down to a first-person cockpit view */
@@ -156,7 +164,7 @@ export class View {
   private streaks: Streak[] = [];
   private shields: THREE.Mesh[] = [];
   private shieldFlash = [0, 0];
-  private robotFx: [RobotFx, RobotFx];
+  private robotFx: RobotFx[];
   /** damage smoke: soft grey puffs that rise, drift and swell */
   private smokeMesh!: THREE.InstancedMesh;
   private smoke: { life: number; max: number; p: THREE.Vector3; v: THREE.Vector3; size: number; shade: number }[] = [];
@@ -180,9 +188,9 @@ export class View {
     this.stage = new Stage('space');
     this.applyStage();
 
-    this.shooters = [new ShooterMesh('angel', this.teamBall[0]), new ShooterMesh('dragon', this.teamBall[1])];
+    this.shooters = [0, 1, 2, 3].map((i) => new ShooterMesh(i === 0 ? 'angel' : 'dragon', this.teamBall[i === 0 ? 0 : 1]));
     for (const s of this.shooters) this.scene.add(s.root);
-    this.robotFx = [new RobotFx(this.scene, this.teamBall[0]), new RobotFx(this.scene, this.teamBall[1])];
+    this.robotFx = [0, 1, 2, 3].map((i) => new RobotFx(this.scene, this.teamBall[i === 0 ? 0 : 1]));
     this.hopH = new Float32Array(MATCH.marblePool);
     this.hopV = new Float32Array(MATCH.marblePool);
     // soft contact shadows under every marble
@@ -205,10 +213,10 @@ export class View {
     for (let i = 0; i < SMOKE; i++) this.smoke.push({ life: 0, max: 1, p: new THREE.Vector3(), v: new THREE.Vector3(), size: 0.2, shade: 0.4 });
     // energy shields: a curved, hex-patterned wall in front of each robot
     const hexTex = this.makeHexTexture();
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 4; i++) {
       const arc = Math.PI * 0.75;
       const geo = new THREE.CylinderGeometry(1.15, 1.15, 1.9, 24, 1, true, Math.PI - arc / 2, arc);
-      const mat = new THREE.MeshBasicMaterial({ color: this.teamBall[i], map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+      const mat = new THREE.MeshBasicMaterial({ color: this.teamBall[i === 0 ? 0 : 1], map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.visible = false;
       this.scene.add(mesh);
@@ -235,6 +243,8 @@ export class View {
       this.scene.add(mesh);
       this.powerMeshes.push(mesh);
     }
+
+    this.buildObstacleMeshes();
 
     // sparks
     this.sparkMesh = new THREE.InstancedMesh(
@@ -322,22 +332,21 @@ export class View {
     return hit ? { x: hit.x, y: -hit.z } : null;
   }
 
-  /** Swap the robot models for each side. */
-  setCharacters(player: string, enemy: string) {
-    const ids = [player, enemy];
-    this.teamBall = [characterById(player).ball, characterById(enemy).ball];
+  /** Swap the robot models: ids[0] is the player, ids[1..3] the opponents. */
+  setCharacters(ids: string[]) {
+    const all = [0, 1, 2, 3].map((i) => ids[i] ?? ids[1] ?? 'dragon');
+    this.teamBall = [characterById(all[0]).ball, characterById(all[1]).ball];
     // a mirror match keeps the opponent's marbles distinguishable
-    if (player === enemy) this.teamBall[1] = 0xff5a4a;
-    this.teamBall.forEach((c, i) => {
-      (this.marbleMesh[i].material as THREE.MeshPhongMaterial).color.set(c);
-      (this.shields[i].material as THREE.MeshBasicMaterial).color.set(c);
-      this.robotFx[i].ghosts.forEach((g) => (g.material as THREE.MeshBasicMaterial).color.set(c));
-    });
+    if (all[0] === all[1]) this.teamBall[1] = 0xff5a4a;
+    this.teamBall.forEach((c, i) => (this.marbleMesh[i].material as THREE.MeshPhongMaterial).color.set(c));
     this.shooters.forEach((old, i) => {
-      if (old.id === ids[i] && old.ball === this.teamBall[i]) return;
+      const ball = this.teamBall[i === 0 ? 0 : 1];
+      (this.shields[i].material as THREE.MeshBasicMaterial).color.set(ball);
+      this.robotFx[i].ghosts.forEach((g) => (g.material as THREE.MeshBasicMaterial).color.set(ball));
+      if (old.id === all[i] && old.ball === ball && !old.broken) return;
       this.scene.remove(old.root);
       old.dispose();
-      const next = new ShooterMesh(ids[i], this.teamBall[i]);
+      const next = new ShooterMesh(all[i], ball);
       this.scene.add(next.root);
       this.shooters[i] = next;
     });
@@ -420,17 +429,17 @@ export class View {
           this.burst(f.x, f.y, 0xfff2b0, Math.round(3 + f.intensity * 6), 4);
           break;
         case 'muzzle':
-          if (f.team === 0) this.shake(0.015);
+          if (f.slot === 0) this.shake(0.015);
           break;
         case 'super-fire': {
-          const s = g.shooters[f.team];
-          this.shake(f.team === 0 ? 0.35 : 0.15);
+          const s = g.shooters[f.slot];
+          this.shake(f.slot === 0 ? 0.35 : 0.15);
           const sp = this.project(s.x, s.y, 1);
           this.fx2d?.ring(sp.x, sp.y, hex(0xffe066));
           break;
         }
         case 'super-ready': {
-          const s = g.shooters[f.team];
+          const s = g.shooters[f.slot];
           const sp = this.project(s.x, s.y, 1);
           this.fx2d?.ring(sp.x, sp.y, hex(0xffe066));
           this.fx2d?.star(sp.x, sp.y, hex(0xffe066));
@@ -438,7 +447,7 @@ export class View {
         }
         case 'pickup':
         case 'use': {
-          const s = g.shooters[f.team];
+          const s = g.shooters[f.slot];
           const c = ITEMS[f.item].color;
           const sp = this.project(s.x, s.y, 1);
           this.fx2d?.ring(sp.x, sp.y, hex(c), f.type === 'use');
@@ -447,8 +456,8 @@ export class View {
           break;
         }
         case 'missile-launch': {
-          const s = g.shooters[f.team];
-          this.shake(f.team === 0 ? 0.25 : 0.1);
+          const s = g.shooters[f.slot];
+          this.shake(f.slot === 0 ? 0.25 : 0.1);
           const sp = this.project(s.x, s.y, 1);
           this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.missile.color));
           break;
@@ -473,23 +482,50 @@ export class View {
           break;
         }
         case 'block': {
-          this.shieldFlash[f.team] = 1;
-          const c = this.teamBall[f.team];
+          this.shieldFlash[f.slot] = 1;
+          const c = this.teamBall[f.slot === 0 ? 0 : 1];
           const sp = this.project(f.x, f.y, 0.8);
           this.fx2d?.ring(sp.x, sp.y, hex(c), f.heavy);
           this.burst(f.x, f.y, c, f.heavy ? 18 : 6, 4, { h: 0.8 });
-          this.shake(f.team === 0 ? (f.heavy ? 0.3 : 0.08) : 0.05);
+          this.shake(f.slot === 0 ? (f.heavy ? 0.3 : 0.08) : 0.05);
           break;
         }
         case 'shield-break': {
-          const s = g.shooters[f.team];
-          const c = this.teamBall[f.team];
+          const s = g.shooters[f.slot];
+          const c = this.teamBall[f.slot === 0 ? 0 : 1];
           const sp = this.project(s.x, s.y, 1);
           this.burst(s.x, s.y + s.forward * 0.9, c, 40, 8, { h: 1 });
           this.burst(s.x, s.y + s.forward * 0.9, 0xffffff, 16, 6, { h: 1 });
           this.fx2d?.ring(sp.x, sp.y, hex(c), true);
           this.fx2d?.star(sp.x, sp.y, hex(c), true);
-          this.shake(f.team === 0 ? 0.55 : 0.2);
+          this.shake(f.slot === 0 ? 0.55 : 0.2);
+          break;
+        }
+        case 'eliminated':
+          this.wrecks.push({ mode: 'explode', slot: f.slot, t: 0.4, pops: 2, shattered: false, debris: [] });
+          break;
+        case 'wiper': {
+          const sp = this.project(f.x, f.y, 0.6);
+          this.burst(f.x, f.y, ITEMS.wiper.color, 8, 4, { h: 0.6 });
+          this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.wiper.color));
+          break;
+        }
+        case 'pin': {
+          const sp = this.project(f.x, f.y, 0.5);
+          this.fx2d?.tick(sp.x, sp.y, 1);
+          this.burst(f.x, f.y, 0xbff8ff, 3, 2, { h: 0.5 });
+          break;
+        }
+        case 'cover-hit':
+          this.coverFlash[f.idx] = 1;
+          this.burst(f.x, f.y, 0xd8dde8, 5, 3, { h: 0.4 });
+          break;
+        case 'cover-break': {
+          const sp = this.project(f.x, f.y, 0.4);
+          this.burst(f.x, f.y, 0xd8dde8, 30, 7, { h: 0.4 });
+          this.burst(f.x, f.y, 0xffd27a, 12, 5, { h: 0.4 });
+          this.fx2d?.ring(sp.x, sp.y, [220, 225, 235], true);
+          this.shake(0.2);
           break;
         }
         case 'clack': {
@@ -514,7 +550,7 @@ export class View {
           break;
         }
         case 'heal': {
-          const s = g.shooters[f.team];
+          const s = g.shooters[f.slot];
           // rising green motes
           this.burst(s.x, s.y, ITEMS.heal.color, 40, 1, { h: 0.4, float: true, size: 0.09 });
           break;
@@ -533,7 +569,11 @@ export class View {
     this.stage.setParticles(this.realismOn);
 
     g.shooters.forEach((s, i) => {
-      if (!this.shooters[i].broken) this.shooters[i].sync(s, this.time, dt);
+      const sm = this.shooters[i];
+      if (!sm) return;
+      // knocked-out pack members leave only their wreck behind
+      sm.root.visible = s.active && !s.out;
+      if (sm.root.visible && !sm.broken) sm.sync(s, this.time, dt);
     });
     this.updateKo(dt);
     this.updateRobotFx(dt);
@@ -543,6 +583,7 @@ export class View {
     // first person: hide your own robot so it doesn't block the view
     this.shooters[0].root.visible = this.cameraMode !== 'first' || !!this.ko || !!this.cine;
     this.updateMissiles(dt);
+    this.updateObstacles(dt);
     this.updateDrops();
     this.updateGates();
 
@@ -674,12 +715,12 @@ export class View {
     const w = this.host.clientWidth;
     for (const d of g.drops) {
       if (d.team !== 0) continue;
-      const sp = this.project(d.x, g.shooters[0].y, d.h + 0.32);
+      const sp = this.project(d.x, -ARENA.railY, d.h + 0.32);
       const margin = 26;
       const edge = sp.x < margin ? -1 : sp.x > w - margin ? 1 : 0;
       this.markers.push({ x: Math.max(margin, Math.min(w - margin, sp.x)), y: edge ? Math.min(sp.y, this.host.clientHeight * 0.72) : sp.y, color: hex(ITEMS[d.type].color), edge });
     }
-    if (this.fxOn) this.fx2d?.render(dt, this.glows, g.shooters[0].boostT > 0, this.markers, this.streaks, this.teamBall);
+    if (this.fxOn) this.fx2d?.render(dt, this.glows, g.slowT > 0 && g.slowOwner === 0, this.markers, this.streaks, this.teamBall);
     else {
       this.fx2d?.clearQueued();
       this.fx2d?.render(dt, [], false, [], [], this.teamBall);
@@ -712,9 +753,11 @@ export class View {
 
   /** Overdrive afterimages and thrusters, multi-shot aura. */
   private updateRobotFx(dt: number) {
-    this.game.shooters.forEach((s, i) => {
+    const g = this.game;
+    g.shooters.forEach((s, i) => {
       const fx = this.robotFx[i];
-      const boosted = s.boostT > 0 && this.fxOn;
+      // in slow-mo the robot that triggered it trails afterimages
+      const boosted = !!g.slowT && g.slowOwner === i && s.alive && this.fxOn;
       // sample positions so afterimages trail behind the motion
       fx.history.unshift({ x: s.x, t: this.time });
       if (fx.history.length > 24) fx.history.length = 24;
@@ -753,7 +796,7 @@ export class View {
         dm = this.makeDrop(d);
         this.dropMeshes.set(d.id, dm);
       }
-      const y = -this.game.shooters[d.team].y;
+      const y = d.team === 0 ? ARENA.railY : -ARENA.railY;
       const sway = d.h > 0 ? Math.sin(this.time * 2 + d.id) * 0.15 : 0;
       dm.root.position.set(d.x + sway, d.h + 0.32, y);
       dm.root.rotation.y = this.time * (d.h > 0 ? 0.6 : 1.5);
@@ -848,7 +891,7 @@ export class View {
       return;
     }
     this.game.shooters.forEach((s, i) => {
-      if (this.shooters[i].broken || s.health <= 0) return;
+      if (!s.active || s.out || this.shooters[i].broken || s.health <= 0) return;
       const frac = s.health / s.maxHealth;
       if (frac > 0.3) return;
       // thicker smoke the closer to empty
@@ -893,7 +936,7 @@ export class View {
     this.game.shooters.forEach((s, i) => {
       const mesh = this.shields[i];
       this.shieldFlash[i] = Math.max(0, this.shieldFlash[i] - dt * 4);
-      mesh.visible = s.shieldUp && !this.shooters[i].broken;
+      mesh.visible = s.active && !s.out && s.shieldUp && !this.shooters[i].broken;
       if (!mesh.visible) return;
       mesh.position.set(s.x, 0.95, -s.y);
       mesh.rotation.y = s.team === 0 ? 0 : Math.PI;
@@ -907,18 +950,20 @@ export class View {
 
   /** Clear the wreck and rebuild a broken robot before the next match. */
   resetMatch() {
-    if (this.ko) {
-      for (const d of this.ko.debris) {
+    for (const k of [this.ko, ...this.wrecks]) {
+      if (!k) continue;
+      for (const d of k.debris) {
         this.scene.remove(d.mesh);
         d.mesh.geometry.dispose();
       }
-      this.ko = null;
     }
+    this.ko = null;
+    this.wrecks.length = 0;
     this.shooters.forEach((sm, i) => {
       if (!sm.broken) return;
       this.scene.remove(sm.root);
       sm.dispose();
-      const next = new ShooterMesh(sm.id, this.teamBall[i]);
+      const next = new ShooterMesh(sm.id, this.teamBall[i === 0 ? 0 : 1]);
       this.scene.add(next.root);
       this.shooters[i] = next;
     });
@@ -933,19 +978,34 @@ export class View {
   private updateKo(dt: number) {
     const g = this.game;
     if (!this.ko && (g.phase === 'ko' || g.phase === 'over') && (g.winner === 0 || g.winner === 1)) {
-      this.ko = { mode: 'down', team: g.winner === 0 ? 1 : 0, t: 0, pops: 0, shattered: false, debris: [] };
+      this.ko = { mode: 'down', slot: this.loserSlot(), t: 0, pops: 0, shattered: false, debris: [] };
     }
+    for (const w of this.wrecks) this.stepExplode(w, dt);
     const ko = this.ko;
     if (!ko) return;
     if (ko.mode === 'down') {
       this.updateDown(ko, dt);
       return;
     }
+    this.stepExplode(ko, dt);
+  }
+
+  /** the robot that lost the round: the player, or the last opponent standing */
+  loserSlot() {
+    const g = this.game;
+    if (g.winner !== 0) return 0;
+    const last = g.shooters.find((s) => s.team === 1 && s.active && !s.out);
+    return last ? last.slot : 1;
+  }
+
+  /** pops, then the robot blows apart into tumbling, smoking debris */
+  private stepExplode(ko: KoState, dt: number) {
+    const g = this.game;
     // run the sequence a little slow for drama
     const sdt = dt * 0.6;
     ko.t += sdt;
-    const l = g.shooters[ko.team];
-    const color = ko.team === 0 ? COLORS.player : COLORS.enemy;
+    const l = g.shooters[ko.slot];
+    const color = ko.slot === 0 ? COLORS.player : COLORS.enemy;
     const sp = () => this.project(l.x, l.y, 1);
     // three pops from different spots on the body
     const popAt = [0.05, 0.3, 0.55];
@@ -965,7 +1025,8 @@ export class View {
       sfx.play('explode');
       setTimeout(() => sfx.play('clatter', 0.9), 650);
       setTimeout(() => sfx.play('clatter', 0.6), 1300);
-      const sm = this.shooters[ko.team];
+      const sm = this.shooters[ko.slot];
+      sm.root.visible = true;
       const centre = new THREE.Vector3(l.x, 0.9, -l.y);
       for (const mesh of sm.shatter(this.scene)) {
         const out = mesh.getWorldPosition(new THREE.Vector3()).sub(centre);
@@ -1010,16 +1071,16 @@ export class View {
   }
 
   /** Blow the loser apart (called once the final replay is over). */
-  explode(team: Team) {
+  explode(slot: number) {
     this.resetMatch();
-    this.ko = { mode: 'explode', team, t: 0, pops: 0, shattered: false, debris: [] };
+    this.ko = { mode: 'explode', slot, t: 0, pops: 0, shattered: false, debris: [] };
   }
 
   /** Between rounds: the loser slumps forward, sparking and smoking. */
   private updateDown(ko: KoState, dt: number) {
     ko.t += dt * 0.6;
-    const l = this.game.shooters[ko.team];
-    const sm = this.shooters[ko.team];
+    const l = this.game.shooters[ko.slot];
+    const sm = this.shooters[ko.slot];
     const k = Math.min(1, ko.t * 3);
     // tip toward its opponent and sink a little
     sm.root.rotation.x += (l.team === 0 ? -0.55 : 0.55) * k;
@@ -1035,6 +1096,99 @@ export class View {
       ko.pops++;
     }
     if (Math.random() < 0.25) this.burst(l.x + (Math.random() - 0.5) * 0.8, l.y, Math.random() < 0.4 ? 0xffd27a : 0x6a6a74, 1, 1.5, { h: 1.2, float: true, size: 0.1 });
+  }
+
+  /** Cover walls (crates), pinball pins and per-robot wiper bricks. */
+  private buildObstacleMeshes() {
+    const metal = new THREE.MeshLambertMaterial({ color: 0x8c96ac });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x3a4152 });
+    const stripe = new THREE.MeshLambertMaterial({ color: 0xffc23d });
+    for (const c of this.game.covers) {
+      const g = new THREE.Group();
+      const block = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.75, 0.36), metal.clone());
+      block.position.y = 0.375;
+      g.add(block);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.1, 0.38), dark);
+      cap.position.y = 0.72;
+      g.add(cap);
+      for (const x of [-0.45, 0, 0.45]) {
+        const st = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.37), stripe);
+        st.position.set(x, 0.36, 0);
+        st.rotation.z = 0.5;
+        g.add(st);
+      }
+      g.visible = false;
+      this.scene.add(g);
+      this.coverMeshes.push(g);
+      this.coverFlash[c.idx] = 0;
+    }
+    for (const _p of this.game.pins) {
+      const root = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.5, 14), new THREE.MeshPhongMaterial({ color: 0xd8e0ee, shininess: 100 }));
+      post.position.y = 0.25;
+      const cap = new THREE.MeshBasicMaterial({ color: 0x3ef0ff });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 8, 20), cap);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.48;
+      root.add(post, ring);
+      root.visible = false;
+      this.scene.add(root);
+      this.pinMeshes.push({ root, cap });
+    }
+    // wiper: a brick slab with a painted brick texture
+    const cvs = document.createElement('canvas');
+    cvs.width = 128;
+    cvs.height = 48;
+    const cx = cvs.getContext('2d')!;
+    cx.fillStyle = '#7a4a2e';
+    cx.fillRect(0, 0, 128, 48);
+    cx.fillStyle = '#c8925a';
+    for (let row = 0; row < 3; row++)
+      for (let col = -1; col < 5; col++) cx.fillRect(col * 30 + (row % 2) * 15 + 2, row * 16 + 2, 26, 12);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const brickMat = new THREE.MeshLambertMaterial({ map: tex });
+    for (let i = 0; i < 4; i++) {
+      const brick = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 0.28), brickMat);
+      brick.visible = false;
+      this.scene.add(brick);
+      this.wiperMeshes.push(brick);
+    }
+  }
+
+  private updateObstacles(dt: number) {
+    const g = this.game;
+    g.covers?.forEach((c, i) => {
+      const m = this.coverMeshes[i];
+      if (!m) return;
+      m.visible = c.active;
+      if (!c.active) return;
+      m.position.set(c.x, 0, -c.y);
+      // darkens as it takes hits, flashes white on each one
+      this.coverFlash[c.idx] = Math.max(0, this.coverFlash[c.idx] - dt * 5);
+      const block = m.children[0] as THREE.Mesh;
+      const mat = block.material as THREE.MeshLambertMaterial;
+      const wear = c.hp / 5;
+      mat.color.setRGB(0.35 + 0.2 * wear, 0.38 + 0.21 * wear, 0.45 + 0.22 * wear);
+      mat.emissive.setScalar(this.coverFlash[c.idx] * 0.6);
+      m.rotation.z = c.hp < 3 ? Math.sin(this.time * 40) * 0.01 * this.coverFlash[c.idx] : 0;
+    });
+    g.pins?.forEach((p, i) => {
+      const pm = this.pinMeshes[i];
+      if (!pm) return;
+      pm.root.visible = p.active;
+      pm.root.position.set(p.x, 0, -p.y);
+      pm.cap.color.set(p.glow > 0 ? 0xffffff : 0x3ef0ff);
+    });
+    g.shooters.forEach((s, i) => {
+      const brick = this.wiperMeshes[i];
+      if (!brick) return;
+      brick.visible = s.alive && s.wiperT > 0;
+      if (!brick.visible) return;
+      brick.position.set(s.wiperX(g.time ?? 0), 0.36, -(s.y + s.forward * WIPER.ahead));
+      // blink in the last second
+      if (s.wiperT < 1) brick.visible = Math.sin(this.time * 30) > 0;
+    });
   }
 
   /** Homing missiles: body, fins, flickering flame, smoke and a glow trail. */
@@ -1113,7 +1267,8 @@ export class View {
       const grow = Math.min(1, g.age / 0.3, Math.max(0, (g.life - g.age) / 0.3));
       gm.root.position.set(g.x, 0, -g.y);
       gm.root.scale.set(grow, grow, grow);
-      gm.panel.opacity = 0.32 + Math.sin(this.time * 8) * 0.06;
+      // a wall gate is a solid barrier, the rest are see-through fields
+      gm.panel.opacity = g.type === 'wall' ? 0.9 : 0.32 + Math.sin(this.time * 8) * 0.06;
       gm.pips.forEach((p, i) => (p.visible = i < g.charges));
     }
     for (const [id, gm] of this.gateMeshes) {
@@ -1244,7 +1399,7 @@ export class View {
     }
     if (this.ko) {
       // KO cam: swing in on the wreck (a reverse shot when the player loses)
-      const l = this.game.shooters[this.ko.team];
+      const l = this.game.shooters[this.ko.slot];
       // camera sits in front of the loser, a little to the side
       this.camGoal.set(l.x * 0.6 + 2.6, 4.8, -l.y + (l.team === 0 ? -8.5 : 8.5));
       this.lookGoal.set(l.x, 0.6, -l.y);
@@ -1283,22 +1438,41 @@ export class View {
     this.snapCamera = false;
   }
 
+  private sizeCache = new Map<string, number>();
+  /** how much bigger than a standard mech a slot's model is (1 = mech) */
+  private modelScale(slot: number) {
+    const m = this.shooters[slot];
+    let k = this.sizeCache.get(m.id);
+    if (k === undefined) {
+      const size = new THREE.Box3().setFromObject(m.root).getSize(new THREE.Vector3());
+      // long beasts reach toward the camera, so their length counts for more
+      k = Math.max(1, Math.max(size.y, size.z * 1.4) / 2.2);
+      this.sizeCache.set(m.id, k);
+    }
+    return k;
+  }
+
   /** Scripted shots: orbit each fighter for the VS intro; a sweeping side cam for replays. */
   private cinematic(dt: number) {
     const c = this.cine!;
     c.t += dt;
-    const [p, e] = this.game.shooters;
+    const p = this.game.shooters[0];
+    // the opponents' shot frames the middle of the pack
+    const pack = this.game.shooters.filter((s) => s.team === 1 && s.active);
+    const e = { x: pack.reduce((a, s) => a + s.x, 0) / Math.max(1, pack.length), y: pack[0]?.y ?? ARENA.railY };
+    const er = 3.4 * this.modelScale(pack[0]?.slot ?? 1) + (pack.length - 1) * 1.6;
     let shot = 0;
     if (c.kind === 'intro') {
       if (c.t < 1.7) {
-        // orbit in front of the player's robot
+        // orbit in front of the player's robot, further out for the big beasts
+        const k = this.modelScale(0);
         const a = -0.9 + c.t * 0.9;
-        this.camGoal.set(p.x + Math.sin(a) * 3.4, 1.4 + c.t * 0.25, -p.y - Math.cos(a) * 3.4);
-        this.lookGoal.set(p.x, 1.15, -p.y);
+        this.camGoal.set(p.x + Math.sin(a) * 3.4 * k, (1.4 + c.t * 0.25) * k, -p.y - Math.cos(a) * 3.4 * k);
+        this.lookGoal.set(p.x, 1.15 * k, -p.y);
       } else if (c.t < 3.4) {
         shot = 1;
         const a = 0.9 - (c.t - 1.7) * 0.9;
-        this.camGoal.set(e.x + Math.sin(a) * 3.4, 1.4 + (c.t - 1.7) * 0.25, -e.y + Math.cos(a) * 3.4);
+        this.camGoal.set(e.x + Math.sin(a) * er, 1.4 + (c.t - 1.7) * 0.25 + (pack.length - 1) * 0.6, -e.y + Math.cos(a) * er);
         this.lookGoal.set(e.x, 1.15, -e.y);
       } else {
         // wide establishing shot of the arena
@@ -1308,7 +1482,7 @@ export class View {
       }
     } else {
       // replay: sweep along the side of the table, framing the loser
-      const l = this.game.shooters[c.team];
+      const l = this.game.shooters[c.slot];
       const side = Math.sin(c.t * 0.35) > 0 ? 1 : -1;
       shot = side > 0 ? 0 : 1;
       // camera beside and in front of the loser, sweeping slowly

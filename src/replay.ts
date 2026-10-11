@@ -26,7 +26,12 @@ interface RBump {
 }
 
 interface Frame {
-  shooters: [Shooter, Shooter];
+  shooters: Shooter[];
+  covers: Game['covers'];
+  pins: Game['pins'];
+  time: number;
+  slowT: number;
+  slowOwner: number;
   marbles: RMarble[];
   bumps: RBump[];
   missiles: Game['missiles'];
@@ -38,7 +43,8 @@ interface Frame {
 /** shooter fields the view reads */
 const SHOOTER_KEYS = [
   'x', 'vx', 'y', 'forward', 'team', 'aim', 'firing', 'maxHealth', 'health', 'ammo', 'reload', 'flash', 'recoil', 'stagger',
-  'item', 'multiT', 'boostT', 'dragonQueue', 'shielding', 'shield', 'shieldLock', 'superReady', 'charge', 'sinceHit', 'sinceHurt', 'stats',
+  'item', 'multiT', 'wiperT', 'dragonQueue', 'shielding', 'shield', 'shieldLock', 'superReady', 'charge', 'sinceHit', 'sinceHurt', 'stats',
+  'slot', 'active', 'out', 'lane',
 ] as const;
 
 function cloneShooter(s: Shooter): Shooter {
@@ -92,7 +98,12 @@ export class Recorder {
       return rb;
     });
     this.frames.push({
-      shooters: [cloneShooter(g.shooters[0]), cloneShooter(g.shooters[1])],
+      shooters: g.shooters.map(cloneShooter),
+      covers: g.covers.map((c) => ({ ...c })),
+      pins: g.pins.map((p) => ({ ...p })),
+      time: g.time,
+      slowT: g.slowT,
+      slowOwner: g.slowOwner,
       marbles,
       bumps,
       missiles: g.missiles.map((m) => ({ ...m })),
@@ -122,7 +133,12 @@ export class ReplayGame {
   phase = 'fight';
   winner = null;
   fx: Fx[] = [];
-  shooters: [Shooter, Shooter];
+  shooters: Shooter[];
+  covers: Game['covers'] = [];
+  pins: Game['pins'] = [];
+  time = 0;
+  slowT = 0;
+  slowOwner = -1;
   marbles: RMarble[] = [];
   bumps: RBump[];
   missiles: Game['missiles'] = [];
@@ -157,6 +173,11 @@ export class ReplayGame {
       return;
     }
     this.shooters = f.shooters;
+    this.covers = f.covers;
+    this.pins = f.pins;
+    this.time = f.time;
+    this.slowT = f.slowT;
+    this.slowOwner = f.slowOwner;
     this.marbles = f.marbles;
     this.bumps = f.bumps;
     this.missiles = f.missiles;

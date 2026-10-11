@@ -1,20 +1,43 @@
 import RAPIER from '@dimforge/rapier2d';
 import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, type ShooterStats } from './config';
-import { BOOST, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, SHIELD, X5, type GateType, type ItemType } from './items';
+import {
+  COVER,
+  COVER_X,
+  DRAGON,
+  DROP,
+  GATE,
+  GATES,
+  GATE_TYPES,
+  HEAL,
+  ITEMS,
+  ITEM_TYPES,
+  MISSILE,
+  MULTI,
+  PIN,
+  PIN_SPOTS,
+  SHIELD,
+  SLOWMO,
+  WIPER,
+  X5,
+  type GateType,
+  type ItemType,
+} from './items';
 import * as sfx from './audio';
 
 // Collision groups: membership in the high 16 bits, filter in the low 16.
-const G = { WALL: 1, FENCE: 2, BUMP: 4, PSH: 8, ESH: 16, PM: 32, EM: 64 };
+const G = { WALL: 1, FENCE: 2, BUMP: 4, PSH: 8, ESH: 16, PM: 32, EM: 64, BLOCK: 128 };
 const groups = (member: number, filter: number) => (member << 16) | filter;
 
 const GROUPS = {
   wall: groups(G.WALL, G.PM | G.EM | G.BUMP),
   fence: groups(G.FENCE, G.BUMP),
-  bump: groups(G.BUMP, G.WALL | G.FENCE | G.BUMP | G.PM | G.EM | G.PSH | G.ESH),
+  bump: groups(G.BUMP, G.WALL | G.FENCE | G.BUMP | G.PM | G.EM | G.PSH | G.ESH | G.BLOCK),
+  /** cover walls, wall gates and pins: solid to marbles and pucks */
+  block: groups(G.BLOCK, G.PM | G.EM | G.BUMP),
   shooter: [groups(G.PSH, G.EM | G.BUMP), groups(G.ESH, G.PM | G.BUMP)],
   marble: [
-    groups(G.PM, G.WALL | G.BUMP | G.ESH | G.PM | G.EM),
-    groups(G.EM, G.WALL | G.BUMP | G.PSH | G.PM | G.EM),
+    groups(G.PM, G.WALL | G.BUMP | G.ESH | G.PM | G.EM | G.BLOCK),
+    groups(G.EM, G.WALL | G.BUMP | G.PSH | G.PM | G.EM | G.BLOCK),
   ],
 };
 
@@ -24,6 +47,8 @@ export const STEP = 1 / 60;
 export const SUPER_HITS = 3;
 /** how a super marble differs from a normal one */
 const SUPER = { radius: 2.2, mass: 40, speed: 1.15, damage: 4 };
+/** player + up to three opponents */
+export const MAX_SHOOTERS = 4;
 
 /** symmetric puck layouts for 1..5 pucks */
 const PUCK_LAYOUTS: [number, number][][] = [
@@ -54,7 +79,7 @@ const PUCK_LAYOUTS: [number, number][][] = [
 ];
 const MAX_PUCKS = 5;
 
-export type Team = 0 | 1; // 0 = player, 1 = opponent
+export type Team = 0 | 1; // 0 = player, 1 = opponents
 export type MarbleKind = 'normal' | 'super' | 'dragon' | 'x5';
 
 export interface Marble {
@@ -63,6 +88,8 @@ export interface Marble {
   collider: RAPIER.Collider;
   active: boolean;
   team: Team;
+  /** slot of the robot that fired it (credit for hits and super charge) */
+  owner: number;
   age: number;
   bounces: number;
   damage: number;
@@ -80,6 +107,7 @@ export interface Marble {
 export interface Missile {
   id: number;
   team: Team;
+  owner: number;
   x: number;
   y: number;
   /** heading (radians, atan2 of velocity) */
@@ -100,6 +128,7 @@ export interface Gate {
   phase: number;
   age: number;
   life: number;
+  /** transforms left, or hits left for a wall gate */
   charges: number;
 }
 
@@ -109,6 +138,25 @@ export interface Bump {
   radius: number;
   active: boolean;
   home: [number, number];
+}
+
+/** destructible cover on the table (mirrored pairs) */
+export interface Cover {
+  idx: number;
+  collider: RAPIER.Collider;
+  x: number;
+  y: number;
+  hp: number;
+  active: boolean;
+}
+
+export interface Pin {
+  collider: RAPIER.Collider;
+  x: number;
+  y: number;
+  active: boolean;
+  /** seconds of glow after a ball pings off it */
+  glow: number;
 }
 
 export interface Drop {
@@ -122,24 +170,30 @@ export interface Drop {
   life: number;
 }
 
+/** effects for the view/HUD; `slot` is the robot concerned (0 = player) */
 export type Fx =
-  | { type: 'hit'; x: number; y: number; team: Team; amount: number; power: MarbleKind | 'missile' }
-  | { type: 'missile-launch'; team: Team }
-  | { type: 'block'; x: number; y: number; team: Team; heavy: boolean }
-  | { type: 'shield-break'; team: Team }
+  | { type: 'hit'; x: number; y: number; team: Team; slot: number; amount: number; power: MarbleKind | 'missile' }
+  | { type: 'missile-launch'; slot: number }
+  | { type: 'block'; x: number; y: number; slot: number; heavy: boolean }
+  | { type: 'shield-break'; slot: number }
   | { type: 'clack'; x: number; y: number; intensity: number }
   | { type: 'drop-destroyed'; x: number; y: number; team: Team; item: ItemType }
   | { type: 'missile-end'; x: number; y: number; team: Team }
-  | { type: 'super-ready'; team: Team }
-  | { type: 'super-fire'; team: Team }
+  | { type: 'super-ready'; slot: number }
+  | { type: 'super-fire'; slot: number }
   | { type: 'spark'; x: number; y: number; intensity: number }
-  | { type: 'muzzle'; team: Team }
-  | { type: 'reload'; team: Team }
-  | { type: 'pickup'; team: Team; item: ItemType }
-  | { type: 'use'; team: Team; item: ItemType }
-  | { type: 'heal'; team: Team; amount: number }
+  | { type: 'muzzle'; slot: number }
+  | { type: 'reload'; slot: number }
+  | { type: 'pickup'; slot: number; item: ItemType }
+  | { type: 'use'; slot: number; item: ItemType }
+  | { type: 'heal'; slot: number; amount: number }
   | { type: 'gate-pass'; x: number; y: number; gate: GateType; team: Team }
-  | { type: 'gate-break'; x: number; y: number; gate: GateType };
+  | { type: 'gate-break'; x: number; y: number; gate: GateType }
+  | { type: 'cover-hit'; x: number; y: number; idx: number }
+  | { type: 'cover-break'; x: number; y: number; idx: number }
+  | { type: 'pin'; x: number; y: number }
+  | { type: 'wiper'; x: number; y: number; slot: number }
+  | { type: 'eliminated'; slot: number };
 
 export class Shooter {
   x = 0;
@@ -152,6 +206,12 @@ export class Shooter {
   moveAxis = 0;
   moveTarget: number | null = null;
   firing = false;
+  /** taking part in this match (enemy slots beyond the pack size are off) */
+  active = true;
+  /** knocked out mid-round while teammates fight on */
+  out = false;
+  /** the stretch of rail this robot may use (opponents share their rail) */
+  lane: [number, number] = [-ARENA.railHalfWidth, ARENA.railHalfWidth];
 
   maxHealth: number = MATCH.maxHealth;
   health: number = MATCH.maxHealth;
@@ -176,7 +236,7 @@ export class Shooter {
   item: ItemType | null = null;
   /** seconds left on timed item effects */
   multiT = 0;
-  boostT = 0;
+  wiperT = 0;
   /** dragon balls still to launch, and the gap timer */
   dragonQueue = 0;
   dragonTimer = 0;
@@ -197,6 +257,7 @@ export class Shooter {
   constructor(
     world: RAPIER.World,
     readonly team: Team,
+    readonly slot: number,
     public stats: ShooterStats,
   ) {
     this.forward = team === 0 ? 1 : -1;
@@ -217,9 +278,19 @@ export class Shooter {
     return this.health / this.maxHealth;
   }
 
+  /** in the fight right now */
+  get alive() {
+    return this.active && !this.out && this.health > 0;
+  }
+
   /** the shield is actually up (wanted, has energy, not broken) */
   get shieldUp() {
     return this.shielding && this.shield > 0 && this.shieldLock <= 0;
+  }
+
+  /** where the wiper brick is this instant */
+  wiperX(t: number) {
+    return this.x + Math.sin(t * WIPER.sweepSpeed) * WIPER.sweep;
   }
 
   dir(angle = this.aim) {
@@ -231,9 +302,12 @@ export class Shooter {
     return { x: this.x + d.x * 0.95, y: this.y + d.y * 0.95 };
   }
 
-  reset(stats: ShooterStats, maxHealth: number) {
+  reset(stats: ShooterStats, maxHealth: number, active: boolean, lane: [number, number]) {
     this.stats = stats;
-    this.x = 0;
+    this.active = active;
+    this.out = false;
+    this.lane = lane;
+    this.x = (lane[0] + lane[1]) / 2;
     this.vx = 0;
     this.aim = 0;
     this.moveAxis = 0;
@@ -252,24 +326,35 @@ export class Shooter {
     this.superReady = false;
     this.stagger = 0;
     this.item = null;
-    this.multiT = this.boostT = 0;
+    this.multiT = this.wiperT = 0;
     this.dragonQueue = this.dragonTimer = 0;
     this.sinceHit = this.sinceHurt = 99;
     this.shielding = false;
     this.shield = SHIELD.max;
     this.shieldLock = 0;
     this.shieldIdle = 0;
-    this.body.setTranslation({ x: 0, y: this.y }, true);
+    this.body.setEnabled(active);
+    this.body.setTranslation({ x: this.x, y: active ? this.y : this.y + this.forward * -40 }, true);
   }
 }
 
-type Tag = { kind: 'marble'; m: Marble } | { kind: 'shooter'; s: Shooter } | { kind: 'wall' } | { kind: 'bump'; b: Bump };
+type Tag =
+  | { kind: 'marble'; m: Marble }
+  | { kind: 'shooter'; s: Shooter }
+  | { kind: 'wall' }
+  | { kind: 'bump'; b: Bump }
+  | { kind: 'cover'; c: Cover }
+  | { kind: 'pin'; p: Pin }
+  | { kind: 'gatewall' };
 
 export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 
 export interface MatchOptions {
-  enemyMaxHealth: number;
+  /** one entry per opponent in the pack (1-3) */
+  enemies: { stats: ShooterStats; maxHealth: number }[];
   pucks: number;
+  covers: number;
+  pins: number;
   items: boolean;
   gates: boolean;
 }
@@ -277,9 +362,12 @@ export interface MatchOptions {
 export class Game {
   world: RAPIER.World;
   events: RAPIER.EventQueue;
-  shooters: [Shooter, Shooter];
+  /** slot 0 is the player; slots 1..3 are opponents (inactive beyond the pack) */
+  shooters: Shooter[];
   marbles: Marble[] = [];
   bumps: Bump[] = [];
+  covers: Cover[] = [];
+  pins: Pin[] = [];
   drops: Drop[] = [];
   gates: Gate[] = [];
   missiles: Missile[] = [];
@@ -293,10 +381,15 @@ export class Game {
 
   phase: Phase = 'countdown';
   phaseTime = 0;
+  /** game seconds since the round started (gates, wipers) */
+  time = 0;
   clock: number = MATCH.duration;
   winner: Team | -1 | null = null;
   /** seconds of frozen physics after a heavy hit */
   hitstop = 0;
+  /** slow-mo: game seconds left, and who triggered it */
+  slowT = 0;
+  slowOwner = -1;
 
   private tags = new Map<number, Tag>();
   private spawnCounter = 0;
@@ -308,6 +401,9 @@ export class Game {
   private nextGate = GATE.first;
   private missileId = 0;
   private gateId = 0;
+  /** one kinematic body reused by every WALL gate */
+  private gateWallBody!: RAPIER.RigidBody;
+  private gateWall!: RAPIER.Collider;
 
   constructor(playerStats: ShooterStats, enemyStats: ShooterStats) {
     this.world = new RAPIER.World({ x: 0, y: 0 });
@@ -315,10 +411,51 @@ export class Game {
     this.events = new RAPIER.EventQueue(true);
 
     this.buildArena();
-    this.shooters = [new Shooter(this.world, 0, playerStats), new Shooter(this.world, 1, enemyStats)];
+    this.shooters = [new Shooter(this.world, 0, 0, playerStats)];
+    for (let i = 1; i < MAX_SHOOTERS; i++) this.shooters.push(new Shooter(this.world, 1, i, enemyStats));
     for (const s of this.shooters) this.tags.set(s.collider.handle, { kind: 'shooter', s });
     this.buildBumps();
+    this.buildObstacles();
     this.buildPool();
+  }
+
+  get player() {
+    return this.shooters[0];
+  }
+
+  /** opponents taking part this match */
+  enemies() {
+    return this.shooters.filter((s) => s.team === 1 && s.active);
+  }
+
+  aliveEnemies() {
+    return this.shooters.filter((s) => s.team === 1 && s.alive);
+  }
+
+  /** who a robot fights: opponents fight the player; the player faces the nearest live opponent */
+  targetFor(s: Shooter): Shooter {
+    if (s.team === 1) return this.player;
+    let best = this.shooters[1];
+    let bd = Infinity;
+    for (const e of this.aliveEnemies()) {
+      const d = Math.abs(e.x - s.x);
+      if (d < bd) {
+        bd = d;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /** combined armour of the opponent team, 0..1 */
+  enemyFrac() {
+    let h = 0;
+    let m = 0;
+    for (const e of this.enemies()) {
+      h += Math.max(0, e.health);
+      m += e.maxHealth;
+    }
+    return m ? h / m : 0;
   }
 
   private buildArena() {
@@ -360,6 +497,46 @@ export class Game {
     }
   }
 
+  /** cover walls, pinball pins and the reusable wall-gate body */
+  private buildObstacles() {
+    const ground = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    // up to 3 cover walls per side
+    let idx = 0;
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < 3; k++) {
+        const collider = this.world.createCollider(
+          RAPIER.ColliderDesc.cuboid(COVER.halfWidth, COVER.halfDepth)
+            .setTranslation(0, side * COVER.y)
+            .setRestitution(0.7)
+            .setFriction(0)
+            .setCollisionGroups(GROUPS.block),
+          ground,
+        );
+        collider.setEnabled(false);
+        const c: Cover = { idx: idx++, collider, x: 0, y: side * COVER.y, hp: COVER.hp, active: false };
+        this.tags.set(collider.handle, { kind: 'cover', c });
+        this.covers.push(c);
+      }
+    }
+    for (const [x, y] of PIN_SPOTS) {
+      const collider = this.world.createCollider(
+        RAPIER.ColliderDesc.ball(PIN.radius).setTranslation(x, y).setRestitution(1.05).setFriction(0).setCollisionGroups(GROUPS.block),
+        ground,
+      );
+      collider.setEnabled(false);
+      const p: Pin = { collider, x, y, active: false, glow: 0 };
+      this.tags.set(collider.handle, { kind: 'pin', p });
+      this.pins.push(p);
+    }
+    this.gateWallBody = this.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, -60));
+    this.gateWall = this.world.createCollider(
+      RAPIER.ColliderDesc.cuboid(GATE.halfWidth, 0.2).setRestitution(0.8).setFriction(0).setCollisionGroups(GROUPS.block),
+      this.gateWallBody,
+    );
+    this.gateWall.setEnabled(false);
+    this.tags.set(this.gateWall.handle, { kind: 'gatewall' });
+  }
+
   private buildPool() {
     for (let i = 0; i < MATCH.marblePool; i++) {
       const body = this.world.createRigidBody(
@@ -383,6 +560,7 @@ export class Game {
         collider,
         active: false,
         team: 0,
+        owner: 0,
         age: 0,
         bounces: 0,
         damage: 0,
@@ -398,17 +576,29 @@ export class Game {
     }
   }
 
-  reset(playerStats: ShooterStats, enemyStats: ShooterStats, opts: MatchOptions) {
-    this.shooters[0].reset(playerStats, MATCH.maxHealth);
-    this.shooters[1].reset(enemyStats, opts.enemyMaxHealth);
+  reset(playerStats: ShooterStats, opts: MatchOptions) {
+    this.player.reset(playerStats, MATCH.maxHealth, true, [-ARENA.railHalfWidth, ARENA.railHalfWidth]);
+    // opponents split their rail into lanes so they never stand on each other
+    const n = Math.max(1, Math.min(MAX_SHOOTERS - 1, opts.enemies.length));
+    const span = ARENA.railHalfWidth * 2;
+    const gap = n > 1 ? 0.3 : 0;
+    for (let i = 1; i < MAX_SHOOTERS; i++) {
+      const k = i - 1;
+      const e = opts.enemies[Math.min(k, opts.enemies.length - 1)];
+      const lo = -ARENA.railHalfWidth + (span / n) * k + (k > 0 ? gap : 0);
+      const hi = -ARENA.railHalfWidth + (span / n) * (k + 1) - (k < n - 1 ? gap : 0);
+      this.shooters[i].reset(e.stats, e.maxHealth, k < n, [lo, hi]);
+    }
     for (const m of this.marbles) if (m.active) this.despawn(m);
     this.puckCount = opts.pucks;
     this.itemsOn = opts.items;
     this.gatesOn = opts.gates;
     this.gates.length = 0;
+    this.gateWall.setEnabled(false);
     this.nextGate = GATE.first;
     this.missiles.length = 0;
     this.placePucks();
+    this.placeObstacles(opts.covers, opts.pins);
     this.bumps.forEach((b) => {
       b.body.setLinvel({ x: 0, y: 0 }, true);
       b.body.setAngvel(0, true);
@@ -418,9 +608,12 @@ export class Game {
     this.dropSide = Math.random() < 0.5 ? 0 : 1;
     this.phase = 'countdown';
     this.phaseTime = 0;
+    this.time = 0;
     this.clock = MATCH.duration;
     this.winner = null;
     this.hitstop = 0;
+    this.slowT = 0;
+    this.slowOwner = -1;
     this.fx.length = 0;
   }
 
@@ -439,6 +632,28 @@ export class Game {
     });
   }
 
+  /** Cover walls (pairs per side) and pins (from the symmetric list). */
+  placeObstacles(covers: number, pins: number) {
+    const n = Math.max(0, Math.min(3, Math.round(covers)));
+    const xs = COVER_X[n];
+    this.covers.forEach((c) => {
+      const k = c.idx % 3;
+      c.active = k < n;
+      c.hp = COVER.hp;
+      if (c.active) {
+        c.x = xs[k];
+        c.collider.setTranslationWrtParent({ x: c.x, y: c.y });
+      }
+      c.collider.setEnabled(c.active);
+    });
+    const pn = Math.max(0, Math.min(PIN_SPOTS.length, Math.round(pins)));
+    this.pins.forEach((p, i) => {
+      p.active = i < pn;
+      p.glow = 0;
+      p.collider.setEnabled(p.active);
+    });
+  }
+
   activePucks() {
     return this.bumps.filter((b) => b.active);
   }
@@ -452,6 +667,7 @@ export class Game {
       sfx.play('go');
     }
     if (this.phase === 'fight') {
+      this.time += dt;
       this.clock = Math.max(0, this.clock - dt);
       if (this.clock <= 0) this.finish();
     }
@@ -461,7 +677,11 @@ export class Game {
     }
 
     const canAct = this.phase === 'fight';
-    for (const s of this.shooters) this.updateShooter(s, dt, canAct);
+    if (canAct && this.slowT > 0) {
+      this.slowT = Math.max(0, this.slowT - dt);
+      if (this.slowT <= 0) this.slowOwner = -1;
+    }
+    for (const s of this.shooters) if (s.active) this.updateShooter(s, dt, canAct);
     if (canAct) this.updateDrops(dt);
 
     // bumps drift slowly home so cover never stays piled in one corner
@@ -471,6 +691,7 @@ export class Game {
       const k = 0.9 * b.body.mass() * dt;
       b.body.applyImpulse({ x: (b.home[0] - p.x) * k, y: (b.home[1] - p.y) * k }, true);
     }
+    for (const p of this.pins) p.glow = Math.max(0, p.glow - dt);
 
     // dragon balls weave: lateral velocity follows A·ω·cos(ωt)
     for (const m of this.marbles) {
@@ -499,6 +720,7 @@ export class Game {
       }
     }
     if (canAct) {
+      this.updateWipers();
       this.updateGates(dt);
       this.updateMissiles(dt);
     }
@@ -510,7 +732,7 @@ export class Game {
   private breakShield(s: Shooter) {
     s.shield = 0;
     s.shieldLock = SHIELD.breakLock;
-    this.fx.push({ type: 'shield-break', team: s.team });
+    this.fx.push({ type: 'shield-break', slot: s.slot });
     sfx.play('superhit', 0.6);
   }
 
@@ -519,28 +741,58 @@ export class Game {
     if (!s.shieldUp) return false;
     s.shield = Math.max(0, s.shield - amount * SHIELD.blockCost);
     s.shieldIdle = 0;
-    this.fx.push({ type: 'block', x, y, team: s.team, heavy });
+    this.fx.push({ type: 'block', x, y, slot: s.slot, heavy });
     sfx.play('bump', heavy ? 1 : 0.6);
     if (s.shield <= 0) this.breakShield(s);
     return true;
   }
 
+  /** Apply damage to a robot and handle knock-outs. */
+  private damage(target: Shooter, attacker: Shooter, amount: number) {
+    target.health = Math.max(0, target.health - amount);
+    target.sinceHurt = 0;
+    attacker.dealt += amount;
+    attacker.sinceHit = 0;
+    if (target.health > 0) return;
+    if (target.team === 1 && this.aliveEnemies().length > 0) {
+      // one of the pack is down; the rest fight on
+      target.out = true;
+      target.firing = false;
+      target.body.setEnabled(false);
+      this.fx.push({ type: 'eliminated', slot: target.slot });
+      sfx.play('pop', 1);
+      return;
+    }
+    this.finish();
+  }
+
   // ---------- homing missiles ----------
 
-  private launchMissile(s: Shooter) {
+  private launchMissile(s: Shooter, from?: { x: number; y: number; heading: number }) {
     const d = s.dir(0);
-    this.missiles.push({ id: this.missileId++, team: s.team, x: s.x, y: s.y + d.y * 1.1, heading: Math.atan2(d.y, d.x), hits: 0, age: 0, recover: 0 });
-    this.fx.push({ type: 'missile-launch', team: s.team });
+    this.missiles.push({
+      id: this.missileId++,
+      team: s.team,
+      owner: s.slot,
+      x: from?.x ?? s.x,
+      y: from?.y ?? s.y + d.y * 1.1,
+      heading: from?.heading ?? Math.atan2(d.y, d.x),
+      hits: 0,
+      age: 0,
+      recover: 0,
+    });
+    this.fx.push({ type: 'missile-launch', slot: s.slot });
   }
 
   private updateMissiles(dt: number) {
     for (let i = this.missiles.length - 1; i >= 0; i--) {
       const m = this.missiles[i];
-      const target = this.shooters[m.team === 0 ? 1 : 0];
+      const attacker = this.shooters[m.owner];
+      const target = this.targetFor(attacker);
       m.age += dt;
       m.recover = Math.max(0, m.recover - dt);
       // steer toward the target with a capped turn rate
-      if (m.recover <= 0) {
+      if (m.recover <= 0 && target.alive) {
         const want = Math.atan2(target.y - m.y, target.x - m.x);
         let diff = want - m.heading;
         while (diff > Math.PI) diff -= Math.PI * 2;
@@ -561,32 +813,57 @@ export class Game {
         m.y = Math.sign(m.y) * hl;
         m.heading = -m.heading;
       }
-      if (m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
-        const attacker = this.shooters[m.team];
+      if (target.alive && m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
         const amount = MISSILE.damage * (attacker.stats.damage / BASE_STATS.damage);
-        if (this.block(target, amount, m.x, m.y, true)) {
-          m.hits++;
-          m.heading += Math.PI + (Math.random() - 0.5) * 1.2;
-          m.recover = MISSILE.recover;
-        } else {
-        target.health = Math.max(0, target.health - amount);
-        target.flash = 0.25;
-        target.sinceHurt = 0;
-        attacker.dealt += amount;
-        attacker.sinceHit = 0;
         m.hits++;
-        this.hitstop = Math.max(this.hitstop, 0.08);
-        this.fx.push({ type: 'hit', x: m.x, y: m.y, team: target.team, amount, power: 'missile' });
-        sfx.play(target.team === 0 ? 'hurt' : 'hit', 1);
         // bounce back out and come round again
         m.heading += Math.PI + (Math.random() - 0.5) * 1.2;
         m.recover = MISSILE.recover;
-        if (target.health <= 0) this.finish();
+        if (!this.block(target, amount, m.x, m.y, true)) {
+          target.flash = 0.25;
+          this.hitstop = Math.max(this.hitstop, 0.08);
+          this.fx.push({ type: 'hit', x: m.x, y: m.y, team: target.team, slot: target.slot, amount, power: 'missile' });
+          sfx.play(target.team === 0 ? 'hurt' : 'hit', 1);
+          this.damage(target, attacker, amount);
         }
       }
       if (m.hits >= MISSILE.hits || m.age > MISSILE.life) {
         this.fx.push({ type: 'missile-end', x: m.x, y: m.y, team: m.team });
         this.missiles.splice(i, 1);
+      }
+    }
+  }
+
+  // ---------- wipers ----------
+
+  /** Enemy balls that meet a wiper brick bounce back as the wiper owner's own shots. */
+  private updateWipers() {
+    for (const s of this.shooters) {
+      if (!s.alive || s.wiperT <= 0) continue;
+      const wx = s.wiperX(this.time);
+      const wy = s.y + s.forward * WIPER.ahead;
+      for (const m of this.marbles) {
+        if (!m.active || m.team === s.team || this.toDespawn.has(m)) continue;
+        const p = m.body.translation();
+        const v = m.body.linvel();
+        if ((p.y - wy) * s.forward < -0.6 || Math.abs(p.y - wy) > 0.35 + m.radius) continue;
+        if (Math.abs(p.x - wx) > WIPER.halfWidth + m.radius) continue;
+        if (v.y * s.forward > 0) continue; // already heading away
+        m.team = s.team;
+        m.owner = s.slot;
+        m.lastGate = -1;
+        m.bounces = 0;
+        m.age = Math.min(m.age, 0.5);
+        m.collider.setCollisionGroups(GROUPS.marble[s.team]);
+        // angle off the brick like a paddle: further from centre, wider the bounce
+        const off = (p.x - wx) / WIPER.halfWidth;
+        const speed = Math.hypot(v.x, v.y) * WIPER.speedUp;
+        const a = off * 0.6;
+        m.body.setLinvel({ x: Math.sin(a) * speed, y: Math.cos(a) * speed * s.forward }, true);
+        m.body.setTranslation({ x: p.x, y: wy + s.forward * (0.4 + m.radius) }, true);
+        m.hop = 0.25;
+        this.fx.push({ type: 'wiper', x: p.x, y: wy, slot: s.slot });
+        sfx.play('bump', 0.8);
       }
     }
   }
@@ -607,11 +884,13 @@ export class Game {
       g.age += dt;
       // slide side to side, kept inside the walls
       g.x = Math.max(-span, Math.min(span, g.cx + Math.sin(g.age * GATE.swaySpeed + g.phase) * GATE.sway));
+      if (g.type === 'wall' && g.charges > 0) this.gateWallBody.setNextKinematicTranslation({ x: g.x, y: g.y });
       if (g.age >= g.life) {
+        if (g.type === 'wall') this.gateWall.setEnabled(false);
         this.gates.splice(i, 1);
         continue;
       }
-      if (g.charges <= 0) continue;
+      if (g.charges <= 0 || g.type === 'wall') continue;
       for (const m of this.marbles) {
         if (!m.active || m.lastGate === g.id || this.toDespawn.has(m)) continue;
         const p = m.body.translation();
@@ -635,7 +914,7 @@ export class Game {
   private spawnGate() {
     const type = GATE_TYPES[Math.floor(Math.random() * GATE_TYPES.length)];
     const y = (Math.random() * 2 - 1) * GATE.band;
-    this.gates.push({
+    const g: Gate = {
       id: this.gateId++,
       type,
       x: 0,
@@ -643,14 +922,20 @@ export class Game {
       cx: (Math.random() * 2 - 1) * 1.2,
       phase: Math.random() * Math.PI * 2,
       age: 0,
-      life: GATE.life,
+      // a wall gate stands a little longer, until it's shot down
+      life: type === 'wall' ? GATE.life * 1.6 : GATE.life,
       charges: GATES[type].charges,
-    });
+    };
+    this.gates.push(g);
+    if (type === 'wall') {
+      this.gateWallBody.setTranslation({ x: g.cx, y }, true);
+      this.gateWall.setEnabled(true);
+    }
   }
 
   /** Transform a ball passing through a gate. Returns false if it doesn't apply. */
   private applyGate(m: Marble, g: Gate) {
-    const st = this.shooters[m.team].stats;
+    const st = this.shooters[m.owner].stats;
     switch (g.type) {
       case 'x5':
         // multiplies whatever the ball carries; a ball can't be 5× twice
@@ -667,6 +952,14 @@ export class Game {
         m.damage = st.damage * SUPER.damage;
         this.resize(m, st.marbleRadius * SUPER.radius, st.marbleMass * SUPER.mass);
         return true;
+      case 'hom': {
+        // the ball becomes a homing missile for whoever fired it
+        const p = m.body.translation();
+        const v = m.body.linvel();
+        this.launchMissile(this.shooters[m.owner], { x: p.x, y: p.y, heading: Math.atan2(v.y, v.x) });
+        this.toDespawn.add(m);
+        return true;
+      }
       case 'drg': {
         if (m.kind === 'dragon' || m.kind === 'super') return false;
         // the ball becomes the head of a three-ball dragon braid
@@ -676,7 +969,7 @@ export class Game {
         for (let i = 0; i < DRAGON.count; i++) {
           const d = i === 0 ? m : this.takeMarble();
           if (!d) break;
-          if (i > 0) this.revive(d, m.team, { x: p.x, y: p.y - Math.sign(v.y) * i * 0.6 }, v);
+          if (i > 0) this.revive(d, m.team, m.owner, { x: p.x, y: p.y - Math.sign(v.y) * i * 0.6 }, v);
           d.kind = 'dragon';
           d.damage = st.damage * DRAGON.damage * mult;
           d.weave = i % 2 === 0 ? 1 : -1;
@@ -688,6 +981,8 @@ export class Game {
         }
         return true;
       }
+      default:
+        return false;
     }
   }
 
@@ -698,9 +993,10 @@ export class Game {
   }
 
   /** Bring a pooled marble to life at a position with a velocity (used by gates). */
-  private revive(m: Marble, team: Team, pos: { x: number; y: number }, vel: { x: number; y: number }) {
+  private revive(m: Marble, team: Team, owner: number, pos: { x: number; y: number }, vel: { x: number; y: number }) {
     m.active = true;
     m.team = team;
+    m.owner = owner;
     m.bounces = 0;
     m.spawnOrder = this.spawnCounter++;
     m.collider.setCollisionGroups(GROUPS.marble[team]);
@@ -711,41 +1007,49 @@ export class Game {
   }
 
   private updateShooter(s: Shooter, dt: number, canAct: boolean) {
-    // movement (overdrive speeds it up)
-    const maxX = ARENA.railHalfWidth;
-    const speed = s.stats.moveSpeed * (s.boostT > 0 ? BOOST.speed : 1) * (s.shieldUp ? SHIELD.moveMul : 1);
+    if (s.out) {
+      s.firing = false;
+      s.flash = Math.max(0, s.flash - dt);
+      return;
+    }
+    // slow-mo: the robot that triggered it acts at real-time speed x owner rate
+    const own = this.slowT > 0 && this.slowOwner === s.slot ? SLOWMO.owner / SLOWMO.world : 1;
+    const adt = dt * own;
+    // movement
+    const [lo, hi] = s.lane;
+    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1);
     const prevX = s.x;
     if (canAct || this.phase === 'countdown') {
       if (s.moveTarget !== null) {
-        const delta = Math.max(-maxX, Math.min(maxX, s.moveTarget)) - s.x;
-        const stepMax = speed * 1.6 * dt;
+        const delta = Math.max(lo, Math.min(hi, s.moveTarget)) - s.x;
+        const stepMax = speed * 1.6 * adt;
         s.x += Math.max(-stepMax, Math.min(stepMax, delta));
       } else {
-        s.x += s.moveAxis * speed * dt;
+        s.x += s.moveAxis * speed * adt;
       }
     }
     // note when the robot is pressing into an end of its rail
-    const wants = s.moveTarget !== null ? Math.sign(s.moveTarget - s.x) * (Math.abs(s.moveTarget) > maxX ? 1 : 0) : Math.sign(s.moveAxis);
-    s.x = Math.max(-maxX, Math.min(maxX, s.x));
-    s.railPush = Math.abs(s.x) >= maxX - 1e-6 && wants === Math.sign(s.x) ? Math.sign(s.x) : 0;
+    const wants = s.moveTarget !== null ? Math.sign(s.moveTarget - s.x) * (s.moveTarget > hi || s.moveTarget < lo ? 1 : 0) : Math.sign(s.moveAxis);
+    s.x = Math.max(lo, Math.min(hi, s.x));
+    s.railPush = (s.x >= hi - 1e-6 && wants > 0) || (s.x <= lo + 1e-6 && wants < 0) ? wants : 0;
     s.vx = (s.x - prevX) / dt;
     s.body.setNextKinematicTranslation({ x: s.x, y: s.y });
     s.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, s.aim));
 
     s.flash = Math.max(0, s.flash - dt);
     s.stagger = Math.max(0, s.stagger - dt);
-    s.recoil = Math.max(0, s.recoil - dt * 8);
-    s.cooldown -= dt;
+    s.recoil = Math.max(0, s.recoil - adt * 8);
+    s.cooldown -= adt;
     s.sinceHit += dt;
     s.sinceHurt += dt;
     if (canAct) {
       s.multiT = Math.max(0, s.multiT - dt);
-      s.boostT = Math.max(0, s.boostT - dt);
+      s.wiperT = Math.max(0, s.wiperT - dt);
     }
 
     // dragon salvo launches on its own, a short gap between balls
     if (canAct && s.dragonQueue > 0) {
-      s.dragonTimer -= dt;
+      s.dragonTimer -= adt;
       if (s.dragonTimer <= 0) {
         this.fireDragon(s, DRAGON.count - s.dragonQueue);
         s.dragonQueue--;
@@ -755,16 +1059,16 @@ export class Game {
 
     // magazine: forced reload when empty, slow trickle refill when idle
     if (s.reload > 0) {
-      s.reload -= dt;
+      s.reload -= adt;
       if (s.reload <= 0) {
         s.ammo = s.stats.capacity;
-        this.fx.push({ type: 'reload', team: s.team });
-        if (s.team === 0) sfx.play('reload');
+        this.fx.push({ type: 'reload', slot: s.slot });
+        if (s.slot === 0) sfx.play('reload');
       }
     } else if (!s.firing || !canAct) {
-      s.idle += dt;
+      s.idle += adt;
       if (s.idle > 0.45 && s.ammo < s.stats.capacity) {
-        s.ammo = Math.min(s.stats.capacity, s.ammo + (dt * s.stats.capacity) / (s.stats.reloadTime * 1.6));
+        s.ammo = Math.min(s.stats.capacity, s.ammo + (adt * s.stats.capacity) / (s.stats.reloadTime * 1.6));
       }
     }
 
@@ -804,13 +1108,13 @@ export class Game {
       const d = this.drops[i];
       if (d.h > 0) d.h = Math.max(0, d.h - DROP.fallSpeed * dt);
       else d.life -= dt;
-      const s = this.shooters[d.team];
-      // grab it once it's low enough to reach, if the robot's hands are free
-      if (d.h < 1.2 && !s.item && Math.abs(s.x - d.x) < DROP.reach) {
+      // grab it once it's low enough to reach, if a robot on that rail has free hands
+      const s = d.h < 1.2 ? this.shooters.find((r) => r.team === d.team && r.alive && !r.item && Math.abs(r.x - d.x) < DROP.reach) : undefined;
+      if (s) {
         s.item = d.type;
         this.drops.splice(i, 1);
-        this.fx.push({ type: 'pickup', team: s.team, item: d.type });
-        if (s.team === 0) sfx.play('charge');
+        this.fx.push({ type: 'pickup', slot: s.slot, item: d.type });
+        if (s.slot === 0) sfx.play('charge');
         continue;
       }
       // the other side can shoot a low crate to deny it
@@ -824,7 +1128,7 @@ export class Game {
 
   /** True if an opposing marble hit this crate (the marble is spent). */
   private shotDown(d: Drop) {
-    const y = this.shooters[d.team].y;
+    const y = d.team === 0 ? -ARENA.railY : ARENA.railY;
     for (const m of this.marbles) {
       if (!m.active || m.team === d.team || this.toDespawn.has(m)) continue;
       const p = m.body.translation();
@@ -843,11 +1147,11 @@ export class Game {
     this.dropSide = team === 0 ? 1 : 0;
     // one crate per side at a time
     if (this.drops.some((d) => d.team === team)) return;
-    const s = this.shooters[team];
+    const frac = team === 0 ? this.player.hpFrac : this.enemyFrac();
     let total = 0;
     const weights = ITEM_TYPES.map((t) => {
       // repair kits mostly arrive when they're needed
-      const w = t === 'heal' ? ITEMS.heal.weight * (s.hpFrac < 0.7 ? 1.6 : 0.25) : ITEMS[t].weight;
+      const w = t === 'heal' ? ITEMS.heal.weight * (frac < 0.7 ? 1.6 : 0.25) : ITEMS[t].weight;
       total += w;
       return w;
     });
@@ -860,26 +1164,33 @@ export class Game {
         break;
       }
     }
-    const span = ARENA.railHalfWidth - 0.4;
-    this.drops.push({ id: this.dropId++, team, type, x: (Math.random() * 2 - 1) * span, h: DROP.startHeight, life: DROP.landedLife });
+    // land it within reach of a live robot on that rail
+    const owners = this.shooters.filter((s) => s.team === team && s.alive);
+    const o = owners[Math.floor(Math.random() * owners.length)] ?? this.player;
+    const x = o.lane[0] + 0.3 + Math.random() * Math.max(0.1, o.lane[1] - o.lane[0] - 0.6);
+    this.drops.push({ id: this.dropId++, team, type, x, h: DROP.startHeight, life: DROP.landedLife });
   }
 
   /** Activate the held item. Returns false when there's nothing to use. */
   useItem(s: Shooter) {
-    if (!s.item || this.phase !== 'fight') return false;
+    if (!s.item || this.phase !== 'fight' || !s.alive) return false;
     const item = s.item;
     s.item = null;
     switch (item) {
       case 'multi':
         s.multiT = ITEMS.multi.duration;
         break;
-      case 'boost':
-        s.boostT = ITEMS.boost.duration;
+      case 'slowmo':
+        this.slowT = ITEMS.slowmo.duration;
+        this.slowOwner = s.slot;
+        break;
+      case 'wiper':
+        s.wiperT = ITEMS.wiper.duration;
         break;
       case 'heal': {
         const before = s.health;
         s.health = Math.min(s.maxHealth, s.health + s.maxHealth * HEAL.fraction);
-        this.fx.push({ type: 'heal', team: s.team, amount: s.health - before });
+        this.fx.push({ type: 'heal', slot: s.slot, amount: s.health - before });
         break;
       }
       case 'dragon':
@@ -890,8 +1201,8 @@ export class Game {
         this.launchMissile(s);
         break;
     }
-    this.fx.push({ type: 'use', team: s.team, item });
-    sfx.play(item === 'dragon' ? 'super' : 'charge', s.team === 0 ? 1 : 0.6);
+    this.fx.push({ type: 'use', slot: s.slot, item });
+    sfx.play(item === 'dragon' ? 'super' : item === 'slowmo' ? 'whoosh' : 'charge', s.slot === 0 ? 1 : 0.6);
     return true;
   }
 
@@ -913,6 +1224,7 @@ export class Game {
     const push = o.push ?? 0;
     m.active = true;
     m.team = s.team;
+    m.owner = s.slot;
     m.kind = o.kind;
     m.weave = o.weave ?? 1;
     m.lastGate = -1;
@@ -951,8 +1263,8 @@ export class Game {
     });
     s.shots++;
     s.recoil = 1;
-    this.fx.push({ type: isSuper ? 'super-fire' : 'muzzle', team: s.team });
-    sfx.play(isSuper ? 'super' : 'fire', s.team === 0 ? 1 : 0.55);
+    this.fx.push({ type: isSuper ? 'super-fire' : 'muzzle', slot: s.slot });
+    sfx.play(isSuper ? 'super' : 'fire', s.slot === 0 ? 1 : 0.45);
   }
 
   /** Multi shot: a fan of marbles from one trigger pull. */
@@ -973,8 +1285,8 @@ export class Game {
       s.shots++;
     }
     s.recoil = 1;
-    this.fx.push({ type: 'muzzle', team: s.team });
-    sfx.play('fire', s.team === 0 ? 1 : 0.55);
+    this.fx.push({ type: 'muzzle', slot: s.slot });
+    sfx.play('fire', s.slot === 0 ? 1 : 0.45);
   }
 
   private fireDragon(s: Shooter, i: number) {
@@ -997,7 +1309,7 @@ export class Game {
     const v = m.body.linvel();
     m.body.setLinvel({ x: v.x + DRAGON.amp * DRAGON.freq * weave, y: v.y }, true);
     s.recoil = 1;
-    this.fx.push({ type: 'super-fire', team: s.team });
+    this.fx.push({ type: 'super-fire', slot: s.slot });
     sfx.play('fire', 1);
   }
 
@@ -1026,33 +1338,29 @@ export class Game {
         const s = other.s;
         if (s.team === m.team) return;
         this.toDespawn.add(m);
-        if (this.phase !== 'fight') return;
+        if (this.phase !== 'fight' || !s.alive) return;
         const heavy = m.kind !== 'normal';
         // power balls always land at full power
         const factor = heavy ? 1 : Math.max(0.45, Math.min(1.25, speed / 15));
         const amount = m.damage * factor;
         if (this.block(s, amount, p.x, p.y, heavy)) return;
-        s.health = Math.max(0, s.health - amount);
         s.flash = heavy ? 0.3 : 0.12;
-        s.sinceHurt = 0;
         if (m.kind === 'super') s.stagger = 0.45;
-        const attacker = this.shooters[m.team];
+        const attacker = this.shooters[m.owner];
         attacker.hits++;
-        attacker.dealt += amount;
-        attacker.sinceHit = 0;
         if (!heavy && !attacker.superReady) {
           attacker.charge = Math.min(SUPER_HITS, attacker.charge + 1);
           if (attacker.charge >= SUPER_HITS) {
             attacker.charge = 0;
             attacker.superReady = true;
-            this.fx.push({ type: 'super-ready', team: attacker.team });
-            if (attacker.team === 0) sfx.play('charge');
+            this.fx.push({ type: 'super-ready', slot: attacker.slot });
+            if (attacker.slot === 0) sfx.play('charge');
           }
         }
         this.hitstop = Math.max(this.hitstop, m.kind === 'super' ? 0.16 : m.kind === 'dragon' || m.kind === 'x5' ? 0.09 : s.team === 0 ? 0.06 : 0.04);
-        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, amount, power: m.kind });
+        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, slot: s.slot, amount, power: m.kind });
         sfx.play(m.kind === 'super' ? 'superhit' : s.team === 0 ? 'hurt' : 'hit', factor);
-        if (s.health <= 0) this.finish();
+        this.damage(s, attacker, amount);
         break;
       }
       case 'marble': {
@@ -1082,18 +1390,55 @@ export class Game {
         m.bounces++;
         sfx.play('bump', speed / 18);
         break;
+      case 'pin':
+        other.p.glow = 0.3;
+        m.hop = Math.max(m.hop, 0.2);
+        m.bounces++;
+        this.fx.push({ type: 'pin', x: other.p.x, y: other.p.y });
+        sfx.play('clack', 0.7);
+        break;
+      case 'cover': {
+        const c = other.c;
+        if (!c.active) break;
+        m.bounces++;
+        // power balls smash cover faster
+        c.hp -= m.kind === 'normal' ? 1 : 3;
+        sfx.play('bump', 0.9);
+        if (c.hp <= 0) {
+          c.active = false;
+          c.collider.setEnabled(false);
+          this.fx.push({ type: 'cover-break', x: c.x, y: c.y, idx: c.idx });
+          sfx.play('pop', 0.8);
+        } else this.fx.push({ type: 'cover-hit', x: p.x, y: p.y, idx: c.idx });
+        break;
+      }
+      case 'gatewall': {
+        const g = this.gates.find((gg) => gg.type === 'wall');
+        if (!g || g.charges <= 0) break;
+        m.bounces++;
+        g.charges -= m.kind === 'normal' ? 1 : 3;
+        sfx.play('bump', 0.9);
+        if (g.charges <= 0) {
+          g.charges = 0;
+          this.gateWall.setEnabled(false);
+          g.life = Math.min(g.life, g.age + 0.3);
+          this.fx.push({ type: 'gate-break', x: g.x, y: g.y, gate: 'wall' });
+          sfx.play('pop', 0.9);
+        } else this.fx.push({ type: 'gate-pass', x: p.x, y: p.y, gate: 'wall', team: m.team });
+        break;
+      }
     }
   }
 
   private finish() {
     if (this.phase !== 'fight') return;
-    const [p, e] = this.shooters;
-    // compare fractions so a boosted-health opponent is judged fairly on time-out
-    const pf = p.hpFrac;
-    const ef = e.hpFrac;
+    const pf = this.player.health > 0 ? this.player.hpFrac : 0;
+    const ef = this.aliveEnemies().length ? this.enemyFrac() : 0;
+    // compare fractions so boosted or pack health is judged fairly on time-out
     this.winner = Math.abs(pf - ef) < 1e-6 ? -1 : pf > ef ? 0 : 1;
     this.phase = 'ko';
     this.phaseTime = 0;
+    this.slowT = 0;
     for (const s of this.shooters) s.firing = false;
     for (const m of this.missiles) this.fx.push({ type: 'missile-end', x: m.x, y: m.y, team: m.team });
     this.missiles.length = 0;

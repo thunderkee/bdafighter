@@ -42,9 +42,13 @@ export class AIController {
   constructor(
     private game: Game,
     private me: Shooter,
-    private foe: Shooter,
     public profile: AIProfile,
   ) {}
+
+  /** opponents target the player; a player-side bot targets the nearest live opponent */
+  private get foe() {
+    return this.game.targetFor(this.me);
+  }
 
   reset() {
     this.burstLeft = 0;
@@ -63,10 +67,10 @@ export class AIController {
     const me = this.me;
     const pr = this.profile;
     this.t += dt;
-    if (g.phase !== 'fight') {
+    if (g.phase !== 'fight' || !me.alive) {
       me.firing = false;
       me.shielding = false;
-      me.moveTarget = 0;
+      me.moveTarget = (me.lane[0] + me.lane[1]) / 2;
       return;
     }
 
@@ -146,8 +150,12 @@ export class AIController {
         // save the repair kit until it's needed, but don't sit on it forever
         use = me.hpFrac < 0.6 || this.holdTime > 8;
         break;
-      case 'boost':
-        use = this.holdTime > 0.4;
+      case 'slowmo':
+        // don't stack on an opponent's slow-mo
+        use = this.holdTime > 0.4 && this.game.slowT <= 0;
+        break;
+      case 'wiper':
+        use = this.holdTime > 0.3;
         break;
       case 'missile':
         use = this.holdTime > 0.3;
@@ -253,7 +261,7 @@ export class AIController {
       // step to whichever side is clear and inside the rail
       let side = px > me.x ? -1 : 1;
       const target = me.x + side * (danger + 0.4);
-      if (Math.abs(target) > ARENA.railHalfWidth) side = -side;
+      if (target < me.lane[0] || target > me.lane[1]) side = -side;
       this.reactQueue.push({ at: this.t + pr.reaction / this.agility, target: me.x + side * (danger + 0.4) });
     }
     for (let i = this.reactQueue.length - 1; i >= 0; i--) {
@@ -272,7 +280,7 @@ export class AIController {
     }
 
     // go and grab a crate dropping on our rail
-    const drop = g.drops.find((d) => d.team === me.team);
+    const drop = g.drops.find((d) => d.team === me.team && d.x >= me.lane[0] - 0.5 && d.x <= me.lane[1] + 0.5);
     if (drop && !me.item && drop.h < 6) {
       me.moveTarget = drop.x;
       return;
@@ -281,11 +289,12 @@ export class AIController {
     this.strafeTimer -= dt;
     if (this.strafeTimer <= 0) {
       this.strafeTimer = rand(0.6, 1.8);
-      const range = ARENA.railHalfWidth * Math.min(1, pr.moveSpeedMul * this.speedMul);
+      // strafe within this robot's lane (opponents in a pack share the rail)
+      const [lo, hi] = me.lane;
+      const mid = (lo + hi) / 2;
+      const range = ((hi - lo) / 2) * Math.min(1, pr.moveSpeedMul * this.speedMul);
       // a straight shooter can't turn, so it walks to line up with you instead
-      this.strafeTarget = this.straight
-        ? Math.max(-ARENA.railHalfWidth, Math.min(ARENA.railHalfWidth, this.foe.x + rand(-0.8, 0.8)))
-        : rand(-range, range);
+      this.strafeTarget = this.straight ? Math.max(lo, Math.min(hi, this.foe.x + rand(-0.8, 0.8))) : mid + rand(-range, range);
     }
     // approach strafe target at a speed scaled by mobility
     const delta = this.strafeTarget - me.x;

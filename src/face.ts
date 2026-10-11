@@ -103,7 +103,7 @@ export class Portrait {
     if (phase === 'over' || phase === 'ko') return winner === s.team ? 'win' : 'idle';
     if (s.sinceHurt < 0.4) return 'hurt';
     if (s.superReady || s.dragonQueue > 0) return 'power';
-    if (s.sinceHit < 0.7 || s.multiT > 0 || s.boostT > 0) return 'grin';
+    if (s.sinceHit < 0.7 || s.multiT > 0 || s.wiperT > 0) return 'grin';
     return 'idle';
   }
 
@@ -215,55 +215,59 @@ export class Portrait {
     if (mood === 'power') this.circle(50, 52, 46 + Math.sin(this.t * 12) * 3, gold, 60);
     [this.ox, this.oy, this.rot] = keep;
 
-    // crest behind the helmet top
-    this.drawCrest(d, hp, gold, accent, joint);
+    if (d.face === 'beast') this.drawBeast(d, mood, hp, body, trim, accent, joint, eye);
+    else if (d.face === 'cute') this.drawCute(mood, body, trim, eye);
+    else {
+      // crest behind the helmet top
+      this.drawCrest(d, hp, gold, accent, joint);
 
-    // ear blocks
-    this.rect(10, 44, 10, 24, trim);
-    this.rect(80, 44, 10, 24, trim);
-    // helmet + lower shading
-    this.poly(
-      [
-        [22, 28],
-        [78, 28],
-        [84, 46],
-        [80, 82],
-        [20, 82],
-        [16, 46],
-      ],
-      body,
-    );
-    this.poly(
-      [
-        [16, 46],
-        [84, 46],
-        [80, 82],
-        [20, 82],
-      ],
-      shade(body, 0.8),
-      120,
-    );
-    if (d.crest === 'vfin' || d.crest === 'vfin-short') this.rect(22, 26, 56, 7, trim);
-    this.rect(46, 34, 8, 6, d.eyes === 'mono' ? gold : accent); // forehead sensor
+      // ear blocks
+      this.rect(10, 44, 10, 24, trim);
+      this.rect(80, 44, 10, 24, trim);
+      // helmet + lower shading
+      this.poly(
+        [
+          [22, 28],
+          [78, 28],
+          [84, 46],
+          [80, 82],
+          [20, 82],
+          [16, 46],
+        ],
+        body,
+      );
+      this.poly(
+        [
+          [16, 46],
+          [84, 46],
+          [80, 82],
+          [20, 82],
+        ],
+        shade(body, 0.8),
+        120,
+      );
+      if (d.crest === 'vfin' || d.crest === 'vfin-short') this.rect(22, 26, 56, 7, trim);
+      this.rect(46, 34, 8, 6, d.eyes === 'mono' ? gold : accent); // forehead sensor
 
-    // visor band and eyes
-    this.rect(22, 44, 56, 13, [8, 6, 16], 235);
-    this.drawEyes(d, mood, hp, eye);
+      // visor band and eyes
+      this.rect(22, 44, 56, 13, [8, 6, 16], 235);
+      this.drawEyes(d, mood, hp, eye);
 
-    // faceplate, mouth grille, chin
-    this.poly(
-      [
-        [30, 58],
-        [70, 58],
-        [66, 82],
-        [34, 82],
-      ],
-      face,
-    );
-    const grin = mood === 'grin' || mood === 'power' || mood === 'win';
-    for (const gx of [42, 50, 58]) this.rect(gx - 1.5, 63, 3, 11, grin ? eye : shade(face, 0.6), grin ? 230 : 255);
-    this.rect(44, 78, 12, 8, d.darkFace ? shade(joint, 1.4) : accent);
-    if (d.glow !== undefined) this.rect(49, 58, 2, 24, rgb(d.glow), 220);
+      // faceplate, mouth grille, chin
+      this.poly(
+        [
+          [30, 58],
+          [70, 58],
+          [66, 82],
+          [34, 82],
+        ],
+        face,
+      );
+      const grin = mood === 'grin' || mood === 'power' || mood === 'win';
+      for (const gx of [42, 50, 58]) this.rect(gx - 1.5, 63, 3, 11, grin ? eye : shade(face, 0.6), grin ? 230 : 255);
+      this.rect(44, 78, 12, 8, d.darkFace ? shade(joint, 1.4) : accent);
+      if (d.glow !== undefined) this.rect(49, 58, 2, 24, rgb(d.glow), 220);
+    }
 
     // battle damage grows as health drops
     const cracks = hp > 0.75 ? 0 : hp > 0.5 ? 1 : hp > 0.25 ? 3 : 5;
@@ -307,6 +311,162 @@ export class Portrait {
 
     while (this.i < this.shapes.length) this.shapes[this.i++].reset().fill(0, 0, 0, 0).stroke({ width: 0 });
     this.canvas!.update().render();
+  }
+
+  /** Front-on beast head: brow or ears, slit eyes, toothy jaws. */
+  private drawBeast(d: CharacterDef, mood: Mood, hp: number, body: RGB, trim: RGB, accent: RGB, joint: RGB, eye: RGB) {
+    const cat = d.body === 'cat';
+    if (cat) {
+      // armoured mane behind the head
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2;
+        const cx = 50 + Math.cos(a) * 34;
+        const cy = 50 + Math.sin(a) * 32;
+        this.poly(
+          [
+            [cx + Math.cos(a) * 12, cy + Math.sin(a) * 12],
+            [cx + Math.cos(a + 1.6) * 6, cy + Math.sin(a + 1.6) * 6],
+            [cx + Math.cos(a - 1.6) * 6, cy + Math.sin(a - 1.6) * 6],
+          ],
+          accent,
+        );
+      }
+      for (const side of [-1, 1])
+        this.poly(
+          [
+            [50 + side * 14, 30],
+            [50 + side * 26, 10],
+            [50 + side * 32, 32],
+          ],
+          trim,
+        );
+    }
+    // skull
+    this.poly(
+      [
+        [22, 28],
+        [78, 28],
+        [86, 50],
+        [74, 70],
+        [26, 70],
+        [14, 50],
+      ],
+      body,
+    );
+    if (!cat) {
+      // tyrannosaur brow plates and horns
+      this.poly(
+        [
+          [20, 36],
+          [46, 40],
+          [44, 46],
+          [18, 42],
+        ],
+        trim,
+      );
+      this.poly(
+        [
+          [80, 36],
+          [54, 40],
+          [56, 46],
+          [82, 42],
+        ],
+        trim,
+      );
+    }
+    // eyes: slits that react like the mech eyes do
+    const g = this.glance * 2;
+    for (const side of [-1, 1]) {
+      const cx = 50 + side * 18 + g;
+      if (mood === 'ko') {
+        this.line([[cx - 4, 44], [cx + 4, 52]], 2.4, [200, 70, 70]);
+        this.line([[cx + 4, 44], [cx - 4, 52]], 2.4, [200, 70, 70]);
+      } else if (mood === 'win') this.line([[cx - 5, 52], [cx, 46], [cx + 5, 52]], 3, eye);
+      else {
+        const h = mood === 'hurt' ? 1.2 : 4;
+        this.poly(
+          [
+            [cx - side * 7, 46],
+            [cx + side * 6, 48 - (mood === 'power' ? 2 : 0)],
+            [cx + side * 6, 48 + h],
+            [cx - side * 7, 46 + h],
+          ],
+          mood === 'power' || mood === 'grin' ? shade(eye, 1.3) : eye,
+        );
+      }
+    }
+    // muzzle, nostrils, jaws and teeth; the mouth opens wider when fired up
+    this.poly(
+      [
+        [30, 56],
+        [70, 56],
+        [66, 70],
+        [34, 70],
+      ],
+      shade(body, 0.85),
+    );
+    this.circle(44, 60, 1.8, [20, 14, 18]);
+    this.circle(56, 60, 1.8, [20, 14, 18]);
+    const open = mood === 'grin' || mood === 'power' || mood === 'win' ? 9 : mood === 'hurt' ? 6 : 4;
+    this.rect(32, 70, 36, open, [24, 8, 12]);
+    if (mood === 'power' || mood === 'grin') this.circle(50, 70 + open / 2, 3, eye, 200);
+    for (let k = 0; k < 6; k++) {
+      const x = 34 + k * 6.4;
+      this.poly(
+        [
+          [x, 70],
+          [x + 4, 70],
+          [x + 2, 74],
+        ],
+        [245, 245, 240],
+      );
+    }
+    this.poly(
+      [
+        [32, 70 + open],
+        [68, 70 + open],
+        [64, 82 + open * 0.3],
+        [36, 82 + open * 0.3],
+      ],
+      joint,
+    );
+    void hp;
+  }
+
+  /** Big round cartoon head: wide eyes, simple smile. */
+  private drawCute(mood: Mood, body: RGB, belly: RGB, eye: RGB) {
+    this.circle(50, 52, 34, body);
+    this.circle(50, 70, 16, belly, 120);
+    const g = this.glance * 2;
+    for (const side of [-1, 1]) {
+      const cx = 50 + side * 14 + g;
+      if (mood === 'ko') {
+        this.line([[cx - 5, 40], [cx + 5, 50]], 2.6, [60, 40, 40]);
+        this.line([[cx + 5, 40], [cx - 5, 50]], 2.6, [60, 40, 40]);
+      } else if (mood === 'win') this.line([[cx - 6, 48], [cx, 42], [cx + 6, 48]], 3, [40, 30, 40]);
+      else if (mood === 'hurt') this.line([[cx - 6, 46], [cx + 6, 44]], 3, [40, 30, 40]);
+      else {
+        this.circle(cx, 45, 8, [255, 255, 255]);
+        this.circle(cx + g * 0.6, 46, 5, eye);
+        this.circle(cx + g * 0.6 - 2, 43.5, 1.8, [255, 255, 255]);
+      }
+    }
+    // cheeks blush when happy
+    if (mood === 'grin' || mood === 'win' || mood === 'power') {
+      this.circle(30, 58, 4, [255, 120, 120], 140);
+      this.circle(70, 58, 4, [255, 120, 120], 140);
+    }
+    const open = mood === 'power' ? 10 : mood === 'grin' || mood === 'win' ? 7 : 3;
+    this.poly(
+      [
+        [40, 60],
+        [60, 60],
+        [56, 60 + open],
+        [44, 60 + open],
+      ],
+      [80, 20, 30],
+    );
+    if (mood === 'power') this.circle(50, 64, 3, [255, 200, 80]);
   }
 
   private drawCrest(d: CharacterDef, hp: number, gold: RGB, accent: RGB, joint: RGB) {
@@ -398,6 +558,65 @@ export class Portrait {
             [45, 32],
             [55, 32],
             [50, broken ? 18 : -4],
+          ],
+          gold,
+        );
+        break;
+      case 'eva':
+        // single horn rising off the brow
+        this.poly(
+          [
+            [46, 30],
+            [54, 30],
+            [50, broken ? 14 : -2],
+          ],
+          shade(joint, 2.2),
+        );
+        break;
+      case 'beetle':
+        // big curved beetle horn plus side prongs
+        this.poly(
+          [
+            [44, 32],
+            [56, 32],
+            [58, 14],
+            [52, broken ? 10 : 0],
+            [46, 12],
+          ],
+          rgb(d.palette.body),
+        );
+        this.poly(
+          [
+            [24, 32],
+            [30, 30],
+            [18, 16],
+          ],
+          joint,
+        );
+        this.poly(
+          [
+            [76, 32],
+            [70, 30],
+            [82, 16],
+          ],
+          joint,
+        );
+        break;
+      case 'tyrant':
+        this.rect(46, 10, 8, 22, gold);
+        this.poly(
+          [
+            [18, 36],
+            [26, 30],
+            [12, 18],
+          ],
+          gold,
+        );
+        this.poly(
+          [
+            [82, 36],
+            [74, 30],
+            [88, 18],
           ],
           gold,
         );

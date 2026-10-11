@@ -49,14 +49,17 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 
 | Tab       | Setting         | Options                                                                  |
 | --------- | --------------- | ------------------------------------------------------------------------ |
-| Fighter   | Your unit       | 8 SD robots (placeholder designs), each with its own marble colour      |
-|           | Opponent unit   | Auto (different from yours) or any of the 8                              |
-| Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City (pucks match the theme) |
-|           | Pucks           | 0–5, each count has its own symmetric layout (applies next match)        |
+| Fighter   | Your unit       | 14 units (placeholder designs), each with its own marble colour: 8 SD mechs, plus Unit Violet, Kabuto Bee, Tyrant King (fires from a rex-head blaster), Rex Saur, Fang Liger and Ember Lizard (all three fire from the mouth) |
+|           | Opponent unit   | Auto (different from yours) or any of the 14                             |
+| Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City, Rainy Forest, River Dusk, Cyberpunk, Soccer Field (pucks and props match the theme) |
+|           | Pucks           | Off / 1–5, each count has its own symmetric layout (applies next match)  |
+|           | Walls           | Off / 1 / 2 / 3 cover walls per side; each takes 5 hits, then breaks     |
+|           | Pins            | Off / 2 / 4 / 6 / 8 pinball pins that deflect marbles                    |
 |           | Magazine        | 3–10 marbles per load, same for both robots (default 10)                 |
 |           | Air drops       | On / Off                                                                 |
 |           | Power gates     | Show / Hide                                                              |
-| Opponent  | Armor           | 50% / 75% / 100% / 150% / 200% health                                    |
+| Opponent  | Pack            | 1 / 2 / 3 opponents sharing the far rail, each in its own lane; extra units are random. Bigger packs get less armour and punch each (2: 60% / 50%, 3: 40% / 38%). Round ends when the whole pack is down |
+|           | Armor           | 50% / 75% / 100% / 150% / 200% health                                    |
 |           | Speed           | 1–5: movement speed                                                      |
 |           | Agility         | 1–5: how often and how quickly it dodges                                 |
 |           | Ball power      | 1–5: marble damage, weight and a little muzzle speed                     |
@@ -81,7 +84,8 @@ points at crates on your rail, even off-screen. The AI grabs and uses items too.
 | Item         | Effect                                                              |
 | ------------ | ------------------------------------------------------------------- |
 | Multi Shot   | 6 seconds of 6-marble fans per shot                                 |
-| Overdrive    | 6 seconds of 1.8x movement, with afterimages, thrusters, speed lines |
+| Slow-Mo      | 3 s of match time at half speed (6 s real); you move, fire and reload at 1.25x normal speed, with speed lines and a desaturated screen |
+| Wiper        | 6 s of a brick shield sweeping in front of you; enemy balls it touches bounce back as yours |
 | Repair Kit   | Restores 25% of max armor                                           |
 | Dragon Shot  | Three heavy glowing balls that weave in a zig-zag braid             |
 | Homing Missile | Chases the opponent (limited turn rate, so a sharp sidestep can slip it); hits up to 3 times, then explodes |
@@ -99,6 +103,8 @@ that pass through it are transformed; each gate has limited charges, then shatte
 | 5×   | 3       | Multiplies the ball's damage by 5 (a basic ball also grows, gold)  |
 | POW  | 3       | Turns a basic ball into a power ball (super-shot size and damage)  |
 | DRG  | 1       | Splits the ball into a three-ball dragon-shot braid                |
+| HOM  | 1       | Turns the ball into a homing missile for whoever fired it          |
+| WALL | 5 hits  | A solid wall that blocks both sides until shot 5 times (power balls count 3) |
 
 ## Match flow (Tekken style)
 
@@ -156,7 +162,7 @@ with a long hit-stop, heavy shake, knock-back, shockwave and flash. The AI charg
 | `src/robot.ts`  | Data-driven SD robot models (8 placeholder units, no wings or backpack) |
 | `src/fx2d.ts`   | ThorVG overlay: shockwaves, starbursts, glows/trails, speed lines, drop markers |
 | `src/face.ts`   | ThorVG Doom-style live portraits                                    |
-| `src/stage.ts`  | Five themed stages: floor, sky, lights, scenery, particles, pucks   |
+| `src/stage.ts`  | Nine themed stages: floor, sky, lights, scenery, moving props, particles (snow, embers, rain, fireflies, neon, confetti), pucks |
 | `src/items.ts`  | Air-drop item data and tuning                                       |
 | `src/audio.ts`  | Synthesised SFX, unlocked on first tap                              |
 | `src/storage.ts`| localStorage save with an in-memory fallback                        |
