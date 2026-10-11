@@ -34,6 +34,8 @@ export class AIController {
   /** settings: scales dodge chance up and reaction time down */
   agility = 1;
   private holdTime = 0;
+  private shieldT = 0;
+  private shieldCheck = 0;
   private reactQueue: { at: number; target: number }[] = [];
   private t = 0;
 
@@ -53,6 +55,7 @@ export class AIController {
     this.judged = new WeakSet();
     this.t = 0;
     this.holdTime = 0;
+    this.shieldT = 0;
   }
 
   update(dt: number) {
@@ -62,12 +65,14 @@ export class AIController {
     this.t += dt;
     if (g.phase !== 'fight') {
       me.firing = false;
+      me.shielding = false;
       me.moveTarget = 0;
       return;
     }
 
     this.updateMovement(dt);
     this.updateItem(dt);
+    this.updateShield(dt);
 
     // --- aim ---
     const desired = this.desiredAim();
@@ -96,6 +101,35 @@ export class AIController {
         this.pickAimMode();
       }
     }
+  }
+
+  /** Raise the shield against power balls, missiles and dense streams. */
+  private updateShield(dt: number) {
+    const g = this.game;
+    const me = this.me;
+    this.shieldT = Math.max(0, this.shieldT - dt);
+    this.shieldCheck -= dt;
+    if (this.shieldCheck <= 0) {
+      this.shieldCheck = 0.15;
+      let heavy = false;
+      let normal = 0;
+      for (const m of g.marbles) {
+        if (!m.active || m.team === me.team) continue;
+        const p = m.body.translation();
+        const v = m.body.linvel();
+        if ((me.y - p.y) * Math.sign(v.y) <= 0 || Math.abs(v.y) < 1) continue;
+        const tHit = Math.abs(me.y - p.y) / Math.abs(v.y);
+        if (tHit > 0.6) continue;
+        if (Math.abs(p.x + v.x * tHit - me.x) > me.halfWidth + m.radius + 0.3) continue;
+        if (m.kind === 'normal') normal++;
+        else heavy = true;
+      }
+      const missile = g.missiles.some((mm) => mm.team !== me.team && Math.hypot(mm.x - me.x, mm.y - me.y) < 3.2);
+      const skill = Math.min(1, 0.35 * this.agility);
+      if (me.shield > 25 && (heavy || missile) && Math.random() < skill * 2) this.shieldT = 0.5;
+      else if (me.shield > 55 && normal >= 3 && Math.random() < skill * 0.6) this.shieldT = 0.35;
+    }
+    me.shielding = this.shieldT > 0;
   }
 
   /** Use held items with a little judgement. */

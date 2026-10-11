@@ -86,3 +86,20 @@ export const GATE = {
 
 /** 5× gate: damage multiplier and visual growth for a basic ball */
 export const X5 = { damage: 5, radius: 1.45, mass: 4 };
+
+// ---------- shield ----------
+
+export const SHIELD = {
+  max: 100,
+  /** energy drained per second while raised */
+  drain: 9,
+  /** energy cost per point of damage blocked */
+  blockCost: 1.3,
+  /** regen per second once lowered for regenDelay seconds */
+  regen: 14,
+  regenDelay: 0.9,
+  /** seconds the shield is locked out after it breaks */
+  breakLock: 2.5,
+  /** move speed while shielding */
+  moveMul: 0.5,
+};

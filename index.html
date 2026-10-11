@@ -27,6 +27,7 @@
         <div class="vs-bar">
           <div class="side player">
             <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
+            <div class="sp player"><div class="fill"></div></div>
             <div class="side-info">
               <div class="portrait"><canvas id="face-player"></canvas></div>
               <div class="meta">
@@ -41,6 +42,7 @@
           <div id="clock-wrap"><div id="clock">75</div></div>
           <div class="side enemy">
             <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
+            <div class="sp enemy"><div class="fill"></div></div>
             <div class="side-info">
               <div class="portrait"><canvas id="face-enemy"></canvas></div>
               <div class="meta">
@@ -77,11 +79,19 @@
           <div class="pad-dir">
             <button class="pad-btn" data-btn="left" aria-label="Left">◀</button>
             <button class="pad-btn" data-btn="right" aria-label="Right">▶</button>
+            <button class="pad-btn shield" data-btn="down" aria-label="Shield">▼<small>SHIELD</small></button>
           </div>
-          <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>
+          <div class="pad-fire single">
+            <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>
+          </div>
+          <div class="pad-fire triple">
+            <button class="pad-btn fire mini" data-btn="fire" aria-label="Fire front">▲<small>FRONT</small></button>
+            <button class="pad-btn fire mini" data-btn="fireL" aria-label="Fire front left">◤<small>LEFT</small></button>
+            <button class="pad-btn fire mini" data-btn="fireR" aria-label="Fire front right">◥<small>RIGHT</small></button>
+          </div>
         </div>
         <div id="hints">
-          <div class="hint left">◀ DRAG TO MOVE ▶</div>
+          <div class="hint left">◀ DRAG TO MOVE ▶<br />DRAG DOWN: SHIELD</div>
           <div class="hint right">HOLD TO FIRE<br />DRAG TO AIM</div>
         </div>
         <div id="toast"></div>
@@ -144,8 +154,13 @@
           <section data-panel="fighter">
             <div class="setting">
               <div class="set-head"><b>Your unit</b><em id="char-name">Seraph Zero</em></div>
-              <span>The opponent always fields a different unit.</span>
+              <span>Each unit fires its own marble colour.</span>
               <div class="char-grid" id="char-grid"></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Opponent unit</b><em id="enemy-char-name">Auto</em></div>
+              <span>Auto picks a unit different from yours.</span>
+              <div class="char-grid" id="enemy-char-grid"></div>
             </div>
           </section>
 
@@ -209,9 +224,19 @@
 
           <section data-panel="controls">
             <div class="setting">
+              <div class="set-head"><b>Camera</b></div>
+              <span>From a high chase view down to the cockpit.</span>
+              <div class="seg" data-setting="camera"><button data-value="far">Far</button><button data-value="mid">Mid</button><button data-value="near">Near</button><button data-value="first">Cockpit</button></div>
+            </div>
+            <div class="setting">
               <div class="set-head"><b>Layout</b></div>
               <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom.</span>
               <div class="seg" data-setting="layout"><button data-value="gestures">Gestures</button><button data-value="buttons">Buttons</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Fire buttons</b><em>buttons layout</em></div>
+              <span>One FIRE button, or three that fire front-left, front and front-right.</span>
+              <div class="seg" data-setting="fireButtons"><button data-value="single">Single</button><button data-value="triple">Triple</button></div>
             </div>
             <div class="setting">
               <div class="set-head"><b>Left / Right</b></div>

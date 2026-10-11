@@ -29,6 +29,8 @@ interface Palette {
 export interface CharacterDef {
   id: string;
   name: string;
+  /** this unit's marble colour */
+  ball: number;
   palette: Palette;
   crest: 'vfin' | 'vfin-short' | 'horns' | 'unihorn' | 'fin';
   eyes: 'twin' | 'mono';
@@ -47,6 +49,7 @@ export interface CharacterDef {
 export const CHARACTERS: CharacterDef[] = [
   {
     id: 'angel',
+    ball: 0x6fa8ff,
     name: 'Seraph Zero',
     palette: { body: 0xf4f4f8, trim: 0x2f63e8, accent: 0xe8312f, joint: 0x5a5f73, wing: 0xf8f8fc, wingTip: 0x2f63e8, eye: 0x6dff9a },
     crest: 'vfin',
@@ -59,6 +62,7 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'dragon',
+    ball: 0xff5040,
     name: 'Wyvern',
     palette: { body: 0x9c1b2e, trim: 0x3d3a4c, accent: 0xffc23d, joint: 0x26232f, wing: 0x5e1020, wingTip: 0x9c1b2e, eye: 0xc8ff3d },
     crest: 'horns',
@@ -72,6 +76,7 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'pioneer',
+    ball: 0xf4ecd0,
     name: 'Pioneer',
     palette: { body: 0xf2f0ea, trim: 0x2950c8, accent: 0xd8262b, joint: 0x5d6070, wing: 0xf2f0ea, wingTip: 0x2950c8, eye: 0x7ff0ff },
     crest: 'vfin-short',
@@ -83,6 +88,7 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'liberty',
+    ball: 0xffd04a,
     name: 'Liberty',
     palette: { body: 0xf6f6fa, trim: 0x2b58d6, accent: 0xffc23d, joint: 0xd9a92a, wing: 0x2346b8, wingTip: 0xffd45e, eye: 0x6dff9a },
     crest: 'vfin',
@@ -95,6 +101,7 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'monoceros',
+    ball: 0xff4fa8,
     name: 'Monoceros',
     palette: { body: 0xf7f7f7, trim: 0xe9e9ef, accent: 0xff2d55, joint: 0x6a6d7c, wing: 0xf7f7f7, wingTip: 0xff2d55, eye: 0xffe14d },
     crest: 'unihorn',
@@ -107,6 +114,7 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'baron',
+    ball: 0xff9a2e,
     name: 'Crimson Baron',
     palette: { body: 0xd2202e, trim: 0x8e1220, accent: 0xffc23d, joint: 0x3a2a30, wing: 0x8e1220, wingTip: 0xd2202e, eye: 0xff5fd0 },
     crest: 'fin',
@@ -119,6 +127,7 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'bastion',
+    ball: 0x8dff5a,
     name: 'Bastion',
     palette: { body: 0xeef0ea, trim: 0x3c8f4a, accent: 0xd8262b, joint: 0x4a4e5a, wing: 0x3c8f4a, wingTip: 0xeef0ea, eye: 0x7ff0ff },
     crest: 'vfin-short',
@@ -130,6 +139,7 @@ export const CHARACTERS: CharacterDef[] = [
   },
   {
     id: 'nightshade',
+    ball: 0xb07cff,
     name: 'Nightshade',
     palette: { body: 0x23212c, trim: 0x4a4658, accent: 0x34e07a, joint: 0x15141b, wing: 0x1a1922, wingTip: 0x34e07a, eye: 0x34e07a },
     crest: 'vfin',
@@ -156,6 +166,8 @@ export class ShooterMesh {
   magBalls: THREE.Mesh[] = [];
   mats: THREE.MeshLambertMaterial[] = [];
   readonly id: string;
+  /** the marble colour this model was built with */
+  readonly ball: number;
   private wingL = new THREE.Group();
   private wingR = new THREE.Group();
   private stride = 0;
@@ -165,6 +177,7 @@ export class ShooterMesh {
     const def = characterById(characterId);
     this.def = def;
     this.id = def.id;
+    this.ball = marbleColor;
     const pal = def.palette;
     const lam = (color: number, side: THREE.Side = THREE.FrontSide) => {
       const m = new THREE.MeshLambertMaterial({ color, side });

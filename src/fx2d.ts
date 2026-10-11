@@ -57,7 +57,24 @@ export interface Marker {
   edge: number;
 }
 
-const POOL = 48;
+/** a motion streak behind a fast marble (screen space) */
+export interface Streak {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  w: number;
+  team: number;
+}
+
+interface Tick {
+  x: number;
+  y: number;
+  t: number;
+  k: number;
+}
+
+const POOL = 64;
 
 /** ThorVG writes the pixel size into the canvas's inline style; keep CSS size fluid. */
 export function fitCss(el: HTMLCanvasElement) {
@@ -73,6 +90,7 @@ export class Fx2D {
   private shapes: TShape[] = [];
   private rings: Ring[] = [];
   private stars: Star[] = [];
+  private ticks: Tick[] = [];
   private flashT = 0;
   private flashDur = 0.2;
   private flashColor: RGB = [255, 255, 255];
@@ -138,6 +156,12 @@ export class Fx2D {
     this.stars.push({ x, y, t: 0, dur: big ? 0.35 : 0.18, rays: big ? 12 : 7, len: big ? 110 : 34, angle: Math.random() * Math.PI, color });
   }
 
+  /** a tiny white impact ring where two marbles clack */
+  tick(x: number, y: number, k: number) {
+    if (this.ticks.length > 24) return;
+    this.ticks.push({ x, y, t: 0, k });
+  }
+
   flash(color: RGB = [255, 255, 255], dur = 0.22) {
     this.flashColor = color;
     this.flashDur = dur;
@@ -145,15 +169,17 @@ export class Fx2D {
   }
 
   /** Draw one frame. glows are recomputed by the caller each frame. */
-  render(dt: number, glows: Glow[], speed = false, markers: Marker[] = []) {
+  render(dt: number, glows: Glow[], speed = false, markers: Marker[] = [], streaks: Streak[] = [], teamColors: number[] = [0xffffff, 0xffffff]) {
     if (!this.ready || !this.tvg || !this.canvas) return;
     for (const r of this.rings) r.t += dt;
     for (const s of this.stars) s.t += dt;
     this.rings = this.rings.filter((r) => r.t < r.dur);
     this.stars = this.stars.filter((s) => s.t < s.dur);
+    for (const t of this.ticks) t.t += dt;
+    this.ticks = this.ticks.filter((t) => t.t < 0.16);
     this.flashT = Math.max(0, this.flashT - dt);
 
-    const empty = !this.rings.length && !this.stars.length && !glows.length && this.flashT <= 0 && !speed && !markers.length;
+    const empty = !this.rings.length && !this.stars.length && !glows.length && this.flashT <= 0 && !speed && !markers.length && !streaks.length && !this.ticks.length;
     if (empty && this.wasEmpty) return; // nothing to draw and already cleared
     this.wasEmpty = empty;
 
@@ -211,6 +237,39 @@ export class Fx2D {
         const grad = new TVG.RadialGradient(x, y, r * 2.4);
         grad.setStops([0, [255, 255, 255, 230]], [0.35, [...g.color, 170]], [1, [...g.color, 0]]);
         halo.appendCircle(x, y, r * 2.4).fill(grad);
+      }
+    }
+
+    // motion streaks: one shape per team, each streak a tapered sliver
+    for (const team of [0, 1]) {
+      const list = streaks.filter((st) => st.team === team);
+      if (!list.length) continue;
+      const s = next();
+      if (!s) break;
+      for (const st of list) {
+        const x0 = this.sx(st.x0);
+        const y0 = this.sy(st.y0);
+        const x1 = this.sx(st.x1);
+        const y1 = this.sy(st.y1);
+        const len = Math.hypot(x1 - x0, y1 - y0) || 1;
+        const nx = (-(y1 - y0) / len) * st.w * u * 0.5;
+        const ny = ((x1 - x0) / len) * st.w * u * 0.5;
+        s.moveTo(x0 + nx, y0 + ny);
+        s.lineTo(x1, y1);
+        s.lineTo(x0 - nx, y0 - ny);
+        s.close();
+      }
+      s.fill(...hex(teamColors[team]), 110);
+    }
+    // clack ticks
+    if (this.ticks.length) {
+      const s = next();
+      if (s) {
+        for (const t of this.ticks) {
+          const r = (4 + (t.t / 0.16) * 12 * (0.5 + t.k)) * u;
+          s.appendCircle(this.sx(t.x), this.sy(t.y), r);
+        }
+        s.stroke({ width: 1.5 * u, color: [255, 255, 255, 170] });
       }
     }
 

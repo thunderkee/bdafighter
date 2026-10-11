@@ -34,6 +34,12 @@ export interface Settings {
   items: boolean;
   /** moving power gates on/off */
   gates: boolean;
+  /** buttons layout: one FIRE, or front-left / front / front-right */
+  fireButtons: 'single' | 'triple';
+  /** opponent robot id, or 'auto' for one different from yours */
+  enemyCharacter: string;
+  /** chase camera distance, down to a first-person cockpit view */
+  camera: 'far' | 'mid' | 'near' | 'first';
 }
 
 export interface SaveData {
@@ -59,6 +65,9 @@ export const DEFAULT_SETTINGS: Settings = {
   stage: 'space',
   items: true,
   gates: true,
+  fireButtons: 'single',
+  enemyCharacter: 'auto',
+  camera: 'mid',
 };
 
 /** the opponent settings, for "reset opponent" */

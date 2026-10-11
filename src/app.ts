@@ -8,7 +8,7 @@ import { Fx2D } from './fx2d';
 import { Portrait } from './face';
 import { CHARACTERS, characterById } from './robot';
 import { STAGES, stageById } from './stage';
-import { ITEMS, type ItemType } from './items';
+import { ITEMS, SHIELD, type ItemType } from './items';
 import * as sfx from './audio';
 import * as store from './storage';
 
@@ -67,8 +67,12 @@ export function boot() {
     };
   };
   const enemyMaxHealth = () => MATCH.maxHealth * HEALTH[Math.max(1, Math.min(5, saveData.settings.enemyHealth)) - 1];
-  /** opponent robot: the default dragon, unless the player picked it */
-  const enemyCharacter = () => (saveData.settings.character === 'dragon' ? 'angel' : 'dragon');
+  /** opponent robot: the chosen one, or on auto the dragon unless the player picked it */
+  const enemyCharacter = () => {
+    const st = saveData.settings;
+    if (st.enemyCharacter && st.enemyCharacter !== 'auto') return st.enemyCharacter;
+    return st.character === 'dragon' ? 'angel' : 'dragon';
+  };
 
   const game = new Game(playerStats(), enemyStats());
   const view = new View($('stage'), game);
@@ -99,6 +103,8 @@ export function boot() {
   const hpChip = [document.querySelector<HTMLElement>('.hp.player .chip')!, document.querySelector<HTMLElement>('.hp.enemy .chip')!];
   const hpBox = [document.querySelector<HTMLElement>('.hp.player')!, document.querySelector<HTMLElement>('.hp.enemy')!];
   const hpNum = [$('player-hp-num'), $('enemy-hp-num')];
+  const spFill = [document.querySelector<HTMLElement>('.sp.player .fill')!, document.querySelector<HTMLElement>('.sp.enemy .fill')!];
+  const spBox = [document.querySelector<HTMLElement>('.sp.player')!, document.querySelector<HTMLElement>('.sp.enemy')!];
   const chip = [1, 1];
   const chipDelay = [0, 0];
   const pips = $('ammo-pips');
@@ -249,7 +255,14 @@ export function boot() {
       view.setStage(st.stage);
     }
     view.showAimLine = st.aimLine;
-    document.querySelectorAll<HTMLElement>('.char').forEach((c) => c.classList.toggle('on', c.dataset.id === st.character));
+    if (view.cameraMode !== st.camera) {
+      view.cameraMode = st.camera;
+      view.resize();
+    }
+    document.body.classList.toggle('triple', st.fireButtons === 'triple');
+    document.querySelectorAll<HTMLElement>('.enemy-char').forEach((c) => c.classList.toggle('on', c.dataset.id === (st.enemyCharacter || 'auto')));
+    $('enemy-char-name').textContent = st.enemyCharacter && st.enemyCharacter !== 'auto' ? characterById(st.enemyCharacter).name : `Auto (${characterById(enemyCharacter()).name})`;
+    document.querySelectorAll<HTMLElement>('#char-grid .char').forEach((c) => c.classList.toggle('on', c.dataset.id === st.character));
     document.querySelectorAll<HTMLElement>('.stage-card').forEach((c) => c.classList.toggle('on', c.dataset.id === st.stage));
     $('char-name').textContent = characterById(st.character).name;
     $('stage-name').textContent = stageById(st.stage).name;
@@ -289,9 +302,26 @@ export function boot() {
     const btn = document.createElement('button');
     btn.className = 'char';
     btn.dataset.id = c.id;
-    btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.palette.eye)} 78%)"></i><span>${c.name}</span>`;
+    btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
     btn.addEventListener('click', () => saveSetting({ character: c.id }));
     $('char-grid').appendChild(btn);
+  }
+  // opponent picker: Auto, then every unit
+  {
+    const auto = document.createElement('button');
+    auto.className = 'char enemy-char';
+    auto.dataset.id = 'auto';
+    auto.innerHTML = `<i style="background:repeating-linear-gradient(45deg, #3ef0ff 0 4px, #0a1630 4px 8px)"></i><span>Auto</span>`;
+    auto.addEventListener('click', () => saveSetting({ enemyCharacter: 'auto' }));
+    $('enemy-char-grid').appendChild(auto);
+    for (const c of CHARACTERS) {
+      const btn = document.createElement('button');
+      btn.className = 'char enemy-char';
+      btn.dataset.id = c.id;
+      btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
+      btn.addEventListener('click', () => saveSetting({ enemyCharacter: c.id }));
+      $('enemy-char-grid').appendChild(btn);
+    }
   }
   for (const s of STAGES) {
     const btn = document.createElement('button');
@@ -506,6 +536,8 @@ export function boot() {
       hpChip[i].style.width = chip[i] * 100 + '%';
       hpBox[i].classList.toggle('low', frac < 0.25);
       hpNum[i].textContent = Math.ceil(frac * 100) + '%';
+      spFill[i].style.width = (s.shield / SHIELD.max) * 100 + '%';
+      spBox[i].classList.toggle('broken', s.shieldLock > 0);
       // super meters: pips fill per hit, glow when the next shot is a super
       superPips[i].forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));
       superRows[i].classList.toggle('ready', s.superReady);

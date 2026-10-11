@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { ARENA, COLORS, MATCH } from './config';
 import type { Drop, Game, Gate, Team } from './game';
-import { ShooterMesh } from './robot';
+import { ShooterMesh, characterById } from './robot';
 import { Stage } from './stage';
-import { GATE, GATES, ITEMS, MISSILE } from './items';
-import { hex, type Fx2D, type Glow, type Marker } from './fx2d';
+import { GATE, GATES, ITEMS, MISSILE, SHIELD } from './items';
+import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
 
 // Physics (x, y) maps to three.js (x, 0, -y): the player sits near the
 // camera at +z and the opponent sits far away at -z.
@@ -134,6 +134,16 @@ export class View {
   private missileMeshes = new Map<number, { root: THREE.Group; flame: THREE.Mesh }>();
   private missileTrails = new Map<number, { x: number; y: number }[]>();
   private ko: KoState | null = null;
+  /** each side's marble colour, from its robot */
+  private teamBall: [number, number] = [characterById('angel').ball, characterById('dragon').ball];
+  /** settings: chase-camera distance, down to a first-person cockpit view */
+  cameraMode: 'far' | 'mid' | 'near' | 'first' = 'mid';
+  private hopH: Float32Array;
+  private hopV: Float32Array;
+  private shadows: THREE.InstancedMesh;
+  private streaks: Streak[] = [];
+  private shields: THREE.Mesh[] = [];
+  private shieldFlash = [0, 0];
   private robotFx: [RobotFx, RobotFx];
 
   constructor(
@@ -153,13 +163,34 @@ export class View {
     this.stage = new Stage('space');
     this.applyStage();
 
-    this.shooters = [new ShooterMesh('angel', COLORS.playerMarble), new ShooterMesh('dragon', COLORS.enemyMarble)];
+    this.shooters = [new ShooterMesh('angel', this.teamBall[0]), new ShooterMesh('dragon', this.teamBall[1])];
     for (const s of this.shooters) this.scene.add(s.root);
-    this.robotFx = [new RobotFx(this.scene, COLORS.playerMarble), new RobotFx(this.scene, COLORS.enemyMarble)];
+    this.robotFx = [new RobotFx(this.scene, this.teamBall[0]), new RobotFx(this.scene, this.teamBall[1])];
+    this.hopH = new Float32Array(MATCH.marblePool);
+    this.hopV = new Float32Array(MATCH.marblePool);
+    // soft contact shadows under every marble
+    this.shadows = new THREE.InstancedMesh(
+      new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false }),
+      MATCH.marblePool,
+    );
+    this.shadows.frustumCulled = false;
+    this.scene.add(this.shadows);
+    // energy shields: a curved, hex-patterned wall in front of each robot
+    const hexTex = this.makeHexTexture();
+    for (let i = 0; i < 2; i++) {
+      const arc = Math.PI * 0.75;
+      const geo = new THREE.CylinderGeometry(1.15, 1.15, 1.9, 24, 1, true, Math.PI - arc / 2, arc);
+      const mat = new THREE.MeshBasicMaterial({ color: this.teamBall[i], map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.visible = false;
+      this.scene.add(mesh);
+      this.shields.push(mesh);
+    }
 
     // marbles: one instanced mesh per team, hidden instances scaled to 0
     const marbleGeo = new THREE.SphereGeometry(1, 16, 12);
-    this.marbleMesh = [COLORS.playerMarble, COLORS.enemyMarble].map((c) => {
+    this.marbleMesh = this.teamBall.map((c) => {
       const mat = new THREE.MeshPhongMaterial({ color: c, shininess: 90, specular: 0xffffff });
       const mesh = new THREE.InstancedMesh(marbleGeo, mat, MATCH.marblePool);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -240,7 +271,7 @@ export class View {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     // narrow portrait screens need a wider lens to keep the side walls in view
-    this.camera.fov = w / h < 0.75 ? 54 : 44;
+    this.camera.fov = this.cameraMode === 'first' ? (w / h < 0.75 ? 74 : 62) : w / h < 0.75 ? 54 : 44;
     this.camera.updateProjectionMatrix();
     this.snapCamera = true;
   }
@@ -257,12 +288,19 @@ export class View {
   /** Swap the robot models for each side. */
   setCharacters(player: string, enemy: string) {
     const ids = [player, enemy];
-    const marbles = [COLORS.playerMarble, COLORS.enemyMarble];
+    this.teamBall = [characterById(player).ball, characterById(enemy).ball];
+    // a mirror match keeps the opponent's marbles distinguishable
+    if (player === enemy) this.teamBall[1] = 0xff5a4a;
+    this.teamBall.forEach((c, i) => {
+      (this.marbleMesh[i].material as THREE.MeshPhongMaterial).color.set(c);
+      (this.shields[i].material as THREE.MeshBasicMaterial).color.set(c);
+      this.robotFx[i].ghosts.forEach((g) => (g.material as THREE.MeshBasicMaterial).color.set(c));
+    });
     this.shooters.forEach((old, i) => {
-      if (old.id === ids[i]) return;
+      if (old.id === ids[i] && old.ball === this.teamBall[i]) return;
       this.scene.remove(old.root);
       old.dispose();
-      const next = new ShooterMesh(ids[i], marbles[i]);
+      const next = new ShooterMesh(ids[i], this.teamBall[i]);
       this.scene.add(next.root);
       this.shooters[i] = next;
     });
@@ -396,6 +434,31 @@ export class View {
           this.shake(0.2);
           break;
         }
+        case 'block': {
+          this.shieldFlash[f.team] = 1;
+          const c = this.teamBall[f.team];
+          const sp = this.project(f.x, f.y, 0.8);
+          this.fx2d?.ring(sp.x, sp.y, hex(c), f.heavy);
+          this.burst(f.x, f.y, c, f.heavy ? 18 : 6, 4, { h: 0.8 });
+          this.shake(f.team === 0 ? (f.heavy ? 0.3 : 0.08) : 0.05);
+          break;
+        }
+        case 'shield-break': {
+          const s = g.shooters[f.team];
+          const c = this.teamBall[f.team];
+          const sp = this.project(s.x, s.y, 1);
+          this.burst(s.x, s.y + s.forward * 0.9, c, 40, 8, { h: 1 });
+          this.burst(s.x, s.y + s.forward * 0.9, 0xffffff, 16, 6, { h: 1 });
+          this.fx2d?.ring(sp.x, sp.y, hex(c), true);
+          this.fx2d?.star(sp.x, sp.y, hex(c), true);
+          this.shake(f.team === 0 ? 0.55 : 0.2);
+          break;
+        }
+        case 'clack': {
+          const sp = this.project(f.x, f.y, 0.3);
+          this.fx2d?.tick(sp.x, sp.y, Math.min(1, f.intensity));
+          break;
+        }
         case 'gate-pass': {
           const c = GATES[f.gate].color;
           const sp = this.project(f.x, f.y, 0.6);
@@ -435,6 +498,9 @@ export class View {
     });
     this.updateKo(dt);
     this.updateRobotFx(dt);
+    this.updateShields(dt);
+    // first person: hide your own robot so it doesn't block the view
+    this.shooters[0].root.visible = this.cameraMode !== 'first' || !!this.ko;
     this.updateMissiles(dt);
     this.updateDrops();
     this.updateGates();
@@ -442,9 +508,13 @@ export class View {
     // marbles + visual rolling
     const counts = [0, 0];
     let powerCount = 0;
+    this.streaks.length = 0;
     const seen = new Set<number>();
     for (const m of g.marbles) {
-      if (!m.active) continue;
+      if (!m.active) {
+        this.hopH[m.idx] = this.hopV[m.idx] = 0;
+        continue;
+      }
       if (m.kind !== 'normal') {
         const p = m.body.translation();
         const mesh = this.powerMeshes[powerCount++];
@@ -452,10 +522,10 @@ export class View {
         const gold = m.kind === 'x5';
         if (mesh) {
           mesh.visible = true;
-          mesh.position.set(p.x, m.radius, -p.y);
+          mesh.position.set(p.x, m.radius + this.hop(m.idx, m, dt), -p.y);
           // shimmer between white-hot and the ball's colour
           const pulse = 0.5 + 0.5 * Math.sin(this.time * 30 + m.idx);
-          const base = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : m.team === 0 ? 0x9fd0ff : 0xffb09a;
+          const base = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : this.teamBall[m.team];
           (mesh.material as THREE.MeshBasicMaterial).color.set(base).lerp(this.tmpC.set(0xffffff), pulse * 0.5);
           mesh.scale.setScalar(m.radius * (1 + pulse * 0.08));
         }
@@ -465,7 +535,7 @@ export class View {
         if (trail.length > (dragon ? 14 : 10)) trail.length = dragon ? 14 : 10;
         this.trails.set(m.idx, trail);
         seen.add(m.idx);
-        const glowColor = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : m.team === 0 ? 0x5fa8ff : 0xff6a4a;
+        const glowColor = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : this.teamBall[m.team];
         this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(p.x, p.y, m.radius), color: hex(glowColor), trail: trail.slice(1) });
         continue;
       }
@@ -479,12 +549,34 @@ export class View {
         this.tmpQ.setFromAxisAngle(this.axis, (speed * dt) / m.radius);
         q.premultiply(this.tmpQ);
       }
-      this.tmpV.set(p.x, m.radius, -p.y);
+      const h = this.hop(m.idx, m, dt);
+      this.tmpV.set(p.x, m.radius + h, -p.y);
       this.tmpS.setScalar(m.radius);
       this.tmpM.compose(this.tmpV, q, this.tmpS);
       const mesh = this.marbleMesh[m.team];
       mesh.setMatrixAt(counts[m.team]++, this.tmpM);
+      // fast marbles get a ThorVG motion streak
+      if (speed > 11) {
+        const a = this.project(p.x, p.y, m.radius + h);
+        const k = Math.min(0.09, speed * 0.005);
+        const b = this.project(p.x - v.x * k, p.y - v.y * k, m.radius + h);
+        this.streaks.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, w: this.screenRadius(p.x, p.y, m.radius) * 1.4, team: m.team });
+      }
     }
+    // contact shadows shrink and fade as a marble hops
+    let shadowN = 0;
+    for (const m of g.marbles) {
+      if (!m.active) continue;
+      const p = m.body.translation();
+      const h = this.hopH[m.idx];
+      this.tmpV.set(p.x, 0.02, -p.y);
+      this.tmpS.setScalar(m.radius * (1.05 - Math.min(0.5, h * 0.8)));
+      this.tmpQ.identity();
+      this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS);
+      this.shadows.setMatrixAt(shadowN++, this.tmpM);
+    }
+    this.shadows.count = shadowN;
+    this.shadows.instanceMatrix.needsUpdate = true;
     for (const t of [0, 1] as Team[]) {
       this.marbleMesh[t].count = counts[t];
       this.marbleMesh[t].instanceMatrix.needsUpdate = true;
@@ -546,7 +638,7 @@ export class View {
       const edge = sp.x < margin ? -1 : sp.x > w - margin ? 1 : 0;
       this.markers.push({ x: Math.max(margin, Math.min(w - margin, sp.x)), y: edge ? Math.min(sp.y, this.host.clientHeight * 0.72) : sp.y, color: hex(ITEMS[d.type].color), edge });
     }
-    this.fx2d?.render(dt, this.glows, g.shooters[0].boostT > 0, this.markers);
+    this.fx2d?.render(dt, this.glows, g.shooters[0].boostT > 0, this.markers, this.streaks, this.teamBall);
   }
 
   private updateSparks(dt: number) {
@@ -636,6 +728,69 @@ export class View {
     }
   }
 
+  /** Visual hop height for a marble: impacts kick it up, gravity brings it down. */
+  private hop(idx: number, m: { hop: number }, dt: number) {
+    if (m.hop > 0) {
+      this.hopV[idx] = Math.max(this.hopV[idx], Math.sqrt(2 * 22 * m.hop));
+      m.hop = 0;
+    }
+    if (this.hopH[idx] > 0 || this.hopV[idx] > 0) {
+      this.hopV[idx] -= 22 * dt;
+      this.hopH[idx] += this.hopV[idx] * dt;
+      if (this.hopH[idx] <= 0) {
+        this.hopH[idx] = 0;
+        // small bounces die out quickly
+        this.hopV[idx] = this.hopV[idx] < -1.2 ? -this.hopV[idx] * 0.35 : 0;
+      }
+    }
+    return this.hopH[idx];
+  }
+
+  private makeHexTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 128;
+    cvs.height = 128;
+    const c = cvs.getContext('2d')!;
+    c.fillStyle = 'rgba(255,255,255,0.18)';
+    c.fillRect(0, 0, 128, 128);
+    c.strokeStyle = '#ffffff';
+    c.lineWidth = 3;
+    const r = 16;
+    for (let row = -1; row < 6; row++)
+      for (let col = -1; col < 6; col++) {
+        const x = col * r * 1.5;
+        const y = row * r * Math.sqrt(3) + (col % 2 ? (r * Math.sqrt(3)) / 2 : 0);
+        c.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a = (k / 6) * Math.PI * 2;
+          c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        c.closePath();
+        c.stroke();
+      }
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 2);
+    return tex;
+  }
+
+  /** Shield walls: shown while raised, flicker as energy runs low, flash on blocks. */
+  private updateShields(dt: number) {
+    this.game.shooters.forEach((s, i) => {
+      const mesh = this.shields[i];
+      this.shieldFlash[i] = Math.max(0, this.shieldFlash[i] - dt * 4);
+      mesh.visible = s.shieldUp && !this.shooters[i].broken;
+      if (!mesh.visible) return;
+      mesh.position.set(s.x, 0.95, -s.y);
+      mesh.rotation.y = s.team === 0 ? 0 : Math.PI;
+      const low = s.shield / SHIELD.max < 0.3;
+      const flicker = low && Math.random() < 0.3 ? 0.15 : 1;
+      (mesh.material as THREE.MeshBasicMaterial).opacity = (0.38 + this.shieldFlash[i] * 0.6) * flicker;
+      const map = (mesh.material as THREE.MeshBasicMaterial).map;
+      if (map) map.offset.y = (this.time * 0.3) % 1;
+    });
+  }
+
   /** Clear the wreck and rebuild a broken robot before the next match. */
   resetMatch() {
     if (this.ko) {
@@ -649,7 +804,7 @@ export class View {
       if (!sm.broken) return;
       this.scene.remove(sm.root);
       sm.dispose();
-      const next = new ShooterMesh(sm.id, i === 0 ? COLORS.playerMarble : COLORS.enemyMarble);
+      const next = new ShooterMesh(sm.id, this.teamBall[i]);
       this.scene.add(next.root);
       this.shooters[i] = next;
     });
@@ -946,8 +1101,25 @@ export class View {
     }
     const p = this.game.shooters[0];
     const lean = Math.sin(p.aim);
-    this.camGoal.set(p.x * 0.9 - lean * 0.9, 6.4, -p.y + 6.4);
-    this.lookGoal.set(p.x * 0.6 + lean * 3, 0.2, -p.y - 7.5);
+    switch (this.cameraMode) {
+      case 'far':
+        this.camGoal.set(p.x * 0.85 - lean * 1.1, 8.4, -p.y + 8.4);
+        this.lookGoal.set(p.x * 0.55 + lean * 3, 0, -p.y - 6.5);
+        break;
+      case 'mid':
+        this.camGoal.set(p.x * 0.9 - lean * 0.9, 6.4, -p.y + 6.4);
+        this.lookGoal.set(p.x * 0.6 + lean * 3, 0.2, -p.y - 7.5);
+        break;
+      case 'near':
+        this.camGoal.set(p.x * 0.95 - lean * 0.6, 3.8, -p.y + 3.9);
+        this.lookGoal.set(p.x * 0.7 + lean * 3.5, 0.5, -p.y - 8.5);
+        break;
+      case 'first':
+        // cockpit: eye level on the robot, looking down the aim line
+        this.camGoal.set(p.x, 1.8, -p.y - 0.1);
+        this.lookGoal.set(p.x + Math.sin(p.aim) * 10, 0.6, -p.y - Math.cos(p.aim) * 10);
+        break;
+    }
     // frame-rate independent smoothing
     const k = this.snapCamera ? 1 : 1 - Math.exp(-dt * 6);
     this.camBase.lerp(this.camGoal, k);

@@ -1,6 +1,6 @@
 import RAPIER from '@dimforge/rapier2d';
 import { AIM_LIMIT, ARENA, MATCH, type ShooterStats } from './config';
-import { BOOST, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, X5, type GateType, type ItemType } from './items';
+import { BOOST, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, SHIELD, X5, type GateType, type ItemType } from './items';
 import * as sfx from './audio';
 
 // Collision groups: membership in the high 16 bits, filter in the low 16.
@@ -73,6 +73,8 @@ export interface Marble {
   weave: number;
   /** id of the last gate this ball went through (each gate acts once per ball) */
   lastGate: number;
+  /** upward kick from the latest impact; the view turns it into a little hop */
+  hop: number;
 }
 
 export interface Missile {
@@ -123,6 +125,9 @@ export interface Drop {
 export type Fx =
   | { type: 'hit'; x: number; y: number; team: Team; amount: number; power: MarbleKind | 'missile' }
   | { type: 'missile-launch'; team: Team }
+  | { type: 'block'; x: number; y: number; team: Team; heavy: boolean }
+  | { type: 'shield-break'; team: Team }
+  | { type: 'clack'; x: number; y: number; intensity: number }
   | { type: 'drop-destroyed'; x: number; y: number; team: Team; item: ItemType }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; team: Team }
@@ -175,6 +180,11 @@ export class Shooter {
   /** dragon balls still to launch, and the gap timer */
   dragonQueue = 0;
   dragonTimer = 0;
+  /** shield: wanted (input/AI), energy, lockout after a break, regen delay */
+  shielding = false;
+  shield: number = SHIELD.max;
+  shieldLock = 0;
+  shieldIdle = 0;
   /** seconds since this robot last landed a hit / took one (portraits read these) */
   sinceHit = 99;
   sinceHurt = 99;
@@ -203,6 +213,11 @@ export class Shooter {
 
   get hpFrac() {
     return this.health / this.maxHealth;
+  }
+
+  /** the shield is actually up (wanted, has energy, not broken) */
+  get shieldUp() {
+    return this.shielding && this.shield > 0 && this.shieldLock <= 0;
   }
 
   dir(angle = this.aim) {
@@ -238,6 +253,10 @@ export class Shooter {
     this.multiT = this.boostT = 0;
     this.dragonQueue = this.dragonTimer = 0;
     this.sinceHit = this.sinceHurt = 99;
+    this.shielding = false;
+    this.shield = SHIELD.max;
+    this.shieldLock = 0;
+    this.shieldIdle = 0;
     this.body.setTranslation({ x: 0, y: this.y }, true);
   }
 }
@@ -308,7 +327,7 @@ export class Game {
       const wall = this.world.createCollider(
         RAPIER.ColliderDesc.cuboid(t / 2, ARENA.length / 2)
           .setTranslation(side * (hw + t / 2), 0)
-          .setRestitution(0.92)
+          .setRestitution(0.86)
           .setFriction(0)
           .setCollisionGroups(GROUPS.wall),
         ground,
@@ -345,12 +364,12 @@ export class Game {
         RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(0, -100 - i)
           .setCcdEnabled(true)
-          .setLinearDamping(0.12)
+          .setLinearDamping(0.2)
           .setEnabled(false),
       );
       const collider = this.world.createCollider(
         RAPIER.ColliderDesc.ball(0.22)
-          .setRestitution(0.9)
+          .setRestitution(0.82)
           .setFriction(0)
           .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS)
           .setCollisionGroups(GROUPS.marble[0]),
@@ -370,6 +389,7 @@ export class Game {
         kind: 'normal',
         weave: 1,
         lastGate: -1,
+        hop: 0,
       };
       this.tags.set(collider.handle, { kind: 'marble', m });
       this.marbles.push(m);
@@ -485,6 +505,24 @@ export class Game {
     this.toDespawn.clear();
   }
 
+  private breakShield(s: Shooter) {
+    s.shield = 0;
+    s.shieldLock = SHIELD.breakLock;
+    this.fx.push({ type: 'shield-break', team: s.team });
+    sfx.play('superhit', 0.6);
+  }
+
+  /** Soak a hit on the shield. Returns true if it was blocked. */
+  private block(s: Shooter, amount: number, x: number, y: number, heavy: boolean) {
+    if (!s.shieldUp) return false;
+    s.shield = Math.max(0, s.shield - amount * SHIELD.blockCost);
+    s.shieldIdle = 0;
+    this.fx.push({ type: 'block', x, y, team: s.team, heavy });
+    sfx.play('bump', heavy ? 1 : 0.6);
+    if (s.shield <= 0) this.breakShield(s);
+    return true;
+  }
+
   // ---------- homing missiles ----------
 
   private launchMissile(s: Shooter) {
@@ -524,6 +562,11 @@ export class Game {
       if (m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
         const attacker = this.shooters[m.team];
         const amount = MISSILE.damage * (attacker.stats.damage / 4.4);
+        if (this.block(target, amount, m.x, m.y, true)) {
+          m.hits++;
+          m.heading += Math.PI + (Math.random() - 0.5) * 1.2;
+          m.recover = MISSILE.recover;
+        } else {
         target.health = Math.max(0, target.health - amount);
         target.flash = 0.25;
         target.sinceHurt = 0;
@@ -537,6 +580,7 @@ export class Game {
         m.heading += Math.PI + (Math.random() - 0.5) * 1.2;
         m.recover = MISSILE.recover;
         if (target.health <= 0) this.finish();
+        }
       }
       if (m.hits >= MISSILE.hits || m.age > MISSILE.life) {
         this.fx.push({ type: 'missile-end', x: m.x, y: m.y, team: m.team });
@@ -667,7 +711,7 @@ export class Game {
   private updateShooter(s: Shooter, dt: number, canAct: boolean) {
     // movement (overdrive speeds it up)
     const maxX = ARENA.railHalfWidth;
-    const speed = s.stats.moveSpeed * (s.boostT > 0 ? BOOST.speed : 1);
+    const speed = s.stats.moveSpeed * (s.boostT > 0 ? BOOST.speed : 1) * (s.shieldUp ? SHIELD.moveMul : 1);
     const prevX = s.x;
     if (canAct || this.phase === 'countdown') {
       if (s.moveTarget !== null) {
@@ -719,7 +763,18 @@ export class Game {
       }
     }
 
-    if (canAct && s.firing && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
+    // shield energy: drains while raised, regenerates after a pause
+    s.shieldLock = Math.max(0, s.shieldLock - dt);
+    if (canAct && s.shieldUp) {
+      s.shield = Math.max(0, s.shield - SHIELD.drain * dt);
+      s.shieldIdle = 0;
+      if (s.shield <= 0) this.breakShield(s);
+    } else {
+      s.shieldIdle += dt;
+      if (s.shieldIdle > SHIELD.regenDelay && s.shieldLock <= 0) s.shield = Math.min(SHIELD.max, s.shield + SHIELD.regen * dt);
+    }
+
+    if (canAct && s.firing && !s.shieldUp && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
       const multi = s.multiT > 0 && !s.superReady;
       if (multi) this.fireVolley(s);
       else this.fire(s);
@@ -856,6 +911,7 @@ export class Game {
     m.kind = o.kind;
     m.weave = o.weave ?? 1;
     m.lastGate = -1;
+    m.hop = 0;
     m.age = 0;
     m.bounces = 0;
     m.damage = o.damage;
@@ -970,6 +1026,7 @@ export class Game {
         // power balls always land at full power
         const factor = heavy ? 1 : Math.max(0.45, Math.min(1.25, speed / 15));
         const amount = m.damage * factor;
+        if (this.block(s, amount, p.x, p.y, heavy)) return;
         s.health = Math.max(0, s.health - amount);
         s.flash = heavy ? 0.3 : 0.12;
         s.sinceHurt = 0;
@@ -998,6 +1055,11 @@ export class Game {
         const ov = o.body.linvel();
         const rel = Math.hypot(v.x - ov.x, v.y - ov.y);
         sfx.play('clack', rel / 25);
+        // both balls jump a little on a hard clack
+        const hop = Math.min(0.5, rel * 0.025);
+        m.hop = Math.max(m.hop, hop);
+        o.hop = Math.max(o.hop, hop);
+        if (rel > 6) this.fx.push({ type: 'clack', x: p.x, y: p.y, intensity: rel / 25 });
         if (o.team !== m.team && rel > 8) {
           const op = o.body.translation();
           this.fx.push({ type: 'spark', x: (p.x + op.x) / 2, y: (p.y + op.y) / 2, intensity: rel / 30 });
@@ -1005,11 +1067,13 @@ export class Game {
         break;
       }
       case 'wall':
+        m.hop = Math.max(m.hop, Math.min(0.35, speed * 0.015));
         m.bounces++;
         sfx.play('wall', speed / 20);
         if (m.bounces > MATCH.marbleMaxBounces) this.toDespawn.add(m);
         break;
       case 'bump':
+        m.hop = Math.max(m.hop, Math.min(0.45, speed * 0.02));
         m.bounces++;
         sfx.play('bump', speed / 18);
         break;

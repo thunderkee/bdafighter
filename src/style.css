@@ -1039,3 +1039,83 @@ body:not(.touch) .touch-only {
   pointer-events: none;
   white-space: pre;
 }
+
+/* ---------- shield bars ---------- */
+.sp {
+  position: relative;
+  height: 5px;
+  margin-top: -2px;
+  background: rgba(0, 0, 0, 0.55);
+  transform: skewX(-20deg);
+}
+.sp.enemy {
+  transform: skewX(20deg);
+}
+.sp .fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(90deg, #a6f8ff, #3ef0ff);
+  box-shadow: 0 0 6px rgba(62, 240, 255, 0.7);
+}
+.sp.enemy .fill {
+  left: auto;
+  right: 0;
+  background: linear-gradient(90deg, #ff9ab0, #ffd0dc);
+  box-shadow: 0 0 6px rgba(255, 120, 150, 0.6);
+}
+.sp.broken .fill {
+  background: #ff3e3e;
+  animation: blink 0.3s steps(2) infinite;
+}
+
+/* ---------- pad: shield + triple fire ---------- */
+.pad-dir {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px 8px;
+  justify-items: center;
+}
+.pad-btn.shield {
+  grid-column: 1 / span 2;
+  width: 82px;
+  height: 52px;
+  font-size: 18px;
+  color: #a6f8ff;
+}
+.pad-btn small {
+  display: block;
+  font: 700 7px var(--display);
+  letter-spacing: 0.12em;
+  opacity: 0.8;
+}
+.pad-btn.shield.held {
+  background: var(--cyan);
+}
+.pad-fire {
+  display: flex;
+}
+.pad-fire.triple {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px 8px;
+}
+.pad-fire.triple .mini {
+  width: 70px;
+  height: 58px;
+  font-size: 16px;
+}
+.pad-fire.triple .mini:first-child {
+  grid-column: 1 / span 2;
+  justify-self: center;
+}
+body:not(.triple) .pad-fire.triple,
+body.triple .pad-fire.single {
+  display: none;
+}
+body.buttons .item-slot,
+body.buttons #effects {
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 200px);
+}

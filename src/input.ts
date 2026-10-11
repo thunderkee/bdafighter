@@ -3,6 +3,7 @@ import type { Shooter } from './game';
 import { DEFAULT_SETTINGS, type Settings } from './storage';
 
 const AIM_TURN_RATE = 1.7; // rad/s when left/right turn the aim
+const TRIPLE_ANGLE = 0.42; // radians for the front-left / front-right fire buttons
 
 /**
  * Touch first:
@@ -21,9 +22,11 @@ export class Input {
   onUseItem: (() => void) | null = null;
   settings: Settings = { ...DEFAULT_SETTINGS };
   /** held state of the on-screen buttons */
-  buttons = { left: false, right: false, fire: false };
+  buttons = { left: false, right: false, fire: false, down: false, fireL: false, fireR: false };
 
-  private moveTouch: { id: number; x0: number; s0: number } | null = null;
+  private moveTouch: { id: number; x0: number; y0: number; s0: number } | null = null;
+  /** gestures: dragging the move thumb downward raises the shield */
+  private shieldDrag = false;
   private aimTouch: { id: number; x0: number; a0: number } | null = null;
   private mouseDown = false;
   private keys = new Set<string>();
@@ -48,7 +51,9 @@ export class Input {
     this.keys.clear();
     this.moveTouch = this.aimTouch = null;
     this.mouseDown = false;
-    this.buttons.left = this.buttons.right = this.buttons.fire = false;
+    for (const k of Object.keys(this.buttons) as (keyof typeof this.buttons)[]) this.buttons[k] = false;
+    this.shieldDrag = false;
+    this.player.shielding = false;
     this.player.firing = false;
     this.player.moveTarget = null;
     this.player.moveAxis = 0;
@@ -83,7 +88,7 @@ export class Input {
     }
     const leftZone = e.clientX - r.left < r.width * 0.4;
     if (leftZone && !this.moveTouch) {
-      this.moveTouch = { id: e.pointerId, x0: e.clientX, s0: this.player.x };
+      this.moveTouch = { id: e.pointerId, x0: e.clientX, y0: e.clientY, s0: this.player.x };
     } else if (!this.aimTouch) {
       this.aimTouch = { id: e.pointerId, x0: e.clientX, a0: this.player.aim };
     }
@@ -99,6 +104,7 @@ export class Input {
       // a ~55% screen-width swipe covers the whole rail
       const perPx = (ARENA.railHalfWidth * 2) / (r.width * 0.55);
       this.player.moveTarget = this.moveTouch.s0 + (e.clientX - this.moveTouch.x0) * perPx;
+      this.shieldDrag = e.clientY - this.moveTouch.y0 > 36;
     } else if (this.aimTouch?.id === e.pointerId) {
       const perPx = (AIM_LIMIT * 2) / (r.width * 0.6);
       this.player.aim = this.aimTouch.a0 + (e.clientX - this.aimTouch.x0) * perPx;
@@ -119,6 +125,7 @@ export class Input {
     if (this.moveTouch?.id === e.pointerId) {
       this.moveTouch = null;
       this.player.moveTarget = null;
+      this.shieldDrag = false;
     }
     if (this.aimTouch?.id === e.pointerId) this.aimTouch = null;
   };
@@ -157,6 +164,11 @@ export class Input {
       const dy = this.mouseWorld.y - p.y;
       if (dy > 0.5) p.aim = Math.atan2(this.mouseWorld.x - p.x, dy);
     }
-    p.firing = !!this.aimTouch || (this.settings.mouseAim && this.mouseDown) || k.has('Space') || b.fire;
+    // triple fire buttons aim for you: front-left, front, front-right
+    if (b.fireL) p.aim = -TRIPLE_ANGLE;
+    else if (b.fireR) p.aim = TRIPLE_ANGLE;
+    else if (b.fire && this.settings.fireButtons === 'triple') p.aim = 0;
+    p.firing = !!this.aimTouch || (this.settings.mouseAim && this.mouseDown) || k.has('Space') || b.fire || b.fireL || b.fireR;
+    p.shielding = b.down || k.has('KeyS') || k.has('ArrowDown') || this.shieldDrag;
   }
 }

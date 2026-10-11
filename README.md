@@ -49,7 +49,8 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 
 | Tab       | Setting         | Options                                                                  |
 | --------- | --------------- | ------------------------------------------------------------------------ |
-| Fighter   | Your unit       | 8 SD robots (placeholder designs); the opponent fields a different one   |
+| Fighter   | Your unit       | 8 SD robots (placeholder designs), each with its own marble colour      |
+|           | Opponent unit   | Auto (different from yours) or any of the 8                              |
 | Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City (pucks match the theme) |
 |           | Pucks           | 0–5, each count has its own symmetric layout (applies next match)        |
 |           | Air drops       | On / Off                                                                 |
@@ -59,7 +60,9 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Agility         | 1–5: how often and how quickly it dodges                                 |
 |           | Ball power      | 1–5: marble damage, weight and a little muzzle speed                     |
 |           | Aim             | **Flexible** (aims, leads, banks) or **Straight** (fires straight, walks to line up) |
-| Controls  | Layout          | **Gestures** or **Buttons**: ◀ ▶ bottom-left, FIRE bottom-right          |
+| Controls  | Camera          | Far / Mid / Near / Cockpit (first person)                                |
+|           | Layout          | **Gestures** or **Buttons**: ◀ ▶ ▼ bottom-left, fire bottom-right        |
+|           | Fire buttons    | **Single** FIRE, or **Triple**: front-left / front / front-right         |
 |           | Left / Right    | **Move** slides the robot; **Aim** turns its aim (◀ ▶ become ↶ ↷, A / D too) |
 |           | Mouse aim       | **On** / **Off**. Off ignores the mouse so keys or buttons aim           |
 |           | Shooting line   | Show / hide the dotted aim guide                                         |
@@ -105,6 +108,20 @@ draining toward the centre) with the timer between them and portraits underneath
 live with ThorVG: it glances around, flinches red when hit, grins when
 it lands hits or has an item running, glows gold with a super ready, cracks/smokes/sparks as armor drops
 (crest snaps off below 25%), cheers on a win and shows X eyes on a KO.
+
+## Shield
+
+Hold **▼ SHIELD** (buttons), **S / ↓** (keyboard), or drag the move thumb downward (gestures) to raise an
+energy wall that blocks marbles and missiles. You can't fire while shielding and you move at half speed.
+The shield bar under each armor bar drains while raised and per point blocked, regenerates after a short
+pause, and when it empties the shield breaks and is locked out for 2.5 s. The AI shields against power
+balls, missiles and dense streams.
+
+## Marble feel
+
+Physics stays in Rapier (rolling resistance, energy loss on impacts). On top of that, marbles hop on hard
+clacks and wall/puck hits and cast contact shadows, and ThorVG draws motion streaks on fast marbles and
+small impact rings where they clack.
 
 ## Super shot
 
