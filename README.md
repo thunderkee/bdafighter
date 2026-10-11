@@ -61,7 +61,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Ball power      | 1–5: marble damage, weight and a little muzzle speed                     |
 |           | Aim             | **Flexible** (aims, leads, banks) or **Straight** (fires straight, walks to line up) |
 | Controls  | Camera          | Far / Mid / Near / Cockpit (first person)                                |
-|           | Layout          | **Gestures** or **Buttons**: ◀ ▶ ▼ bottom-left, fire bottom-right        |
+|           | Layout          | **Gestures** or **Buttons**: ◀ ▶ bottom-left; ▼ shield above fire, bottom-right |
 |           | Fire buttons    | **Single** FIRE, or **Triple**: front-left / front / front-right         |
 |           | Left / Right    | **Move** slides the robot; **Aim** turns its aim (◀ ▶ become ↶ ↷, A / D too) |
 |           | Mouse aim       | **On** / **Off**. Off ignores the mouse so keys or buttons aim           |
