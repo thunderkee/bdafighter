@@ -13,6 +13,15 @@ npm run dev        # http://localhost:5173, also on your LAN for phone testing
 npm run build      # static build in dist/ (relative paths, host anywhere)
 ```
 
+Deploy (Cloudflare Workers static assets, configured in `wrangler.json`):
+
+```bash
+npm run deploy     # build + wrangler deploy
+```
+
+Pushing to `main` on the `bdafighter` GitHub repo also deploys if Cloudflare Workers Builds is connected
+(build command `npm run build`, deploy command `npx wrangler deploy`).
+
 To test on a phone, run `npm run dev` and open the `Network:` URL it prints, on the same Wi-Fi.
 
 URL options:
