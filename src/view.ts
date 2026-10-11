@@ -48,6 +48,8 @@ export class View {
   private time = 0;
   /** optional ThorVG overlay for screen-space effects */
   fx2d: Fx2D | null = null;
+  /** settings: draw the player's dotted shooting line */
+  showAimLine = true;
   private superMeshes: THREE.Mesh[] = [];
   private trails = new Map<number, { x: number; y: number }[]>();
   private glows: Glow[] = [];
@@ -69,10 +71,7 @@ export class View {
     this.scene.add(sun);
 
     this.buildArena();
-    this.shooters = [
-      new ShooterMesh('angel'),
-      new ShooterMesh('dragon'),
-    ];
+    this.shooters = [new ShooterMesh('angel', COLORS.playerMarble), new ShooterMesh('dragon', COLORS.enemyMarble)];
     for (const s of this.shooters) this.scene.add(s.root);
 
     // marbles: one instanced mesh per team, hidden instances scaled to 0
@@ -212,6 +211,20 @@ export class View {
     this.raycaster.setFromCamera(ndc, this.camera);
     const hit = this.raycaster.ray.intersectPlane(this.floorPlane, this.tmpV);
     return hit ? { x: hit.x, y: -hit.z } : null;
+  }
+
+  /** Swap the robot models for each side. */
+  setCharacters(player: string, enemy: string) {
+    const ids = [player, enemy];
+    const marbles = [COLORS.playerMarble, COLORS.enemyMarble];
+    this.shooters.forEach((old, i) => {
+      if (old.id === ids[i]) return;
+      this.scene.remove(old.root);
+      old.dispose();
+      const next = new ShooterMesh(ids[i], marbles[i]);
+      this.scene.add(next.root);
+      this.shooters[i] = next;
+    });
   }
 
   /** Physics-space point (x, y) at height h -> CSS pixels in the host. */
@@ -354,7 +367,7 @@ export class View {
     for (const idx of this.trails.keys()) if (!seen.has(idx)) this.trails.delete(idx);
 
     g.bumps.forEach((b, i) => {
-      this.bumpMeshes[i].visible = g.bumpsOn;
+      this.bumpMeshes[i].visible = b.active;
       const p = b.body.translation();
       this.bumpMeshes[i].position.set(p.x, 0, -p.y);
       this.bumpMeshes[i].rotation.y = b.body.rotation();
@@ -383,7 +396,7 @@ export class View {
     this.sparkMesh.instanceMatrix.needsUpdate = true;
     if (this.sparkMesh.instanceColor) this.sparkMesh.instanceColor.needsUpdate = true;
 
-    this.updateAimDots(showAim);
+    this.updateAimDots(showAim && this.showAimLine);
 
     this.followPlayer(dt);
 

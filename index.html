@@ -76,45 +76,79 @@
       <div id="settings" class="screen hidden">
         <div class="result-title small">SETTINGS</div>
         <div class="settings">
+          <h3>Character</h3>
           <div class="setting">
             <div>
-              <b>Controls</b>
+              <b id="char-name">Seraph Zero</b>
+              <span>Your robot. The opponent picks a different one</span>
+            </div>
+            <div class="char-grid" id="char-grid"></div>
+          </div>
+          <h3>Controls</h3>
+          <div class="setting">
+            <div>
+              <b>Layout</b>
               <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom</span>
             </div>
-            <div class="seg" data-setting="layout">
-              <button data-value="gestures">Gestures</button>
-              <button data-value="buttons">Buttons</button>
-            </div>
+            <div class="seg" data-setting="layout"><button data-value="gestures">Gestures</button><button data-value="buttons">Buttons</button></div>
           </div>
           <div class="setting">
             <div>
               <b>Left / Right</b>
-              <span>Buttons and A / D keys slide the shooter or turn its aim</span>
+              <span>Buttons and A / D keys slide the robot or turn its aim</span>
             </div>
-            <div class="seg" data-setting="arrows">
-              <button data-value="move">Move</button>
-              <button data-value="aim">Aim</button>
-            </div>
-          </div>
-          <div class="setting">
-            <div>
-              <b>Pucks</b>
-              <span>Pushable pucks in the middle of the table for cover and trick shots. Applies next match</span>
-            </div>
-            <div class="seg" data-setting="bumps">
-              <button data-value="true">On</button>
-              <button data-value="false">Off</button>
-            </div>
+            <div class="seg" data-setting="arrows"><button data-value="move">Move</button><button data-value="aim">Aim</button></div>
           </div>
           <div class="setting">
             <div>
               <b>Mouse aim</b>
               <span>Cursor aims, click fires. Turn off to aim with keys or buttons</span>
             </div>
-            <div class="seg" data-setting="mouseAim">
-              <button data-value="true">On</button>
-              <button data-value="false">Off</button>
+            <div class="seg" data-setting="mouseAim"><button data-value="true">On</button><button data-value="false">Off</button></div>
+          </div>
+          <div class="setting">
+            <div>
+              <b>Shooting line</b>
+              <span>Dotted guide showing where your marbles will go</span>
             </div>
+            <div class="seg" data-setting="aimLine"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
+          </div>
+          <div class="setting">
+            <div>
+              <b>Vibrate on hits</b>
+              <span>Buzz when you land or take a hit (Android; iPhone browsers ignore it)</span>
+            </div>
+            <div class="seg" data-setting="vibrate"><button data-value="true">On</button><button data-value="false">Off</button></div>
+          </div>
+          <h3>Table</h3>
+          <div class="setting">
+            <div>
+              <b>Pucks</b>
+              <span>Pushable pucks for cover and trick shots. Applies next match</span>
+            </div>
+            <div class="seg" data-setting="pucks"><button data-value="0">0</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button></div>
+          </div>
+          <h3>Opponent</h3>
+          <div class="setting">
+            <div>
+              <b>Speed</b>
+              <span>How fast the opponent moves and dodges. 3 is normal</span>
+            </div>
+            <div class="seg" data-setting="enemySpeed"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button></div>
+          </div>
+          <div class="setting">
+            <div>
+              <b>Ball power</b>
+              <span>Damage, weight and speed of its marbles. 3 is normal</span>
+            </div>
+            <div class="seg" data-setting="enemyPower"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button></div>
+          </div>
+          <div class="setting">
+            <div>
+              <b>Aim</b>
+              <span>Flexible aims, leads and banks shots. Straight only fires straight ahead</span>
+            </div>
+            <div class="seg" data-setting="enemyAim"><button data-value="flexible">Flexible</button><button data-value="straight">Straight</button></div>
           </div>
         </div>
         <button id="settings-done" class="btn">Done</button>

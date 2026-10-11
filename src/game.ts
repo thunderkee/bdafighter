@@ -24,13 +24,34 @@ export const SUPER_HITS = 3;
 /** how a super marble differs from a normal one */
 const SUPER = { radius: 2.2, mass: 40, speed: 1.15, damage: 4 };
 
-const BUMP_SPOTS = [
-  [-2.6, -3.2],
-  [2.6, -3.2],
-  [0, 0],
-  [-2.6, 3.2],
-  [2.6, 3.2],
+/** symmetric puck layouts for 1..5 pucks */
+const PUCK_LAYOUTS: [number, number][][] = [
+  [],
+  [[0, 0]],
+  [
+    [-2.4, 0],
+    [2.4, 0],
+  ],
+  [
+    [0, 0],
+    [-2.8, 0],
+    [2.8, 0],
+  ],
+  [
+    [-2.6, -3.2],
+    [2.6, -3.2],
+    [-2.6, 3.2],
+    [2.6, 3.2],
+  ],
+  [
+    [-2.6, -3.2],
+    [2.6, -3.2],
+    [0, 0],
+    [-2.6, 3.2],
+    [2.6, 3.2],
+  ],
 ];
+const MAX_PUCKS = 5;
 
 export type Team = 0 | 1; // 0 = player, 1 = opponent
 
@@ -52,6 +73,8 @@ export interface Bump {
   idx: number;
   body: RAPIER.RigidBody;
   radius: number;
+  active: boolean;
+  home: [number, number];
 }
 
 export type Fx =
@@ -156,8 +179,8 @@ export class Game {
   shooters: [Shooter, Shooter];
   marbles: Marble[] = [];
   bumps: Bump[] = [];
-  /** pushable pucks on the table; off removes them from physics entirely */
-  bumpsOn = true;
+  /** how many pucks are on the table; unused ones are removed from physics */
+  puckCount = MAX_PUCKS;
   fx: Fx[] = [];
 
   phase: Phase = 'countdown';
@@ -207,8 +230,9 @@ export class Game {
   }
 
   private buildBumps() {
-    BUMP_SPOTS.forEach(([x, y], idx) => {
-      const radius = idx === 2 ? 0.75 : 0.6;
+    for (let idx = 0; idx < MAX_PUCKS; idx++) {
+      const [x, y] = PUCK_LAYOUTS[MAX_PUCKS][idx];
+      const radius = 0.65;
       const body = this.world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setLinearDamping(2.2).setAngularDamping(3),
       );
@@ -216,10 +240,10 @@ export class Game {
         RAPIER.ColliderDesc.ball(radius).setDensity(5).setRestitution(0.5).setFriction(0.2).setCollisionGroups(GROUPS.bump),
         body,
       );
-      const b: Bump = { idx, body, radius };
+      const b: Bump = { idx, body, radius, active: true, home: [x, y] };
       this.tags.set(col.handle, { kind: 'bump', b });
       this.bumps.push(b);
-    });
+    }
   }
 
   private buildPool() {
@@ -249,9 +273,8 @@ export class Game {
     this.shooters[0].reset(playerStats);
     this.shooters[1].reset(enemyStats);
     for (const m of this.marbles) if (m.active) this.despawn(m);
-    this.bumps.forEach((b, i) => {
-      b.body.setEnabled(this.bumpsOn);
-      b.body.setTranslation({ x: BUMP_SPOTS[i][0], y: BUMP_SPOTS[i][1] }, true);
+    this.placePucks();
+    this.bumps.forEach((b) => {
       b.body.setLinvel({ x: 0, y: 0 }, true);
       b.body.setAngvel(0, true);
     });
@@ -261,6 +284,25 @@ export class Game {
     this.winner = null;
     this.hitstop = 0;
     this.fx.length = 0;
+  }
+
+  /** Enable the first puckCount pucks at their layout spots; disable the rest. */
+  placePucks() {
+    const n = Math.max(0, Math.min(MAX_PUCKS, Math.round(this.puckCount)));
+    const layout = PUCK_LAYOUTS[n];
+    this.bumps.forEach((b, i) => {
+      b.active = i < n;
+      b.body.setEnabled(b.active);
+      if (b.active) {
+        b.home = layout[i];
+        b.body.setTranslation({ x: b.home[0], y: b.home[1] }, true);
+        b.body.setLinvel({ x: 0, y: 0 }, true);
+      }
+    });
+  }
+
+  activePucks() {
+    return this.bumps.filter((b) => b.active);
   }
 
   /** One fixed physics + gameplay tick. */
@@ -284,11 +326,12 @@ export class Game {
     for (const s of this.shooters) this.updateShooter(s, dt, canAct);
 
     // bumps drift slowly home so cover never stays piled in one corner
-    if (this.bumpsOn) this.bumps.forEach((b, i) => {
+    for (const b of this.bumps) {
+      if (!b.active) continue;
       const p = b.body.translation();
       const k = 0.9 * b.body.mass() * dt;
-      b.body.applyImpulse({ x: (BUMP_SPOTS[i][0] - p.x) * k, y: (BUMP_SPOTS[i][1] - p.y) * k }, true);
-    });
+      b.body.applyImpulse({ x: (b.home[0] - p.x) * k, y: (b.home[1] - p.y) * k }, true);
+    }
 
     this.world.step(this.events);
     this.events.drainCollisionEvents((h1, h2, started) => {

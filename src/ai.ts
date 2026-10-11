@@ -26,6 +26,10 @@ export class AIController {
   private aimMode: AimMode = 'direct';
   private aimNoise = 0;
   private bumpIdx = 0;
+  /** 'straight' never turns the turret: it only fires straight ahead */
+  straight = false;
+  /** widens how far the opponent strafes (speed itself comes from its stats) */
+  speedMul = 1;
   private reactQueue: { at: number; target: number }[] = [];
   private t = 0;
 
@@ -92,14 +96,15 @@ export class AIController {
     const r = Math.random();
     const pr = this.profile;
     if (r < pr.bankChance) this.aimMode = 'bank';
-    else if (r < pr.bankChance + pr.bumpChance && this.game.bumpsOn) {
+    else if (r < pr.bankChance + pr.bumpChance && this.game.activePucks().length) {
       this.aimMode = 'bump';
-      this.bumpIdx = Math.floor(Math.random() * this.game.bumps.length);
+      this.bumpIdx = Math.floor(Math.random() * this.game.activePucks().length);
     } else this.aimMode = 'direct';
     this.aimNoise = gauss() * pr.aimError;
   }
 
   private desiredAim() {
+    if (this.straight) return 0;
     const me = this.me;
     const foe = this.foe;
     const pr = this.profile;
@@ -114,7 +119,7 @@ export class AIController {
       const wall = tx >= 0 ? half : -half;
       tx = 2 * wall - tx;
     } else if (this.aimMode === 'bump') {
-      const b = this.game.bumps[this.bumpIdx];
+      const b = this.game.activePucks()[this.bumpIdx] ?? this.game.bumps[0];
       const p = b.body.translation();
       // hit the bump slightly off-centre on the side that sends it toward the foe
       const ax = p.x + Math.sign(p.x - foe.x || 1) * b.radius * 0.5;
@@ -174,8 +179,11 @@ export class AIController {
     this.strafeTimer -= dt;
     if (this.strafeTimer <= 0) {
       this.strafeTimer = rand(0.6, 1.8);
-      const range = ARENA.railHalfWidth * pr.moveSpeedMul;
-      this.strafeTarget = rand(-range, range);
+      const range = ARENA.railHalfWidth * Math.min(1, pr.moveSpeedMul * this.speedMul);
+      // a straight shooter can't turn, so it walks to line up with you instead
+      this.strafeTarget = this.straight
+        ? Math.max(-ARENA.railHalfWidth, Math.min(ARENA.railHalfWidth, this.foe.x + rand(-0.8, 0.8)))
+        : rand(-range, range);
     }
     // approach strafe target at a speed scaled by mobility
     const delta = this.strafeTarget - me.x;

@@ -47,12 +47,18 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 
 **Settings** (Settings button on the title screen, or ⚙ next to pause during a match; saved on the device):
 
-| Setting       | Options                                                            |
-| ------------- | ------------------------------------------------------------------ |
-| Controls      | **Gestures** or **Buttons**: ◀ ▶ bottom-left, FIRE bottom-right    |
-| Left / Right  | **Move** slides the robot; **Aim** turns its aim instead (◀ ▶ become ↶ ↷, A / D too) |
-| Pucks         | **On** / **Off**: the pushable pucks mid-table (applies next match) |
-| Mouse aim     | **On** / **Off**. Off ignores the mouse so keys or buttons aim     |
+| Section   | Setting         | Options                                                                  |
+| --------- | --------------- | ------------------------------------------------------------------------ |
+| Character | Robot           | 8 SD robots (placeholder designs); the opponent picks a different one    |
+| Controls  | Layout          | **Gestures** or **Buttons**: ◀ ▶ bottom-left, FIRE bottom-right          |
+|           | Left / Right    | **Move** slides the robot; **Aim** turns its aim (◀ ▶ become ↶ ↷, A / D too) |
+|           | Mouse aim       | **On** / **Off**. Off ignores the mouse so keys or buttons aim           |
+|           | Shooting line   | Show / hide the dotted aim guide                                         |
+|           | Vibrate on hits | On / Off (Android browsers; iPhone browsers don't support vibration)     |
+| Table     | Pucks           | 0–5, each count has its own symmetric layout (applies next match)        |
+| Opponent  | Speed           | 1–5 (3 = normal): movement and dodge speed                               |
+|           | Ball power      | 1–5 (3 = normal): marble damage, weight and a little muzzle speed        |
+|           | Aim             | **Flexible** (aims, leads, banks) or **Straight** (fires straight, walks to line up) |
 
 ## Super shot
 

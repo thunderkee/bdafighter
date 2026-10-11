@@ -5,6 +5,7 @@ import { View } from './view';
 import { Input } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
+import { CHARACTERS, characterById } from './robot';
 import * as sfx from './audio';
 import * as store from './storage';
 
@@ -16,9 +17,37 @@ const debug = params.has('debug');
 
 type Screen = 'title' | 'playing' | 'result';
 
+/** settings level 1..5 -> multiplier, 3 = 1x */
+const LEVEL = [0.55, 0.8, 1, 1.25, 1.55];
+const level = (n: number) => LEVEL[Math.max(1, Math.min(5, Math.round(n))) - 1];
+
+/** buzz the phone if the browser allows it (Android Chrome; iOS Safari ignores it) */
+const buzz = (pattern: number | number[]) => {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    // not supported
+  }
+};
+
 export function boot() {
+  let saveData = store.load();
   const playerStats = () => computeStats(STARTER_BUILD);
-  const enemyStats = () => computeStats(STARTER_BUILD, profile.stats);
+  const enemyStats = () => {
+    const st = saveData.settings;
+    const base = computeStats(STARTER_BUILD, profile.stats);
+    const power = level(st.enemyPower);
+    return {
+      ...base,
+      moveSpeed: base.moveSpeed * level(st.enemySpeed),
+      damage: base.damage * power,
+      marbleMass: base.marbleMass * power,
+      // power also adds a little muzzle speed, kept modest so aim still matters
+      muzzleSpeed: base.muzzleSpeed * (0.85 + 0.15 * power),
+    };
+  };
+  /** opponent robot: the default dragon, unless the player picked it */
+  const enemyCharacter = () => (saveData.settings.character === 'dragon' ? 'angel' : 'dragon');
 
   const game = new Game(playerStats(), enemyStats());
   const view = new View($('stage'), game);
@@ -32,7 +61,6 @@ export function boot() {
     if (fx2d.ready) view.fx2d = fx2d;
   });
 
-  let saveData = store.load();
   sfx.setMuted(saveData.muted);
   let screen: Screen = 'title';
   let paused = false;
@@ -82,7 +110,11 @@ export function boot() {
   // ---------- screens ----------
   const startMatch = () => {
     sfx.unlock();
-    game.bumpsOn = saveData.settings.bumps;
+    const st = saveData.settings;
+    game.puckCount = st.pucks;
+    ai.straight = st.enemyAim === 'straight';
+    ai.speedMul = level(st.enemySpeed);
+    view.setCharacters(st.character, enemyCharacter());
     game.reset(playerStats(), enemyStats());
     ai.reset();
     input.release();
@@ -153,9 +185,13 @@ export function boot() {
     input.settings = { ...st };
     // outside a match the table updates now; mid-match it waits for the next one
     if (screen !== 'playing') {
-      game.bumpsOn = st.bumps;
-      for (const b of game.bumps) b.body.setEnabled(st.bumps);
+      game.puckCount = st.pucks;
+      game.placePucks();
+      view.setCharacters(st.character, enemyCharacter());
     }
+    view.showAimLine = st.aimLine;
+    document.querySelectorAll<HTMLElement>('.char').forEach((c) => c.classList.toggle('on', c.dataset.id === st.character));
+    $('char-name').textContent = characterById(st.character).name;
     document.body.classList.toggle('buttons', st.layout === 'buttons');
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
@@ -169,12 +205,27 @@ export function boot() {
     b.addEventListener('click', () => {
       const key = (b.parentElement as HTMLElement).dataset.setting as keyof store.Settings;
       const raw = b.dataset.value!;
-      const value = raw === 'true' ? true : raw === 'false' ? false : raw;
+      const value = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? Number(raw) : raw;
       saveData = store.save({ settings: { ...saveData.settings, [key]: value } });
       input.release();
       applySettings();
     }),
   );
+
+  // character picker, built from the robot list
+  const charGrid = $('char-grid');
+  const hexc = (n: number) => '#' + n.toString(16).padStart(6, '0');
+  for (const c of CHARACTERS) {
+    const btn = document.createElement('button');
+    btn.className = 'char';
+    btn.dataset.id = c.id;
+    btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 55%, ${hexc(c.palette.trim)} 55% 80%, ${hexc(c.palette.accent)} 80%)"></i><span>${c.name}</span>`;
+    btn.addEventListener('click', () => {
+      saveData = store.save({ settings: { ...saveData.settings, character: c.id } });
+      applySettings();
+    });
+    charGrid.appendChild(btn);
+  }
   applySettings();
 
   let settingsFrom: 'title' | 'paused' = 'title';
@@ -300,7 +351,13 @@ export function boot() {
             vignette.classList.add('on');
             requestAnimationFrame(() => vignette.classList.remove('on'));
           }
+          if (saveData.settings.vibrate) {
+            // taking a hit buzzes harder than landing one
+            if (f.super) buzz(f.team === 0 ? [90, 40, 140] : [40, 30, 60]);
+            else buzz(f.team === 0 ? 45 : 14);
+          }
         }
+        if (f.type === 'super-ready' && f.team === 0 && saveData.settings.vibrate) buzz([20, 40, 20]);
       }
 
       updateHud(dt);

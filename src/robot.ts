@@ -3,15 +3,16 @@ import type { Shooter } from './game';
 
 /**
  * SD (super-deformed) marble-shooter robots built from primitives:
- * a huge head, stubby body and big feet. Two placeholder styles:
- *   'angel'  — white/blue, feathered wings, gold V-fin (player)
- *   'dragon' — crimson/gunmetal, bat wings, swept horns (opponent)
- * Part slots stay visible on both:
+ * a huge head, stubby body and big feet. Each character is pure data — a
+ * palette plus a pick of crest, eyes, wings, shoulders, off-hand gear and
+ * feet — so new robots need no new build code.
+ * Part slots stay visible on every robot:
  *   barrel   -> chest cannon       core -> torso
  *   magazine -> clear tube on the back that empties as you fire
  * Footprint matches the physics collider (about 1.24 x 1.0).
+ * These are placeholder designs inspired by existing mecha; replace them
+ * with original designs before a public release.
  */
-export type RobotStyle = 'angel' | 'dragon';
 
 const MAG_BALLS = 5;
 
@@ -23,13 +24,126 @@ interface Palette {
   wing: number;
   wingTip: number;
   eye: number;
-  marble: number;
 }
 
-const PALETTES: Record<RobotStyle, Palette> = {
-  angel: { body: 0xf4f4f8, trim: 0x2f63e8, accent: 0xe8312f, joint: 0x5a5f73, wing: 0xf8f8fc, wingTip: 0x2f63e8, eye: 0x6dff9a, marble: 0x7fb4ff },
-  dragon: { body: 0x9c1b2e, trim: 0x3d3a4c, accent: 0xffc23d, joint: 0x26232f, wing: 0x5e1020, wingTip: 0x9c1b2e, eye: 0xc8ff3d, marble: 0xffa08a },
-};
+export interface CharacterDef {
+  id: string;
+  name: string;
+  palette: Palette;
+  crest: 'vfin' | 'vfin-short' | 'horns' | 'unihorn' | 'fin';
+  eyes: 'twin' | 'mono';
+  wings: 'feather' | 'bat' | 'blades' | 'pods' | 'none';
+  shoulders: 'round' | 'spike' | 'heavy';
+  offhand: 'shield' | 'coil' | 'scythe' | 'gatling';
+  feet: 'toe' | 'claw';
+  /** dark face plate under a coloured helmet */
+  darkFace?: boolean;
+  /** glowing frame lines on the limbs and torso */
+  glow?: number;
+  /** how far the wings sweep upward (radians) */
+  wingLift?: number;
+}
+
+export const CHARACTERS: CharacterDef[] = [
+  {
+    id: 'angel',
+    name: 'Seraph Zero',
+    palette: { body: 0xf4f4f8, trim: 0x2f63e8, accent: 0xe8312f, joint: 0x5a5f73, wing: 0xf8f8fc, wingTip: 0x2f63e8, eye: 0x6dff9a },
+    crest: 'vfin',
+    eyes: 'twin',
+    wings: 'feather',
+    shoulders: 'round',
+    offhand: 'shield',
+    feet: 'toe',
+    wingLift: 0.2,
+  },
+  {
+    id: 'dragon',
+    name: 'Wyvern',
+    palette: { body: 0x9c1b2e, trim: 0x3d3a4c, accent: 0xffc23d, joint: 0x26232f, wing: 0x5e1020, wingTip: 0x9c1b2e, eye: 0xc8ff3d },
+    crest: 'horns',
+    eyes: 'twin',
+    wings: 'bat',
+    shoulders: 'spike',
+    offhand: 'coil',
+    feet: 'claw',
+    darkFace: true,
+    wingLift: 0.5,
+  },
+  {
+    id: 'pioneer',
+    name: 'Pioneer',
+    palette: { body: 0xf2f0ea, trim: 0x2950c8, accent: 0xd8262b, joint: 0x5d6070, wing: 0xf2f0ea, wingTip: 0x2950c8, eye: 0x7ff0ff },
+    crest: 'vfin-short',
+    eyes: 'twin',
+    wings: 'none',
+    shoulders: 'round',
+    offhand: 'shield',
+    feet: 'toe',
+  },
+  {
+    id: 'liberty',
+    name: 'Liberty',
+    palette: { body: 0xf6f6fa, trim: 0x2b58d6, accent: 0xffc23d, joint: 0xd9a92a, wing: 0x2346b8, wingTip: 0xffd45e, eye: 0x6dff9a },
+    crest: 'vfin',
+    eyes: 'twin',
+    wings: 'blades',
+    shoulders: 'round',
+    offhand: 'shield',
+    feet: 'toe',
+    wingLift: 0.25,
+  },
+  {
+    id: 'monoceros',
+    name: 'Monoceros',
+    palette: { body: 0xf7f7f7, trim: 0xe9e9ef, accent: 0xff2d55, joint: 0x6a6d7c, wing: 0xf7f7f7, wingTip: 0xff2d55, eye: 0xffe14d },
+    crest: 'unihorn',
+    eyes: 'twin',
+    wings: 'none',
+    shoulders: 'heavy',
+    offhand: 'shield',
+    feet: 'toe',
+    glow: 0xff2d55,
+  },
+  {
+    id: 'baron',
+    name: 'Crimson Baron',
+    palette: { body: 0xd2202e, trim: 0x8e1220, accent: 0xffc23d, joint: 0x3a2a30, wing: 0x8e1220, wingTip: 0xd2202e, eye: 0xff5fd0 },
+    crest: 'fin',
+    eyes: 'mono',
+    wings: 'pods',
+    shoulders: 'heavy',
+    offhand: 'shield',
+    feet: 'claw',
+    darkFace: true,
+  },
+  {
+    id: 'bastion',
+    name: 'Bastion',
+    palette: { body: 0xeef0ea, trim: 0x3c8f4a, accent: 0xd8262b, joint: 0x4a4e5a, wing: 0x3c8f4a, wingTip: 0xeef0ea, eye: 0x7ff0ff },
+    crest: 'vfin-short',
+    eyes: 'twin',
+    wings: 'pods',
+    shoulders: 'heavy',
+    offhand: 'gatling',
+    feet: 'toe',
+  },
+  {
+    id: 'nightshade',
+    name: 'Nightshade',
+    palette: { body: 0x23212c, trim: 0x4a4658, accent: 0x34e07a, joint: 0x15141b, wing: 0x1a1922, wingTip: 0x34e07a, eye: 0x34e07a },
+    crest: 'vfin',
+    eyes: 'twin',
+    wings: 'bat',
+    shoulders: 'round',
+    offhand: 'scythe',
+    feet: 'toe',
+    darkFace: true,
+    wingLift: 0.35,
+  },
+];
+
+export const characterById = (id: string) => CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
 
 export class ShooterMesh {
   root = new THREE.Group();
@@ -41,12 +155,17 @@ export class ShooterMesh {
   legs: THREE.Group[] = [];
   magBalls: THREE.Mesh[] = [];
   mats: THREE.MeshLambertMaterial[] = [];
+  readonly id: string;
   private wingL = new THREE.Group();
   private wingR = new THREE.Group();
   private stride = 0;
+  private def: CharacterDef;
 
-  constructor(readonly style: RobotStyle) {
-    const pal = PALETTES[style];
+  constructor(characterId: string, marbleColor: number) {
+    const def = characterById(characterId);
+    this.def = def;
+    this.id = def.id;
+    const pal = def.palette;
     const lam = (color: number, side: THREE.Side = THREE.FrontSide) => {
       const m = new THREE.MeshLambertMaterial({ color, side });
       this.mats.push(m);
@@ -60,8 +179,9 @@ export class ShooterMesh {
     const wingMat = lam(pal.wing, THREE.DoubleSide);
     const wingTip = lam(pal.wingTip, THREE.DoubleSide);
     const eyeMat = new THREE.MeshBasicMaterial({ color: pal.eye });
+    const glowMat = def.glow !== undefined ? new THREE.MeshBasicMaterial({ color: def.glow }) : null;
     const glass = new THREE.MeshPhongMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.35, shininess: 120, depthWrite: false });
-    const ballMat = new THREE.MeshPhongMaterial({ color: pal.marble, shininess: 90, specular: 0xffffff });
+    const ballMat = new THREE.MeshPhongMaterial({ color: marbleColor, shininess: 90, specular: 0xffffff });
 
     const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -70,7 +190,6 @@ export class ShooterMesh {
     };
     const cyl = (rt: number, rb: number, h: number, m: THREE.Material, seg = 14) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
     const cone = (r: number, h: number, m: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), m);
-    const dragon = style === 'dragon';
 
     // --- legs: short shins on big feet ---
     for (const side of [-1, 1]) {
@@ -80,7 +199,8 @@ export class ShooterMesh {
       leg.add(box(0.32, 0.22, 0.34, body, 0, -0.24, 0)); // shin
       leg.add(box(0.3, 0.1, 0.1, trim, 0, -0.18, -0.18)); // knee guard
       leg.add(box(0.42, 0.18, 0.66, body, 0, -0.39, -0.06)); // foot
-      if (dragon) {
+      if (glowMat) leg.add(box(0.04, 0.2, 0.02, glowMat, 0, -0.26, -0.18));
+      if (def.feet === 'claw') {
         for (const cx of [-0.12, 0, 0.12]) {
           const claw = cone(0.05, 0.16, joint);
           claw.rotation.x = -Math.PI / 2;
@@ -93,7 +213,7 @@ export class ShooterMesh {
       this.root.add(leg);
       this.legs.push(leg);
     }
-    this.root.add(box(0.62, 0.16, 0.44, dragon ? joint : accent, 0, 0.56, 0)); // waist
+    this.root.add(box(0.62, 0.16, 0.44, def.darkFace ? joint : accent, 0, 0.56, 0)); // waist
     this.root.add(box(0.22, 0.18, 0.08, gold, 0, 0.54, -0.24)); // belt buckle
 
     // --- upper body ---
@@ -103,10 +223,10 @@ export class ShooterMesh {
     // torso (core slot)
     this.turret.add(box(0.8, 0.5, 0.6, body, 0, 0.25, 0));
     this.turret.add(box(0.7, 0.26, 0.1, trim, 0, 0.33, -0.3)); // chest block
-    if (!dragon) {
-      for (const side of [-1, 1]) this.turret.add(box(0.18, 0.08, 0.04, gold, side * 0.2, 0.38, -0.36)); // chest vents
-    } else {
-      this.turret.add(box(0.5, 0.06, 0.04, accent, 0, 0.44, -0.36));
+    for (const side of [-1, 1]) this.turret.add(box(0.18, 0.08, 0.04, def.darkFace ? accent : gold, side * 0.2, 0.38, -0.36)); // vents
+    if (glowMat) {
+      this.turret.add(box(0.04, 0.4, 0.02, glowMat, 0, 0.25, -0.36));
+      for (const side of [-1, 1]) this.turret.add(box(0.02, 0.36, 0.5, glowMat, side * 0.41, 0.25, 0));
     }
     const coreBall = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 8), ballMat);
     coreBall.position.set(0, 0.45, -0.32);
@@ -130,7 +250,7 @@ export class ShooterMesh {
     for (const side of [-1, 1]) {
       const sh = new THREE.Group();
       sh.position.set(side * 0.55, 0.38, 0);
-      if (dragon) {
+      if (def.shoulders === 'spike') {
         sh.add(box(0.32, 0.26, 0.36, body));
         for (const sz of [-0.1, 0.1]) {
           const spike = cone(0.06, 0.3, joint);
@@ -138,28 +258,23 @@ export class ShooterMesh {
           spike.position.set(side * 0.2, 0.12, sz);
           sh.add(spike);
         }
+      } else if (def.shoulders === 'heavy') {
+        sh.position.x = side * 0.6;
+        sh.add(box(0.44, 0.36, 0.5, body));
+        sh.add(box(0.46, 0.08, 0.52, trim, 0, 0.2, 0));
+        sh.add(box(0.06, 0.24, 0.4, accent, side * 0.24, -0.02, 0));
+        if (glowMat) sh.add(box(0.02, 0.26, 0.04, glowMat, side * 0.23, 0, -0.22));
       } else {
         sh.add(box(0.34, 0.3, 0.4, body));
         sh.add(box(0.36, 0.08, 0.42, trim, 0, 0.17, 0));
         sh.add(box(0.06, 0.18, 0.3, accent, side * 0.18, 0, 0));
       }
-      const arm = box(0.2, 0.26, 0.22, dragon ? trim : body, 0, -0.26, -0.06);
+      const arm = box(0.2, 0.26, 0.22, def.darkFace ? trim : body, 0, -0.26, -0.06);
       arm.rotation.x = -0.5;
       const fist = box(0.22, 0.2, 0.22, joint, -side * 0.08, -0.4, -0.24);
       sh.add(arm, fist);
-      // off-hand gear: a small shield for angel, a coiled whip for dragon
-      if (side === -1) {
-        if (dragon) {
-          const coil = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.04, 6, 14), gold);
-          coil.rotation.y = Math.PI / 2;
-          coil.position.set(-0.16, -0.32, -0.02);
-          sh.add(coil);
-        } else {
-          const shield = box(0.06, 0.42, 0.28, trim, -0.16, -0.3, -0.06);
-          shield.add(box(0.02, 0.18, 0.12, accent, -0.04, 0.02, 0));
-          sh.add(shield);
-        }
-      }
+      if (side === -1) this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
+      if (side === 1 && def.offhand === 'gatling') this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
       this.turret.add(sh);
     }
 
@@ -167,44 +282,25 @@ export class ShooterMesh {
     const head = new THREE.Group();
     head.position.set(0, 0.86, -0.02);
     head.add(box(0.74, 0.58, 0.66, body)); // helmet
-    head.add(box(0.5, 0.3, 0.06, dragon ? joint : body, 0, -0.08, -0.34)); // faceplate
-    head.add(box(0.14, 0.1, 0.06, dragon ? joint : accent, 0, -0.22, -0.36)); // chin
-    for (const side of [-1, 1]) {
-      const eye = box(0.15, 0.06, 0.02, eyeMat, side * 0.12, 0.02, -0.38);
-      eye.rotation.z = side * (dragon ? 0.35 : 0.18);
-      head.add(eye);
-      head.add(box(0.1, 0.24, 0.3, trim, side * 0.4, -0.02, 0)); // ear blocks
-    }
-    head.add(box(0.12, 0.1, 0.06, accent, 0, 0.2, -0.35)); // forehead sensor
-    if (dragon) {
-      // swept-back horns and a tall centre blade
-      for (const side of [-1, 1]) {
-        const horn = cone(0.06, 0.62, joint);
-        horn.position.set(side * 0.2, 0.42, 0.12);
-        horn.rotation.set(-0.9, 0, -side * 0.35);
-        head.add(horn);
-        const side_ = cone(0.05, 0.36, joint);
-        side_.position.set(side * 0.48, 0.12, 0.06);
-        side_.rotation.set(-0.5, 0, -side * 1.1);
-        head.add(side_);
-      }
-      const blade = cone(0.06, 0.42, gold);
-      blade.position.set(0, 0.48, -0.26);
-      blade.rotation.x = -0.25;
-      head.add(blade);
+    head.add(box(0.5, 0.3, 0.06, def.darkFace ? joint : body, 0, -0.08, -0.34)); // faceplate
+    head.add(box(0.14, 0.1, 0.06, def.darkFace ? joint : accent, 0, -0.22, -0.36)); // chin
+    if (def.eyes === 'mono') {
+      // a visor slot with a single glowing eye
+      head.add(box(0.56, 0.12, 0.03, new THREE.MeshBasicMaterial({ color: 0x0b0710 }), 0, 0.03, -0.375));
+      head.add(box(0.12, 0.1, 0.02, eyeMat, 0.06, 0.03, -0.39));
     } else {
-      // long gold V-fin
       for (const side of [-1, 1]) {
-        const fin = box(0.07, 0.62, 0.04, gold, side * 0.2, 0.42, -0.36);
-        fin.rotation.z = -side * 0.95;
-        head.add(fin);
+        const eye = box(0.15, 0.06, 0.02, eyeMat, side * 0.12, 0.02, -0.38);
+        eye.rotation.z = side * (def.darkFace ? 0.35 : 0.18);
+        head.add(eye);
       }
-      head.add(box(0.1, 0.16, 0.05, accent, 0, 0.3, -0.36));
-      head.add(box(0.5, 0.08, 0.62, trim, 0, 0.32, 0)); // helmet crest band
     }
+    for (const side of [-1, 1]) head.add(box(0.1, 0.24, 0.3, trim, side * 0.4, -0.02, 0)); // ear blocks
+    head.add(box(0.12, 0.1, 0.06, def.eyes === 'mono' ? gold : accent, 0, 0.2, -0.35)); // forehead sensor
+    this.buildCrest(head, def, { body, trim, accent, joint, gold, glowMat });
     this.turret.add(head);
 
-    // --- wings ---
+    // --- wings / backpack ---
     this.wings.position.set(0, 0.42, 0.34);
     this.turret.add(this.wings);
     this.wingR.position.x = 0.12;
@@ -212,11 +308,13 @@ export class ShooterMesh {
     this.wingL.scale.x = -1; // mirror
     this.wings.add(this.wingL, this.wingR);
     for (const w of [this.wingL, this.wingR]) {
-      if (dragon) this.buildBatWing(w, wingMat, wingTip, joint);
-      else this.buildFeatherWing(w, wingMat, wingTip, joint);
+      if (def.wings === 'bat') this.buildBatWing(w, wingMat, wingTip, joint);
+      else if (def.wings === 'feather') this.buildFeatherWing(w, wingMat, wingTip, joint);
+      else if (def.wings === 'blades') this.buildBladeWing(w, wingMat, wingTip, joint);
+      else if (def.wings === 'pods') this.buildPods(w, wingMat, wingTip, joint);
     }
 
-    // magazine slot: clear tube on the back between the wings
+    // magazine slot: clear tube on the back
     const mag = new THREE.Group();
     mag.position.set(0, 0.42, 0.42);
     const tubeGlass = cyl(0.13, 0.13, 0.7, glass);
@@ -236,7 +334,119 @@ export class ShooterMesh {
     this.turret.add(this.trigger);
   }
 
-  /** Three long tapered feathers fanning up and out, blue-tipped. */
+  private buildCrest(
+    head: THREE.Group,
+    def: CharacterDef,
+    m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; gold: THREE.Material; glowMat: THREE.Material | null },
+  ) {
+    const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      mesh.position.set(x, y, z);
+      return mesh;
+    };
+    const cone = (r: number, h: number, mat: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), mat);
+    switch (def.crest) {
+      case 'vfin':
+      case 'vfin-short': {
+        const short = def.crest === 'vfin-short';
+        for (const side of [-1, 1]) {
+          const fin = box(0.07, short ? 0.36 : 0.62, 0.04, m.gold, side * (short ? 0.13 : 0.2), short ? 0.32 : 0.42, -0.36);
+          fin.rotation.z = -side * (short ? 0.75 : 0.95);
+          head.add(fin);
+        }
+        head.add(box(0.1, 0.16, 0.05, m.accent, 0, 0.3, -0.36));
+        head.add(box(0.5, 0.08, 0.62, m.trim, 0, 0.32, 0)); // crest band
+        break;
+      }
+      case 'horns': {
+        for (const side of [-1, 1]) {
+          const horn = cone(0.06, 0.62, m.joint);
+          horn.position.set(side * 0.2, 0.42, 0.12);
+          horn.rotation.set(-0.9, 0, -side * 0.35);
+          head.add(horn);
+          const sideHorn = cone(0.05, 0.36, m.joint);
+          sideHorn.position.set(side * 0.48, 0.12, 0.06);
+          sideHorn.rotation.set(-0.5, 0, -side * 1.1);
+          head.add(sideHorn);
+        }
+        const blade = cone(0.06, 0.42, m.gold);
+        blade.position.set(0, 0.48, -0.26);
+        blade.rotation.x = -0.25;
+        head.add(blade);
+        break;
+      }
+      case 'unihorn': {
+        const horn = cone(0.07, 0.8, m.gold);
+        horn.position.set(0, 0.62, -0.28);
+        horn.rotation.x = -0.18;
+        head.add(horn);
+        if (m.glowMat) head.add(box(0.03, 0.4, 0.02, m.glowMat, 0, 0.12, -0.345));
+        break;
+      }
+      case 'fin': {
+        // a single swept fin on top, and a crest ridge
+        const fin = box(0.06, 0.42, 0.34, m.gold, 0, 0.42, 0.1);
+        fin.rotation.x = 0.55;
+        head.add(fin);
+        head.add(box(0.14, 0.1, 0.66, m.trim, 0, 0.32, 0));
+        break;
+      }
+    }
+  }
+
+  private buildOffhand(
+    sh: THREE.Group,
+    def: CharacterDef,
+    m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; gold: THREE.Material; glowMat: THREE.Material | null; eyeMat: THREE.Material },
+  ) {
+    const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      mesh.position.set(x, y, z);
+      return mesh;
+    };
+    switch (def.offhand) {
+      case 'shield': {
+        const shield = box(0.06, 0.46, 0.3, def.id === 'pioneer' || def.id === 'baron' ? m.accent : m.trim, -0.16, -0.3, -0.06);
+        shield.add(box(0.02, 0.2, 0.12, def.id === 'pioneer' ? m.gold : m.accent, -0.04, 0.04, 0));
+        if (m.glowMat) shield.add(box(0.02, 0.36, 0.03, m.glowMat, -0.04, 0, 0));
+        sh.add(shield);
+        break;
+      }
+      case 'coil': {
+        const coil = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.04, 6, 14), m.gold);
+        coil.rotation.y = Math.PI / 2;
+        coil.position.set(-0.16, -0.32, -0.02);
+        sh.add(coil);
+        break;
+      }
+      case 'scythe': {
+        // long pole held upright with a curved glowing blade at the top
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8), m.joint);
+        pole.position.set(-0.12, 0.1, -0.3);
+        sh.add(pole);
+        const blade = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 6, 16, Math.PI * 0.75), m.eyeMat);
+        blade.position.set(-0.12, 0.8, -0.3);
+        blade.rotation.set(0, Math.PI / 2, Math.PI * 0.15);
+        sh.add(blade);
+        break;
+      }
+      case 'gatling': {
+        const gun = new THREE.Group();
+        gun.position.set(0, -0.4, -0.34);
+        for (let i = 0; i < 4; i++) {
+          const b = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 6), m.joint);
+          b.rotation.x = Math.PI / 2;
+          const a = (i / 4) * Math.PI * 2;
+          b.position.set(Math.cos(a) * 0.06, Math.sin(a) * 0.06, -0.15);
+          gun.add(b);
+        }
+        sh.add(gun);
+        break;
+      }
+    }
+  }
+
+  /** Three long tapered feathers fanning up and out, tipped. */
   private buildFeatherWing(g: THREE.Group, mat: THREE.Material, tipMat: THREE.Material, joint: THREE.Material) {
     const shape = new THREE.Shape();
     shape.moveTo(0, 0);
@@ -261,6 +471,35 @@ export class ShooterMesh {
       f.add(feather, tip);
       g.add(f);
     });
+  }
+
+  /** Four slim blades in a gold frame, fanned like a dragoon rack. */
+  private buildBladeWing(g: THREE.Group, mat: THREE.Material, tipMat: THREE.Material, joint: THREE.Material) {
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.12), joint));
+    const blade = new THREE.BoxGeometry(0.1, 0.95, 0.04);
+    const edge = new THREE.BoxGeometry(0.03, 0.95, 0.05);
+    [-0.1, -0.42, -0.74, -1.06].forEach((rz, i) => {
+      const f = new THREE.Group();
+      f.position.set(0.12, 0.02, 0.02 + i * 0.025);
+      f.rotation.set(0.2, 0, rz);
+      const b = new THREE.Mesh(blade, mat);
+      b.position.y = 0.48;
+      const e = new THREE.Mesh(edge, tipMat);
+      e.position.set(0.06, 0.48, 0);
+      f.add(b, e);
+      g.add(f);
+    });
+  }
+
+  /** A chunky thruster pod per side (no wings). */
+  private buildPods(g: THREE.Group, mat: THREE.Material, tipMat: THREE.Material, joint: THREE.Material) {
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.3), mat);
+    pod.position.set(0.22, 0.18, 0.06);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.32), tipMat);
+    cap.position.set(0.22, 0.46, 0.06);
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 0.14, 10), joint);
+    nozzle.position.set(0.22, -0.14, 0.06);
+    g.add(pod, cap, nozzle);
   }
 
   /** A scalloped bat wing on a dark spar, with tip spikes. */
@@ -295,6 +534,18 @@ export class ShooterMesh {
     g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.12), joint)); // wing root
   }
 
+  /** Free GPU memory when swapping characters. */
+  dispose() {
+    this.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.geometry.dispose();
+        const mat = mesh.material as THREE.Material | THREE.Material[];
+        (Array.isArray(mat) ? mat : [mat]).forEach((mm) => mm.dispose());
+      }
+    });
+  }
+
   sync(s: Shooter, time: number, dt: number) {
     this.root.position.set(s.x, 0, -s.y);
     // the turret faces -z for the player and +z for the opponent
@@ -314,7 +565,7 @@ export class ShooterMesh {
     // wings breathe at idle, flare open while firing
     const flare = s.firing ? 0.18 : 0;
     const beat = Math.sin(time * 2.4) * 0.05;
-    const lift = this.style === 'dragon' ? 0.5 : 0.2; // sweep the wings upward
+    const lift = this.def.wingLift ?? 0.2;
     this.wingR.rotation.set(0, -0.35 - flare, lift + beat + flare * 0.5);
     this.wingL.rotation.set(0, 0.35 + flare, -(lift + beat + flare * 0.5));
 
