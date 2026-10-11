@@ -83,6 +83,9 @@ export class View {
   private trauma = 0;
   private camBase = new THREE.Vector3();
   private camLook = new THREE.Vector3();
+  private camGoal = new THREE.Vector3();
+  private lookGoal = new THREE.Vector3();
+  private snapCamera = true;
   private raycaster = new THREE.Raycaster();
   private floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private tmpM = new THREE.Matrix4();
@@ -227,13 +230,10 @@ export class View {
     const h = this.host.clientHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    // fit the whole arena width at the near end; taller screens see more
-    const fitH = 2 * Math.atan(Math.tan((46 * Math.PI) / 360) * Math.min(1, (w / h) / 0.5625));
-    this.camera.fov = Math.min(62, Math.max(42, (Math.max(fitH, (46 * Math.PI) / 180) * 180) / Math.PI));
-    const portrait = w / h < 0.75;
-    this.camBase.set(0, portrait ? 22 : 19, portrait ? 19 : 15.5);
-    this.camLook.set(0, 0, portrait ? 2.2 : 1.2);
+    // narrow portrait screens need a wider lens to keep the side walls in view
+    this.camera.fov = w / h < 0.75 ? 58 : 48;
     this.camera.updateProjectionMatrix();
+    this.snapCamera = true;
   }
 
   /** Map a screen point to a physics-space point on the floor. */
@@ -348,6 +348,8 @@ export class View {
 
     this.updateAimDots(showAim);
 
+    this.followPlayer(dt);
+
     // camera shake: trauma squared drives offset and roll
     this.trauma = Math.max(0, this.trauma - dt * 1.8);
     const sh = this.trauma * this.trauma;
@@ -361,6 +363,22 @@ export class View {
     this.camera.rotateZ(Math.sin(t * 0.9) * sh * 0.04);
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Third-person chase camera: low and behind the player's shooter, drifting
+   * with its position and leaning a little into the aim direction.
+   */
+  private followPlayer(dt: number) {
+    const p = this.game.shooters[0];
+    const lean = Math.sin(p.aim);
+    this.camGoal.set(p.x * 0.6 - lean * 1.1, 8, -p.y + 8.2);
+    this.lookGoal.set(p.x * 0.35 + lean * 3, 0, -p.y - 6.5);
+    // frame-rate independent smoothing
+    const k = this.snapCamera ? 1 : 1 - Math.exp(-dt * 6);
+    this.camBase.lerp(this.camGoal, k);
+    this.camLook.lerp(this.lookGoal, k);
+    this.snapCamera = false;
   }
 
   /** Dots along the predicted path, with one bounce off the side walls. */
