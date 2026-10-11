@@ -30,6 +30,7 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
+  touch-action: none;
   background: #02040a;
   color: var(--ink);
   font-family: var(--body);
@@ -598,14 +599,16 @@ body.buttons #effects {
 /* buttons layout pad */
 #pad {
   position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 44px);
+  /* the box reaches past the buttons so a thumb that slips off still lands on the pad */
+  left: 0;
+  right: 0;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 14px);
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  pointer-events: none;
+  pointer-events: auto;
   touch-action: none;
+  padding: 30px 14px 30px;
 }
 .pad-dir {
   display: flex;
@@ -645,7 +648,7 @@ body.buttons #effects {
   background: rgba(120, 10, 30, 0.75);
 }
 .pad-btn.held {
-  transform: scale(0.92);
+  /* no shrink: keep the full hit area under the thumb */
   filter: brightness(1.6);
 }
 body.buttons #hints {
@@ -900,6 +903,7 @@ body:not(.touch) .touch-only {
   border-color: var(--cyan);
 }
 .panels {
+  touch-action: pan-y;
   width: min(380px, 100%);
   flex: 1;
   min-height: 0;

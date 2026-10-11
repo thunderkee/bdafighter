@@ -48,9 +48,27 @@ export class PadTracker {
 
   onPress: (() => void) | null = null;
 
+  /**
+   * The button under a finger, or — if the thumb has slipped into a gap or
+   * just off an edge — the nearest visible button within a thumb's reach.
+   */
   private buttonAt(x: number, y: number): PadButton | null {
     const hit = document.elementFromPoint(x, y)?.closest<HTMLElement>('.pad-btn');
-    return (hit?.dataset.btn as PadButton | undefined) ?? null;
+    if (hit) return (hit.dataset.btn as PadButton | undefined) ?? null;
+    let best: PadButton | null = null;
+    let bestD = 44; // px of slack around each button
+    for (const el of this.el.querySelectorAll<HTMLElement>('.pad-btn')) {
+      const r = el.getBoundingClientRect();
+      if (!r.width) continue; // hidden (single vs triple fire)
+      const dx = Math.max(r.left - x, 0, x - r.right);
+      const dy = Math.max(r.top - y, 0, y - r.bottom);
+      const d = Math.hypot(dx, dy);
+      if (d < bestD) {
+        bestD = d;
+        best = el.dataset.btn as PadButton;
+      }
+    }
+    return best;
   }
 
   private down = (e: PointerEvent) => {
