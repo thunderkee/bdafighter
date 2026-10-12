@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Shooter } from './game';
-import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type V3 } from './roster';
+import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
+import shippedRoster from './roster-shipped.json';
 
 /**
  * SD (super-deformed) marble-shooter robots built from primitives:
@@ -243,27 +244,40 @@ export const BUILTINS: readonly CharacterDef[] = [
   },
 ];
 
-/** built-ins with the device's roster edits applied, then any custom units */
-export function rosterCharacters(data = loadRoster()): CharacterDef[] {
-  const merge = (def: CharacterDef, id = def.id): CharacterDef => {
-    const u = data.units[id];
-    if (!u) return { ...def, id };
-    return {
-      ...def,
-      id,
-      name: u.name?.trim() || def.name,
-      ball: u.ball ?? def.ball,
-      palette: { ...def.palette, ...u.palette },
-      traits: u.traits ?? def.traits,
-      blueprint: u.blueprint ?? def.blueprint,
-      base: def.base ?? (id !== def.id ? def.id : undefined),
-    };
+/**
+ * Unit Lab designs that ship with the game: everyone gets these as the built-ins'
+ * defaults. Exported from the Unit Lab roster (src/roster-shipped.json).
+ */
+export const SHIPPED: RosterData = shippedRoster as unknown as RosterData;
+
+/** a unit with one roster layer (shipped or device) applied */
+function applyEntry(def: CharacterDef, u: UnitEntry | undefined, id = def.id): CharacterDef {
+  if (!u) return { ...def, id };
+  return {
+    ...def,
+    id,
+    name: u.name?.trim() || def.name,
+    ball: u.ball ?? def.ball,
+    palette: { ...def.palette, ...u.palette },
+    traits: u.traits ?? def.traits,
+    blueprint: u.blueprint ?? def.blueprint,
+    base: def.base ?? (id !== def.id ? def.id : undefined),
   };
-  const out = BUILTINS.map((b) => merge(b));
+}
+
+/** the built-ins as shipped (code designs plus the shipped Unit Lab edits) */
+export const shippedById = (id: string) => {
+  const b = BUILTINS.find((c) => c.id === id);
+  return b ? applyEntry(b, SHIPPED.units[id]) : undefined;
+};
+
+/** built-ins with the shipped designs, then this device's roster edits, then any custom units */
+export function rosterCharacters(data = loadRoster()): CharacterDef[] {
+  const out = BUILTINS.map((b) => applyEntry(applyEntry(b, SHIPPED.units[b.id]), data.units[b.id]));
   for (const u of Object.values(data.units)) {
     if (BUILTINS.some((b) => b.id === u.id)) continue;
-    const base = BUILTINS.find((b) => b.id === u.base) ?? BUILTINS[0];
-    out.push(merge(base, u.id));
+    const base = shippedById(u.base) ?? BUILTINS[0];
+    out.push(applyEntry(base, u, u.id));
   }
   return out;
 }

@@ -97,6 +97,9 @@ and the game picks them up on its next load.
   (matte / glow / glossy). Add, duplicate, mirror to the other side, delete; arrows / PgUp / PgDn nudge.
   **Moves as** tags the animated parts: *Aims* (turns with the aim), *Leg* (walk cycle), *Barrel* (recoils),
   *Ball exit* (an empty marker on the belly where marbles leave), *Jaw*, *Flame*, *Trigger*.
+- **Shipped designs**: `src/roster-shipped.json` holds Unit Lab edits that ship with the game, so every player
+  gets them as the built-ins' defaults; a player's own Unit Lab edits still apply on top (and **Reset to
+  original** returns to the shipped design).
 - **+ NEW** copies the selected unit into a custom one; **Reset to original** drops edits to a built-in;
   undo / redo cover every change. **PLAY AS UNIT** selects it and opens the game.
 
