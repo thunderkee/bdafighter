@@ -198,13 +198,23 @@ function rebuildPreview() {
 }
 // on-canvas gizmo: drag the arrows / rings / boxes to move, rotate or scale the selected block
 const gizmo = new TransformControls(camera, renderer.domElement);
-gizmo.setSize(0.85);
+// bigger handles for fingers
+gizmo.setSize(window.matchMedia('(pointer: coarse)').matches ? 1.5 : 1.1);
 gizmo.setSpace('local');
+// no free 'trackball' sphere over the block: dragging the block itself rotates it predictably
+gizmo.showXYZE = false;
+// the rings turn fast, so snap to clean steps: 5 degrees, and scale in 0.05s
+// (snap is applied before slowing the rings to 40%, so 12.5 here lands on 5-degree steps)
+gizmo.setRotationSnap(THREE.MathUtils.degToRad(12.5));
+gizmo.setScaleSnap(0.05);
 scene.add(gizmo.getHelper());
 type GizmoMode = 'translate' | 'rotate' | 'scale';
 let gizmoUsed = false;
 function setGizmoMode(mode: GizmoMode) {
   gizmo.setMode(mode);
+  // the two-axis squares would catch drags on the block in scale mode and stretch it unevenly
+  const planes = mode === 'translate';
+  gizmo.showXY = gizmo.showYZ = gizmo.showXZ = planes;
   document.querySelectorAll<HTMLElement>('[data-gizmo]').forEach((b) => b.classList.toggle('on', b.dataset.gizmo === mode));
 }
 gizmo.addEventListener('dragging-changed', (e) => {
@@ -220,13 +230,34 @@ gizmo.addEventListener('dragging-changed', (e) => {
   }
 });
 // while dragging, write the transform straight into the block (rebuilt on release)
-gizmo.addEventListener('objectChange', () => {
+/** copy a dragged object's transform into its block */
+function writeBlock(o: THREE.Object3D | undefined) {
   const b = selected ? getBlock(selected) : null;
-  const o = gizmo.object;
   if (!b || !o) return;
   b.p = [r2(o.position.x), r2(o.position.y), r2(o.position.z)];
   b.r = [r2(o.rotation.x), r2(o.rotation.y), r2(o.rotation.z)];
   b.s = [r2(o.scale.x), r2(o.scale.y), r2(o.scale.z)];
+}
+// the stock rings turn very fast: keep 40% of each drag's turn, measured from where it started
+const RING_SPEED = 0.4;
+let ringStart: THREE.Quaternion | null = null;
+gizmo.addEventListener('mouseDown', () => {
+  ringStart = gizmo.getMode() === 'rotate' && gizmo.object ? gizmo.object.quaternion.clone() : null;
+});
+gizmo.addEventListener('mouseUp', () => (ringStart = null));
+gizmo.addEventListener('objectChange', () => {
+  const o = gizmo.object;
+  if (o && ringStart && gizmo.getMode() === 'rotate') {
+    const delta = ringStart.clone().invert().multiply(o.quaternion);
+    if (delta.w < 0) delta.set(-delta.x, -delta.y, -delta.z, -delta.w);
+    const angle = 2 * Math.acos(Math.min(1, delta.w));
+    const sin = Math.sqrt(Math.max(0, 1 - delta.w * delta.w));
+    if (angle > 1e-6 && sin > 1e-6) {
+      const axis = new THREE.Vector3(delta.x / sin, delta.y / sin, delta.z / sin);
+      o.quaternion.copy(ringStart).multiply(new THREE.Quaternion().setFromAxisAngle(axis, angle * RING_SPEED));
+    }
+  }
+  writeBlock(o);
 });
 
 function updateHelper() {
@@ -248,27 +279,122 @@ function updateHelper() {
   } else gizmo.detach();
 }
 
-// click (not drag) on a block selects it
+// click (not drag) on a block selects it; dragging the selected block itself
+// moves / rotates / scales it with the active tool (no need to hit a handle)
 let downAt: { x: number; y: number } | null = null;
+const ray = new THREE.Raycaster();
+const ndcAt = (x: number, y: number) => {
+  const rect = renderer.domElement.getBoundingClientRect();
+  return new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+};
+const pick = (x: number, y: number) => {
+  if (!model) return null;
+  ray.setFromCamera(ndcAt(x, y), camera);
+  return ray.intersectObject(model.root, true).find((h) => (h.object as THREE.Mesh).isMesh && h.object.userData.path) ?? null;
+};
+let free: {
+  id: number;
+  x: number;
+  y: number;
+  obj: THREE.Object3D;
+  p: THREE.Vector3;
+  q: THREE.Quaternion;
+  s: THREE.Vector3;
+  world: THREE.Vector3;
+  plane: THREE.Plane;
+  grab: THREE.Vector3;
+  moved: boolean;
+} | null = null;
+const isInside = (o: THREE.Object3D, root: THREE.Object3D) => {
+  for (let n: THREE.Object3D | null = o; n; n = n.parent) if (n === root) return true;
+  return false;
+};
+
 renderer.domElement.addEventListener('pointerdown', (e) => {
   downAt = { x: e.clientX, y: e.clientY };
   gizmoUsed = false;
+  const obj = gizmo.object;
+  if (!obj || !selected || selected === 'r') return;
+  const hit = pick(e.clientX, e.clientY);
+  if (!hit || !isInside(hit.object, obj)) return;
+  // grabbed the selected block: this drag edits it instead of orbiting
+  controls.enabled = false;
+  const world = obj.getWorldPosition(new THREE.Vector3());
+  const normal = camera.getWorldDirection(new THREE.Vector3());
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, world);
+  free = { id: e.pointerId, x: e.clientX, y: e.clientY, obj, p: obj.position.clone(), q: obj.quaternion.clone(), s: obj.scale.clone(), world, plane, grab: hit.point.clone(), moved: false };
+  ray.ray.intersectPlane(plane, free.grab);
 });
-renderer.domElement.addEventListener('pointerup', (e) => {
-  // a press that worked the gizmo never changes the selection
-  if (gizmoUsed) {
+
+window.addEventListener('pointermove', (e) => {
+  if (!free || e.pointerId !== free.id) return;
+  // a handle took this press after all
+  if (gizmo.dragging) {
+    free = null;
+    return;
+  }
+  const dx = e.clientX - free.x;
+  const dy = e.clientY - free.y;
+  if (!free.moved) {
+    if (Math.hypot(dx, dy) < 4) return;
+    free.moved = true;
+    pushUndo();
+  }
+  const o = free.obj;
+  const mode = gizmo.getMode();
+  if (mode === 'translate') {
+    // slide in the plane facing the camera
+    ray.setFromCamera(ndcAt(e.clientX, e.clientY), camera);
+    const at = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(free.plane, at)) return;
+    const target = free.world.clone().add(at.sub(free.grab));
+    o.position.copy(o.parent ? o.parent.worldToLocal(target) : target);
+  } else if (mode === 'rotate') {
+    // sideways turns it, up/down tilts it toward you
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const step = THREE.MathUtils.degToRad(5);
+    const snap = (a: number) => Math.round(a / step) * step;
+    const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), snap(dx * 0.012));
+    const tilt = new THREE.Quaternion().setFromAxisAngle(right, snap(dy * 0.012));
+    const worldRot = turn.multiply(tilt);
+    const parentQ = o.parent ? o.parent.getWorldQuaternion(new THREE.Quaternion()) : new THREE.Quaternion();
+    o.quaternion.copy(parentQ.clone().invert().multiply(worldRot).multiply(parentQ).multiply(free.q));
+  } else {
+    // drag up or right to grow, down or left to shrink
+    const f = Math.max(0.05, Math.exp((dx - dy) * 0.006));
+    o.scale.copy(free.s).multiplyScalar(f);
+  }
+  writeBlock(o);
+});
+
+const endFree = (e: PointerEvent) => {
+  if (!free || e.pointerId !== free.id) return false;
+  const moved = free.moved;
+  free = null;
+  controls.enabled = true;
+  if (moved) {
+    designChanged(true);
+    updateHelper();
+  }
+  return moved;
+};
+window.addEventListener('pointercancel', (e) => endFree(e));
+
+window.addEventListener('pointerup', (e) => {
+  const dragged = endFree(e);
+  // a press that worked the gizmo or dragged a block never changes the selection
+  if (gizmoUsed || dragged) {
     downAt = null;
     return;
   }
-  if (!downAt || !model) return;
+  if (!downAt || !model || e.target !== renderer.domElement) {
+    downAt = null;
+    return;
+  }
   const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
   downAt = null;
   if (moved > 5) return;
-  const rect = renderer.domElement.getBoundingClientRect();
-  const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-  const ray = new THREE.Raycaster();
-  ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObject(model.root, true).find((h) => (h.object as THREE.Mesh).isMesh && h.object.userData.path);
+  const hit = pick(e.clientX, e.clientY);
   if (hit) showTab('blocks');
   select(hit ? (hit.object.userData.path as string) : null);
 });
@@ -307,7 +433,7 @@ renderer.setAnimationLoop((now) => {
       fake.firing = false;
     }
     // hold the pose still while a block is being dragged, so animation never fights the gizmo
-    if (!gizmo.dragging) model.sync(fake as unknown as Shooter, t, dt);
+    if (!gizmo.dragging && !free?.moved) model.sync(fake as unknown as Shooter, t, dt);
     model.root.position.set(0, model.root.position.y, 0);
   }
   helper?.update();

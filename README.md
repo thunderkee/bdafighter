@@ -91,8 +91,9 @@ and the game picks them up on its next load.
 - **Colours**: palette swatches (body, trim, accent, joints, eyes/glow, marble). Blocks painted with a palette
   colour follow the swatch.
 - **Blocks**: every unit, built-ins included, opens as a tree of blocks (box, ball, tube, spike, ring, group).
-  Click a block on the model or in the list, then drag its on-canvas handles to move / rotate / scale it
-  (W / E / R switch tools), or edit size, position, rotation, scale, colour and finish
+  Click a block on the model or in the list, pick **Move / Rotate / Scale** (W / E / R), then drag the block
+  itself (move in the view plane, sideways turns / up-down tilts, up-right grows) or a handle for one axis.
+  Rotation snaps to 5°, scale to 0.05. Or edit size, position, rotation, scale, colour and finish
   (matte / glow / glossy). Add, duplicate, mirror to the other side, delete; arrows / PgUp / PgDn nudge.
   **Moves as** tags the animated parts: *Aims* (turns with the aim), *Leg* (walk cycle), *Barrel* (recoils),
   *Ball exit* (an empty marker on the belly where marbles leave), *Jaw*, *Flame*, *Trigger*.

@@ -291,6 +291,8 @@ export class ShooterMesh {
   wingL = new THREE.Group();
   wingR = new THREE.Group();
   private stride = 0;
+  /** rest pose of animated parts (Unit Lab designs can tilt them); animation is added on top */
+  private rest = { turretY: 0, turretZ: 0, jaw: 0, legs: [] as number[], flame: new THREE.Vector3(1, 1, 1) };
   /** rest positions the recoil animation pushes from */
   private barrelZ = -0.32;
   private triggerZ = 0.38;
@@ -1053,6 +1055,8 @@ export class ShooterMesh {
       switch (role) {
         case 'turret':
           this.turret = o;
+          this.rest.turretY = o.rotation.y;
+          this.rest.turretZ = o.rotation.z;
           break;
         case 'barrel':
           this.barrel = o;
@@ -1060,12 +1064,15 @@ export class ShooterMesh {
           break;
         case 'leg':
           this.legs.push(o);
+          this.rest.legs.push(o.rotation.x);
           break;
         case 'jaw':
           this.jaw = o;
+          this.rest.jaw = o.rotation.x;
           break;
         case 'flame':
           this.flame = o;
+          this.rest.flame.copy(o.scale);
           break;
         case 'belly':
           this.bellyMark = o;
@@ -1408,22 +1415,23 @@ export class ShooterMesh {
     this.root.position.set(s.x, 0, -s.y);
     // the turret faces -z for the player and +z for the opponent
     this.root.rotation.y = s.team === 0 ? 0 : Math.PI;
-    this.turret.rotation.y = s.team === 0 ? -s.aim : s.aim;
+    this.turret.rotation.y = this.rest.turretY + (s.team === 0 ? -s.aim : s.aim);
     this.barrel.position.z = this.barrelZ + s.recoil * (this.jaw ? 0.04 : 0.12);
     this.trigger.position.z = this.triggerZ - s.recoil * 0.1;
     // beasts: the jaw snaps open as the marble leaves the mouth
-    if (this.jaw) this.jaw.rotation.x = s.recoil * 0.55;
+    if (this.jaw) this.jaw.rotation.x = this.rest.jaw + s.recoil * 0.55;
     if (this.flame) {
       const f = 0.85 + Math.random() * 0.35;
-      this.flame.scale.set(f, 0.8 + Math.random() * 0.5, f);
+      const fs = this.rest.flame;
+      this.flame.scale.set(fs.x * f, fs.y * (0.8 + Math.random() * 0.5), fs.z * f);
     }
 
     // walk cycle while sliding along the rail
     const moving = Math.min(1, Math.abs(s.vx) / 3);
     this.stride += dt * 14 * moving;
     // alternate legs (diagonal pairs on four-legged beasts)
-    this.legs.forEach((l, i) => (l.rotation.x = Math.sin(this.stride + (i % 2) * Math.PI) * 0.5 * moving));
-    this.turret.rotation.z = (s.team === 0 ? -1 : 1) * Math.sign(s.vx) * moving * 0.06;
+    this.legs.forEach((l, i) => (l.rotation.x = (this.rest.legs[i] ?? 0) + Math.sin(this.stride + (i % 2) * Math.PI) * 0.5 * moving));
+    this.turret.rotation.z = this.rest.turretZ + (s.team === 0 ? -1 : 1) * Math.sign(s.vx) * moving * 0.06;
     const bob = Math.abs(Math.sin(this.stride)) * 0.05 * moving;
 
     // wings breathe at idle, flare open while firing
