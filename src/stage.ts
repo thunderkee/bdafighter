@@ -273,13 +273,43 @@ export class Stage {
     };
     ellipse(new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshLambertMaterial({ color: 0xf0e2bd })), -0.03);
     ellipse(new THREE.Mesh(new THREE.RingGeometry(0.9, 1.0, 64), new THREE.MeshLambertMaterial({ color: 0xd8c294 })), -0.025);
-    const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false });
+    // footprints wandering along the sand beside the table, and rocks where sand meets sea
+    const printMat = new THREE.MeshBasicMaterial({ color: 0xcdb78a, transparent: true, opacity: 0.55, depthWrite: false });
+    const printGeo = new THREE.CircleGeometry(0.09, 10);
+    for (const side of [-1, 1])
+      for (let k = 0; k < 18; k++) {
+        const z = -L / 2 + 1.5 + k * ((L - 3) / 17);
+        const x = side * (W / 2 + 1.6 + Math.sin(k * 0.7 + side) * 0.6) + (k % 2 ? 0.14 : -0.14);
+        const fp = new THREE.Mesh(printGeo, printMat);
+        fp.rotation.x = -Math.PI / 2;
+        fp.scale.set(0.8, 1.5, 1);
+        fp.position.set(x, -0.026, z);
+        this.group.add(fp);
+      }
+    const rockMat = new THREE.MeshLambertMaterial({ color: 0x9a9488, flatShading: true });
+    for (const [a, sc] of [
+      [0.35, 0.7],
+      [0.42, 0.45],
+      [2.55, 0.8],
+      [2.7, 0.5],
+      [3.6, 0.6],
+      [5.9, 0.75],
+      [6.05, 0.4],
+    ]) {
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(sc, 0), rockMat);
+      rock.position.set(Math.cos(a) * rx * 0.99, sc * 0.2, -Math.sin(a) * rz * 0.99);
+      rock.rotation.set(rand(0, 3), rand(0, 3), 0);
+      rock.scale.y = 0.6;
+      this.group.add(rock);
+    }
+    const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false });
     const foam = ellipse(new THREE.Mesh(new THREE.RingGeometry(0.985, 1.04, 64), foamMat), -0.02);
-    const foam2 = ellipse(new THREE.Mesh(new THREE.RingGeometry(1.06, 1.08, 64), foamMat.clone()), -0.02);
+    const foam2 = ellipse(new THREE.Mesh(new THREE.RingGeometry(1.06, 1.085, 64), foamMat.clone()), -0.02);
+    ellipse(new THREE.Mesh(new THREE.RingGeometry(1.0, 1.2, 64), new THREE.MeshBasicMaterial({ color: 0xb8fff0, transparent: true, opacity: 0.35, depthWrite: false })), -0.022);
     this.movers.push((t) => {
       const k = 1 + Math.sin(t * 0.9) * 0.012;
       foam.scale.set(rx * k, rz * k, 1);
-      foamMat.opacity = 0.55 + Math.sin(t * 0.9) * 0.2;
+      foamMat.opacity = 0.75 + Math.sin(t * 0.9) * 0.2;
       const k2 = 1 + ((t * 0.12) % 1) * 0.05;
       foam2.scale.set(rx * k2, rz * k2, 1);
       (foam2.material as THREE.MeshBasicMaterial).opacity = 0.5 * (1 - ((t * 0.12) % 1));
@@ -1404,6 +1434,13 @@ export class Stage {
           [7.2, -14.8, 4.6, 1.2],
           [9.6, -16.2, 5.0, 0.6],
           [11.4, -15.4, 4.2, 1.0],
+          [-6.0, -21.4, 6.0, -0.5],
+          [-12.8, -21.0, 5.4, 0.3],
+          [-8.0, -23.2, 6.4, 0.6],
+          [-3.6, -16.4, 3.6, -1.0],
+          [-13.6, -15.6, 4.4, -0.7],
+          [13.2, -17.8, 5.6, 0.4],
+          [10.2, -19.6, 4.8, -0.5],
         ] as [number, number, number, number][]) {
           const palm = makePalm(h, lean);
           palm.rotation.y = rand(0, Math.PI * 2);
@@ -1413,23 +1450,48 @@ export class Stage {
         }
         // undergrowth at the grove's feet
         const bush = lam(0x2e8a3e, { flatShading: true });
-        for (let i = 0; i < 9; i++) add(new THREE.Mesh(new THREE.DodecahedronGeometry(rand(0.4, 0.8), 0), bush), rand(-11, -5), 0.25, rand(-19, -14));
+        const bush2 = lam(0x46a84a, { flatShading: true });
+        for (let i = 0; i < 18; i++) add(new THREE.Mesh(new THREE.DodecahedronGeometry(rand(0.4, 0.9), 0), i % 3 ? bush : bush2), rand(-13.5, -3.5), 0.25, rand(-23, -14));
+        for (let i = 0; i < 6; i++) add(new THREE.Mesh(new THREE.DodecahedronGeometry(rand(0.4, 0.7), 0), bush), rand(9, 13.5), 0.25, rand(-20, -15));
         // over-water huts on stilts out in the lagoon, joined to the island by a pier
         const wood = lam(0x8a5a32);
         const darkWood = lam(0x5a3a22);
         const straw = lam(0xd8b56a, { flatShading: true });
         const plank = lam(0xb07a48);
         const pier = new THREE.Group();
-        for (let k = 0; k < 14; k++) {
+        for (let k = 0; k < 26; k++) {
           pier.add(box3(1.2, 0.08, 0.5, plank, 0, 0.7, -k * 0.55));
-          if (k % 3 === 0) for (const sx of [-0.55, 0.55]) pier.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 6), darkWood).translateX(sx).translateY(0.2).translateZ(-k * 0.55));
+          if (k % 3 === 0)
+            for (const sx of [-0.55, 0.55]) {
+              pier.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 6), darkWood).translateX(sx).translateY(0.2).translateZ(-k * 0.55));
+              pier.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 5), darkWood).translateX(sx).translateY(0.98).translateZ(-k * 0.55));
+            }
         }
+        for (const sx of [-0.55, 0.55]) pier.add(box3(0.05, 0.05, 14.3, darkWood, sx, 1.2, -6.9));
         add(pier, 7.6, 0, -15.5);
-        for (const [x, z, r] of [
-          [7.6, -24, 0.2],
-          [10.8, -22.6, -0.4],
-          [4.6, -26.5, 0.6],
-        ] as [number, number, number][]) add(makeHut(wood, darkWood, straw, plank), x, 0, z).rotation.y = r;
+        // the hut row: one at the pier's end, the rest on short boardwalks off either side
+        for (const [x, z, r, walk] of [
+          [7.6, -31.6, 0.1, 0],
+          [11.2, -27.2, -0.3, -1],
+          [4.0, -25.0, 0.4, 1],
+          [11.6, -21.4, -0.2, -1],
+          [3.4, -20.2, 0.5, 1],
+        ] as [number, number, number, number][]) {
+          add(makeHut(wood, darkWood, straw, plank), x, 0, z).rotation.y = r;
+          if (walk) add(box3(Math.abs(x - 7.6) - 1.6, 0.08, 0.6, plank, 0, 0, 0), (x + 7.6) / 2, 0.7, z);
+        }
+        // the pier's ladder posts throw ripples
+        const ripple = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false });
+        for (const z of [-15.5, -20.5, -25.5, -30.4]) {
+          const r = add(new THREE.Mesh(new THREE.RingGeometry(0.9, 1.0, 24), ripple.clone()), 7.6, 0.02, z);
+          r.rotation.x = -Math.PI / 2;
+          const ph = rand(0, 1);
+          this.movers.push((tt) => {
+            const f = (tt * 0.35 + ph) % 1;
+            r.scale.setScalar(0.6 + f * 1.4);
+            (r.material as THREE.MeshBasicMaterial).opacity = 0.45 * (1 - f);
+          });
+        }
         // distant islands on the horizon, and puffy clouds above them
         const green = lam(0x2f8a4a, { flatShading: true });
         const rock = lam(0x8a8a80, { flatShading: true });
@@ -1449,7 +1511,15 @@ export class Stage {
           [14, 3.4, -62, 1.0],
           [-24, 4.8, -72, 1.4],
           [26, 4.2, -70, 1.3],
-        ] as [number, number, number, number][]) add(makeCloud(k), x, y, z);
+          [-36, 6, -78, 2.2],
+          [36, 6.6, -80, 2.4],
+          [-6, 7.4, -84, 2.6],
+          [16, 9.4, -82, 1.8],
+        ] as [number, number, number, number][]) {
+          const cloud = add(makeCloud(k * 1.3), x, y, z);
+          const ph = rand(0, 6);
+          this.movers.push((tt) => (cloud.position.x = x + Math.sin(tt * 0.05 + ph) * 2));
+        }
         // lifeguard tower and a sandcastle
         const tower = new THREE.Group();
         for (const [x, z] of [
@@ -2097,6 +2167,12 @@ function makeCloud(k: number) {
     [0.6, 0.7, 0.75],
     [2.1, -0.15, 0.55],
     [-2, -0.15, 0.55],
+    [0, 1.25, 0.7],
+    [-1.1, 0.9, 0.55],
+    [1.4, 0.75, 0.6],
+    [-2.8, -0.3, 0.4],
+    [2.9, -0.3, 0.42],
+    [0.3, -0.25, 1.0],
   ]) {
     const b = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat);
     b.position.set(x, y, 0);
