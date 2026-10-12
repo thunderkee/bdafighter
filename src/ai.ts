@@ -155,6 +155,7 @@ export class AIController {
         use = this.holdTime > 0.4 && this.game.slowT <= 0;
         break;
       case 'wiper':
+      case 'lock':
         use = this.holdTime > 0.3;
         break;
       case 'missile':

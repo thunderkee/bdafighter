@@ -116,7 +116,8 @@ points at crates on your rail, even off-screen. The AI grabs and uses items too.
 | Item         | Effect                                                              |
 | ------------ | ------------------------------------------------------------------- |
 | Multi Shot   | 6 seconds of 6-marble fans per shot                                 |
-| Slow-Mo      | 5 s of bullet time: the world and every other robot run at 0.2x (movement, firing, reload, AI reactions, marbles); you move, fire and reload at 1.25x, leaving afterimages and light streaks |
+| Slow-Mo      | 5 s of bullet time: the world and every other robot run at 0.2x (movement, firing, reload, AI reactions, marbles); you move, fire and reload at 1.25x, leaving afterimages and light streaks; your shots become gold **boost balls** (bigger, heavier, 1.5× damage) |
+| Smart Lock   | 7 s: your aim locks onto the closest opponent (leading it as it moves) and every shot flies at it; a target square marks it (red "LOCKED ON YOU" when an opponent locks you) |
 | Wiper        | 6 s of a brick shield sweeping in front of you; enemy balls it touches bounce back as yours |
 | Repair Kit   | Restores 25% of max armor                                           |
 | Dragon Shot  | Three heavy glowing balls that weave in a zig-zag braid             |
@@ -144,8 +145,9 @@ that pass through it are transformed; each gate has limited charges, then shatte
 2. **Best of 3 rounds** (60 s each): first to 2 round wins. ROUND n / FINAL ROUND, READY, FIGHT! banners; round markers
    next to the names; K.O. / TIME UP / PERFECT calls. A drawn round counts for both sides (a deciding round
    is played if that leaves both on two; capped at 5 rounds).
-3. **Quick replay** after every KO: the last ~2.5 s in slow motion (quarter speed right at the KO) from a
-   sweeping side camera, letterboxed, tap to skip. Between rounds the loser slumps, sparking.
+3. **Quick replay** after every KO: it opens over the shoulder of whoever landed the finishing ball as they fire it
+   (slowed for the moment), then rides the shot across to the loser for the impact, quarter speed right at the
+   KO (a time-up round falls back to a sweeping side camera on the loser), letterboxed, tap to skip. Between rounds the loser slumps, sparking.
 4. **Finale**: after the deciding replay the loser explodes (pops, boom, clattering debris), then the result.
 
 ## Knockout

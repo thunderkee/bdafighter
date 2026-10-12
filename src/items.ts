@@ -1,7 +1,7 @@
 // Air-drop items: data only, so new items are a new entry plus a case in
 // Game.useItem().
 
-export type ItemType = 'multi' | 'slowmo' | 'heal' | 'dragon' | 'missile' | 'wiper';
+export type ItemType = 'multi' | 'slowmo' | 'heal' | 'dragon' | 'missile' | 'wiper' | 'lock';
 
 export interface ItemDef {
   name: string;
@@ -20,6 +20,7 @@ export const ITEMS: Record<ItemType, ItemDef> = {
   dragon: { name: 'Dragon Shot', short: 'DRAGON', color: 0xff3e8e, duration: 0, weight: 0.8 },
   missile: { name: 'Homing Missile', short: 'MISSILE', color: 0xff7a2a, duration: 0, weight: 0.8 },
   wiper: { name: 'Wiper', short: 'WIPER', color: 0xc8925a, duration: 6, weight: 0.9 },
+  lock: { name: 'Smart Lock', short: 'LOCK', color: 0xff3b3b, duration: 7, weight: 0.9 },
 };
 
 export const ITEM_TYPES = Object.keys(ITEMS) as ItemType[];
@@ -39,6 +40,8 @@ export const DROP = {
 
 /** multi shot: marbles per volley, fan half-angle, damage scale, fire-interval scale */
 export const MULTI = { count: 6, fan: 0.32, damage: 0.6, interval: 2 };
+/** slow-mo user's shots become boost balls: bigger, heavier, a touch faster, harder hitting */
+export const BOOST_BALL = { radius: 1.3, mass: 1.6, speed: 1.1, damage: 1.5 };
 /**
  * slow-mo: the whole match runs at `world` speed for `duration` game seconds
  * (so twice as long in real time), while the robot that used it moves, fires

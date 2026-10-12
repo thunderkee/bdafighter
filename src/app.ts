@@ -53,6 +53,7 @@ const ITEM_ICONS: Record<ItemType, string> = {
   heal: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
   dragon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 22c-5-3 5-5 0-8s5-5 0-8"/><circle cx="12" cy="3" r="2" fill="currentColor"/></svg>',
   missile: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1c3 2.5 4 6 4 10v6H8v-6c0-4 1-7.5 4-10z"/><path d="M8 13l-4 4v3l4-2zM16 13l4 4v3l-4-2z"/><path d="M10 19h4l-2 4z" opacity=".7"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>',
 };
 
 export function boot() {
@@ -384,7 +385,7 @@ export function boot() {
     replayGame = new ReplayGame(recorder, game);
     view.resetMatch();
     view.game = replayGame as unknown as Game;
-    view.cine = { kind: 'replay', t: 0, shot: -1, slot: loser };
+    view.cine = { kind: 'replay', t: 0, shot: -1, slot: loser, by: replayGame.by };
     replayEl.classList.remove('hidden');
     hud.classList.add('hidden');
     sfx.play('whoosh');
@@ -706,7 +707,10 @@ export function boot() {
     // knocked out but the pack fights on: you're spectating from the sky, so put the controls away
     document.body.classList.toggle('spectating', screen === 'playing' && flow === 'round' && player.active && player.out);
     // health tags ride along every frame (and hide outside the fight)
-    if (screen === 'playing') updateTags(dt);
+    if (screen === 'playing') {
+      updateTags(dt);
+      updateLocks();
+    }
     if (screen === 'playing' && !paused && flow === 'round') {
       if (game.hitstop > 0) {
         game.hitstop -= dt;
@@ -835,6 +839,33 @@ export function boot() {
       id: '',
     };
   });
+  // ---------- Smart Lock target squares ----------
+  const lockBox = $('lock-marks');
+  const lockMarks = game.shooters.map(() => {
+    const el = document.createElement('div');
+    el.className = 'lock-mark hidden';
+    el.innerHTML = '<i></i><i></i><i></i><i></i><b>LOCK</b>';
+    lockBox.appendChild(el);
+    return { el, label: el.querySelector('b')! };
+  });
+  const updateLocks = () => {
+    const on = flow === 'round' && screen === 'playing';
+    // which robots are locked, and by which side
+    const lockedBy = new Map<number, number>();
+    if (on) for (const s of game.shooters) if (s.active && s.alive && s.lockT > 0 && s.lockSlot >= 0) lockedBy.set(s.lockSlot, s.team);
+    game.shooters.forEach((t, i) => {
+      const m = lockMarks[i];
+      const team = lockedBy.get(i);
+      const pt = team !== undefined && t.alive ? view.bodyPoint(i) : null;
+      m.el.classList.toggle('hidden', !pt);
+      if (!pt) return;
+      // amber when your side holds the lock, red when the opponents have locked one of yours
+      m.el.classList.toggle('danger', team === 1);
+      m.label.textContent = team === 1 && i === 0 ? 'LOCKED ON YOU' : 'LOCK';
+      m.el.style.transform = `translate(${pt.x.toFixed(1)}px, ${pt.y.toFixed(1)}px) translate(-50%, -50%) scale(${pt.scale.toFixed(2)})`;
+    });
+  };
+
   const updateTags = (dt: number) => {
     const on = saveData.settings.hudMode === 'tags' && flow === 'round';
     const ids = unitIds();
@@ -926,6 +957,7 @@ export function boot() {
     if (player.multiT > 0) fx.push(`multi:${Math.ceil(player.multiT)}`);
     if (game.slowT > 0 && game.slowOwner === 0) fx.push(`slowmo:${Math.ceil(game.slowT)}`);
     if (player.wiperT > 0) fx.push(`wiper:${Math.ceil(player.wiperT)}`);
+    if (player.lockT > 0) fx.push(`lock:${Math.ceil(player.lockT)}`);
     const key = fx.join('|');
     if (key !== lastEffects) {
       lastEffects = key;

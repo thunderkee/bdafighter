@@ -1610,3 +1610,58 @@ body.spectating #rail-gauge {
   pointer-events: none;
   transition: opacity 0.6s;
 }
+
+/* ---------- Smart Lock target square ---------- */
+#lock-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.lock-mark {
+  --lock: #ffc23d;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 74px;
+  height: 74px;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.lock-mark.hidden {
+  display: none;
+}
+.lock-mark.danger {
+  --lock: #ff3b3b;
+}
+/* four corner brackets that breathe in and out */
+.lock-mark i {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--lock);
+  filter: drop-shadow(0 0 4px var(--lock));
+  animation: lock-breathe 0.6s ease-in-out infinite alternate;
+}
+.lock-mark i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; --dx: -1; --dy: -1; }
+.lock-mark i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; --dx: 1; --dy: -1; }
+.lock-mark i:nth-child(3) { right: 0; bottom: 0; border-left: 0; border-top: 0; --dx: 1; --dy: 1; }
+.lock-mark i:nth-child(4) { left: 0; bottom: 0; border-right: 0; border-top: 0; --dx: -1; --dy: 1; }
+@keyframes lock-breathe {
+  from { transform: translate(calc(var(--dx) * 4px), calc(var(--dy) * 4px)); }
+  to { transform: translate(0, 0); }
+}
+.lock-mark b {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-top: 4px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font: 700 10px var(--display);
+  letter-spacing: 0.14em;
+  color: var(--lock);
+  text-shadow: 0 0 6px var(--lock), 0 1px 2px #000;
+}
+.lock-mark.danger b {
+  animation: blink 0.4s steps(2) infinite;
+}

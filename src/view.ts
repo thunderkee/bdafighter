@@ -241,7 +241,7 @@ export class View {
   private pinMeshes: { root: THREE.Group; cap: THREE.MeshBasicMaterial }[] = [];
   private coverFlash: number[] = [];
   /** scripted camera: the VS intro or a replay */
-  cine: { kind: 'intro' | 'replay'; t: number; shot: number; slot: number } | null = null;
+  cine: { kind: 'intro' | 'replay'; t: number; shot: number; slot: number; by?: number } | null = null;
   /** each side's marble colour, from its robot */
   private teamBall: [number, number] = [characterById('angel').ball, characterById('dragon').ball];
   /** settings: chase-camera distance, down to a first-person cockpit view */
@@ -714,7 +714,7 @@ export class View {
           if (lo) mesh.position.add(lo);
           // shimmer between white-hot and the ball's colour
           const pulse = 0.5 + 0.5 * Math.sin(this.time * 30 + m.idx);
-          const base = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : this.teamBall[m.team];
+          const base = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : m.kind === 'boost' ? ITEMS.slowmo.color : this.teamBall[m.team];
           (mesh.material as THREE.MeshBasicMaterial).color.set(base).lerp(this.tmpC.set(0xffffff), pulse * 0.5);
           mesh.scale.setScalar(m.radius * (1 + pulse * 0.08));
         }
@@ -724,7 +724,7 @@ export class View {
         if (trail.length > (dragon ? 14 : 10)) trail.length = dragon ? 14 : 10;
         this.trails.set(m.idx, trail);
         seen.add(m.idx);
-        const glowColor = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : this.teamBall[m.team];
+        const glowColor = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : m.kind === 'boost' ? ITEMS.slowmo.color : this.teamBall[m.team];
         // the 2D glow draws over everything, so hold it until the ball has cleared the robot that fired it
         if (this.leavingBarrel(m)) continue;
         this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(p.x, p.y, m.radius), color: hex(glowColor), trail: trail.slice(1) });
@@ -1636,6 +1636,23 @@ export class View {
     return { ...pt, scale };
   }
 
+  /** screen point at the middle of a robot's body (Smart Lock reticle), scaled by distance */
+  bodyPoint(slot: number) {
+    const sm = this.shooters[slot];
+    const s = this.game.shooters[slot];
+    if (!sm || !s || !sm.root.visible) return null;
+    let h = this.heightCache.get(sm.id);
+    if (h === undefined) {
+      const box = new THREE.Box3().setFromObject(sm.root);
+      h = box.max.y - sm.root.position.y;
+      this.heightCache.set(sm.id, h);
+    }
+    this.tmpV.set(s.x, h * 0.5, -s.y).project(this.camera);
+    if (this.tmpV.z > 1) return null;
+    const pt = this.project(s.x, s.y, h * 0.5);
+    return { ...pt, scale: Math.max(0.5, Math.min(1.4, this.screenRadius(s.x, s.y, 1) / 45)) };
+  }
+
   private sizeCache = new Map<string, number>();
   /** how much bigger than a standard mech a slot's model is (1 = mech) */
   private modelScale(slot: number) {
@@ -1682,14 +1699,29 @@ export class View {
         this.lookGoal.set(0, 0, 0);
       }
     } else {
-      // replay: sweep along the side of the table, framing the loser
+      // replay: the loser's side, a camera beside and in front of the loser, sweeping slowly
       const l = this.game.shooters[c.slot];
-      const side = Math.sin(c.t * 0.35) > 0 ? 1 : -1;
+      const rg = this.game as unknown as { frame?: number; shotAt?: number; ko?: number };
+      const winnerShot = c.by !== undefined && c.by >= 0 && (rg.shotAt ?? -1) >= 0;
+      const side = winnerShot ? 1 : Math.sin(c.t * 0.35) > 0 ? 1 : -1;
       shot = side > 0 ? 0 : 1;
-      // camera beside and in front of the loser, sweeping slowly
       const front = l.team === 0 ? -1 : 1;
       this.camGoal.set(l.x + side * 5.5, 2.8 + Math.sin(c.t * 0.5) * 0.5, -l.y + front * (4.5 + Math.cos(c.t * 0.4) * 1.2));
       this.lookGoal.set(l.x, 0.9, -l.y + front * 1.5);
+      if (winnerShot) {
+        // first the winner's finishing shot, over its shoulder, then ride the shot across
+        // to the loser so the impact lands on screen
+        const w = this.game.shooters[c.by!];
+        const dy = Math.sign(l.y - w.y) || 1;
+        this.tmpV.set(w.x + 1.5, 1.9, -(w.y - dy * 3.1));
+        const winLook = new THREE.Vector3(w.x * 0.7 + l.x * 0.3, 1.0, -(w.y + dy * 4.5));
+        const start = rg.shotAt! + 8;
+        const u = Math.max(0, Math.min(1, ((rg.frame ?? 0) - start) / Math.max(15, (rg.ko ?? start) - start)));
+        const e = u * u * (3 - 2 * u);
+        this.camGoal.lerpVectors(this.tmpV, this.camGoal.clone(), e);
+        this.lookGoal.lerpVectors(winLook, this.lookGoal.clone(), e);
+        shot = 2;
+      }
     }
     // hard cut between shots, smooth within one
     const cut = shot !== c.shot;

@@ -21,7 +21,7 @@ import {
   X5,
   type GateType,
   type ItemType,
-} from './items';
+ BOOST_BALL } from './items';
 import * as sfx from './audio';
 
 // Collision groups: membership in the high 16 bits, filter in the low 16.
@@ -84,7 +84,7 @@ const MAX_PUCKS = 5;
 export type Team = 0 | 1; // 0 = player, 1 = opponents
 /** CPU pack targeting: nearest, focus the weakest, hunt you (opponents), back up your target (pack-mates) */
 export type Tactic = 'nearest' | 'weakest' | 'hunt' | 'assist';
-export type MarbleKind = 'normal' | 'super' | 'dragon' | 'x5';
+export type MarbleKind = 'normal' | 'super' | 'dragon' | 'x5' | 'boost';
 
 export interface Marble {
   idx: number;
@@ -251,6 +251,9 @@ export class Shooter {
   /** seconds left on timed item effects */
   multiT = 0;
   wiperT = 0;
+  /** Smart Lock: seconds left, and the slot it's locked onto (-1 none) */
+  lockT = 0;
+  lockSlot = -1;
   /** dragon balls still to launch, and the gap timer */
   dragonQueue = 0;
   /** extra balls left in the current trigger pull (fire-rate setting), and the gap timer */
@@ -348,7 +351,8 @@ export class Shooter {
     this.superReady = false;
     this.stagger = 0;
     this.item = null;
-    this.multiT = this.wiperT = 0;
+    this.multiT = this.wiperT = this.lockT = 0;
+    this.lockSlot = -1;
     this.dragonQueue = this.dragonTimer = 0;
     this.burstQueue = this.burstTimer = 0;
     this.sinceHit = this.sinceHurt = 99;
@@ -504,6 +508,20 @@ export class Game {
       if (tactic === 'assist' && this.player.alive) return this.nearestTo(this.player, foes);
     }
     return this.nearestTo(s, foes, other);
+  }
+
+  /** Smart Lock target: the live opponent closest to the bearer */
+  private lockTarget(s: Shooter) {
+    let best: Shooter | null = null;
+    let bd = Infinity;
+    for (const e of this.alive(s.team === 0 ? 1 : 0)) {
+      const d = Math.hypot(e.x - s.x, e.y - s.y);
+      if (d < bd) {
+        bd = d;
+        best = e;
+      }
+    }
+    return best;
   }
 
   private nearestTo(s: Shooter, foes: Shooter[], other: Team = s.team === 0 ? 1 : 0): Shooter {
@@ -705,6 +723,7 @@ export class Game {
     this.clock = opts.duration > 0 ? opts.duration : Infinity;
     this.burst = Math.max(1, Math.min(5, Math.round(opts.burst)));
     this.tactics = opts.tactics ?? ['nearest', 'nearest'];
+    this.koSource = null;
     this.winner = null;
     this.hitstop = 0;
     this.slowT = 0;
@@ -850,7 +869,10 @@ export class Game {
   }
 
   /** Apply damage to a robot and handle knock-outs. */
-  private damage(target: Shooter, attacker: Shooter, amount: number) {
+  /** what landed the round-ending hit (for the replay: show that shot being fired) */
+  koSource: { by: number; marble?: number; missile?: number } | null = null;
+
+  private damage(target: Shooter, attacker: Shooter, amount: number, src: { marble?: number; missile?: number } = {}) {
     target.health = Math.max(0, target.health - amount);
     target.sinceHurt = 0;
     attacker.dealt += amount;
@@ -865,6 +887,7 @@ export class Game {
       sfx.play('pop', 1);
       return;
     }
+    if (this.phase === 'fight') this.koSource = { by: attacker.slot, ...src };
     this.finish();
   }
 
@@ -930,7 +953,7 @@ export class Game {
           this.hitstop = Math.max(this.hitstop, 0.08);
           this.fx.push({ type: 'hit', x: m.x, y: m.y, team: target.team, slot: target.slot, amount, power: 'missile' });
           sfx.play(target.team === 0 ? 'hurt' : 'hit', 1);
-          this.damage(target, attacker, amount);
+          this.damage(target, attacker, amount, { missile: m.id });
         }
       }
       if (m.hits >= MISSILE.hits || m.age > MISSILE.life) {
@@ -1181,6 +1204,17 @@ export class Game {
     s.passOff += Math.max(-passStep, Math.min(passStep, passGoal - s.passOff));
     s.y = s.railY + s.forward * s.passOff;
     s.body.setNextKinematicTranslation({ x: s.x, y: s.y });
+    // Smart Lock: the aim snaps onto the closest opponent, leading it as it moves
+    s.lockSlot = -1;
+    if (s.lockT > 0 && s.alive) {
+      const t = this.lockTarget(s);
+      if (t) {
+        s.lockSlot = t.slot;
+        const dist = Math.hypot(t.x - s.x, t.y - s.y);
+        const lead = t.vx * (dist / Math.max(1, s.stats.muzzleSpeed));
+        s.aim = Math.atan2(t.x + lead - s.x, (t.y - s.y) * s.forward);
+      }
+    }
     s.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, s.aim));
 
     s.flash = Math.max(0, s.flash - dt);
@@ -1194,6 +1228,7 @@ export class Game {
     if (canAct) {
       s.multiT = Math.max(0, s.multiT - dt);
       s.wiperT = Math.max(0, s.wiperT - dt);
+      s.lockT = Math.max(0, s.lockT - dt);
     }
 
     // dragon salvo launches on its own, a short gap between balls
@@ -1353,6 +1388,9 @@ export class Game {
       case 'wiper':
         s.wiperT = ITEMS.wiper.duration;
         break;
+      case 'lock':
+        s.lockT = ITEMS.lock.duration;
+        break;
       case 'heal': {
         const before = s.health;
         s.health = Math.min(s.maxHealth, s.health + s.maxHealth * HEAL.fraction);
@@ -1415,15 +1453,17 @@ export class Game {
     const st = s.stats;
     const isSuper = s.superReady;
     s.superReady = false;
-    const radius = st.marbleRadius * (isSuper ? SUPER.radius : 1);
+    // in your own slow-mo every shot is a boost ball
+    const boost = !isSuper && this.slowT > 0 && this.slowOwner === s.slot;
+    const radius = st.marbleRadius * (isSuper ? SUPER.radius : boost ? BOOST_BALL.radius : 1);
     this.launch(m, s, {
       // a super shot flies dead straight
       angle: s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread),
       radius,
-      speed: st.muzzleSpeed * (isSuper ? SUPER.speed : 1),
-      mass: st.marbleMass * (isSuper ? SUPER.mass : 1),
-      damage: st.damage * (isSuper ? SUPER.damage : 1),
-      kind: isSuper ? 'super' : 'normal',
+      speed: st.muzzleSpeed * (isSuper ? SUPER.speed : boost ? BOOST_BALL.speed : 1),
+      mass: st.marbleMass * (isSuper ? SUPER.mass : boost ? BOOST_BALL.mass : 1),
+      damage: st.damage * (isSuper ? SUPER.damage : boost ? BOOST_BALL.damage : 1),
+      kind: isSuper ? 'super' : boost ? 'boost' : 'normal',
       // nudge a big marble forward so it doesn't spawn inside the robot
       push: isSuper ? radius : 0,
     });
@@ -1535,7 +1575,7 @@ export class Game {
         this.hitstop = Math.max(this.hitstop, m.kind === 'super' ? 0.16 : m.kind === 'dragon' || m.kind === 'x5' ? 0.09 : s.team === 0 ? 0.06 : 0.04);
         this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, slot: s.slot, amount, power: m.kind });
         sfx.play(m.kind === 'super' ? 'superhit' : s.team === 0 ? 'hurt' : 'hit', factor);
-        this.damage(s, attacker, amount);
+        this.damage(s, attacker, amount, { marble: m.idx });
         break;
       }
       case 'marble': {
