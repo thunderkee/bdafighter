@@ -375,6 +375,9 @@ export class ShooterMesh {
 
     // torso (core slot)
     this.turret.add(box(0.8, 0.5, 0.6, body, 0, 0.25, 0));
+    // the marble leaves through the belly cannon's mouth (the rex-head unit has no cannon, so its belly)
+    if (def.barrel === 'rexhead') this.markBelly(this.turret, 0, 0.06, -0.36);
+    else this.markBelly(this.turret, 0, 0.16, -0.66);
     this.turret.add(box(0.7, 0.26, 0.1, trim, 0, 0.33, -0.3)); // chest block
     for (const side of [-1, 1]) this.turret.add(box(0.18, 0.08, 0.04, def.darkFace ? accent : gold, side * 0.2, 0.38, -0.36)); // vents
     if (glowMat) {
@@ -566,6 +569,7 @@ export class ShooterMesh {
       }
       this.turret.position.y = 0.84;
       this.root.add(this.turret);
+      this.markBelly(this.turret, 0, -0.1, -0.48);
       // body: deep chest, waist frame, hips
       const chest = box(0.6, 0.5, 0.58, m.body, 0, 0.08, -0.16);
       chest.rotation.x = 0.1;
@@ -665,6 +669,7 @@ export class ShooterMesh {
         this.root.add(leg);
         this.legs.push(leg);
       }
+      this.markBelly(this.root, 0, 0.64, -0.54);
       // chest high, haunches lower: a stalking crouch
       const chest = box(0.62, 0.44, 0.5, m.body, 0, 0.78, -0.26);
       chest.rotation.x = -0.12;
@@ -765,6 +770,7 @@ export class ShooterMesh {
       torso.rotation.x = 0.18;
       this.root.add(torso);
       const belly = box(0.3, 0.42, 0.04, m.trim, 0, 0.72, -0.17);
+      this.markBelly(this.root, 0, 0.66, -0.22);
       belly.rotation.x = 0.18;
       this.root.add(belly);
       for (const y of [0.62, 0.74, 0.86]) {
@@ -898,6 +904,7 @@ export class ShooterMesh {
 
     this.turret.position.y = 0.62;
     this.root.add(this.turret);
+    this.markBelly(this.turret, 0, 0.06, -0.35);
     // carapace chest: yellow shell, black plate, medal in the middle
     this.turret.add(box(0.82, 0.5, 0.6, m.body, 0, 0.26, 0));
     this.turret.add(box(0.56, 0.3, 0.06, m.trim, 0, 0.28, -0.31));
@@ -1060,6 +1067,9 @@ export class ShooterMesh {
         case 'flame':
           this.flame = o;
           break;
+        case 'belly':
+          this.bellyMark = o;
+          break;
         case 'trigger':
           this.trigger = o;
           this.triggerZ = o.position.z;
@@ -1106,6 +1116,7 @@ export class ShooterMesh {
       if (o === this.jaw) return 'jaw';
       if (o === this.flame) return 'flame';
       if (o === this.trigger) return 'trigger';
+      if (o === this.bellyMark) return 'belly';
       if (o === this.wings) return 'wings';
       if (o === this.wingL) return 'wingL';
       if (o === this.wingR) return 'wingR';
@@ -1344,7 +1355,18 @@ export class ShooterMesh {
   /** world position of the barrel's tip, where a fired marble appears */
   muzzleWorld(out: THREE.Vector3) {
     this.root.updateMatrixWorld(true);
+    // B-Daman style: the marble leaves from the front of the belly
+    if (this.bellyMark) return this.bellyMark.getWorldPosition(out);
     return this.barrel.localToWorld(out.set(0, 0, -0.25));
+  }
+
+  /** where fired marbles appear: an empty marker on the front of the belly */
+  bellyMark: THREE.Object3D | null = null;
+  private markBelly(parent: THREE.Object3D, x: number, y: number, z: number) {
+    const mark = new THREE.Object3D();
+    mark.position.set(x, y, z);
+    parent.add(mark);
+    this.bellyMark = mark;
   }
 
   /** true once the robot has been blown apart */

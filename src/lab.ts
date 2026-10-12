@@ -445,6 +445,7 @@ const ROLE_LABEL: Record<Role, string> = {
   jaw: 'JAW',
   flame: 'FLAME',
   trigger: 'TRIGGER',
+  belly: 'BALL EXIT',
   wings: 'WINGS',
   wingL: 'WING L',
   wingR: 'WING R',
@@ -532,7 +533,7 @@ function renderForm() {
     return;
   }
   if (selected === 'r') {
-    form.innerHTML = '<p class="empty">The whole unit. Everything hangs off this; add blocks here or inside a group. Blocks marked AIMS turn with the aim, LEG blocks walk, the BARREL recoils and is where the marble leaves.</p>';
+    form.innerHTML = '<p class="empty">The whole unit. Everything hangs off this; add blocks here or inside a group. Blocks marked AIMS turn with the aim, LEG blocks walk, the BARREL recoils, and BALL EXIT (an empty group on the belly) is where the marble leaves.</p>';
     return;
   }
   const path = selected;

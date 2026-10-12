@@ -92,8 +92,8 @@ and the game picks them up on its next load.
 - **Blocks**: every unit, built-ins included, opens as a tree of blocks (box, ball, tube, spike, ring, group).
   Click a block on the model or in the list, then edit size, position, rotation, scale, colour and finish
   (matte / glow / glossy). Add, duplicate, mirror to the other side, delete; arrows / PgUp / PgDn nudge.
-  **Moves as** tags the animated parts: *Aims* (turns with the aim), *Leg* (walk cycle), *Barrel* (recoils,
-  marble exit), *Jaw*, *Flame*, *Trigger*.
+  **Moves as** tags the animated parts: *Aims* (turns with the aim), *Leg* (walk cycle), *Barrel* (recoils),
+  *Ball exit* (an empty marker on the belly where marbles leave), *Jaw*, *Flame*, *Trigger*.
 - **+ NEW** copies the selected unit into a custom one; **Reset to original** drops edits to a built-in;
   undo / redo cover every change. **PLAY AS UNIT** selects it and opens the game.
 
