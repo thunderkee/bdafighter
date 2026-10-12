@@ -82,6 +82,8 @@ const PUCK_LAYOUTS: [number, number][][] = [
 const MAX_PUCKS = 5;
 
 export type Team = 0 | 1; // 0 = player, 1 = opponents
+/** CPU pack targeting: nearest, focus the weakest, hunt you (opponents), back up your target (pack-mates) */
+export type Tactic = 'nearest' | 'weakest' | 'hunt' | 'assist';
 export type MarbleKind = 'normal' | 'super' | 'dragon' | 'x5';
 
 export interface Marble {
@@ -377,6 +379,8 @@ export interface MatchOptions {
   enemies: { stats: ShooterStats; maxHealth: number }[];
   /** your CPU pack-mates (0-2) */
   allies?: { stats: ShooterStats; maxHealth: number }[];
+  /** who each team's CPU robots go after */
+  tactics?: [Tactic, Tactic];
   pucks: number;
   covers: number;
   pins: number;
@@ -476,12 +480,32 @@ export class Game {
     return this.shooters.filter((s) => s.team === t && s.alive);
   }
 
-  /** who a robot fights: the live robot on the other team nearest along the rail */
+  /** CPU targeting per team: [your pack-mates, opponents] */
+  tactics: [Tactic, Tactic] = ['nearest', 'nearest'];
+
+  /**
+   * Who a robot fights. You (and the default) take the live opponent nearest along the
+   * rail; CPU packs can instead focus the weakest, hunt you, or back up your target.
+   */
   targetFor(s: Shooter): Shooter {
     const other: Team = s.team === 0 ? 1 : 0;
+    const foes = this.alive(other);
+    if (s.slot !== 0 && foes.length > 1) {
+      const tactic = this.tactics[s.team];
+      if (tactic === 'weakest') {
+        // gang up on whoever is closest to going down (nearest breaks ties)
+        return foes.reduce((a, b) => (b.hpFrac < a.hpFrac - 0.02 || (Math.abs(b.hpFrac - a.hpFrac) <= 0.02 && Math.abs(b.x - s.x) < Math.abs(a.x - s.x)) ? b : a));
+      }
+      if (tactic === 'hunt' && this.player.alive) return this.player;
+      if (tactic === 'assist' && this.player.alive) return this.nearestTo(this.player, foes);
+    }
+    return this.nearestTo(s, foes, other);
+  }
+
+  private nearestTo(s: Shooter, foes: Shooter[], other: Team = s.team === 0 ? 1 : 0): Shooter {
     let best = other === 0 ? this.player : this.shooters[1];
     let bd = Infinity;
-    for (const e of this.alive(other)) {
+    for (const e of foes) {
       const d = Math.abs(e.x - s.x);
       if (d < bd) {
         bd = d;
@@ -676,6 +700,7 @@ export class Game {
     this.duration = opts.duration;
     this.clock = opts.duration > 0 ? opts.duration : Infinity;
     this.burst = Math.max(1, Math.min(5, Math.round(opts.burst)));
+    this.tactics = opts.tactics ?? ['nearest', 'nearest'];
     this.winner = null;
     this.hitstop = 0;
     this.slowT = 0;

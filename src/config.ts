@@ -73,6 +73,9 @@ export interface AIProfile {
   stats?: Partial<ShooterStats>;
 }
 
+/** CPU intelligence levels, Rookie to Ace (settings keys) */
+export type AILevel = 'easy' | 'normal' | 'hard' | 'ace';
+
 export const AI_PROFILES: Record<string, AIProfile> = {
   easy: {
     name: 'Practice Bot',
@@ -110,6 +113,20 @@ export const AI_PROFILES: Record<string, AIProfile> = {
     burst: [0.7, 1.6],
     pause: [0.3, 0.7],
     bankChance: 0.25,
+    bumpChance: 0.15,
+    moveSpeedMul: 1,
+  },
+  ace: {
+    name: 'Ace Bot',
+    // veteran's firing rhythm (so it never starves its magazine) with sharper eyes and reflexes
+    reaction: 0.1,
+    aimError: 0.015,
+    lead: 0.97,
+    dodge: 0.9,
+    turnRate: 4.6,
+    burst: [0.7, 1.5],
+    pause: [0.3, 0.6],
+    bankChance: 0.3,
     bumpChance: 0.15,
     moveSpeedMul: 1,
   },

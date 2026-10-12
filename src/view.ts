@@ -1120,6 +1120,7 @@ export class View {
       }
     }
     this.ko = null;
+    this.deathT = 0;
     this.wrecks.length = 0;
     this.shooters.forEach((sm, i) => {
       if (!sm.broken) return;
@@ -1560,8 +1561,15 @@ export class View {
       this.cinematic(dt);
       return;
     }
+    // you went down (knocked out of a pack fight, or the round's KO): rise into the sky
+    const you = this.game.shooters[0];
+    if ((this.ko && this.ko.slot === 0) || (!this.ko && you.active && you.out)) {
+      this.ascend(dt, you);
+      return;
+    }
+    this.deathT = 0;
     if (this.ko) {
-      // KO cam: swing in on the wreck (a reverse shot when the player loses)
+      // KO cam: swing in on the wreck
       const l = this.game.shooters[this.ko.slot];
       // camera sits in front of the loser, a little to the side
       this.camGoal.set(l.x * 0.6 + 2.6, 4.8, -l.y + (l.team === 0 ? -8.5 : 8.5));
@@ -1681,6 +1689,36 @@ export class View {
     const cut = shot !== c.shot;
     c.shot = shot;
     const k = cut ? 1 : 1 - Math.exp(-dt * 4);
+    this.camBase.lerp(this.camGoal, k);
+    this.camLook.lerp(this.lookGoal, k);
+  }
+
+  /** seconds since your robot went down (drives the rising death camera) */
+  private deathT = 0;
+  private deathFrom = new THREE.Vector3();
+
+  /**
+   * Death camera: lift off from your wreck and soar up and back into the sky,
+   * slowly circling, until the whole table lies below. In a pack fight it stays
+   * up there so you can watch your pack-mates carry on.
+   */
+  private ascend(dt: number, you: { x: number; y: number }) {
+    if (this.deathT === 0) this.deathFrom.copy(this.camBase);
+    this.deathT += dt;
+    const u = Math.min(1, this.deathT / 3.2);
+    // slow start, a long glide at the top
+    const e = 1 - Math.pow(1 - u, 3);
+    const wx = you.x;
+    const wz = -you.y;
+    const a = this.deathT * 0.18 + 0.4;
+    const r = 2.4 + e * 13;
+    const h = 2 + e * 24;
+    // the climb starts from wherever the camera was, then circles out
+    const ring = this.tmpV.set(wx * (1 - e) + Math.sin(a) * r, h, wz * (1 - e) + (wz > 0 ? 1 : -1) * Math.cos(a) * r * 0.6 + e * (wz > 0 ? 4 : -4));
+    this.camGoal.copy(this.deathFrom).lerp(ring, Math.min(1, u * 1.6));
+    // look from the wreck out to the middle of the table
+    this.lookGoal.set(wx * (1 - e), 0.5 * (1 - e), wz * (1 - e));
+    const k = 1 - Math.exp(-dt * 3);
     this.camBase.lerp(this.camGoal, k);
     this.camLook.lerp(this.lookGoal, k);
   }

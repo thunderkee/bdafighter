@@ -50,6 +50,8 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | Tab       | Setting         | Options                                                                  |
 | --------- | --------------- | ------------------------------------------------------------------------ |
 | Fighter   | Your unit       | 14 units (placeholder designs), each with its own marble colour: 8 SD mechs, plus Unit Violet, Kabuto Bee, Tyrant King (fires from a rex-head blaster), Rex Saur, Fang Liger and Ember Lizard (all three fire from the mouth) |
+|           | Pack-mate intelligence | Rookie / Regular / Veteran / Ace for your CPU pack-mates |
+|           | Pack-mate tactics | **Nearest**, **Focus weakest**, or **Back you up** (shoot whoever you're facing) |
 |           | Opponent unit   | Auto (different from yours) or any of the 14                             |
 |           | Your pack       | Solo / 2 / 3: CPU pack-mates share your rail (you start in the middle of three); anyone can use the whole rail, and a robot moving into a pack-mate steps forward to slip past in front of it, then drops back onto the rail once clear, drawn see-through during play so they never block the view. Packs scale armour and damage like the opponent's. A team is out when all its robots are down |
 | Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City, Rainy Forest, River Dusk, Cyberpunk, Soccer Field (pucks and props match the theme) |
@@ -62,6 +64,8 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Air drops       | On / Off                                                                 |
 |           | Power gates     | Show / Hide                                                              |
 | Opponent  | Pack            | 1 / 2 / 3 opponents sharing the far rail, each in its own lane; extra units are random. Bigger packs get less armour and punch each (2: 60% / 50%, 3: 40% / 38%). Round ends when the whole pack is down |
+|           | Intelligence    | **Rookie / Regular / Veteran / Ace**: how well the opponents aim, lead, dodge and react |
+|           | Pack tactics    | **Nearest**, **Focus weakest** (gang up to knock robots out fast), or **Hunt you** |
 |           | Armor           | 50% / 75% / 100% / 150% / 200% health                                    |
 |           | Speed           | 1–5: movement speed                                                      |
 |           | Agility         | 1–5: how often and how quickly it dodges                                 |
@@ -145,6 +149,10 @@ that pass through it are transformed; each gate has limited charges, then shatte
 4. **Finale**: after the deciding replay the loser explodes (pops, boom, clattering debris), then the result.
 
 ## Knockout
+
+When you go down (the round's KO, or knocked out while your pack fights on), the camera lifts off from your
+wreck and soars into the sky, slowly circling until the whole table is below; in a pack fight it stays up
+there and your controls tuck away while you watch your pack-mates.
 
 After the final round the loser sputters through three explosions, then blows apart: every part flies off, tumbles, bounces and
 smokes in slow motion while the camera swings in on the wreck.

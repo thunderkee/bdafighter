@@ -1599,3 +1599,14 @@ body.hud-tags .vs-bar .readout {
   box-shadow: 0 0 8px var(--amber);
   border-color: var(--amber);
 }
+
+/* knocked out in a pack fight: the controls go away while the camera watches from the sky */
+body.spectating #pad,
+body.spectating #hints,
+body.spectating #magazine,
+body.spectating #item-btn,
+body.spectating #rail-gauge {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}

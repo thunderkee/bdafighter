@@ -17,7 +17,9 @@ import * as store from './storage';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const params = new URLSearchParams(location.search);
-const profile = AI_PROFILES[params.get('ai') ?? 'normal'] ?? AI_PROFILES.normal;
+/** CPU intelligence for each side comes from settings (?ai= still overrides the opponents for testing) */
+const aiOverride = params.get('ai');
+const brain = (level: string | undefined) => AI_PROFILES[level ?? 'normal'] ?? AI_PROFILES.normal;
 const debug = params.has('debug');
 
 type Screen = 'title' | 'playing' | 'result';
@@ -76,7 +78,7 @@ export function boot() {
   };
   const enemyStats = () => {
     const st = saveData.settings;
-    const base = computeStats(STARTER_BUILD, profile.stats);
+    const base = computeStats(STARTER_BUILD, brain(aiOverride ?? st.enemyIQ).stats);
     const power = level(st.enemyPower);
     return {
       ...base,
@@ -131,7 +133,7 @@ export function boot() {
   const view = new View($('stage'), game);
   const player = game.player;
   /** one controller per CPU robot: opponents (slots 1-3) and your pack-mates (4-5) */
-  const ais = game.shooters.slice(1).map((s) => new AIController(game, s, profile));
+  const ais = game.shooters.slice(1).map((s) => new AIController(game, s, AI_PROFILES.normal));
   /** the opponent the HUD shows: the one the player is facing */
   const focus = () => game.targetFor(player);
   const unitIds = () => {
@@ -249,6 +251,7 @@ export function boot() {
     game.reset(playerStats(), {
       enemies: packEnemies(),
       allies: packAllies(),
+      tactics: [st.allyTactic ?? 'nearest', st.enemyTactic ?? 'nearest'],
       playerHealth: MATCH.maxHealth * healthTrait(st.character) * PACK_SCALE[allySize() - 1].health,
       pucks: st.pucks,
       covers: st.covers,
@@ -282,6 +285,7 @@ export function boot() {
     // the Opponent settings tune the other side; your pack-mates play at standard skill
     ais.forEach((a, i) => {
       const foe = slotTeam(i + 1) === 1;
+      a.profile = brain(foe ? (aiOverride ?? st.enemyIQ) : st.allyIQ);
       a.straight = foe && st.enemyAim === 'straight';
       a.speedMul = foe ? level(st.enemySpeed) : 1;
       a.agility = foe ? AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1] : 1;
@@ -312,7 +316,7 @@ export function boot() {
       allySize() > 1
         ? `PACK OF ${allySize()} // ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
         : `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
-    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : `CPU // ${profile.name.toUpperCase()}`;
+    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : `CPU // ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
     for (const id of ['title', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
@@ -699,6 +703,8 @@ export function boot() {
     last = now;
 
     if (screen === 'playing' && !paused && flow !== 'round') updateFlow(dt);
+    // knocked out but the pack fights on: you're spectating from the sky, so put the controls away
+    document.body.classList.toggle('spectating', screen === 'playing' && flow === 'round' && player.active && player.out);
     // health tags ride along every frame (and hide outside the fight)
     if (screen === 'playing') updateTags(dt);
     if (screen === 'playing' && !paused && flow === 'round') {
@@ -805,7 +811,7 @@ export function boot() {
     if (debug) {
       const d = $('debug');
       d.classList.remove('hidden');
-      d.textContent = `fps ${fps}\nmarbles ${game.activeMarbles()}\nai ${profile.name}\npad ${pad.debug()}\nx ${player.x.toFixed(2)}${player.railPush ? ' END' : ''}`;
+      d.textContent = `fps ${fps}\nmarbles ${game.activeMarbles()}\nai ${brain(aiOverride ?? saveData.settings.enemyIQ).name}\npad ${pad.debug()}\nx ${player.x.toFixed(2)}${player.railPush ? ' END' : ''}`;
     }
   };
 

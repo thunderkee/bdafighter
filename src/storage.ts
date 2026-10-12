@@ -1,3 +1,4 @@
+import type { AILevel } from './config';
 // Local save that never throws. Private mode, blocked storage or a full
 // quota fall back to an in-memory copy for the session.
 
@@ -18,6 +19,12 @@ export interface Settings {
   hudMode: 'top' | 'tags';
   /** buttons layout: move with the ◀ ▶ buttons or a slider */
   moveControl: 'buttons' | 'slider';
+  /** CPU intelligence for the opponent pack and for your pack-mates */
+  enemyIQ: AILevel;
+  allyIQ: AILevel;
+  /** who each CPU pack goes after */
+  enemyTactic: 'nearest' | 'weakest' | 'hunt';
+  allyTactic: 'nearest' | 'weakest' | 'assist';
   /** your pack: you plus 0-2 CPU pack-mates (1-3) */
   playerPack: number;
   /** opponent health level (1-5 -> 50/75/100/150/200%) */
@@ -97,6 +104,10 @@ export const DEFAULT_SETTINGS: Settings = {
   showFps: false,
   magazine: 10,
   playerPack: 1,
+  enemyIQ: 'normal',
+  allyIQ: 'normal',
+  enemyTactic: 'nearest',
+  allyTactic: 'nearest',
   moveControl: 'buttons',
   hudMode: 'top',
   roundTime: 60,
@@ -113,6 +124,8 @@ export const OPPONENT_DEFAULTS: Partial<Settings> = {
   enemyAgility: 3,
   enemyPower: 3,
   enemyAim: 'flexible',
+  enemyIQ: 'normal',
+  enemyTactic: 'nearest',
 };
 
 const DEFAULTS: SaveData = { matches: 0, wins: 0, muted: false, settings: DEFAULT_SETTINGS };
