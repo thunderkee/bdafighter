@@ -200,8 +200,14 @@ export type Fx =
 export class Shooter {
   x = 0;
   vx = 0;
-  readonly y: number;
+  /** current y: the rail, or stepped forward while slipping past a pack-mate */
+  y: number;
+  /** y of this team's rail */
+  readonly railY: number;
   readonly forward: 1 | -1;
+  /** stepping forward to pass a pack-mate, and how far out it is right now */
+  passing = false;
+  passOff = 0;
   /** aim angle relative to straight ahead, radians, + is toward +x */
   aim = 0;
   /** -1..1 from keys/AI, or null when a drag target is in use */
@@ -213,6 +219,7 @@ export class Shooter {
   /** knocked out mid-round while teammates fight on */
   out = false;
   /** the stretch of rail this robot may use (opponents share their rail) */
+  /** home lane in a pack (where the CPU likes to stand); everyone may use the whole rail */
   lane: [number, number] = [-ARENA.railHalfWidth, ARENA.railHalfWidth];
 
   maxHealth: number = MATCH.maxHealth;
@@ -266,7 +273,8 @@ export class Shooter {
     public stats: ShooterStats,
   ) {
     this.forward = team === 0 ? 1 : -1;
-    this.y = team === 0 ? -ARENA.railY : ARENA.railY;
+    this.railY = team === 0 ? -ARENA.railY : ARENA.railY;
+    this.y = this.railY;
     this.ammo = stats.capacity;
     this.body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, this.y));
     this.collider = world.createCollider(
@@ -313,6 +321,9 @@ export class Shooter {
     this.out = false;
     this.lane = lane;
     this.x = (lane[0] + lane[1]) / 2;
+    this.passing = false;
+    this.passOff = 0;
+    this.y = this.railY;
     this.vx = 0;
     this.aim = 0;
     this.moveAxis = 0;
@@ -355,6 +366,9 @@ type Tag =
 
 /** seconds between the balls of one trigger pull */
 const BURST_GAP = 0.07;
+
+/** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
+const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
 
 export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 
@@ -737,6 +751,7 @@ export class Game {
       this.slowT = Math.max(0, this.slowT - dt / SLOWMO.world);
       if (this.slowT <= 0) this.slowOwner = -1;
     }
+    this.updatePassing();
     for (const s of this.shooters) if (s.active) this.updateShooter(s, dt, canAct);
     if (canAct) this.updateDrops(dt);
 
@@ -1064,6 +1079,40 @@ export class Game {
     this.activeCount++;
   }
 
+  /**
+   * Pack traffic: a robot heading into a pack-mate steps forward and slips past in
+   * front of it, then drops back onto the rail once they no longer overlap. The one
+   * being passed stays put; only one of an overlapping pair steps out.
+   */
+  private updatePassing() {
+    for (const team of [0, 1] as Team[]) {
+      const mates = this.shooters.filter((m) => m.team === team && m.active && !m.out);
+      if (mates.length < 2) {
+        for (const m of mates) m.passing = false;
+        continue;
+      }
+      for (const m of mates) {
+        const dir = m.moveAxis !== 0 ? Math.sign(m.moveAxis) : m.moveTarget !== null && Math.abs(m.moveTarget - m.x) > 0.05 ? Math.sign(m.moveTarget - m.x) : 0;
+        // a pack-mate is in the way when it's close, or ahead within reach of where this one is heading
+        const inWay = (t: Shooter) => {
+          const dx = t.x - m.x;
+          return Math.abs(dx) < PASS.clear || (dir !== 0 && Math.sign(dx) === dir && Math.abs(dx) < PASS.start);
+        };
+        const near = mates.filter((t) => t !== m && inWay(t));
+        if (!near.length) {
+          // drop back onto the rail once clear
+          m.passing = false;
+          continue;
+        }
+        if (m.passing) continue;
+        // only the one moving into a pack-mate steps out (walking away never does),
+        // and never both of an overlapping pair
+        const headingIn = near.some((t) => Math.sign(t.x - m.x) === dir || Math.abs(t.x - m.x) < 0.5);
+        if (dir !== 0 && headingIn && near.every((t) => !t.passing)) m.passing = true;
+      }
+    }
+  }
+
   private updateShooter(s: Shooter, dt: number, canAct: boolean) {
     if (s.out) {
       s.firing = false;
@@ -1074,7 +1123,9 @@ export class Game {
     const own = this.slowT > 0 && this.slowOwner === s.slot ? SLOWMO.owner / SLOWMO.world : 1;
     const adt = dt * own;
     // movement
-    const [lo, hi] = s.lane;
+    // the whole rail is open; pack-mates step forward to pass each other
+    const lo = -ARENA.railHalfWidth;
+    const hi = ARENA.railHalfWidth;
     const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1);
     const prevX = s.x;
     if (canAct || this.phase === 'countdown') {
@@ -1091,6 +1142,11 @@ export class Game {
     s.x = Math.max(lo, Math.min(hi, s.x));
     s.railPush = (s.x >= hi - 1e-6 && wants > 0) || (s.x <= lo + 1e-6 && wants < 0) ? wants : 0;
     s.vx = (s.x - prevX) / dt;
+    // slide out in front of the pack while passing, back onto the rail once clear
+    const passGoal = s.passing ? PASS.depth : 0;
+    const passStep = PASS.speed * adt;
+    s.passOff += Math.max(-passStep, Math.min(passStep, passGoal - s.passOff));
+    s.y = s.railY + s.forward * s.passOff;
     s.body.setNextKinematicTranslation({ x: s.x, y: s.y });
     s.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, s.aim));
 

@@ -771,7 +771,8 @@ export function boot() {
     for (const el of padButtons) el.classList.toggle('held', pad.held(el.dataset.btn as 'left'));
     // slider thumb rides with the robot's place in its lane; a tick marks where the finger is
     if (document.body.classList.contains('slider')) {
-      const [lo, hi] = player.lane;
+      const lo = -ARENA.railHalfWidth;
+      const hi = ARENA.railHalfWidth;
       sliderEl.style.setProperty('--u', String(Math.max(0, Math.min(1, (player.x - lo) / Math.max(0.01, hi - lo)))));
       const u = pad.slider();
       sliderEl.classList.toggle('active', u !== null);

@@ -280,7 +280,9 @@ export class Input {
     // slider: the thumb's spot on the track is a spot in the robot's lane
     const slide = this.settings.layout === 'buttons' && this.settings.moveControl === 'slider' ? this.pad?.slider() ?? null : null;
     if (slide !== null) {
-      const [lo, hi] = p.lane;
+      // the slider spans the whole rail (pack-mates are passed, not blocked)
+      const lo = -ARENA.railHalfWidth;
+      const hi = ARENA.railHalfWidth;
       p.moveTarget = lo + slide * (hi - lo);
       p.moveAxis = 0;
     }
