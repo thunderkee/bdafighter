@@ -25,7 +25,13 @@ export type ColorRef = PaletteSlot | number;
 /** parts the animation drives (walk cycle, aiming, recoil, jaw snap, flame flicker) and the belly launch point */
 export type Role = 'turret' | 'barrel' | 'belly' | 'leg' | 'jaw' | 'flame' | 'trigger' | 'wings' | 'wingL' | 'wingR';
 
-export type Shape = 'group' | 'box' | 'rbox' | 'capsule' | 'sphere' | 'cylinder' | 'cone' | 'torus';
+export type Shape = 'group' | 'box' | 'rbox' | 'capsule' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'mesh';
+
+/** an editable polygon mesh: flat xyz points, and faces as point loops (counter-clockwise from outside) */
+export interface MeshData {
+  v: number[];
+  f: number[][];
+}
 
 /** One block of a unit's design. Groups hold other blocks and move them together. */
 export interface Block {
@@ -44,6 +50,8 @@ export interface Block {
   r: V3;
   s: V3;
   role?: Role;
+  /** the points and faces of an editable 'mesh' block */
+  mesh?: MeshData;
   children?: Block[];
 }
 

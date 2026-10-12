@@ -53,7 +53,23 @@
           <button id="canvas-undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶ Undo</button>
           <button id="canvas-redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷ Redo</button>
         </div>
-        <p class="view-hint">Click a block, pick Move / Rotate / Scale (W / E / R), then drag the block itself, or a handle for one axis · drag empty space to orbit · scroll to zoom</p>
+        <div id="edit-tools" class="edit-tools hidden" role="group" aria-label="Shape edit mode">
+          <b>EDIT SHAPE</b>
+          <button data-edit="vertex" title="Select points (1)">• Vertex</button>
+          <button data-edit="edge" title="Select edges (2)">╱ Edge</button>
+          <button data-edit="face" title="Select faces (3)">▰ Face</button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button id="extrude" title="Pull the selected faces out (E)">⇧ Extrude</button>
+          <button id="edit-all" title="Select everything (A)">All</button>
+          <button id="edit-done" class="primary" title="Leave edit mode (Tab / Esc)">Done</button>
+        </div>
+        <div id="draw-bar" class="draw-bar hidden">
+          <span id="draw-hint">Click to place points on the grid plane. Click the first point, double-click or press Enter to close the shape.</span>
+          <button id="draw-undo" title="Remove the last point (Backspace)">↶ Point</button>
+          <button id="draw-cancel" title="Esc">Cancel</button>
+          <button id="draw-finish" class="primary">Finish</button>
+        </div>
+        <p class="view-hint">Click a block (Shift / ⌘ to add more), pick Move / Rotate / Scale (W / E / R), then drag it or a handle · Tab edits a shape's points, edges and faces · drag empty space to orbit</p>
       </section>
 
       <!-- inspector -->
@@ -89,12 +105,18 @@
             <button data-add="cone">Spike</button>
             <button data-add="torus">Ring</button>
             <button data-add="group">Group</button>
+            <button id="draw" title="Draw an outline and extrude it into a solid">✎ Draw shape</button>
           </div>
           <div class="edit-row">
             <button id="dup">Duplicate</button>
             <button id="mirror" title="Copy to the other side (mirrors across the centre line)">Mirror</button>
+            <button id="group-sel" title="Put the selected blocks in a new group (Ctrl+G)">Group</button>
+            <button id="move-up" title="Move up the list ([)">▲</button>
+            <button id="move-down" title="Move down the list (])">▼</button>
+            <button id="edit-shape" title="Edit points, edges and faces (Tab)">Edit shape</button>
             <button id="del" class="danger">Delete</button>
           </div>
+          <p class="tree-tip">Shift / ⌘-click to select several · drag layers to reorder or drop into a group · click a colour dot to repaint</p>
           <div id="tree" class="tree"></div>
           <div id="block-form" class="block-form"></div>
         </div>

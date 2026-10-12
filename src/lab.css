@@ -284,6 +284,57 @@ input[type='color'] {
   border-radius: 6px;
 }
 
+.edit-tools {
+  position: absolute;
+  top: 104px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(40, 24, 4, 0.82);
+  border: 1px solid rgba(255, 194, 61, 0.55);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.edit-tools b {
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--amber);
+  margin: 0 4px;
+}
+
+.draw-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 48px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(5, 9, 20, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.draw-bar span {
+  flex: 1 1 220px;
+  color: var(--ink);
+}
+
+.tree-tip {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .tool-sep {
   width: 1px;
   margin: 2px 4px;
@@ -463,9 +514,38 @@ input[type='color'] {
 
 .node i {
   flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.node i.paint {
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.node i.paint:hover {
+  box-shadow: 0 0 0 2px var(--cyan);
+}
+
+.node.sel {
+  background: rgba(255, 194, 61, 0.1);
+}
+
+.node.drop-before {
+  box-shadow: inset 0 2px 0 var(--cyan);
+}
+
+.node.drop-after {
+  box-shadow: inset 0 -2px 0 var(--cyan);
+}
+
+.node.drop-inside {
+  background: rgba(62, 240, 255, 0.18);
+}
+
+.node.dragging {
+  opacity: 0.4;
 }
 
 .node .role {
@@ -608,6 +688,14 @@ input[type='color'] {
 
   .view-hint {
     display: none;
+  }
+
+  .edit-tools {
+    top: auto;
+    bottom: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100% - 16px);
   }
 
   .inspector {

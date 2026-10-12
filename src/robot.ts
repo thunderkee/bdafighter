@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { meshGeometry } from './meshkit';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Shooter } from './game';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
@@ -1898,7 +1899,25 @@ export const DEFAULT_SIZE: Record<Exclude<Block['shape'], 'group'>, Record<strin
   cylinder: { radiusTop: 0.12, radiusBottom: 0.12, height: 0.3, radialSegments: 12 },
   cone: { radius: 0.1, height: 0.3, radialSegments: 6 },
   torus: { radius: 0.18, tube: 0.05, radialSegments: 6, tubularSegments: 14 },
+  mesh: { bevel: 0, smooth: 0 },
 };
+
+/** a tube with its top and bottom rims rounded off by `bevel` */
+function bevelledTube(rt: number, rb: number, h: number, sides: number, bevel: number, segs: number) {
+  const bv = Math.max(0.001, Math.min(bevel, rt - 0.001, rb - 0.001, h / 2 - 0.001));
+  const n = Math.max(1, Math.round(segs));
+  const pts = [new THREE.Vector2(0, -h / 2)];
+  for (let i = 0; i <= n; i++) {
+    const a = -Math.PI / 2 + (Math.PI / 2) * (i / n);
+    pts.push(new THREE.Vector2(rb - bv + bv * Math.cos(a), -h / 2 + bv + bv * Math.sin(a)));
+  }
+  for (let i = 0; i <= n; i++) {
+    const a = (Math.PI / 2) * (i / n);
+    pts.push(new THREE.Vector2(rt - bv + bv * Math.cos(a), h / 2 - bv + bv * Math.sin(a)));
+  }
+  pts.push(new THREE.Vector2(0, h / 2));
+  return new THREE.LatheGeometry(pts, Math.max(3, Math.round(sides)));
+}
 
 export function blockGeometry(b: Block): THREE.BufferGeometry {
   const g = { ...(b.shape === 'group' ? {} : DEFAULT_SIZE[b.shape]), ...(b.size ?? {}) } as Record<string, number>;
@@ -1910,7 +1929,10 @@ export function blockGeometry(b: Block): THREE.BufferGeometry {
     case 'sphere':
       return new THREE.SphereGeometry(g.radius, g.widthSegments ?? 14, g.heightSegments ?? 10, g.phiStart ?? 0, g.phiLength ?? Math.PI * 2, g.thetaStart ?? 0, g.thetaLength ?? Math.PI);
     case 'cylinder':
+      if ((g.bevel ?? 0) > 0) return bevelledTube(g.radiusTop, g.radiusBottom, g.height, g.radialSegments ?? 12, g.bevel, g.bevelSegments ?? 2);
       return new THREE.CylinderGeometry(g.radiusTop, g.radiusBottom, g.height, g.radialSegments ?? 12, g.heightSegments ?? 1, !!g.openEnded, g.thetaStart ?? 0, g.thetaLength ?? Math.PI * 2);
+    case 'mesh':
+      return meshGeometry(b.mesh, g.bevel ?? 0, !!g.smooth);
     case 'cone':
       return new THREE.ConeGeometry(g.radius, g.height, g.radialSegments ?? 6, g.heightSegments ?? 1, !!g.openEnded, g.thetaStart ?? 0, g.thetaLength ?? Math.PI * 2);
     case 'torus':
