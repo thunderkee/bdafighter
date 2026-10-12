@@ -616,7 +616,7 @@ function renderPalette() {
 }
 
 // ---------- block tree ----------
-const SHAPE_LABEL: Record<Shape, string> = { group: 'Group', box: 'Box', sphere: 'Ball', cylinder: 'Tube', cone: 'Spike', torus: 'Ring' };
+const SHAPE_LABEL: Record<Shape, string> = { group: 'Group', box: 'Box', rbox: 'Rounded', capsule: 'Capsule', sphere: 'Ball', cylinder: 'Tube', cone: 'Spike', torus: 'Ring' };
 const ROLE_LABEL: Record<Role, string> = {
   turret: 'AIMS',
   barrel: 'BARREL',
@@ -666,6 +666,16 @@ const SIZE_FIELDS: Record<Exclude<Shape, 'group'>, [string, string][]> = {
     ['width', 'W'],
     ['height', 'H'],
     ['depth', 'D'],
+  ],
+  rbox: [
+    ['width', 'W'],
+    ['height', 'H'],
+    ['depth', 'D'],
+    ['radius', 'Round'],
+  ],
+  capsule: [
+    ['radius', 'R'],
+    ['height', 'L'],
   ],
   sphere: [['radius', 'R']],
   cylinder: [

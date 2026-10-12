@@ -54,7 +54,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Pack-mate tactics | **Nearest**, **Focus weakest**, or **Back you up** (shoot whoever you're facing) |
 |           | Opponent unit   | Auto (different from yours) or any of the 14                             |
 |           | Your pack       | Solo / 2 / 3: CPU pack-mates share your rail (you start in the middle of three); anyone can use the whole rail, and a robot moving into a pack-mate steps forward to slip past in front of it, then drops back onto the rail once clear, drawn see-through during play so they never block the view. Packs scale armour and damage like the opponent's. A team is out when all its robots are down |
-| Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City, Rainy Forest, River Dusk, Cyberpunk, Soccer Field (pucks and props match the theme) |
+| Arena     | Stage           | Orbital Deck, Island Beach, Lava Forge, Snowfield, Neo City, Rainy Forest, River Dusk, Cyberpunk, Soccer Field (pucks and props match the theme) |
 |           | Stage width     | **Small / Normal / Large** (8 / 10 / 13 m table; the rail, lanes, camera and scenery follow). Reloads the game straight back into settings |
 |           | Pucks           | Off / 1–5, each count has its own symmetric layout (applies next match)  |
 |           | Walls           | Off / 1 / 2 / 3 cover walls per side; each takes 5 hits, then breaks     |
@@ -102,6 +102,7 @@ and the game picks them up on its next load.
   (matte / glow / glossy). Add, duplicate, mirror to the other side, delete; arrows / PgUp / PgDn nudge.
   **Moves as** tags the animated parts: *Aims* (turns with the aim), *Leg* (walk cycle), *Barrel* (recoils),
   *Ball exit* (an empty marker on the belly where marbles leave), *Jaw*, *Flame*, *Trigger*.
+- **Block shapes**: box, **rounded** (bevelled) box, **capsule**, ball, tube, spike, ring, group.
 - **Shipped designs**: `src/roster-shipped.json` holds Unit Lab edits that ship with the game, so every player
   gets them as the built-ins' defaults; a player's own Unit Lab edits still apply on top (and **Reset to
   original** returns to the shipped design).

@@ -25,7 +25,7 @@ export type ColorRef = PaletteSlot | number;
 /** parts the animation drives (walk cycle, aiming, recoil, jaw snap, flame flicker) and the belly launch point */
 export type Role = 'turret' | 'barrel' | 'belly' | 'leg' | 'jaw' | 'flame' | 'trigger' | 'wings' | 'wingL' | 'wingR';
 
-export type Shape = 'group' | 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus';
+export type Shape = 'group' | 'box' | 'rbox' | 'capsule' | 'sphere' | 'cylinder' | 'cone' | 'torus';
 
 /** One block of a unit's design. Groups hold other blocks and move them together. */
 export interface Block {

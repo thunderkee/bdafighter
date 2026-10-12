@@ -48,17 +48,17 @@ export const STAGES: StageDef[] = [
   },
   {
     id: 'beach',
-    name: 'Beach',
-    swatch: [0xf0d9a4, 0x2a9fe0],
-    sky: 0x8fd3ff,
-    fog: [0xbfe6ff, 30, 70],
-    hemi: [0xffffff, 0xd8c28c, 1.8],
-    sun: [0xfff2d6, 2.2],
-    floor: 0xe8d29c,
+    name: 'Island Beach',
+    swatch: [0xf3e7c6, 0x2fc6d6],
+    sky: 0x5fbcf5,
+    fog: [0xbfe8ff, 42, 100],
+    hemi: [0xffffff, 0xe8d6a8, 1.9],
+    sun: [0xfff6e0, 2.5],
+    floor: 0xf3e7c6,
     floorLine: 0xffffff,
     pattern: 'sand',
     rail: 0x9b7a55,
-    apron: 0x2a9fe0,
+    apron: 0x2fc6d6,
     water: true,
     particles: 'none',
   },
@@ -237,6 +237,53 @@ export class Stage {
         if (w > 8 && w < 45) o.scale.x *= ARENA.width / 10;
       }
     }
+  }
+
+  /**
+   * Tropical island (beach stage): a turquoise lagoon that deepens to blue with distance,
+   * a sand island around the table with a wet edge, and a foam line that breathes.
+   */
+  private buildIsland(apron: THREE.Mesh, mat: THREE.MeshLambertMaterial, W: number, L: number) {
+    mat.color.set(0xffffff);
+    mat.emissive.set(0x0a2a33);
+    mat.map = paint(256, 256, (c) => {
+      const g = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+      g.addColorStop(0.16, '#8af2e0');
+      g.addColorStop(0.3, '#33cad8');
+      g.addColorStop(0.58, '#1f8fd2');
+      g.addColorStop(1, '#1a4fa6');
+      c.fillStyle = g;
+      c.fillRect(0, 0, 256, 256);
+      // sun glints scattered across the water
+      for (let i = 0; i < 260; i++) {
+        c.fillStyle = `rgba(255,255,255,${rand(0.05, 0.22)})`;
+        c.fillRect(rand(0, 256), rand(0, 256), rand(1, 4), 1);
+      }
+    });
+    mat.needsUpdate = true;
+    void apron;
+    const rx = W / 2 + 4;
+    const rz = L / 2 + 3;
+    const ellipse = (o: THREE.Mesh, y: number) => {
+      o.rotation.x = -Math.PI / 2;
+      o.scale.set(rx, rz, 1);
+      o.position.y = y;
+      this.group.add(o);
+      return o;
+    };
+    ellipse(new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshLambertMaterial({ color: 0xf0e2bd })), -0.03);
+    ellipse(new THREE.Mesh(new THREE.RingGeometry(0.9, 1.0, 64), new THREE.MeshLambertMaterial({ color: 0xd8c294 })), -0.025);
+    const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false });
+    const foam = ellipse(new THREE.Mesh(new THREE.RingGeometry(0.985, 1.04, 64), foamMat), -0.02);
+    const foam2 = ellipse(new THREE.Mesh(new THREE.RingGeometry(1.06, 1.08, 64), foamMat.clone()), -0.02);
+    this.movers.push((t) => {
+      const k = 1 + Math.sin(t * 0.9) * 0.012;
+      foam.scale.set(rx * k, rz * k, 1);
+      foamMat.opacity = 0.55 + Math.sin(t * 0.9) * 0.2;
+      const k2 = 1 + ((t * 0.12) % 1) * 0.05;
+      foam2.scale.set(rx * k2, rz * k2, 1);
+      (foam2.material as THREE.MeshBasicMaterial).opacity = 0.5 * (1 - ((t * 0.12) % 1));
+    });
   }
 
   private buildFloor() {
@@ -477,6 +524,7 @@ export class Stage {
     apron.rotation.x = -Math.PI / 2;
     apron.position.y = -0.04;
     this.group.add(apron);
+    if (d.id === 'beach') this.buildIsland(apron, apronMat as THREE.MeshLambertMaterial, W, L);
     if (d.water) {
       this.water.push(apron);
       // glinting ripple strips on the water
@@ -580,24 +628,11 @@ export class Stage {
 
     switch (d.id) {
       case 'beach': {
-        const trunk = lam(0x8a6440);
-        const leaf = lam(0x2f9a4a, { side: THREE.DoubleSide });
         sides((side, z) => {
-          const palm = new THREE.Group();
-          const h = rand(3, 4.5);
-          const t = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, h, 6), trunk);
-          t.position.y = h / 2;
-          t.rotation.z = side * 0.12;
-          palm.add(t);
-          for (let i = 0; i < 6; i++) {
-            const l = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2, 4), leaf);
-            l.position.y = h;
-            l.rotation.set(Math.PI / 2.4, (i / 6) * Math.PI * 2, 0);
-            l.translateY(1);
-            palm.add(l);
-          }
+          const palm = makePalm(rand(3.2, 4.6), side * rand(0.6, 1.1));
+          palm.rotation.y = rand(-0.4, 0.4);
           add(palm, side * rand(8, 11), 0, z);
-        }, 7);
+        }, 6);
         // striped umbrellas, towels and surfboards on the sand strip
         sides((side, z) => {
           const u = new THREE.Group();
@@ -1357,52 +1392,64 @@ export class Stage {
         break;
       }
       case 'beach': {
-        // a sand bar behind the far rail with beach life on it
-        const sand = new THREE.Mesh(new THREE.PlaneGeometry(30, 5), lam(0xe8d29c));
-        sand.rotation.x = -Math.PI / 2;
-        add(sand, 0, -0.02, -15.4);
-        const trunk = lam(0x8a6440);
-        const leaf = lam(0x2f9a4a, { side: THREE.DoubleSide });
-        for (const [x, z] of [
-          [-6.4, -14.2],
-          [6.8, -15],
-          [-9.5, -16.8],
-          [10, -17],
-        ]) {
-          const palm = new THREE.Group();
-          const h = rand(3.4, 4.4);
-          const t = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, h, 6), trunk);
-          t.position.y = h / 2;
-          t.rotation.z = -Math.sign(x) * 0.15;
-          palm.add(t);
-          for (let i = 0; i < 7; i++) {
-            const l = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.2, 4), leaf);
-            l.position.y = h;
-            l.rotation.set(Math.PI / 2.3, (i / 7) * Math.PI * 2, 0);
-            l.translateY(1.1);
-            palm.add(l);
-          }
+        // the island's palm grove: a dense stand behind the far-left, a few leaning over the right
+        for (const [x, z, h, lean] of [
+          [-6.6, -14.6, 4.4, -1.2],
+          [-8.4, -15.8, 5.2, -0.6],
+          [-7.4, -17.4, 4.0, 0.7],
+          [-10.2, -16.6, 4.8, -0.9],
+          [-5.4, -18.8, 5.6, 0.4],
+          [-9.0, -19.6, 4.6, -0.3],
+          [-11.6, -18.4, 5.0, 0.8],
+          [7.2, -14.8, 4.6, 1.2],
+          [9.6, -16.2, 5.0, 0.6],
+          [11.4, -15.4, 4.2, 1.0],
+        ] as [number, number, number, number][]) {
+          const palm = makePalm(h, lean);
+          palm.rotation.y = rand(0, Math.PI * 2);
           add(palm, x, 0, z);
           const ph = rand(0, 6);
-          this.movers.push((tt) => (palm.rotation.z = Math.sin(tt * 0.9 + ph) * 0.03));
+          this.movers.push((tt) => (palm.rotation.z = Math.sin(tt * 0.8 + ph) * 0.025));
         }
-        for (const [x, col] of [
-          [-3.4, 0xff4a3d],
-          [3.2, 0x2f7cff],
-          [0.2, 0xffd23e],
-        ] as [number, number][]) {
-          const u = new THREE.Group();
-          u.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.2, 6), lam(0xffffff)), {}));
-          u.children[0].position.y = 1.1;
-          const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.2, 0.5, 8, 1, true), lam(col, { side: THREE.DoubleSide }));
-          canopy.position.y = 2.2;
-          u.add(canopy);
-          u.rotation.z = rand(-0.15, 0.15);
-          add(u, x, 0, -15.6);
-          const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.6), lam(pick([0xff8ab8, 0x8affd0, 0xffe14d]), { side: THREE.DoubleSide }));
-          towel.rotation.x = -Math.PI / 2;
-          add(towel, x + 1, 0.01, -15.2);
+        // undergrowth at the grove's feet
+        const bush = lam(0x2e8a3e, { flatShading: true });
+        for (let i = 0; i < 9; i++) add(new THREE.Mesh(new THREE.DodecahedronGeometry(rand(0.4, 0.8), 0), bush), rand(-11, -5), 0.25, rand(-19, -14));
+        // over-water huts on stilts out in the lagoon, joined to the island by a pier
+        const wood = lam(0x8a5a32);
+        const darkWood = lam(0x5a3a22);
+        const straw = lam(0xd8b56a, { flatShading: true });
+        const plank = lam(0xb07a48);
+        const pier = new THREE.Group();
+        for (let k = 0; k < 14; k++) {
+          pier.add(box3(1.2, 0.08, 0.5, plank, 0, 0.7, -k * 0.55));
+          if (k % 3 === 0) for (const sx of [-0.55, 0.55]) pier.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 6), darkWood).translateX(sx).translateY(0.2).translateZ(-k * 0.55));
         }
+        add(pier, 7.6, 0, -15.5);
+        for (const [x, z, r] of [
+          [7.6, -24, 0.2],
+          [10.8, -22.6, -0.4],
+          [4.6, -26.5, 0.6],
+        ] as [number, number, number][]) add(makeHut(wood, darkWood, straw, plank), x, 0, z).rotation.y = r;
+        // distant islands on the horizon, and puffy clouds above them
+        const green = lam(0x2f8a4a, { flatShading: true });
+        const rock = lam(0x8a8a80, { flatShading: true });
+        for (const [x, z, sx, sy] of [
+          [-16, -52, 9, 2.4],
+          [4, -60, 6, 1.6],
+          [18, -54, 7, 2.8],
+        ] as [number, number, number, number][]) {
+          const mound = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), green);
+          mound.scale.set(sx, sy, sx * 0.55);
+          add(mound, x, -0.2, z);
+          add(new THREE.Mesh(new THREE.DodecahedronGeometry(sy * 0.5, 0), rock), x + sx * 0.5, 0.2, z + 1);
+        }
+        for (const [x, y, z, k] of [
+          [-12, 3.6, -64, 1.2],
+          [2, 4.4, -70, 1.6],
+          [14, 3.4, -62, 1.0],
+          [-24, 4.8, -72, 1.4],
+          [26, 4.2, -70, 1.3],
+        ] as [number, number, number, number][]) add(makeCloud(k), x, y, z);
         // lifeguard tower and a sandcastle
         const tower = new THREE.Group();
         for (const [x, z] of [
@@ -1901,7 +1948,9 @@ export class Stage {
     for (const m of this.glowMats) m.color.setScalar(1).multiply(new THREE.Color(this.def.railGlow ?? this.def.apron)).multiplyScalar(pulse);
     for (const w of this.water) {
       const m = w.material as THREE.MeshLambertMaterial;
-      m.emissive.setRGB(0.03, 0.2 + Math.sin(time * 1.5) * 0.03, 0.38);
+      // the beach lagoon is painted; it only shimmers a little
+      if (this.def.id === 'beach') m.emissive.setRGB(0.02, 0.1 + Math.sin(time * 1.5) * 0.02, 0.13);
+      else m.emissive.setRGB(0.03, 0.2 + Math.sin(time * 1.5) * 0.03, 0.38);
     }
   }
 
@@ -1917,4 +1966,143 @@ export class Stage {
         });
     });
   }
+}
+
+/** a box mesh at a position */
+function box3(w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  return m;
+}
+
+/** shared palm materials and the leaflet texture (built once) */
+let palmKit: { trunk: THREE.Material; ring: THREE.Material; leaf: THREE.Material; nut: THREE.Material } | null = null;
+function getPalmKit() {
+  if (palmKit) return palmKit;
+  const tex = paint(256, 64, (c) => {
+    // a feathery frond: a midrib with leaflets raking toward the tip
+    c.clearRect(0, 0, 256, 64);
+    c.strokeStyle = '#3d6a26';
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(0, 32);
+    c.lineTo(256, 32);
+    c.stroke();
+    for (let x = 6; x < 250; x += 7) {
+      const reach = 30 * Math.sin((x / 256) * Math.PI) + 4;
+      for (const dir of [-1, 1]) {
+        c.strokeStyle = Math.random() < 0.5 ? '#2f9a40' : '#3fae4a';
+        c.lineWidth = 4;
+        c.beginPath();
+        c.moveTo(x, 32);
+        c.lineTo(x + 14, 32 + dir * reach);
+        c.stroke();
+      }
+    }
+  });
+  palmKit = {
+    trunk: new THREE.MeshLambertMaterial({ color: 0x9a7048 }),
+    ring: new THREE.MeshLambertMaterial({ color: 0x6e4c2e }),
+    leaf: new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide }),
+    nut: new THREE.MeshLambertMaterial({ color: 0x6a4a22 }),
+  };
+  return palmKit;
+}
+
+/** a palm: curved, banded trunk that leans, drooping feathery fronds, coconuts */
+function makePalm(h: number, lean: number) {
+  const kit = getPalmKit();
+  const g = new THREE.Group();
+  const up = new THREE.Vector3(0, 1, 0);
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i <= 7; i++) {
+    const t = i / 7;
+    pts.push(new THREE.Vector3(lean * t * t * h * 0.32, t * h, 0));
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const r0 = 0.22 - (i / 7) * 0.1;
+    const r1 = 0.22 - ((i + 1) / 7) * 0.1;
+    const seg = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), 9), kit.trunk);
+    seg.position.copy(a).add(b).multiplyScalar(0.5);
+    seg.quaternion.setFromUnitVectors(up, b.clone().sub(a).normalize());
+    g.add(seg);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(r1 + 0.01, 0.025, 5, 12), kit.ring);
+    band.position.copy(b);
+    band.quaternion.copy(seg.quaternion);
+    band.rotateX(Math.PI / 2);
+    g.add(band);
+  }
+  const top = pts[pts.length - 1];
+  // fronds: long leaves that rise a little, then droop toward their tips
+  const len = h * 0.55;
+  for (let k = 0; k < 9; k++) {
+    const geo = new THREE.PlaneGeometry(len, 0.75, 12, 1);
+    geo.translate(len / 2, 0, 0);
+    geo.rotateX(-Math.PI / 2);
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i) / len;
+      pos.setY(i, 0.35 * u - 1.1 * u * u * (h / 4.5));
+    }
+    geo.computeVertexNormals();
+    const frond = new THREE.Mesh(geo, kit.leaf);
+    frond.position.copy(top);
+    frond.rotation.y = (k / 9) * Math.PI * 2 + rand(-0.15, 0.15);
+    frond.rotateZ(rand(-0.15, 0.2));
+    g.add(frond);
+  }
+  for (let k = 0; k < 3; k++) {
+    const nut = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), kit.nut);
+    nut.position.set(top.x + Math.cos(k * 2.1) * 0.16, top.y - 0.15, Math.sin(k * 2.1) * 0.16);
+    g.add(nut);
+  }
+  return g;
+}
+
+/** a thatched hut on stilts over the water */
+function makeHut(wood: THREE.Material, darkWood: THREE.Material, straw: THREE.Material, plank: THREE.Material) {
+  const g = new THREE.Group();
+  for (const [x, z] of [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ])
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.7, 6), darkWood).translateX(x * 1.05).translateY(0.6).translateZ(z * 1.05));
+  g.add(box3(2.6, 0.14, 2.6, plank, 0, 1.45, 0));
+  g.add(box3(1.9, 1.1, 1.9, wood, 0, 2.05, 0));
+  g.add(box3(0.5, 0.75, 0.04, darkWood, 0, 1.9, 0.97));
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.95, 1.3, 4), straw);
+  roof.position.y = 3.2;
+  roof.rotation.y = Math.PI / 4;
+  g.add(roof);
+  const fringe = new THREE.Mesh(new THREE.CylinderGeometry(1.62, 1.75, 0.22, 4, 1, true), straw);
+  fringe.position.y = 2.62;
+  fringe.rotation.y = Math.PI / 4;
+  g.add(fringe);
+  return g;
+}
+
+/** a puffy cloud: a cluster of soft white balls with a flat-ish base */
+function makeCloud(k: number) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x5a6a7a, fog: false });
+  for (const [x, y, r] of [
+    [0, 0.3, 1.1],
+    [-1.2, 0, 0.8],
+    [1.3, 0.05, 0.85],
+    [-0.5, 0.75, 0.8],
+    [0.6, 0.7, 0.75],
+    [2.1, -0.15, 0.55],
+    [-2, -0.15, 0.55],
+  ]) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat);
+    b.position.set(x, y, 0);
+    b.scale.set(1, 0.85, 0.7);
+    g.add(b);
+  }
+  g.scale.setScalar(k);
+  return g;
 }
