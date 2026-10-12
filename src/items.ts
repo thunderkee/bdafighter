@@ -15,7 +15,7 @@ export interface ItemDef {
 
 export const ITEMS: Record<ItemType, ItemDef> = {
   multi: { name: 'Multi Shot', short: 'MULTI', color: 0x3ef0ff, duration: 6, weight: 1 },
-  slowmo: { name: 'Slow-Mo', short: 'SLOW-MO', color: 0xffd23e, duration: 3, weight: 1 },
+  slowmo: { name: 'Slow-Mo', short: 'SLOW-MO', color: 0xffd23e, duration: 5, weight: 1 },
   heal: { name: 'Repair Kit', short: 'REPAIR', color: 0x4dff88, duration: 0, weight: 0.8 },
   dragon: { name: 'Dragon Shot', short: 'DRAGON', color: 0xff3e8e, duration: 0, weight: 0.8 },
   missile: { name: 'Homing Missile', short: 'MISSILE', color: 0xff7a2a, duration: 0, weight: 0.8 },
@@ -44,7 +44,8 @@ export const MULTI = { count: 6, fan: 0.32, damage: 0.6, interval: 2 };
  * (so twice as long in real time), while the robot that used it moves, fires
  * and reloads at `owner` times real speed
  */
-export const SLOWMO = { world: 0.5, owner: 1.25 };
+/** world runs at 0.2x; whoever triggered it moves and fires at 1.25x real time */
+export const SLOWMO = { world: 0.2, owner: 1.25 };
 /** wiper: a brick that sweeps in front of the robot and sends enemy balls back as its own */
 export const WIPER = { halfWidth: 1.0, ahead: 1.2, sweep: 0.9, sweepSpeed: 3.2, speedUp: 1.1 };
 /** repair kit: fraction of max health restored */

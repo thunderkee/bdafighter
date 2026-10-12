@@ -700,7 +700,8 @@ export class Game {
 
     const canAct = this.phase === 'fight';
     if (canAct && this.slowT > 0) {
-      this.slowT = Math.max(0, this.slowT - dt);
+      // slowT is real seconds: it drains at the world's slowed rate
+      this.slowT = Math.max(0, this.slowT - dt / SLOWMO.world);
       if (this.slowT <= 0) this.slowOwner = -1;
     }
     for (const s of this.shooters) if (s.active) this.updateShooter(s, dt, canAct);
@@ -724,6 +725,8 @@ export class Game {
       m.body.setLinvel({ x: v.x + dv, y: v.y }, true);
     }
 
+    // slow-mo steps the same number of times with a smaller time slice, so motion stays smooth
+    if (this.world.timestep !== dt) this.world.timestep = dt;
     this.world.step(this.events);
     this.events.drainCollisionEvents((h1, h2, started) => {
       if (started) this.onContact(h1, h2);

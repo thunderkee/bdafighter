@@ -3,7 +3,7 @@ import { ARENA, COLORS, MATCH } from './config';
 import type { Drop, Game, Gate, Team } from './game';
 import { ShooterMesh, characterById } from './robot';
 import { Stage } from './stage';
-import { GATE, GATES, ITEMS, MISSILE, SHIELD, WIPER } from './items';
+import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
 import * as sfx from './audio';
 
@@ -13,7 +13,7 @@ import * as sfx from './audio';
 const SPARKS = 220;
 const AIM_DOTS = 26;
 const POWER_BALLS = 16;
-const GHOSTS = 4;
+const GHOSTS = 5;
 const SMOKE = 90;
 
 interface Spark {
@@ -61,24 +61,83 @@ interface DropMesh {
   marker: THREE.Mesh;
 }
 
-/** Per-robot item effect meshes: overdrive afterimages + thrusters, multi aura. */
+/** samples of past positions kept for the slow-mo trail */
+const TRAIL_N = 28;
+
+/** a vertical ribbon traced along a robot's recent path, fading toward its tail */
+class Ribbon {
+  mesh: THREE.Mesh;
+  private pos: Float32Array;
+  private col: Float32Array;
+  constructor(
+    scene: THREE.Scene,
+    private y0: number,
+    private y1: number,
+    private strength: number,
+  ) {
+    const geo = new THREE.BufferGeometry();
+    this.pos = new Float32Array(TRAIL_N * 2 * 3);
+    this.col = new Float32Array(TRAIL_N * 2 * 3);
+    geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    const idx: number[] = [];
+    for (let k = 0; k < TRAIL_N - 1; k++) {
+      const a = k * 2;
+      idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+    geo.setIndex(idx);
+    this.mesh = new THREE.Mesh(
+      geo,
+      // additive: dark vertex colours fade to nothing
+      new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+    );
+    this.mesh.frustumCulled = false;
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+  }
+
+  update(history: { x: number }[], z: number, color: THREE.Color, fade: number) {
+    for (let k = 0; k < TRAIL_N; k++) {
+      const h = history[Math.min(k, history.length - 1)];
+      const x = h ? h.x : 0;
+      // the ribbon tapers toward its tail
+      const taper = 1 - (k / TRAIL_N) * 0.6;
+      const mid = (this.y0 + this.y1) / 2;
+      const half = ((this.y1 - this.y0) / 2) * taper;
+      this.pos.set([x, mid - half, z, x, mid + half, z], k * 6);
+      const a = Math.pow(1 - k / TRAIL_N, 1.6) * this.strength * fade;
+      this.col.set([color.r * a, color.g * a, color.b * a, color.r * a, color.g * a, color.b * a], k * 6);
+    }
+    const g = this.mesh.geometry;
+    g.attributes.position.needsUpdate = true;
+    g.attributes.color.needsUpdate = true;
+  }
+}
+
+/** Per-robot item effect meshes: slow-mo afterimages, light trail and thrusters, multi aura. */
 class RobotFx {
-  ghosts: THREE.Mesh[] = [];
+  /** see-through copies of the robot's silhouette, left behind as it moves */
+  ghosts: THREE.Object3D[] = [];
+  ghostMats: THREE.MeshBasicMaterial[] = [];
+  /** which model the ghosts were cloned from */
+  ghostOf: ShooterMesh | null = null;
   history: { x: number; t: number }[] = [];
   flames: THREE.Mesh[] = [];
   aura: THREE.Mesh;
+  /** wide colour ribbon and a white-hot core */
+  ribbons: Ribbon[];
+  /** fades the trail in and out so it never pops */
+  boost = 0;
 
-  constructor(scene: THREE.Scene, color: number) {
-    const ghostGeo = new THREE.BoxGeometry(1.0, 1.6, 0.6);
+  constructor(
+    private scene: THREE.Scene,
+    color: number,
+  ) {
     for (let i = 0; i < GHOSTS; i++) {
-      const g = new THREE.Mesh(
-        ghostGeo,
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }),
-      );
-      g.visible = false;
-      scene.add(g);
-      this.ghosts.push(g);
+      this.ghostMats.push(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
     }
+    // thin light streaks at foot, chest and head height read as speed without hiding the robot
+    this.ribbons = [new Ribbon(scene, 0.18, 0.3, 0.9), new Ribbon(scene, 0.82, 0.94, 0.7), new Ribbon(scene, 1.42, 1.5, 0.9)];
     const flameGeo = new THREE.ConeGeometry(0.16, 0.6, 8);
     flameGeo.rotateX(Math.PI);
     for (let i = 0; i < 2; i++) {
@@ -93,6 +152,22 @@ class RobotFx {
     );
     this.aura.visible = false;
     scene.add(this.aura);
+  }
+
+  /** (re)clone the ghost silhouettes from the robot's current model */
+  cloneGhosts(src: ShooterMesh) {
+    for (const g of this.ghosts) this.scene.remove(g);
+    this.ghosts = this.ghostMats.map((mat) => {
+      const c = src.root.clone(true);
+      c.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) m.material = mat;
+      });
+      c.visible = false;
+      this.scene.add(c);
+      return c;
+    });
+    this.ghostOf = src;
   }
 }
 
@@ -124,8 +199,11 @@ export class View {
   private tmpV = new THREE.Vector3();
   private tmpS = new THREE.Vector3();
   private tmpC = new THREE.Color();
+  private white = new THREE.Color(0xffffff);
   private axis = new THREE.Vector3();
   private time = 0;
+  /** game-time clock for world animation (slows with slow-mo) */
+  private worldTime = 0;
   /** optional ThorVG overlay for screen-space effects */
   fx2d: Fx2D | null = null;
   /** settings: draw the player's dotted shooting line */
@@ -342,7 +420,7 @@ export class View {
     this.shooters.forEach((old, i) => {
       const ball = this.teamBall[i === 0 ? 0 : 1];
       (this.shields[i].material as THREE.MeshBasicMaterial).color.set(ball);
-      this.robotFx[i].ghosts.forEach((g) => (g.material as THREE.MeshBasicMaterial).color.set(ball));
+      this.robotFx[i].ghostMats.forEach((m) => m.color.set(ball));
       if (old.id === all[i] && old.ball === ball && !old.broken) return;
       this.scene.remove(old.root);
       old.dispose();
@@ -560,12 +638,22 @@ export class View {
     g.fx.length = 0;
   }
 
+  /** how fast a robot (or the world, slot -1) is running right now: slow-mo slows all but its user */
+  private rate(slot: number) {
+    const g = this.game;
+    if (!(g.slowT > 0)) return 1;
+    return slot >= 0 && slot === g.slowOwner ? SLOWMO.owner : SLOWMO.world;
+  }
+
   render(dt: number, showAim: boolean) {
     const g = this.game;
     this.time += dt;
+    // world animation (marbles, scenery, missiles, sparks) follows game time
+    const wdt = dt * this.rate(-1);
+    this.worldTime += wdt;
     this.glows.length = 0;
     this.handleFx();
-    this.stage.update(dt, this.time);
+    this.stage.update(wdt, this.worldTime);
     this.stage.setParticles(this.realismOn);
 
     g.shooters.forEach((s, i) => {
@@ -573,7 +661,7 @@ export class View {
       if (!sm) return;
       // knocked-out pack members leave only their wreck behind
       sm.root.visible = s.active && !s.out;
-      if (sm.root.visible && !sm.broken) sm.sync(s, this.time, dt);
+      if (sm.root.visible && !sm.broken) sm.sync(s, this.time, dt * this.rate(i));
     });
     this.updateKo(dt);
     this.updateRobotFx(dt);
@@ -582,7 +670,7 @@ export class View {
     this.updateRailStops(dt);
     // first person: hide your own robot so it doesn't block the view
     this.shooters[0].root.visible = this.cameraMode !== 'first' || !!this.ko || !!this.cine;
-    this.updateMissiles(dt);
+    this.updateMissiles(wdt);
     this.updateObstacles(dt);
     this.updateDrops();
     this.updateGates();
@@ -604,7 +692,7 @@ export class View {
         const gold = m.kind === 'x5';
         if (mesh) {
           mesh.visible = true;
-          mesh.position.set(p.x, m.radius + this.hop(m.idx, m, dt), -p.y);
+          mesh.position.set(p.x, m.radius + this.hop(m.idx, m, wdt), -p.y);
           // shimmer between white-hot and the ball's colour
           const pulse = 0.5 + 0.5 * Math.sin(this.time * 30 + m.idx);
           const base = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : this.teamBall[m.team];
@@ -628,10 +716,10 @@ export class View {
       if (this.realismOn && speed > 0.01) {
         // roll around the axis perpendicular to travel on the floor
         this.axis.set(-v.y, 0, -v.x).normalize();
-        this.tmpQ.setFromAxisAngle(this.axis, (speed * dt) / m.radius);
+        this.tmpQ.setFromAxisAngle(this.axis, (speed * wdt) / m.radius);
         q.premultiply(this.tmpQ);
       }
-      const h = this.hop(m.idx, m, dt);
+      const h = this.hop(m.idx, m, wdt);
       this.tmpV.set(p.x, m.radius + h, -p.y);
       this.tmpS.setScalar(m.radius);
       this.tmpM.compose(this.tmpV, q, this.tmpS);
@@ -680,7 +768,7 @@ export class View {
         const speed = Math.hypot(v.x, v.y);
         if (speed > 0.01) {
           this.axis.set(-v.y, 0, -v.x).normalize();
-          this.tmpQ.setFromAxisAngle(this.axis, (speed * dt) / b.radius);
+          this.tmpQ.setFromAxisAngle(this.axis, (speed * wdt) / b.radius);
           this.puckRot[i].premultiply(this.tmpQ);
         }
         mesh.quaternion.copy(this.puckRot[i]);
@@ -689,7 +777,7 @@ export class View {
       }
     });
 
-    this.updateSparks(dt);
+    this.updateSparks(wdt);
     this.updateAimDots(showAim && this.showAimLine);
     this.followPlayer(dt);
 
@@ -751,23 +839,37 @@ export class View {
     if (this.sparkMesh.instanceColor) this.sparkMesh.instanceColor.needsUpdate = true;
   }
 
-  /** Overdrive afterimages and thrusters, multi-shot aura. */
+  /** Slow-mo user: silhouette afterimages, a light trail along its path, thrusters. Multi-shot aura. */
   private updateRobotFx(dt: number) {
     const g = this.game;
     g.shooters.forEach((s, i) => {
       const fx = this.robotFx[i];
-      // in slow-mo the robot that triggered it trails afterimages
+      const sm = this.shooters[i];
+      // in slow-mo the robot that triggered it streaks through a frozen world
       const boosted = !!g.slowT && g.slowOwner === i && s.alive && this.fxOn;
-      // sample positions so afterimages trail behind the motion
+      fx.boost = Math.max(0, Math.min(1, fx.boost + (boosted ? dt * 6 : -dt * 3)));
       fx.history.unshift({ x: s.x, t: this.time });
-      if (fx.history.length > 24) fx.history.length = 24;
-      fx.ghosts.forEach((g, k) => {
-        const h = fx.history[(k + 1) * 4];
-        const show = boosted && !!h && Math.abs(h.x - s.x) > 0.15;
-        g.visible = show;
-        if (!show) return;
-        g.position.set(h.x, 0.85, -s.y);
-        (g.material as THREE.MeshBasicMaterial).opacity = 0.32 * (1 - k / GHOSTS);
+      if (fx.history.length > TRAIL_N) fx.history.length = TRAIL_N;
+
+      // light trail: visible while the robot is (or was just) moving
+      const spread = Math.abs(fx.history[fx.history.length - 1].x - s.x);
+      const trailOn = fx.boost > 0 && spread > 0.05;
+      const ball = this.tmpC.set(this.teamBall[i === 0 ? 0 : 1]);
+      fx.ribbons.forEach((r, k) => {
+        r.mesh.visible = trailOn;
+        if (trailOn) r.update(fx.history, -s.y + (s.team === 0 ? 0.12 : -0.12), k === 1 ? this.white : ball, fx.boost);
+      });
+
+      // afterimages: ghostly copies of the robot at points along the path
+      if (boosted && sm && fx.ghostOf !== sm) fx.cloneGhosts(sm);
+      fx.ghosts.forEach((ghost, k) => {
+        const h = fx.history[(k + 1) * 5];
+        const show = fx.boost > 0 && !!h && Math.abs(h.x - s.x) > 0.2 && !!sm && sm.root.visible;
+        ghost.visible = show;
+        if (!show || !sm) return;
+        ghost.position.set(h.x, sm.root.position.y, -s.y);
+        ghost.rotation.copy(sm.root.rotation);
+        fx.ghostMats[k].opacity = 0.2 * (1 - k / GHOSTS) * fx.boost;
       });
       fx.flames.forEach((f, k) => {
         f.visible = boosted;

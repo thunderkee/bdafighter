@@ -104,7 +104,7 @@ points at crates on your rail, even off-screen. The AI grabs and uses items too.
 | Item         | Effect                                                              |
 | ------------ | ------------------------------------------------------------------- |
 | Multi Shot   | 6 seconds of 6-marble fans per shot                                 |
-| Slow-Mo      | 3 s of match time at half speed (6 s real); you move, fire and reload at 1.25x normal speed, with speed lines and a desaturated screen |
+| Slow-Mo      | 5 s of bullet time: the world and every other robot run at 0.2x (movement, firing, reload, AI reactions, marbles); you move, fire and reload at 1.25x, leaving afterimages and light streaks |
 | Wiper        | 6 s of a brick shield sweeping in front of you; enemy balls it touches bounce back as yours |
 | Repair Kit   | Restores 25% of max armor                                           |
 | Dragon Shot  | Three heavy glowing balls that weave in a zig-zag braid             |

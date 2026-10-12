@@ -658,6 +658,7 @@ export function boot() {
   // ---------- loop ----------
   let last = performance.now();
   let lastCount = -1;
+  let recAcc = 0;
   let fpsAcc = 0;
   let fpsFrames = 0;
   let fps = 0;
@@ -674,14 +675,23 @@ export function boot() {
       } else {
         // KO slow-mo, or the Slow-Mo item (the whole match at half speed)
         const timeScale = game.phase === 'ko' ? 0.3 : game.slowT > 0 ? SLOWMO.world : 1;
-        acc += dt * timeScale;
+        acc += dt;
         let steps = 0;
         while (acc >= STEP && steps < 5) {
-          input.update(STEP);
-          for (const a of ais) a.update(STEP);
+          // every real tick steps the game by a slice of game time; under slow-mo
+          // the robot that used it thinks and acts at its own (fast) rate
+          const sdt = STEP * timeScale;
+          const rate = (slot: number) => (game.slowT > 0 && game.slowOwner === slot ? SLOWMO.owner / SLOWMO.world : 1);
+          input.update(sdt * rate(0));
+          ais.forEach((a, i) => a.update(sdt * rate(i + 1)));
           const before = game.phase;
-          game.step(STEP);
-          recorder.record(game);
+          game.step(sdt);
+          // the replay keeps one frame per full game step, as before
+          recAcc += sdt;
+          if (recAcc >= STEP - 1e-9) {
+            recAcc -= STEP;
+            recorder.record(game);
+          }
           if (before === 'fight' && game.phase === 'ko') recorder.markKo();
           acc -= STEP;
           steps++;
@@ -821,7 +831,7 @@ export function boot() {
     // active timed effects
     const fx: string[] = [];
     if (player.multiT > 0) fx.push(`multi:${Math.ceil(player.multiT)}`);
-    if (game.slowT > 0 && game.slowOwner === 0) fx.push(`slowmo:${Math.ceil(game.slowT / SLOWMO.world)}`);
+    if (game.slowT > 0 && game.slowOwner === 0) fx.push(`slowmo:${Math.ceil(game.slowT)}`);
     if (player.wiperT > 0) fx.push(`wiper:${Math.ceil(player.wiperT)}`);
     const key = fx.join('|');
     if (key !== lastEffects) {
