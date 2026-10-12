@@ -1,4 +1,5 @@
-import { AI_PROFILES, ARENA, MATCH } from './config';
+import { AI_PROFILES, ARENA, MATCH, type ShooterStats } from './config';
+import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { Game, STEP, type Shooter } from './game';
 import { View } from './view';
@@ -56,7 +57,18 @@ export function boot() {
   let saveData = store.load();
   /** magazine size is a match rule, the same for both robots */
   const magazine = () => Math.max(3, Math.min(10, Math.round(saveData.settings.magazine || 10)));
-  const playerStats = () => ({ ...computeStats(STARTER_BUILD), capacity: magazine() });
+  /** a unit's traits scale its speed, cadence and shield recharge (health is separate) */
+  const withTraits = <S extends ShooterStats>(stats: S, id: string): S => {
+    const t = characterById(id).traits;
+    return {
+      ...stats,
+      moveSpeed: stats.moveSpeed * traitMul(t?.speed),
+      fireInterval: stats.fireInterval / traitMul(t?.fireRate),
+      agility: traitMul(t?.agility),
+    };
+  };
+  const healthTrait = (id: string) => traitMul(characterById(id).traits?.health);
+  const playerStats = () => withTraits({ ...computeStats(STARTER_BUILD), capacity: magazine() }, saveData.settings.character);
   const enemyStats = () => {
     const st = saveData.settings;
     const base = computeStats(STARTER_BUILD, profile.stats);
@@ -82,9 +94,10 @@ export function boot() {
   const packEnemies = () => {
     const sc = PACK_SCALE[packSize() - 1];
     const base = enemyStats();
-    return Array.from({ length: packSize() }, () => ({
-      stats: { ...base, damage: base.damage * sc.damage },
-      maxHealth: enemyMaxHealth() * sc.health,
+    const ids = unitIds();
+    return Array.from({ length: packSize() }, (_, k) => ({
+      stats: withTraits({ ...base, damage: base.damage * sc.damage }, ids[k + 1]),
+      maxHealth: enemyMaxHealth() * sc.health * healthTrait(ids[k + 1]),
     }));
   };
   /** pack members after the first get random units (fixed for the match) */
@@ -214,7 +227,17 @@ export function boot() {
   const setupRound = () => {
     const st = saveData.settings;
     view.resetMatch();
-    game.reset(playerStats(), { enemies: packEnemies(), pucks: st.pucks, covers: st.covers, pins: st.pins, items: st.items, gates: st.gates });
+    game.reset(playerStats(), {
+      enemies: packEnemies(),
+      playerHealth: MATCH.maxHealth * healthTrait(st.character),
+      pucks: st.pucks,
+      covers: st.covers,
+      pins: st.pins,
+      items: st.items,
+      gates: st.gates,
+      duration: st.roundTime ?? 60,
+      burst: st.burst ?? 1,
+    });
     for (const a of ais) a.reset();
     recorder.clear();
     input.release();
@@ -244,6 +267,9 @@ export function boot() {
     // extra pack members: random units, different from yours and from the leader
     const pool = CHARACTERS.map((c) => c.id).filter((id) => id !== st.character && id !== enemyCharacter());
     packIds = [0, 1].map(() => pool.splice(Math.floor(Math.random() * pool.length), 1)[0] ?? enemyCharacter());
+    // each CPU unit's agility trait sharpens (or dulls) its dodging on top of the setting
+    const ids = unitIds();
+    ais.forEach((a, i) => (a.agility *= traitMul(characterById(ids[i + 1]).traits?.agility)));
     view.setCharacters(unitIds());
     view.setStage(st.stage);
     roundNo = 1;
@@ -759,7 +785,7 @@ export function boot() {
       showBanner(game.clock <= 0 ? 'TIME UP' : 'K.O.', true, perfect ? 'PERFECT' : w === -1 ? 'DRAW' : undefined);
     }
 
-    clock.textContent = Math.ceil(game.clock).toString();
+    clock.textContent = Number.isFinite(game.clock) ? Math.ceil(game.clock).toString() : '∞';
     clock.classList.toggle('low', game.clock < 10);
 
     // left bar: you; right bar: the whole opponent pack (shield/super from the one you face)

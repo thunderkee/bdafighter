@@ -56,6 +56,8 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Walls           | Off / 1 / 2 / 3 cover walls per side; each takes 5 hits, then breaks     |
 |           | Pins            | Off / 2 / 4 / 6 / 8 pinball pins that deflect marbles                    |
 |           | Magazine        | 3–10 marbles per load, same for both robots (default 10)                 |
+|           | Fire rate       | 1–5 balls per trigger pull, fired in a quick string, both robots         |
+|           | Round time      | 60 s / 90 s / ∞ (untimed rounds end only on a knockout)                  |
 |           | Air drops       | On / Off                                                                 |
 |           | Power gates     | Show / Hide                                                              |
 | Opponent  | Pack            | 1 / 2 / 3 opponents sharing the far rail, each in its own lane; extra units are random. Bigger packs get less armour and punch each (2: 60% / 50%, 3: 40% / 38%). Round ends when the whole pack is down |
@@ -74,6 +76,24 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Mouse aim       | **On** / **Off**. Off ignores the mouse so keys or buttons aim           |
 |           | Shooting line   | Show / hide the dotted aim guide                                         |
 |           | Vibrate on hits | On / Off (Android browsers; iPhone browsers don't support vibration)     |
+
+## Unit Lab (`editor.html`)
+
+A second page for editing units, linked from Settings → Fighter → **UNIT LAB**. Changes save to the device
+and the game picks them up on its next load.
+
+- **Profile**: name, and four traits on a 1–5 scale (3 = standard): **Speed** (rail speed), **Fire rate**
+  (shots per second while held), **Health** (armour), **Agility** (shield recharge, plus dodging when the CPU
+  drives the unit). Traits apply whether the unit is yours or the CPU's.
+- **Colours**: palette swatches (body, trim, accent, joints, eyes/glow, marble). Blocks painted with a palette
+  colour follow the swatch.
+- **Blocks**: every unit, built-ins included, opens as a tree of blocks (box, ball, tube, spike, ring, group).
+  Click a block on the model or in the list, then edit size, position, rotation, scale, colour and finish
+  (matte / glow / glossy). Add, duplicate, mirror to the other side, delete; arrows / PgUp / PgDn nudge.
+  **Moves as** tags the animated parts: *Aims* (turns with the aim), *Leg* (walk cycle), *Barrel* (recoils,
+  marble exit), *Jaw*, *Flame*, *Trigger*.
+- **+ NEW** copies the selected unit into a custom one; **Reset to original** drops edits to a built-in;
+  undo / redo cover every change. **PLAY AS UNIT** selects it and opens the game.
 
 ## Air drops
 
@@ -159,7 +179,9 @@ with a long hit-stop, heavy shake, knock-back, shockwave and flash. The AI charg
 | `src/ai.ts`     | Opponent: lead aim, bank shots, bump shots, reaction-delayed dodge  |
 | `src/input.ts`  | Two-thumb touch zones, mouse and keyboard                           |
 | `src/view.ts`   | three.js scene, instanced marbles, sparks, aim dots, chase camera   |
-| `src/robot.ts`  | Data-driven SD robot models (8 placeholder units, no wings or backpack) |
+| `src/robot.ts`  | Robot models (14 placeholder units), roster merge, block-design build and export |
+| `src/roster.ts` | Device roster: name / trait / colour / design edits and custom units     |
+| `src/lab.ts`    | Unit Lab editor page (`editor.html`)                                     |
 | `src/fx2d.ts`   | ThorVG overlay: shockwaves, starbursts, glows/trails, speed lines, drop markers |
 | `src/face.ts`   | ThorVG Doom-style live portraits                                    |
 | `src/stage.ts`  | Nine themed stages: floor, sky, lights, scenery, moving props, particles (snow, embers, rain, fireflies, neon, confetti), pucks |

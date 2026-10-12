@@ -37,6 +37,8 @@ export interface ShooterStats {
   capacity: number; // marbles per magazine
   reloadTime: number; // seconds for an empty magazine
   moveSpeed: number; // m/s along the rail
+  /** agility trait: shield recharge multiplier (CPU units also dodge better) */
+  agility?: number;
 }
 
 export const BASE_STATS: ShooterStats = {

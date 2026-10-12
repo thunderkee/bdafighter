@@ -8,6 +8,10 @@ export default defineConfig({
   plugins: [wasm()],
   build: {
     target: 'es2022',
+    // two pages: the game, and the Unit Lab character editor
+    rollupOptions: {
+      input: { main: 'index.html', editor: 'editor.html' },
+    },
   },
   optimizeDeps: {
     exclude: ['@dimforge/rapier2d'],

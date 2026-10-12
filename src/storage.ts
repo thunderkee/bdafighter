@@ -48,6 +48,10 @@ export interface Settings {
   showFps: boolean;
   /** marbles per magazine for both robots (3-10) */
   magazine: number;
+  /** round length in seconds: 60, 90, or 0 for no limit */
+  roundTime: number;
+  /** fire rate: balls per trigger pull for both robots (1-5) */
+  burst: number;
   /** opponents in the pack (1-3) */
   pack: number;
   /** destructible cover walls per side (0-3) */
@@ -86,6 +90,8 @@ export const DEFAULT_SETTINGS: Settings = {
   realism: true,
   showFps: false,
   magazine: 10,
+  roundTime: 60,
+  burst: 1,
   pack: 1,
   covers: 0,
   pins: 0,

@@ -239,6 +239,9 @@ export class Shooter {
   wiperT = 0;
   /** dragon balls still to launch, and the gap timer */
   dragonQueue = 0;
+  /** extra balls left in the current trigger pull (fire-rate setting), and the gap timer */
+  burstQueue = 0;
+  burstTimer = 0;
   dragonTimer = 0;
   /** -1 / 1 while pushing into the left / right end of the rail, else 0 */
   railPush = 0;
@@ -328,6 +331,7 @@ export class Shooter {
     this.item = null;
     this.multiT = this.wiperT = 0;
     this.dragonQueue = this.dragonTimer = 0;
+    this.burstQueue = this.burstTimer = 0;
     this.sinceHit = this.sinceHurt = 99;
     this.shielding = false;
     this.shield = SHIELD.max;
@@ -347,6 +351,9 @@ type Tag =
   | { kind: 'pin'; p: Pin }
   | { kind: 'gatewall' };
 
+/** seconds between the balls of one trigger pull */
+const BURST_GAP = 0.07;
+
 export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 
 export interface MatchOptions {
@@ -357,6 +364,12 @@ export interface MatchOptions {
   pins: number;
   items: boolean;
   gates: boolean;
+  /** player max health (unit trait); defaults to the standard */
+  playerHealth?: number;
+  /** round length in seconds; 0 = no time limit */
+  duration: number;
+  /** balls fired per trigger pull, both robots (1-5) */
+  burst: number;
 }
 
 export class Game {
@@ -384,6 +397,10 @@ export class Game {
   /** game seconds since the round started (gates, wipers) */
   time = 0;
   clock: number = MATCH.duration;
+  /** round length for this match (0 = untimed) */
+  duration: number = MATCH.duration;
+  /** balls per trigger pull */
+  burst = 1;
   winner: Team | -1 | null = null;
   /** seconds of frozen physics after a heavy hit */
   hitstop = 0;
@@ -577,7 +594,7 @@ export class Game {
   }
 
   reset(playerStats: ShooterStats, opts: MatchOptions) {
-    this.player.reset(playerStats, MATCH.maxHealth, true, [-ARENA.railHalfWidth, ARENA.railHalfWidth]);
+    this.player.reset(playerStats, opts.playerHealth ?? MATCH.maxHealth, true, [-ARENA.railHalfWidth, ARENA.railHalfWidth]);
     // opponents split their rail into lanes so they never stand on each other
     const n = Math.max(1, Math.min(MAX_SHOOTERS - 1, opts.enemies.length));
     const span = ARENA.railHalfWidth * 2;
@@ -609,7 +626,9 @@ export class Game {
     this.phase = 'countdown';
     this.phaseTime = 0;
     this.time = 0;
-    this.clock = MATCH.duration;
+    this.duration = opts.duration;
+    this.clock = opts.duration > 0 ? opts.duration : Infinity;
+    this.burst = Math.max(1, Math.min(5, Math.round(opts.burst)));
     this.winner = null;
     this.hitstop = 0;
     this.slowT = 0;
@@ -668,8 +687,11 @@ export class Game {
     }
     if (this.phase === 'fight') {
       this.time += dt;
-      this.clock = Math.max(0, this.clock - dt);
-      if (this.clock <= 0) this.finish();
+      // an untimed round (Infinity) only ends on a knockout
+      if (Number.isFinite(this.clock)) {
+        this.clock = Math.max(0, this.clock - dt);
+        if (this.clock <= 0) this.finish();
+      }
     }
     if (this.phase === 'ko' && this.phaseTime > 1.8) {
       this.phase = 'over';
@@ -1080,17 +1102,34 @@ export class Game {
       if (s.shield <= 0) this.breakShield(s);
     } else {
       s.shieldIdle += dt;
-      if (s.shieldIdle > SHIELD.regenDelay && s.shieldLock <= 0) s.shield = Math.min(SHIELD.max, s.shield + SHIELD.regen * dt);
+      if (s.shieldIdle > SHIELD.regenDelay && s.shieldLock <= 0) s.shield = Math.min(SHIELD.max, s.shield + SHIELD.regen * (s.stats.agility ?? 1) * dt);
     }
 
     if (canAct && s.firing && !s.shieldUp && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
       const multi = s.multiT > 0 && !s.superReady;
       if (multi) this.fireVolley(s);
       else this.fire(s);
-      s.cooldown = s.stats.fireInterval * (multi ? MULTI.interval : 1);
+      // fire rate: the rest of this pull's balls follow in a quick string
+      s.burstQueue = multi ? 0 : this.burst - 1;
+      s.burstTimer = BURST_GAP;
+      s.cooldown = s.stats.fireInterval * (multi ? MULTI.interval : 1) + s.burstQueue * BURST_GAP;
       s.idle = 0;
       s.ammo -= 1;
       if (s.ammo < 1) s.reload = s.stats.reloadTime;
+    }
+    if (s.burstQueue > 0) {
+      if (!canAct || s.shieldUp || s.reload > 0 || s.ammo < 1) s.burstQueue = 0;
+      else {
+        s.burstTimer -= adt;
+        if (s.burstTimer <= 0) {
+          this.fire(s);
+          s.burstQueue--;
+          s.burstTimer = BURST_GAP;
+          s.idle = 0;
+          s.ammo -= 1;
+          if (s.ammo < 1) s.reload = s.stats.reloadTime;
+        }
+      }
     }
   }
 

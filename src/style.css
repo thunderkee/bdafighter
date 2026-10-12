@@ -1431,3 +1431,27 @@ body.slowmo #vignette {
   opacity: 1;
   background: radial-gradient(ellipse at center, transparent 50%, rgba(80, 140, 255, 0.35) 100%);
 }
+
+/* link from the unit picker to the Unit Lab editor */
+.lab-link {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--cyan);
+  font-family: var(--display);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  background: rgba(62, 240, 255, 0.06);
+}
+
+.lab-link small {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--body);
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--muted);
+}

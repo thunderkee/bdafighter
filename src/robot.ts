@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Shooter } from './game';
+import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type V3 } from './roster';
 
 /**
  * SD (super-deformed) marble-shooter robots built from primitives:
@@ -47,9 +48,16 @@ export interface CharacterDef {
   darkFace?: boolean;
   /** glowing frame lines on the limbs and torso */
   glow?: number;
+  /** gameplay traits (1-5, 3 = standard); edited in the Unit Lab */
+  traits?: Traits;
+  /** a block design from the Unit Lab; replaces the built-in model */
+  blueprint?: Block;
+  /** custom units: the built-in they started from */
+  base?: string;
 }
 
-export const CHARACTERS: CharacterDef[] = [
+/** the units as shipped; the roster layers edits and custom units on top */
+export const BUILTINS: readonly CharacterDef[] = [
   {
     id: 'angel',
     ball: 0x6fa8ff,
@@ -235,33 +243,65 @@ export const CHARACTERS: CharacterDef[] = [
   },
 ];
 
+/** built-ins with the device's roster edits applied, then any custom units */
+export function rosterCharacters(data = loadRoster()): CharacterDef[] {
+  const merge = (def: CharacterDef, id = def.id): CharacterDef => {
+    const u = data.units[id];
+    if (!u) return { ...def, id };
+    return {
+      ...def,
+      id,
+      name: u.name?.trim() || def.name,
+      ball: u.ball ?? def.ball,
+      palette: { ...def.palette, ...u.palette },
+      traits: u.traits ?? def.traits,
+      blueprint: u.blueprint ?? def.blueprint,
+      base: def.base ?? (id !== def.id ? def.id : undefined),
+    };
+  };
+  const out = BUILTINS.map((b) => merge(b));
+  for (const u of Object.values(data.units)) {
+    if (BUILTINS.some((b) => b.id === u.id)) continue;
+    const base = BUILTINS.find((b) => b.id === u.base) ?? BUILTINS[0];
+    out.push(merge(base, u.id));
+  }
+  return out;
+}
+
+/** live list used everywhere in the game (rebuilt by reloadRoster) */
+export const CHARACTERS: CharacterDef[] = rosterCharacters();
+export function reloadRoster(data?: RosterData) {
+  CHARACTERS.splice(0, CHARACTERS.length, ...rosterCharacters(data));
+}
+
 export const characterById = (id: string) => CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
 
 export class ShooterMesh {
   root = new THREE.Group();
   /** everything above the hips; rotates with aim */
-  turret = new THREE.Group();
-  barrel = new THREE.Group();
-  wings = new THREE.Group();
-  trigger!: THREE.Mesh;
-  legs: THREE.Group[] = [];
+  turret: THREE.Object3D = new THREE.Group();
+  barrel: THREE.Object3D = new THREE.Group();
+  wings: THREE.Object3D = new THREE.Group();
+  trigger!: THREE.Object3D;
+  legs: THREE.Object3D[] = [];
   mats: THREE.MeshLambertMaterial[] = [];
   readonly id: string;
   /** the marble colour this model was built with */
   readonly ball: number;
-  private wingL = new THREE.Group();
-  private wingR = new THREE.Group();
+  wingL = new THREE.Group();
+  wingR = new THREE.Group();
   private stride = 0;
   /** rest positions the recoil animation pushes from */
   private barrelZ = -0.32;
   private triggerZ = 0.38;
   /** beasts: lower jaw that snaps open on each shot */
-  private jaw: THREE.Object3D | null = null;
+  jaw: THREE.Object3D | null = null;
   /** lizard: tail flame that flickers */
-  private flame: THREE.Object3D | null = null;
+  flame: THREE.Object3D | null = null;
 
-  constructor(characterId: string, marbleColor: number) {
-    const def = characterById(characterId);
+  /** defOverride lets the Unit Lab preview an unsaved design */
+  constructor(characterId: string, marbleColor: number, defOverride?: CharacterDef) {
+    const def = defOverride ?? characterById(characterId);
     this.id = def.id;
     this.ball = marbleColor;
     const pal = def.palette;
@@ -280,6 +320,11 @@ export class ShooterMesh {
     const eyeMat = new THREE.MeshBasicMaterial({ color: pal.eye });
     const glowMat = def.glow !== undefined ? new THREE.MeshBasicMaterial({ color: def.glow }) : null;
     const ballMat = new THREE.MeshPhongMaterial({ color: marbleColor, shininess: 90, specular: 0xffffff });
+
+    if (def.blueprint) {
+      this.buildBlueprint(def.blueprint, def, marbleColor);
+      return;
+    }
 
     const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -885,6 +930,145 @@ export class ShooterMesh {
     this.turret.add(this.trigger);
   }
 
+  /** Build the model from a Unit Lab block design, wiring up the animated parts. */
+  private buildBlueprint(bp: Block, def: CharacterDef, ball: number) {
+    const cache = new Map<string, THREE.Material>();
+    const material = (m: Block['mat']) => {
+      const spec = m ?? { kind: 'lambert', color: 'body' };
+      const color = resolveColor(spec.color, def, ball);
+      const key = `${spec.kind}|${color}|${spec.double ? 1 : 0}|${spec.opacity ?? 1}|${spec.additive ? 1 : 0}`;
+      let mat = cache.get(key);
+      if (!mat) {
+        const common = {
+          color,
+          side: spec.double ? THREE.DoubleSide : THREE.FrontSide,
+          transparent: (spec.opacity ?? 1) < 1 || !!spec.additive,
+          opacity: spec.opacity ?? 1,
+          blending: spec.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+          depthWrite: !spec.additive,
+        };
+        if (spec.kind === 'basic') mat = new THREE.MeshBasicMaterial(common);
+        else if (spec.kind === 'phong') mat = new THREE.MeshPhongMaterial({ ...common, shininess: 90, specular: 0xffffff });
+        else {
+          const lam = new THREE.MeshLambertMaterial(common);
+          this.mats.push(lam);
+          mat = lam;
+        }
+        cache.set(key, mat);
+      }
+      return mat;
+    };
+    const assign = (o: THREE.Object3D, role: Role | undefined) => {
+      switch (role) {
+        case 'turret':
+          this.turret = o;
+          break;
+        case 'barrel':
+          this.barrel = o;
+          this.barrelZ = o.position.z;
+          break;
+        case 'leg':
+          this.legs.push(o);
+          break;
+        case 'jaw':
+          this.jaw = o;
+          break;
+        case 'flame':
+          this.flame = o;
+          break;
+        case 'trigger':
+          this.trigger = o;
+          this.triggerZ = o.position.z;
+          break;
+        case 'wings':
+          this.wings = o;
+          break;
+        case 'wingL':
+          this.wingL = o as THREE.Group;
+          break;
+        case 'wingR':
+          this.wingR = o as THREE.Group;
+          break;
+      }
+    };
+    const make = (b: Block, path: string): THREE.Object3D => {
+      const o = b.shape === 'group' ? new THREE.Group() : new THREE.Mesh(blockGeometry(b), material(b.mat));
+      o.position.fromArray(b.p);
+      o.rotation.set(b.r[0], b.r[1], b.r[2]);
+      o.scale.fromArray(b.s);
+      o.userData.path = path;
+      assign(o, b.role);
+      (b.children ?? []).forEach((c, i) => o.add(make(c, `${path}/${i}`)));
+      return o;
+    };
+    // the top block is the root itself
+    this.root.userData.path = 'r';
+    (bp.children ?? []).forEach((c, i) => this.root.add(make(c, `r/${i}`)));
+    // every model needs these, even if the design leaves them out
+    if (!this.trigger) {
+      this.trigger = new THREE.Object3D();
+      this.turret.add(this.trigger);
+    }
+    if (!this.barrel.parent) this.turret.add(this.barrel);
+    if (!this.turret.parent) this.root.add(this.turret);
+  }
+
+  /** Describe this model as editable blocks (how built-ins become Unit Lab designs). */
+  toBlueprint(def: CharacterDef): Block {
+    const roleOf = (o: THREE.Object3D): Role | undefined => {
+      if (o === this.turret) return 'turret';
+      if (o === this.barrel) return 'barrel';
+      if (this.legs.includes(o)) return 'leg';
+      if (o === this.jaw) return 'jaw';
+      if (o === this.flame) return 'flame';
+      if (o === this.trigger) return 'trigger';
+      if (o === this.wings) return 'wings';
+      if (o === this.wingL) return 'wingL';
+      if (o === this.wingR) return 'wingR';
+      return undefined;
+    };
+    const r3 = (n: number) => Math.round(n * 1000) / 1000;
+    const v = (x: { x: number; y: number; z: number }): V3 => [r3(x.x), r3(x.y), r3(x.z)];
+    const walk = (o: THREE.Object3D): Block | null => {
+      const mesh = o as THREE.Mesh;
+      let b: Block;
+      if (mesh.isMesh) {
+        const shape = SHAPE_OF[mesh.geometry.type];
+        if (!shape) return null;
+        const mat = mesh.material as THREE.MeshLambertMaterial;
+        const kind = mat.type === 'MeshBasicMaterial' ? 'basic' : mat.type === 'MeshPhongMaterial' ? 'phong' : 'lambert';
+        const size: Record<string, number | boolean> = {};
+        for (const [k, val] of Object.entries((mesh.geometry as THREE.BoxGeometry).parameters)) if (typeof val === 'number' || typeof val === 'boolean') size[k] = typeof val === 'number' ? r3(val) : val;
+        b = {
+          shape,
+          size,
+          mat: {
+            kind,
+            color: colorRefOf(mat.color.getHex(), kind, def, this.ball),
+            ...(mat.side === THREE.DoubleSide ? { double: true } : {}),
+            ...(mat.opacity < 1 ? { opacity: r3(mat.opacity) } : {}),
+            ...(mat.blending === THREE.AdditiveBlending ? { additive: true } : {}),
+          },
+          p: v(o.position),
+          r: v(o.rotation),
+          s: v(o.scale),
+        };
+      } else {
+        b = { shape: 'group', p: v(o.position), r: v(o.rotation), s: v(o.scale) };
+      }
+      const role = roleOf(o);
+      if (role) b.role = role;
+      const kids = o.children.map(walk).filter((c): c is Block => !!c);
+      if (kids.length) b.children = kids;
+      return b;
+    };
+    const root = walk(this.root)!;
+    root.p = [0, 0, 0];
+    root.r = [0, 0, 0];
+    root.s = [1, 1, 1];
+    return root;
+  }
+
   private buildCrest(
     head: THREE.Group,
     def: CharacterDef,
@@ -1134,4 +1318,50 @@ export class ShooterMesh {
     this.root.rotation.x = s.team === 0 ? back : -back;
     this.root.rotation.y = (s.team === 0 ? 0 : Math.PI) + (jolt ? (Math.random() * 2 - 1) * jolt : 0);
   }
+}
+
+const SHAPE_OF: Record<string, Block['shape']> = {
+  BoxGeometry: 'box',
+  SphereGeometry: 'sphere',
+  CylinderGeometry: 'cylinder',
+  ConeGeometry: 'cone',
+  TorusGeometry: 'torus',
+};
+
+/** default size for a freshly added block of each shape */
+export const DEFAULT_SIZE: Record<Exclude<Block['shape'], 'group'>, Record<string, number>> = {
+  box: { width: 0.3, height: 0.3, depth: 0.3 },
+  sphere: { radius: 0.18, widthSegments: 14, heightSegments: 10 },
+  cylinder: { radiusTop: 0.12, radiusBottom: 0.12, height: 0.3, radialSegments: 12 },
+  cone: { radius: 0.1, height: 0.3, radialSegments: 6 },
+  torus: { radius: 0.18, tube: 0.05, radialSegments: 6, tubularSegments: 14 },
+};
+
+export function blockGeometry(b: Block): THREE.BufferGeometry {
+  const g = { ...(b.shape === 'group' ? {} : DEFAULT_SIZE[b.shape]), ...(b.size ?? {}) } as Record<string, number>;
+  switch (b.shape) {
+    case 'sphere':
+      return new THREE.SphereGeometry(g.radius, g.widthSegments ?? 14, g.heightSegments ?? 10, g.phiStart ?? 0, g.phiLength ?? Math.PI * 2, g.thetaStart ?? 0, g.thetaLength ?? Math.PI);
+    case 'cylinder':
+      return new THREE.CylinderGeometry(g.radiusTop, g.radiusBottom, g.height, g.radialSegments ?? 12, g.heightSegments ?? 1, !!g.openEnded, g.thetaStart ?? 0, g.thetaLength ?? Math.PI * 2);
+    case 'cone':
+      return new THREE.ConeGeometry(g.radius, g.height, g.radialSegments ?? 6, g.heightSegments ?? 1, !!g.openEnded, g.thetaStart ?? 0, g.thetaLength ?? Math.PI * 2);
+    case 'torus':
+      return new THREE.TorusGeometry(g.radius, g.tube, g.radialSegments ?? 6, g.tubularSegments ?? 14, g.arc ?? Math.PI * 2);
+    default:
+      return new THREE.BoxGeometry(g.width, g.height, g.depth);
+  }
+}
+
+/** a block colour: a palette slot follows the unit's colours, a number is fixed */
+export function resolveColor(c: ColorRef, def: CharacterDef, ball: number) {
+  if (typeof c === 'number') return c;
+  if (c === 'ball') return ball;
+  return def.palette[c];
+}
+
+function colorRefOf(hex: number, kind: string, def: CharacterDef, ball: number): ColorRef {
+  if (kind === 'phong' && hex === ball) return 'ball';
+  for (const k of ['body', 'trim', 'accent', 'joint', 'eye'] as const) if (def.palette[k] === hex) return k;
+  return hex;
 }
