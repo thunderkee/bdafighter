@@ -94,12 +94,15 @@ function stepHistory(from: string[], to: string[]) {
   restore(snap);
   syncUndoButtons();
 }
+/** undo / redo live in the top bar and on the canvas toolbar; both pairs stay in sync */
+const undoBtns = ['undo', 'canvas-undo'].map((id) => $<HTMLButtonElement>(id));
+const redoBtns = ['redo', 'canvas-redo'].map((id) => $<HTMLButtonElement>(id));
 function syncUndoButtons() {
-  $<HTMLButtonElement>('undo').disabled = !undo.length;
-  $<HTMLButtonElement>('redo').disabled = !redo.length;
+  undoBtns.forEach((b) => (b.disabled = !undo.length));
+  redoBtns.forEach((b) => (b.disabled = !redo.length));
 }
-$('undo').addEventListener('click', () => stepHistory(undo, redo));
-$('redo').addEventListener('click', () => stepHistory(redo, undo));
+undoBtns.forEach((b) => b.addEventListener('click', () => stepHistory(undo, redo)));
+redoBtns.forEach((b) => b.addEventListener('click', () => stepHistory(redo, undo)));
 
 /** apply roster edits everywhere: preview, lists, and (optionally) the open form */
 function commit(full = false) {
