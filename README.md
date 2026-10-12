@@ -51,6 +51,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 | --------- | --------------- | ------------------------------------------------------------------------ |
 | Fighter   | Your unit       | 14 units (placeholder designs), each with its own marble colour: 8 SD mechs, plus Unit Violet, Kabuto Bee, Tyrant King (fires from a rex-head blaster), Rex Saur, Fang Liger and Ember Lizard (all three fire from the mouth) |
 |           | Opponent unit   | Auto (different from yours) or any of the 14                             |
+|           | Your pack       | Solo / 2 / 3: CPU pack-mates share your rail in their own lanes (you take the middle of three), drawn see-through during play so they never block the view. Packs scale armour and damage like the opponent's. A team is out when all its robots are down |
 | Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City, Rainy Forest, River Dusk, Cyberpunk, Soccer Field (pucks and props match the theme) |
 |           | Pucks           | Off / 1–5, each count has its own symmetric layout (applies next match)  |
 |           | Walls           | Off / 1 / 2 / 3 cover walls per side; each takes 5 hits, then breaks     |
@@ -71,6 +72,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | FPS meter       | Show / Hide                                                              |
 |           | Camera          | Far / Mid / Near / Cockpit (first person)                                |
 |           | Layout          | **Gestures** or **Buttons**: ◀ ▶ bottom-left; ▼ shield above fire, bottom-right |
+|           | Move with       | **◀ ▶ Buttons** or **Slider**: drag along the slider and the robot slides to that spot in its lane |
 |           | Fire buttons    | **Single** FIRE, or **Triple**: front-left / front / front-right         |
 |           | Left / Right    | **Move** slides the robot; **Aim** turns its aim (◀ ▶ become ↶ ↷, A / D too) |
 |           | Mouse aim       | **On** / **Off**. Off ignores the mouse so keys or buttons aim           |

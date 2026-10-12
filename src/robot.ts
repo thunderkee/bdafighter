@@ -537,53 +537,107 @@ export class ShooterMesh {
     };
 
     if (def.body === 'rex') {
-      // biped tyrannosaur: big head and jaws up front, tail behind
+      // tyrannosaur hunter: spine level, head low and forward, tail as counterweight
+      const claw = new THREE.MeshLambertMaterial({ color: 0xe8ecf2 });
+      this.mats.push(claw);
       for (const side of [-1, 1]) {
+        // digitigrade leg: thigh forward, shin back, long foot
         const leg = new THREE.Group();
-        leg.position.set(side * 0.32, 0.62, 0.1);
-        leg.add(box(0.28, 0.34, 0.36, m.body, 0, -0.12, 0)); // thigh
-        leg.add(box(0.2, 0.26, 0.2, m.joint, 0, -0.38, 0.05)); // shin
-        leg.add(box(0.34, 0.12, 0.5, m.trim, 0, -0.56, -0.08)); // foot
+        leg.position.set(side * 0.3, 0.8, 0.16);
+        const thigh = box(0.26, 0.44, 0.4, m.body, 0, -0.14, -0.02);
+        thigh.rotation.x = 0.35;
+        leg.add(thigh);
+        const plate = box(0.04, 0.32, 0.3, m.trim, side * 0.14, -0.12, -0.02);
+        plate.rotation.x = 0.35;
+        leg.add(plate);
+        const shin = box(0.15, 0.36, 0.16, m.joint, 0, -0.44, 0.12);
+        shin.rotation.x = -0.5;
+        leg.add(shin);
+        leg.add(box(0.13, 0.16, 0.13, m.joint, 0, -0.64, 0.08)); // ankle
+        leg.add(box(0.3, 0.09, 0.44, m.trim, 0, -0.75, -0.08)); // foot
         for (const cx of [-0.1, 0, 0.1]) {
-          const claw = cone(0.04, 0.14, m.joint);
-          claw.rotation.x = -Math.PI / 2;
-          claw.position.set(cx, -0.58, -0.38);
-          leg.add(claw);
+          const c = cone(0.035, 0.16, claw);
+          c.rotation.x = -Math.PI / 2 - 0.35;
+          c.position.set(cx, -0.77, -0.34);
+          leg.add(c);
         }
         this.root.add(leg);
         this.legs.push(leg);
       }
-      this.turret.position.y = 0.72;
+      this.turret.position.y = 0.84;
       this.root.add(this.turret);
-      const torso = box(0.7, 0.55, 0.85, m.body, 0, 0.1, 0.05);
-      torso.rotation.x = -0.25;
-      this.turret.add(torso);
-      this.turret.add(box(0.5, 0.06, 0.6, m.trim, 0, 0.4, 0.1)); // back armour
-      for (let k = 0; k < 4; k++) {
-        const spike = cone(0.07, 0.24, m.accent);
-        spike.position.set(0, 0.48 - k * 0.02, 0.32 - k * 0.2);
-        this.turret.add(spike);
-      }
-      // tail sweeps back
-      const tail = new THREE.Group();
-      tail.position.set(0, 0.0, 0.45);
-      [0.38, 0.28, 0.18].forEach((w, k) => {
-        const seg = box(w, w * 0.8, 0.36, k === 2 ? m.trim : m.body, 0, -k * 0.08, 0.16 + k * 0.32);
-        seg.rotation.x = 0.15;
-        tail.add(seg);
+      // body: deep chest, waist frame, hips
+      const chest = box(0.6, 0.5, 0.58, m.body, 0, 0.08, -0.16);
+      chest.rotation.x = 0.1;
+      this.turret.add(chest);
+      this.turret.add(box(0.44, 0.3, 0.46, m.joint, 0, -0.12, 0.12)); // exposed frame
+      this.turret.add(box(0.52, 0.4, 0.42, m.body, 0, 0.04, 0.36)); // hips
+      this.turret.add(box(0.42, 0.06, 0.9, m.trim, 0, 0.35, 0.1)); // spine armour
+      // a ridge of dark blade-spines down the back, raked toward the tail
+      [0.14, 0.18, 0.16, 0.12, 0.09].forEach((h, k) => {
+        const spine = cone(0.07, h, k === 1 ? m.accent : m.joint);
+        spine.scale.set(0.4, 1, 1.3);
+        spine.position.set(0, 0.38 + h / 2 - 0.02, -0.28 + k * 0.2);
+        spine.rotation.x = 0.5;
+        this.turret.add(spine);
       });
+      // tail tapers back and slightly down
+      const tail = new THREE.Group();
+      tail.position.set(0, 0.06, 0.56);
+      [0.32, 0.24, 0.17, 0.11].forEach((w, k) => {
+        const seg = box(w, w * 0.85, 0.34, k % 2 ? m.trim : m.body, 0, -k * 0.05, 0.14 + k * 0.3);
+        seg.rotation.x = 0.1;
+        tail.add(seg);
+        if (k < 3) {
+          const spine = cone(0.05, 0.1 - k * 0.02, m.joint);
+          spine.scale.set(0.4, 1, 1.3);
+          spine.position.set(0, w * 0.45 - k * 0.05 + 0.04, 0.14 + k * 0.3);
+          spine.rotation.x = 0.6;
+          tail.add(spine);
+        }
+      });
+      const tip = cone(0.06, 0.26, m.joint);
+      tip.rotation.x = Math.PI / 2 + 0.1;
+      tip.position.set(0, -0.22, 1.3);
+      tail.add(tip);
       this.turret.add(tail);
-      // small arms
-      for (const side of [-1, 1]) this.turret.add(box(0.08, 0.2, 0.08, m.joint, side * 0.26, -0.05, -0.38));
-      // big head
+      // short arms with hooked claws, held tight to the chest
+      for (const side of [-1, 1]) {
+        const arm = box(0.08, 0.2, 0.08, m.joint, side * 0.24, -0.08, -0.44);
+        arm.rotation.x = 0.7;
+        this.turret.add(arm);
+        const hand = cone(0.03, 0.12, claw);
+        hand.rotation.x = Math.PI - 0.6;
+        hand.position.set(side * 0.24, -0.2, -0.54);
+        this.turret.add(hand);
+      }
+      // neck rises into a long, low head
+      const neck = box(0.3, 0.28, 0.34, m.body, 0, 0.2, -0.5);
+      neck.rotation.x = -0.4;
+      this.turret.add(neck);
       const head = new THREE.Group();
-      head.position.set(0, 0.5, -0.45);
-      head.add(box(0.56, 0.32, 0.62, m.body, 0, 0.06, -0.2)); // skull + upper jaw
-      head.add(box(0.5, 0.06, 0.5, m.trim, 0, 0.24, -0.18)); // armour plate
-      for (const side of [-1, 1]) head.add(box(0.07, 0.05, 0.05, m.eyeMat, side * 0.22, 0.13, -0.3));
-      teeth(head, 0.2, -0.46, -0.16, -0.12, true);
+      head.position.set(0, 0.36, -0.72);
+      head.add(box(0.4, 0.27, 0.44, m.body, 0, 0.04, -0.06)); // skull
+      const snout = box(0.32, 0.17, 0.42, m.body, 0, -0.02, -0.42);
+      snout.rotation.x = 0.06;
+      head.add(snout);
+      head.add(box(0.06, 0.07, 0.62, m.trim, 0, 0.2, -0.22)); // crest ridge
+      for (const side of [-1, 1]) {
+        // heavy brows sloping down to the middle, slit eyes beneath
+        const brow = box(0.15, 0.07, 0.2, m.trim, side * 0.13, 0.18, -0.2);
+        brow.rotation.set(-0.15, 0, side * 0.3);
+        const eye = box(0.09, 0.035, 0.02, m.eyeMat, side * 0.15, 0.115, -0.29);
+        eye.rotation.z = side * 0.3;
+        head.add(brow, eye);
+        head.add(box(0.04, 0.12, 0.24, m.trim, side * 0.2, 0.0, -0.08)); // cheek armour
+        const horn = cone(0.035, 0.16, m.joint);
+        horn.position.set(side * 0.16, 0.2, 0.08);
+        horn.rotation.x = 1.2;
+        head.add(horn);
+      }
+      teeth(head, 0.13, -0.6, -0.26, -0.11, true);
       this.turret.add(head);
-      mouth(head, -0.52, -0.08, 0.48);
+      mouth(head, -0.62, -0.09, 0.3);
     } else if (def.body === 'cat') {
       // sabre-tooth liger: crouched low on armoured legs, head thrust forward
       const claw = new THREE.MeshLambertMaterial({ color: 0xffc23d });
@@ -684,44 +738,57 @@ export class ShooterMesh {
       this.turret.add(head);
       mouth(head, -0.5, -0.1, 0.28);
     } else {
-      // fire lizard: lean and upright, claws raised, horned head, tail ablaze
+      // fire drake: upright on clawed hind legs, plated belly, horned head, tail ablaze
       const claw = new THREE.MeshLambertMaterial({ color: 0xf4efe6 });
       this.mats.push(claw);
       for (const side of [-1, 1]) {
         const leg = new THREE.Group();
-        leg.position.set(side * 0.22, 0.42, 0.04);
-        const thigh = sph(0.17, m.body, 0, -0.08, 0.02);
-        thigh.scale.set(0.9, 1.15, 1);
+        leg.position.set(side * 0.2, 0.52, 0.06);
+        const thigh = box(0.2, 0.3, 0.26, m.body, 0, -0.1, -0.02);
+        thigh.rotation.x = 0.4;
         leg.add(thigh);
-        leg.add(box(0.12, 0.2, 0.12, m.joint, 0, -0.24, 0.04)); // shin
-        leg.add(box(0.2, 0.08, 0.3, m.body, 0, -0.38, -0.06)); // foot
+        const shin = box(0.12, 0.24, 0.12, m.body, 0, -0.32, 0.08);
+        shin.rotation.x = -0.45;
+        leg.add(shin);
+        leg.add(box(0.2, 0.07, 0.3, m.joint, 0, -0.48, -0.06)); // foot
         for (const cx of [-0.06, 0, 0.06]) {
-          const c = cone(0.025, 0.1, claw);
-          c.rotation.x = -Math.PI / 2;
-          c.position.set(cx, -0.39, -0.25);
+          const c = cone(0.025, 0.11, claw);
+          c.rotation.x = -Math.PI / 2 - 0.3;
+          c.position.set(cx, -0.49, -0.25);
           leg.add(c);
         }
         this.root.add(leg);
         this.legs.push(leg);
       }
-      const torso = sph(0.3, m.body, 0, 0.66, 0.04);
-      torso.scale.set(1, 1.3, 0.85);
-      const belly = sph(0.23, m.trim, 0, 0.62, -0.08);
-      belly.scale.set(1, 1.35, 0.62);
-      this.root.add(torso, belly);
-      // a row of dark ridges down the back
-      for (let k = 0; k < 3; k++) {
-        const ridge = cone(0.04, 0.14, m.joint);
-        ridge.position.set(0, 0.88 - k * 0.16, 0.28 + k * 0.02);
-        ridge.rotation.x = 1.2;
-        this.root.add(ridge);
+      // torso leans forward like it's about to pounce
+      const torso = box(0.42, 0.5, 0.36, m.body, 0, 0.74, 0.02);
+      torso.rotation.x = 0.18;
+      this.root.add(torso);
+      const belly = box(0.3, 0.42, 0.04, m.trim, 0, 0.72, -0.17);
+      belly.rotation.x = 0.18;
+      this.root.add(belly);
+      for (const y of [0.62, 0.74, 0.86]) {
+        const seam = box(0.3, 0.015, 0.02, m.joint, 0, y, -0.19 - (y - 0.74) * 0.18);
+        seam.rotation.x = 0.18;
+        this.root.add(seam);
+      }
+      // dark dorsal spikes along the back
+      for (let k = 0; k < 4; k++) {
+        const spike = cone(0.04, 0.16, m.joint);
+        spike.position.set(0, 0.98 - k * 0.14, 0.22 + k * 0.04);
+        spike.rotation.x = 1.0;
+        this.root.add(spike);
       }
       // long tail sweeping back and up, a big flame at the tip
       const tail = new THREE.Group();
-      tail.position.set(0, 0.42, 0.28);
-      [0.13, 0.11, 0.09, 0.075].forEach((r, k) => tail.add(sph(r, m.body, 0, k * 0.1 + (k > 1 ? (k - 1) * 0.08 : 0), 0.12 + k * 0.17)));
+      tail.position.set(0, 0.5, 0.22);
+      [0.16, 0.13, 0.1, 0.08].forEach((w, k) => {
+        const seg = box(w, w, 0.26, m.body, 0, k * 0.07 + (k > 1 ? (k - 1) * 0.07 : 0), 0.12 + k * 0.22);
+        seg.rotation.x = -0.15 - k * 0.12;
+        tail.add(seg);
+      });
       const flame = new THREE.Group();
-      flame.position.set(0, 0.56, 0.68);
+      flame.position.set(0, 0.48, 0.92);
       // teardrop layers: a round base with a licking tip, glowing additively
       const fire = (r: number, h: number, color: number, y: number, opacity: number) => {
         const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -737,47 +804,54 @@ export class ShooterMesh {
       tail.add(flame);
       this.flame = flame;
       this.root.add(tail);
-      this.turret.position.y = 0.9;
+      this.turret.position.y = 0.98;
       this.root.add(this.turret);
-      // arms reach forward, claws spread
+      // arms out to the sides in a fighting stance, claws curled
       for (const side of [-1, 1]) {
         const arm = new THREE.Group();
-        arm.position.set(side * 0.3, -0.04, -0.06);
-        const upper = box(0.1, 0.1, 0.24, m.body, 0, -0.04, -0.08);
-        upper.rotation.x = 0.4;
+        arm.position.set(side * 0.27, -0.04, -0.06);
+        const upper = box(0.1, 0.22, 0.1, m.body, side * 0.04, -0.08, 0);
+        upper.rotation.z = side * 0.5;
         arm.add(upper);
-        arm.add(box(0.11, 0.08, 0.12, m.body, 0, -0.12, -0.24)); // hand
-        for (const cx of [-0.035, 0.035]) {
-          const c = cone(0.02, 0.1, claw);
-          c.rotation.x = -Math.PI / 2 - 0.4;
-          c.position.set(cx, -0.14, -0.34);
+        const fore = box(0.09, 0.2, 0.09, m.body, side * 0.1, -0.2, -0.1);
+        fore.rotation.x = 0.9;
+        arm.add(fore);
+        for (const cx of [-0.03, 0.03]) {
+          const c = cone(0.02, 0.09, claw);
+          c.rotation.x = -Math.PI / 2 - 0.2;
+          c.position.set(side * 0.1 + cx, -0.27, -0.22);
           arm.add(c);
         }
         this.turret.add(arm);
       }
-      // head: cranium, long snout, glaring slit eyes, horn swept back
+      this.turret.add(box(0.2, 0.14, 0.2, m.body, 0, 0.04, -0.02)); // neck
+      // head: angular skull, long snout, glaring slit eyes, horn swept back
       const head = new THREE.Group();
-      head.position.set(0, 0.24, -0.06);
-      const skull = sph(0.27, m.body, 0, 0.04, 0.02);
-      skull.scale.set(1, 0.88, 1.12);
-      head.add(skull);
-      head.add(box(0.3, 0.15, 0.32, m.body, 0, -0.02, -0.28)); // snout
-      head.add(box(0.24, 0.05, 0.08, m.joint, 0, 0.04, -0.44)); // nostril ridge
-      const horn = cone(0.06, 0.36, m.body);
-      horn.position.set(0, 0.2, 0.3);
-      horn.rotation.x = 1.9;
+      head.position.set(0, 0.22, -0.08);
+      head.add(box(0.36, 0.28, 0.34, m.body, 0, 0.04, 0.02)); // skull
+      const snout = box(0.28, 0.15, 0.3, m.body, 0, -0.02, -0.26);
+      snout.rotation.x = 0.06;
+      head.add(snout);
+      head.add(box(0.22, 0.04, 0.06, m.joint, 0, 0.05, -0.4)); // nostrils
+      const horn = cone(0.055, 0.34, m.body);
+      horn.position.set(0, 0.22, 0.24);
+      horn.rotation.x = 1.95;
       head.add(horn);
       for (const side of [-1, 1]) {
-        const brow = box(0.16, 0.06, 0.08, m.joint, side * 0.11, 0.15, -0.2);
-        brow.rotation.z = side * 0.45;
-        const eye = box(0.11, 0.04, 0.02, m.eyeMat, side * 0.11, 0.095, -0.215);
-        eye.rotation.z = side * 0.45;
-        const pupil = box(0.025, 0.045, 0.01, dark, side * 0.1, 0.095, -0.228);
+        const brow = box(0.14, 0.06, 0.12, m.joint, side * 0.1, 0.16, -0.14);
+        brow.rotation.z = side * 0.4;
+        const eye = box(0.1, 0.04, 0.02, m.eyeMat, side * 0.1, 0.105, -0.155);
+        eye.rotation.z = side * 0.4;
+        const pupil = box(0.022, 0.045, 0.01, dark, side * 0.09, 0.105, -0.167);
         head.add(brow, eye, pupil);
+        const cheek = cone(0.035, 0.12, m.body);
+        cheek.position.set(side * 0.19, 0.0, 0.06);
+        cheek.rotation.z = side * -1.3;
+        head.add(cheek);
       }
-      teeth(head, 0.11, -0.42, -0.2, -0.1, true);
+      teeth(head, 0.1, -0.38, -0.18, -0.09, true);
       this.turret.add(head);
-      mouth(head, -0.44, -0.1, 0.26);
+      mouth(head, -0.4, -0.09, 0.24);
     }
   }
 
@@ -881,35 +955,45 @@ export class ShooterMesh {
     this.barrel.add(drum, tube, ring, sight);
     this.turret.add(this.barrel);
 
-    // head: black face, slanted green eyes, mandibles, rhino horn, missile tubes
+    // head: compact helmet, V visor, slanted eyes, mandibles, rhino horn, seeker missiles
     const head = new THREE.Group();
-    head.position.set(0, 0.86, -0.02);
-    head.add(box(0.72, 0.46, 0.64, m.body)); // helmet
-    head.add(box(0.58, 0.26, 0.06, visor, 0, -0.04, -0.32)); // black face
+    head.position.set(0, 0.8, -0.02);
+    head.add(box(0.6, 0.38, 0.56, m.body, 0, 0, 0)); // helmet
+    // the brow drops to a point over the visor: a permanent scowl
     for (const side of [-1, 1]) {
-      const eye = box(0.17, 0.055, 0.02, m.eyeMat, side * 0.13, 0.0, -0.355);
-      eye.rotation.z = side * 0.42;
+      const brow = box(0.3, 0.07, 0.08, m.body, side * 0.13, 0.08, -0.29);
+      brow.rotation.z = side * 0.32;
+      head.add(brow);
+    }
+    head.add(box(0.5, 0.2, 0.05, visor, 0, -0.04, -0.28)); // black face
+    for (const side of [-1, 1]) {
+      const eye = box(0.15, 0.045, 0.02, m.eyeMat, side * 0.12, -0.01, -0.31);
+      eye.rotation.z = side * 0.38;
       head.add(eye);
-      const mandible = cone(0.04, 0.2, m.trim);
+      const mandible = cone(0.035, 0.16, m.trim);
       mandible.rotation.set(-Math.PI / 2 - 0.5, 0, side * 0.35);
-      mandible.position.set(side * 0.16, -0.22, -0.36);
+      mandible.position.set(side * 0.13, -0.19, -0.3);
       head.add(mandible);
-      head.add(box(0.08, 0.2, 0.26, m.accent, side * 0.38, -0.02, 0)); // ear discs
-      // seeker-missile tubes rising off the back of the head
-      const tube2 = cyl(0.065, 0.36, m.trim, 10);
-      tube2.position.set(side * 0.24, 0.36, 0.2);
-      tube2.rotation.x = 0.4;
-      const warhead = cone(0.065, 0.14, m.accent);
-      warhead.position.set(side * 0.24, 0.57, 0.28);
-      warhead.rotation.x = 0.4;
-      head.add(tube2, warhead);
+      head.add(box(0.07, 0.18, 0.22, m.accent, side * 0.32, -0.02, 0.02)); // ear discs
+      // seeker missiles: low twin launchers swept back along the helmet
+      const pod = new THREE.Group();
+      pod.position.set(side * 0.2, 0.22, 0.12);
+      pod.rotation.set(-0.35, 0, side * -0.25);
+      pod.add(box(0.12, 0.1, 0.32, m.trim));
+      for (const dx of [-0.03, 0.03]) {
+        const tip = cone(0.022, 0.07, m.accent);
+        tip.rotation.x = -Math.PI / 2;
+        tip.position.set(dx, 0, -0.19);
+        pod.add(tip);
+      }
+      head.add(pod);
     }
     // the rhino horn tapers as it curls forward, ending in a fork
     const hornSegs: [number, number, number, number, number, number][] = [
       // top radius, bottom radius, length, y, z, tilt
-      [0.09, 0.13, 0.3, 0.34, -0.17, -0.2],
-      [0.065, 0.09, 0.26, 0.56, -0.26, -0.6],
-      [0.045, 0.065, 0.22, 0.7, -0.42, -1.05],
+      [0.07, 0.11, 0.26, 0.3, -0.15, -0.25],
+      [0.05, 0.07, 0.24, 0.5, -0.24, -0.65],
+      [0.035, 0.05, 0.2, 0.63, -0.39, -1.1],
     ];
     for (const [rt, rb, h, y, z, tilt] of hornSegs) {
       const seg = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 6), m.body);
@@ -918,9 +1002,9 @@ export class ShooterMesh {
       head.add(seg);
     }
     for (const side of [-1, 1]) {
-      const fork = cone(0.045, 0.2, m.body);
-      fork.position.set(side * 0.05, 0.76, -0.58);
-      fork.rotation.set(-1.45, 0, -side * 0.4);
+      const fork = cone(0.035, 0.16, m.body);
+      fork.position.set(side * 0.04, 0.68, -0.53);
+      fork.rotation.set(-1.5, 0, -side * 0.4);
       head.add(fork);
     }
     this.turret.add(head);
@@ -1235,6 +1319,33 @@ export class ShooterMesh {
   }
 
 
+
+  private ghostAlpha = 1;
+  /** fade the whole model (pack-mates beside the chase camera); 1 = solid */
+  setGhost(alpha: number) {
+    if (alpha === this.ghostAlpha) return;
+    this.ghostAlpha = alpha;
+    this.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        // remember each material's own look the first time it's faded
+        mat.userData.base ??= { opacity: mat.opacity, transparent: mat.transparent, depthWrite: mat.depthWrite };
+        const base = mat.userData.base as { opacity: number; transparent: boolean; depthWrite: boolean };
+        const ghost = alpha < 1;
+        mat.opacity = base.opacity * alpha;
+        mat.transparent = ghost || base.transparent;
+        mat.depthWrite = ghost ? false : base.depthWrite;
+        mat.needsUpdate = true;
+      }
+    });
+  }
+
+  /** world position of the barrel's tip, where a fired marble appears */
+  muzzleWorld(out: THREE.Vector3) {
+    this.root.updateMatrixWorld(true);
+    return this.barrel.localToWorld(out.set(0, 0, -0.25));
+  }
 
   /** true once the robot has been blown apart */
   broken = false;

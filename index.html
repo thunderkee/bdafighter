@@ -87,6 +87,10 @@
           <div class="pad-dir">
             <button class="pad-btn" data-btn="left" aria-label="Left">◀</button>
             <button class="pad-btn" data-btn="right" aria-label="Right">▶</button>
+            <!-- slider mode: drag along the track; the robot slides to that spot in its lane -->
+            <div class="pad-slider" aria-label="Move slider">
+              <div class="track"><i class="ticks"></i><b class="thumb" id="slider-thumb"></b><i class="target" id="slider-target"></i></div>
+            </div>
           </div>
           <div class="pad-right">
           <button class="pad-btn shield" data-btn="down" aria-label="Shield">▼<small>SHIELD</small></button>
@@ -184,6 +188,11 @@
               <span>Each unit fires its own marble colour.</span>
               <div class="char-grid" id="char-grid"></div>
               <a class="lab-link" href="./editor.html">UNIT LAB ▸ <small>edit names, traits and block designs, or build new units</small></a>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Your pack</b><em>you + CPU pack-mates</em></div>
+              <span>Bring up to two allies; they share your rail in their own lanes. Bigger packs get less armour and damage each, like the opponent's.</span>
+              <div class="seg" data-setting="playerPack"><button data-value="1">Solo</button><button data-value="2">2</button><button data-value="3">3</button></div>
             </div>
             <div class="setting">
               <div class="set-head"><b>Opponent unit</b><em id="enemy-char-name">Auto</em></div>
@@ -309,6 +318,11 @@
               <div class="set-head"><b>Layout</b></div>
               <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom.</span>
               <div class="seg" data-setting="layout"><button data-value="gestures">Gestures</button><button data-value="buttons">Buttons</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Move with</b><em>buttons layout</em></div>
+              <span>◀ ▶ buttons, or a slider: drag along it and the robot slides to the matching spot on its rail.</span>
+              <div class="seg" data-setting="moveControl"><button data-value="buttons">◀ ▶ Buttons</button><button data-value="slider">Slider</button></div>
             </div>
             <div class="setting">
               <div class="set-head"><b>Fire buttons</b><em>buttons layout</em></div>

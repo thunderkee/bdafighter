@@ -48,7 +48,9 @@ export const SUPER_HITS = 3;
 /** how a super marble differs from a normal one */
 const SUPER = { radius: 2.2, mass: 40, speed: 1.15, damage: 4 };
 /** player + up to three opponents */
-export const MAX_SHOOTERS = 4;
+/** slot 0 is you, 1-3 the opponent pack, 4-5 your pack-mates */
+export const MAX_SHOOTERS = 6;
+export const slotTeam = (slot: number): Team => (slot === 0 || slot >= 4 ? 0 : 1);
 
 /** symmetric puck layouts for 1..5 pucks */
 const PUCK_LAYOUTS: [number, number][][] = [
@@ -359,6 +361,8 @@ export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 export interface MatchOptions {
   /** one entry per opponent in the pack (1-3) */
   enemies: { stats: ShooterStats; maxHealth: number }[];
+  /** your CPU pack-mates (0-2) */
+  allies?: { stats: ShooterStats; maxHealth: number }[];
   pucks: number;
   covers: number;
   pins: number;
@@ -429,7 +433,7 @@ export class Game {
 
     this.buildArena();
     this.shooters = [new Shooter(this.world, 0, 0, playerStats)];
-    for (let i = 1; i < MAX_SHOOTERS; i++) this.shooters.push(new Shooter(this.world, 1, i, enemyStats));
+    for (let i = 1; i < MAX_SHOOTERS; i++) this.shooters.push(new Shooter(this.world, slotTeam(i), i, i >= 4 ? playerStats : enemyStats));
     for (const s of this.shooters) this.tags.set(s.collider.handle, { kind: 'shooter', s });
     this.buildBumps();
     this.buildObstacles();
@@ -449,12 +453,21 @@ export class Game {
     return this.shooters.filter((s) => s.team === 1 && s.alive);
   }
 
-  /** who a robot fights: opponents fight the player; the player faces the nearest live opponent */
+  /** robots of a team taking part this match */
+  team(t: Team) {
+    return this.shooters.filter((s) => s.team === t && s.active);
+  }
+
+  alive(t: Team) {
+    return this.shooters.filter((s) => s.team === t && s.alive);
+  }
+
+  /** who a robot fights: the live robot on the other team nearest along the rail */
   targetFor(s: Shooter): Shooter {
-    if (s.team === 1) return this.player;
-    let best = this.shooters[1];
+    const other: Team = s.team === 0 ? 1 : 0;
+    let best = other === 0 ? this.player : this.shooters[1];
     let bd = Infinity;
-    for (const e of this.aliveEnemies()) {
+    for (const e of this.alive(other)) {
       const d = Math.abs(e.x - s.x);
       if (d < bd) {
         bd = d;
@@ -466,9 +479,14 @@ export class Game {
 
   /** combined armour of the opponent team, 0..1 */
   enemyFrac() {
+    return this.teamFrac(1);
+  }
+
+  /** combined armour of a team, 0..1 (knocked-out members count as empty) */
+  teamFrac(t: Team) {
     let h = 0;
     let m = 0;
-    for (const e of this.enemies()) {
+    for (const e of this.team(t)) {
       h += Math.max(0, e.health);
       m += e.maxHealth;
     }
@@ -594,17 +612,32 @@ export class Game {
   }
 
   reset(playerStats: ShooterStats, opts: MatchOptions) {
-    this.player.reset(playerStats, opts.playerHealth ?? MATCH.maxHealth, true, [-ARENA.railHalfWidth, ARENA.railHalfWidth]);
-    // opponents split their rail into lanes so they never stand on each other
-    const n = Math.max(1, Math.min(MAX_SHOOTERS - 1, opts.enemies.length));
-    const span = ARENA.railHalfWidth * 2;
-    const gap = n > 1 ? 0.3 : 0;
-    for (let i = 1; i < MAX_SHOOTERS; i++) {
+    // each team splits its rail into lanes so pack-mates never stand on each other
+    const lanes = (n: number) => {
+      const span = ARENA.railHalfWidth * 2;
+      const gap = n > 1 ? 0.3 : 0;
+      return Array.from({ length: n }, (_, k): [number, number] => [
+        -ARENA.railHalfWidth + (span / n) * k + (k > 0 ? gap : 0),
+        -ARENA.railHalfWidth + (span / n) * (k + 1) - (k < n - 1 ? gap : 0),
+      ]);
+    };
+    // your side: you take the middle lane of three, the left of two
+    const allies = (opts.allies ?? []).slice(0, 2);
+    const own = lanes(1 + allies.length);
+    const youAt = allies.length === 2 ? 1 : 0;
+    const allyLanes = own.filter((_, k) => k !== youAt);
+    this.player.reset(playerStats, opts.playerHealth ?? MATCH.maxHealth, true, own[youAt]);
+    for (let k = 0; k < 2; k++) {
+      const a = allies[k] ?? { stats: playerStats, maxHealth: MATCH.maxHealth };
+      this.shooters[4 + k].reset(a.stats, a.maxHealth, k < allies.length, allyLanes[k] ?? own[0]);
+    }
+    // the opponent pack
+    const n = Math.max(1, Math.min(3, opts.enemies.length));
+    const theirs = lanes(n);
+    for (let i = 1; i <= 3; i++) {
       const k = i - 1;
       const e = opts.enemies[Math.min(k, opts.enemies.length - 1)];
-      const lo = -ARENA.railHalfWidth + (span / n) * k + (k > 0 ? gap : 0);
-      const hi = -ARENA.railHalfWidth + (span / n) * (k + 1) - (k < n - 1 ? gap : 0);
-      this.shooters[i].reset(e.stats, e.maxHealth, k < n, [lo, hi]);
+      this.shooters[i].reset(e.stats, e.maxHealth, k < n, theirs[Math.min(k, n - 1)]);
     }
     for (const m of this.marbles) if (m.active) this.despawn(m);
     this.puckCount = opts.pucks;
@@ -779,8 +812,8 @@ export class Game {
     attacker.dealt += amount;
     attacker.sinceHit = 0;
     if (target.health > 0) return;
-    if (target.team === 1 && this.aliveEnemies().length > 0) {
-      // one of the pack is down; the rest fight on
+    if (this.alive(target.team).length > 0) {
+      // one of the pack is down (you included); the rest fight on
       target.out = true;
       target.firing = false;
       target.body.setEnabled(false);
@@ -1189,7 +1222,7 @@ export class Game {
     this.dropSide = team === 0 ? 1 : 0;
     // one crate per side at a time
     if (this.drops.some((d) => d.team === team)) return;
-    const frac = team === 0 ? this.player.hpFrac : this.enemyFrac();
+    const frac = this.teamFrac(team);
     let total = 0;
     const weights = ITEM_TYPES.map((t) => {
       // repair kits mostly arrive when they're needed
@@ -1474,8 +1507,8 @@ export class Game {
 
   private finish() {
     if (this.phase !== 'fight') return;
-    const pf = this.player.health > 0 ? this.player.hpFrac : 0;
-    const ef = this.aliveEnemies().length ? this.enemyFrac() : 0;
+    const pf = this.alive(0).length ? this.teamFrac(0) : 0;
+    const ef = this.alive(1).length ? this.teamFrac(1) : 0;
     // compare fractions so boosted or pack health is judged fairly on time-out
     this.winner = Math.abs(pf - ef) < 1e-6 ? -1 : pf > ef ? 0 : 1;
     this.phase = 'ko';

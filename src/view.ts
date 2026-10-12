@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { ARENA, COLORS, MATCH } from './config';
-import type { Drop, Game, Gate, Team } from './game';
+import { MAX_SHOOTERS, slotTeam, type Drop, type Game, type Gate, type Team } from './game';
+
+/** every robot slot: 0 you, 1-3 opponents, 4-5 your pack-mates */
+const SLOTS = Array.from({ length: MAX_SHOOTERS }, (_, i) => i);
 import { ShooterMesh, characterById } from './robot';
 import { Stage } from './stage';
 import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
@@ -14,6 +17,8 @@ const SPARKS = 220;
 const AIM_DOTS = 26;
 const POWER_BALLS = 16;
 const GHOSTS = 5;
+/** seconds a fired marble takes to blend from the barrel onto its physics path */
+const LAUNCH_T = 0.18;
 const SMOKE = 90;
 
 interface Spark {
@@ -200,6 +205,11 @@ export class View {
   private tmpS = new THREE.Vector3();
   private tmpC = new THREE.Color();
   private white = new THREE.Color(0xffffff);
+  /** marbles leave from the barrel: per-marble offset from muzzle to physics spawn point */
+  private spawnSeen = new Map<number, number>();
+  private spawnOff = new Map<number, THREE.Vector3>();
+  private tmpOff = new THREE.Vector3();
+  private tmpMuzzle = new THREE.Vector3();
   private axis = new THREE.Vector3();
   private time = 0;
   /** game-time clock for world animation (slows with slow-mo) */
@@ -266,9 +276,9 @@ export class View {
     this.stage = new Stage('space');
     this.applyStage();
 
-    this.shooters = [0, 1, 2, 3].map((i) => new ShooterMesh(i === 0 ? 'angel' : 'dragon', this.teamBall[i === 0 ? 0 : 1]));
+    this.shooters = SLOTS.map((i) => new ShooterMesh(slotTeam(i) === 0 ? 'angel' : 'dragon', this.teamBall[slotTeam(i)]));
     for (const s of this.shooters) this.scene.add(s.root);
-    this.robotFx = [0, 1, 2, 3].map((i) => new RobotFx(this.scene, this.teamBall[i === 0 ? 0 : 1]));
+    this.robotFx = SLOTS.map((i) => new RobotFx(this.scene, this.teamBall[slotTeam(i)]));
     this.hopH = new Float32Array(MATCH.marblePool);
     this.hopV = new Float32Array(MATCH.marblePool);
     // soft contact shadows under every marble
@@ -291,10 +301,10 @@ export class View {
     for (let i = 0; i < SMOKE; i++) this.smoke.push({ life: 0, max: 1, p: new THREE.Vector3(), v: new THREE.Vector3(), size: 0.2, shade: 0.4 });
     // energy shields: a curved, hex-patterned wall in front of each robot
     const hexTex = this.makeHexTexture();
-    for (let i = 0; i < 4; i++) {
+    for (const i of SLOTS) {
       const arc = Math.PI * 0.75;
       const geo = new THREE.CylinderGeometry(1.15, 1.15, 1.9, 24, 1, true, Math.PI - arc / 2, arc);
-      const mat = new THREE.MeshBasicMaterial({ color: this.teamBall[i === 0 ? 0 : 1], map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+      const mat = new THREE.MeshBasicMaterial({ color: this.teamBall[slotTeam(i)], map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.visible = false;
       this.scene.add(mesh);
@@ -410,15 +420,15 @@ export class View {
     return hit ? { x: hit.x, y: -hit.z } : null;
   }
 
-  /** Swap the robot models: ids[0] is the player, ids[1..3] the opponents. */
+  /** Swap the robot models: ids[0] is the player, ids[1..3] the opponents, ids[4..5] your pack-mates. */
   setCharacters(ids: string[]) {
-    const all = [0, 1, 2, 3].map((i) => ids[i] ?? ids[1] ?? 'dragon');
+    const all = SLOTS.map((i) => ids[i] ?? (slotTeam(i) === 0 ? ids[0] : ids[1]) ?? 'dragon');
     this.teamBall = [characterById(all[0]).ball, characterById(all[1]).ball];
     // a mirror match keeps the opponent's marbles distinguishable
     if (all[0] === all[1]) this.teamBall[1] = 0xff5a4a;
     this.teamBall.forEach((c, i) => (this.marbleMesh[i].material as THREE.MeshPhongMaterial).color.set(c));
     this.shooters.forEach((old, i) => {
-      const ball = this.teamBall[i === 0 ? 0 : 1];
+      const ball = this.teamBall[slotTeam(i)];
       (this.shields[i].material as THREE.MeshBasicMaterial).color.set(ball);
       this.robotFx[i].ghostMats.forEach((m) => m.color.set(ball));
       if (old.id === all[i] && old.ball === ball && !old.broken) return;
@@ -662,6 +672,8 @@ export class View {
       // knocked-out pack members leave only their wreck behind
       sm.root.visible = s.active && !s.out;
       if (sm.root.visible && !sm.broken) sm.sync(s, this.time, dt * this.rate(i));
+      // your pack-mates stand beside the chase camera: see-through so they never wall off the view
+      if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
     this.updateKo(dt);
     this.updateRobotFx(dt);
@@ -693,6 +705,8 @@ export class View {
         if (mesh) {
           mesh.visible = true;
           mesh.position.set(p.x, m.radius + this.hop(m.idx, m, wdt), -p.y);
+          const lo = this.launchOffset(m);
+          if (lo) mesh.position.add(lo);
           // shimmer between white-hot and the ball's colour
           const pulse = 0.5 + 0.5 * Math.sin(this.time * 30 + m.idx);
           const base = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : this.teamBall[m.team];
@@ -721,6 +735,8 @@ export class View {
       }
       const h = this.hop(m.idx, m, wdt);
       this.tmpV.set(p.x, m.radius + h, -p.y);
+      const lo = this.launchOffset(m);
+      if (lo) this.tmpV.add(lo);
       this.tmpS.setScalar(m.radius);
       this.tmpM.compose(this.tmpV, q, this.tmpS);
       const mesh = this.marbleMesh[m.team];
@@ -854,7 +870,7 @@ export class View {
       // light trail: visible while the robot is (or was just) moving
       const spread = Math.abs(fx.history[fx.history.length - 1].x - s.x);
       const trailOn = fx.boost > 0 && spread > 0.05;
-      const ball = this.tmpC.set(this.teamBall[i === 0 ? 0 : 1]);
+      const ball = this.tmpC.set(this.teamBall[slotTeam(i)]);
       fx.ribbons.forEach((r, k) => {
         r.mesh.visible = trailOn;
         if (trailOn) r.update(fx.history, -s.y + (s.team === 0 ? 0.12 : -0.12), k === 1 ? this.white : ball, fx.boost);
@@ -919,6 +935,31 @@ export class View {
   }
 
   /** Visual hop height for a marble: impacts kick it up, gravity brings it down. */
+  /**
+   * Physics fires marbles from a point on the floor ahead of the robot. For their first
+   * moments draw them coming out of the actual barrel (chest cannon, arm, mouth), then
+   * ease them onto their real path.
+   */
+  private launchOffset(m: { idx: number; radius: number; spawnOrder?: number; age?: number; owner?: number; body: { translation: () => { x: number; y: number } } }) {
+    if (m.spawnOrder === undefined || m.age === undefined || m.owner === undefined) return null;
+    if (this.spawnSeen.get(m.idx) !== m.spawnOrder) {
+      this.spawnSeen.set(m.idx, m.spawnOrder);
+      this.spawnOff.delete(m.idx);
+      const sm = this.shooters[m.owner];
+      // only fresh shots from a robot (gate splits and revived balls start where they are)
+      if (sm && sm.root.visible && !sm.broken && m.age < 0.06) {
+        const p = m.body.translation();
+        const w = sm.muzzleWorld(this.tmpMuzzle);
+        const off = new THREE.Vector3(w.x - p.x, Math.max(0, w.y - m.radius), w.z + p.y);
+        if (Math.hypot(off.x, off.z) < 1.8) this.spawnOff.set(m.idx, off);
+      }
+    }
+    const off = this.spawnOff.get(m.idx);
+    if (!off || m.age >= LAUNCH_T) return null;
+    const k = (1 - m.age / LAUNCH_T) ** 2;
+    return this.tmpOff.copy(off).multiplyScalar(k);
+  }
+
   private hop(idx: number, m: { hop: number }, dt: number) {
     if (!this.realismOn) {
       m.hop = 0;
@@ -1065,7 +1106,7 @@ export class View {
       if (!sm.broken) return;
       this.scene.remove(sm.root);
       sm.dispose();
-      const next = new ShooterMesh(sm.id, this.teamBall[i === 0 ? 0 : 1]);
+      const next = new ShooterMesh(sm.id, this.teamBall[slotTeam(i)]);
       this.scene.add(next.root);
       this.shooters[i] = next;
     });
@@ -1095,9 +1136,10 @@ export class View {
   /** the robot that lost the round: the player, or the last opponent standing */
   loserSlot() {
     const g = this.game;
-    if (g.winner !== 0) return 0;
-    const last = g.shooters.find((s) => s.team === 1 && s.active && !s.out);
-    return last ? last.slot : 1;
+    // the losing team's last robot standing (a draw counts against your side)
+    const team = g.winner === 0 ? 1 : 0;
+    const last = g.shooters.find((s) => s.team === team && s.active && !s.out);
+    return last ? last.slot : team === 0 ? 0 : 1;
   }
 
   /** pops, then the robot blows apart into tumbling, smoking debris */
@@ -1107,7 +1149,7 @@ export class View {
     const sdt = dt * 0.6;
     ko.t += sdt;
     const l = g.shooters[ko.slot];
-    const color = ko.slot === 0 ? COLORS.player : COLORS.enemy;
+    const color = slotTeam(ko.slot) === 0 ? COLORS.player : COLORS.enemy;
     const sp = () => this.project(l.x, l.y, 1);
     // three pops from different spots on the body
     const popAt = [0.05, 0.3, 0.55];
@@ -1566,11 +1608,14 @@ export class View {
     let shot = 0;
     if (c.kind === 'intro') {
       if (c.t < 1.7) {
-        // orbit in front of the player's robot, further out for the big beasts
+        // orbit in front of your robot (or your whole pack), further out for the big beasts
+        const own = this.game.shooters.filter((s) => s.team === 0 && s.active);
+        const cx = own.reduce((a, s) => a + s.x, 0) / Math.max(1, own.length);
         const k = this.modelScale(0);
+        const r = 3.4 * k + (own.length - 1) * 1.6;
         const a = -0.9 + c.t * 0.9;
-        this.camGoal.set(p.x + Math.sin(a) * 3.4 * k, (1.4 + c.t * 0.25) * k, -p.y - Math.cos(a) * 3.4 * k);
-        this.lookGoal.set(p.x, 1.15 * k, -p.y);
+        this.camGoal.set(cx + Math.sin(a) * r, (1.4 + c.t * 0.25) * k + (own.length - 1) * 0.6, -p.y - Math.cos(a) * r);
+        this.lookGoal.set(cx, 1.15 * k, -p.y);
       } else if (c.t < 3.4) {
         shot = 1;
         const a = 0.9 - (c.t - 1.7) * 0.9;

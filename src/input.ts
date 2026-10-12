@@ -25,6 +25,9 @@ type PadButton = 'left' | 'right' | 'fire' | 'down' | 'fireL' | 'fireR';
  */
 export class PadTracker {
   private fingers = new Map<number, PadButton | null>();
+  /** the finger working the move slider (if any) and where it is along the track, 0..1 */
+  private sliderId: number | null = null;
+  private sliderU = 0.5;
 
   constructor(private el: HTMLElement) {
     const opts = { passive: false } as const;
@@ -71,7 +74,34 @@ export class PadTracker {
     return best;
   }
 
+  /** 0..1 along the slider track for a screen x */
+  private trackU(x: number) {
+    const track = this.el.querySelector<HTMLElement>('.pad-slider .track');
+    const r = track?.getBoundingClientRect();
+    if (!r || !r.width) return 0.5;
+    return Math.max(0, Math.min(1, (x - r.left) / r.width));
+  }
+
+  /** where the slider finger is (0..1), or null when nobody is touching it */
+  slider() {
+    return this.sliderId === null ? null : this.sliderU;
+  }
+
   private down = (e: PointerEvent) => {
+    // the move slider owns any touch that starts on it (never a nearby button)
+    const onSlider = (e.target as Element | null)?.closest?.('.pad-slider') || document.elementFromPoint(e.clientX, e.clientY)?.closest('.pad-slider');
+    if (onSlider && this.sliderId === null) {
+      e.preventDefault();
+      try {
+        this.el.setPointerCapture(e.pointerId);
+      } catch {
+        // still tracked without capture
+      }
+      this.sliderId = e.pointerId;
+      this.sliderU = this.trackU(e.clientX);
+      this.onPress?.();
+      return;
+    }
     const b = this.buttonAt(e.clientX, e.clientY);
     if (!b) return;
     e.preventDefault();
@@ -85,6 +115,10 @@ export class PadTracker {
   };
 
   private move = (e: PointerEvent) => {
+    if (e.pointerId === this.sliderId) {
+      this.sliderU = this.trackU(e.clientX);
+      return;
+    }
     if (!this.fingers.has(e.pointerId)) return;
     // slide between buttons; a finger that drifts off keeps its last button
     const b = this.buttonAt(e.clientX, e.clientY);
@@ -93,6 +127,7 @@ export class PadTracker {
 
   private up = (e: PointerEvent) => {
     this.fingers.delete(e.pointerId);
+    if (e.pointerId === this.sliderId) this.sliderId = null;
   };
 
   held(name: PadButton) {
@@ -103,6 +138,7 @@ export class PadTracker {
   /** forget every finger (pause / leaving the match) */
   clear() {
     this.fingers.clear();
+    this.sliderId = null;
   }
 }
 
@@ -241,11 +277,18 @@ export class Input {
     const k = this.keys;
     const b = this.buttons;
     if (this.pad) for (const name of Object.keys(b) as PadButton[]) b[name] = this.pad.held(name);
+    // slider: the thumb's spot on the track is a spot in the robot's lane
+    const slide = this.settings.layout === 'buttons' && this.settings.moveControl === 'slider' ? this.pad?.slider() ?? null : null;
+    if (slide !== null) {
+      const [lo, hi] = p.lane;
+      p.moveTarget = lo + slide * (hi - lo);
+      p.moveAxis = 0;
+    }
     const left = k.has('KeyA') || k.has('ArrowLeft') || b.left;
     const right = k.has('KeyD') || k.has('ArrowRight') || b.right;
     const axis = (right ? 1 : 0) - (left ? 1 : 0);
     const turning = this.settings.arrows === 'aim';
-    if (!this.moveTouch) {
+    if (!this.moveTouch && slide === null) {
       p.moveAxis = turning ? 0 : axis;
       if (axis && !turning) p.moveTarget = null;
     }

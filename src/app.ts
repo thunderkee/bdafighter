@@ -1,7 +1,7 @@
 import { AI_PROFILES, ARENA, MATCH, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
-import { Game, STEP, type Shooter } from './game';
+import { Game, STEP, slotTeam, type Shooter } from './game';
 import { View } from './view';
 import { Input, PadTracker } from './input';
 import { AIController } from './ai';
@@ -68,7 +68,12 @@ export function boot() {
     };
   };
   const healthTrait = (id: string) => traitMul(characterById(id).traits?.health);
-  const playerStats = () => withTraits({ ...computeStats(STARTER_BUILD), capacity: magazine() }, saveData.settings.character);
+  const playerStats = () => {
+    const base = computeStats(STARTER_BUILD);
+    // a bigger pack hits softer each, like the opponent's
+    const sc = PACK_SCALE[allySize() - 1];
+    return withTraits({ ...base, capacity: magazine(), damage: base.damage * sc.damage }, saveData.settings.character);
+  };
   const enemyStats = () => {
     const st = saveData.settings;
     const base = computeStats(STARTER_BUILD, profile.stats);
@@ -91,6 +96,17 @@ export function boot() {
     { health: 0.6, damage: 0.5 },
     { health: 0.4, damage: 0.38 },
   ];
+  const allySize = () => Math.max(1, Math.min(3, Math.round(saveData.settings.playerPack || 1)));
+  /** your CPU pack-mates: standard stats with the same pack scaling as the other side */
+  const packAllies = () => {
+    const sc = PACK_SCALE[allySize() - 1];
+    const ids = unitIds();
+    const base = { ...computeStats(STARTER_BUILD), capacity: magazine() };
+    return Array.from({ length: allySize() - 1 }, (_, k) => ({
+      stats: withTraits({ ...base, damage: base.damage * sc.damage }, ids[4 + k]),
+      maxHealth: MATCH.maxHealth * sc.health * healthTrait(ids[4 + k]),
+    }));
+  };
   const packEnemies = () => {
     const sc = PACK_SCALE[packSize() - 1];
     const base = enemyStats();
@@ -102,6 +118,8 @@ export function boot() {
   };
   /** pack members after the first get random units (fixed for the match) */
   let packIds: string[] = [];
+  /** your pack-mates' units */
+  let allyIds: string[] = [];
   /** opponent robot: the chosen one, or on auto the dragon unless the player picked it */
   const enemyCharacter = () => {
     const st = saveData.settings;
@@ -112,13 +130,14 @@ export function boot() {
   const game = new Game(playerStats(), enemyStats());
   const view = new View($('stage'), game);
   const player = game.player;
-  /** one controller per opponent slot */
+  /** one controller per CPU robot: opponents (slots 1-3) and your pack-mates (4-5) */
   const ais = game.shooters.slice(1).map((s) => new AIController(game, s, profile));
   /** the opponent the HUD shows: the one the player is facing */
   const focus = () => game.targetFor(player);
   const unitIds = () => {
     const ids = [saveData.settings.character, enemyCharacter()];
     for (let i = 2; i <= 3; i++) ids.push(packIds[i - 2] ?? enemyCharacter());
+    for (let i = 0; i < 2; i++) ids.push(allyIds[i] ?? saveData.settings.character);
     return ids;
   };
   const input = new Input($('touch'), player, (x, y) => view.screenToWorld(x, y));
@@ -229,7 +248,8 @@ export function boot() {
     view.resetMatch();
     game.reset(playerStats(), {
       enemies: packEnemies(),
-      playerHealth: MATCH.maxHealth * healthTrait(st.character),
+      allies: packAllies(),
+      playerHealth: MATCH.maxHealth * healthTrait(st.character) * PACK_SCALE[allySize() - 1].health,
       pucks: st.pucks,
       covers: st.covers,
       pins: st.pins,
@@ -259,14 +279,18 @@ export function boot() {
   const startMatch = () => {
     sfx.unlock();
     const st = saveData.settings;
-    for (const a of ais) {
-      a.straight = st.enemyAim === 'straight';
-      a.speedMul = level(st.enemySpeed);
-      a.agility = AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1];
-    }
-    // extra pack members: random units, different from yours and from the leader
+    // the Opponent settings tune the other side; your pack-mates play at standard skill
+    ais.forEach((a, i) => {
+      const foe = slotTeam(i + 1) === 1;
+      a.straight = foe && st.enemyAim === 'straight';
+      a.speedMul = foe ? level(st.enemySpeed) : 1;
+      a.agility = foe ? AGILITY[Math.max(1, Math.min(5, st.enemyAgility)) - 1] : 1;
+    });
+    // extra pack members on both sides: random units, all different where the roster allows
     const pool = CHARACTERS.map((c) => c.id).filter((id) => id !== st.character && id !== enemyCharacter());
-    packIds = [0, 1].map(() => pool.splice(Math.floor(Math.random() * pool.length), 1)[0] ?? enemyCharacter());
+    const draw = (fallback: string) => pool.splice(Math.floor(Math.random() * pool.length), 1)[0] ?? fallback;
+    packIds = [0, 1].map(() => draw(enemyCharacter()));
+    allyIds = [0, 1].map(() => draw(st.character));
     // each CPU unit's agility trait sharpens (or dulls) its dodging on top of the setting
     const ids = unitIds();
     ais.forEach((a, i) => (a.agility *= traitMul(characterById(ids[i + 1]).traits?.agility)));
@@ -278,13 +302,16 @@ export function boot() {
     matchWinner = -1;
     setupRound();
     buildPips();
-    const pName = characterById(st.character).name.toUpperCase();
+    const pName = characterById(st.character).name.toUpperCase() + (allySize() > 1 ? ` +${allySize() - 1}` : '');
     const eName = characterById(enemyCharacter()).name.toUpperCase() + (packSize() > 1 ? ` +${packSize() - 1}` : '');
     $('player-name').textContent = pName;
     $('enemy-name').textContent = eName;
     $('intro-p1').textContent = pName;
     $('intro-p2').textContent = eName;
-    $('intro-p1-sub').textContent = `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
+    $('intro-p1-sub').textContent =
+      allySize() > 1
+        ? `PACK OF ${allySize()} // ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
+        : `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
     $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : `CPU // ${profile.name.toUpperCase()}`;
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
@@ -511,6 +538,7 @@ export function boot() {
     $('title-unit').textContent = characterById(st.character).name.toUpperCase();
     $('title-stage').textContent = stageById(st.stage).name.toUpperCase();
     document.body.classList.toggle('buttons', st.layout === 'buttons');
+    document.body.classList.toggle('slider', st.layout === 'buttons' && st.moveControl === 'slider');
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
     padDir[1].textContent = st.arrows === 'aim' ? '↷' : '▶';
@@ -605,6 +633,7 @@ export function boot() {
   // on-screen pad: one tracker for every finger on it
   const pad = new PadTracker($('pad'));
   pad.onPress = () => sfx.unlock();
+  const sliderEl = document.querySelector<HTMLElement>('.pad-slider')!;
   input.pad = pad;
   const padButtons = [...document.querySelectorAll<HTMLElement>('.pad-btn')];
 
@@ -703,8 +732,9 @@ export function boot() {
       // fx the HUD cares about; the view consumes the list afterwards
       for (const f of game.fx) {
         if (f.type === 'eliminated') {
-          const left = game.aliveEnemies().length;
-          showToast(`UNIT DOWN // ${left} LEFT`, 0xffc23d);
+          if (slotTeam(f.slot) === 1) showToast(`UNIT DOWN // ${game.aliveEnemies().length} LEFT`, 0xffc23d);
+          else if (f.slot === 0) showToast('YOU ARE DOWN // PACK FIGHTS ON', 0xff3e5e);
+          else showToast(`ALLY DOWN // ${game.alive(0).length} LEFT`, 0xff3e5e);
         }
         if (f.type === 'hit') {
           chipDelay[f.team] = 0.45;
@@ -727,7 +757,7 @@ export function boot() {
           if (f.slot === 0) showToast(`${def.name.toUpperCase()} ACQUIRED`, def.color);
           if (f.slot === 0 && saveData.settings.vibrate) buzz(25);
         }
-        if (f.type === 'use' && f.slot !== 0) showToast(`ENEMY ${ITEMS[f.item].name.toUpperCase()}`, 0xff3e5e);
+        if (f.type === 'use' && slotTeam(f.slot) === 1) showToast(`ENEMY ${ITEMS[f.item].name.toUpperCase()}`, 0xff3e5e);
         if (f.type === 'drop-destroyed') showToast(f.team === 0 ? 'SUPPLY DESTROYED' : 'ENEMY SUPPLY DENIED', f.team === 0 ? 0xff3e5e : ITEMS[f.item].color);
       }
 
@@ -736,6 +766,14 @@ export function boot() {
     }
 
     for (const el of padButtons) el.classList.toggle('held', pad.held(el.dataset.btn as 'left'));
+    // slider thumb rides with the robot's place in its lane; a tick marks where the finger is
+    if (document.body.classList.contains('slider')) {
+      const [lo, hi] = player.lane;
+      sliderEl.style.setProperty('--u', String(Math.max(0, Math.min(1, (player.x - lo) / Math.max(0.01, hi - lo)))));
+      const u = pad.slider();
+      sliderEl.classList.toggle('active', u !== null);
+      if (u !== null) sliderEl.style.setProperty('--t', String(u));
+    }
     view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
       const shown = [view.game.shooters[0], view.game.shooters[focus().slot] ?? view.game.shooters[1]];
@@ -798,9 +836,9 @@ export function boot() {
     clock.textContent = Number.isFinite(game.clock) ? Math.ceil(game.clock).toString() : '∞';
     clock.classList.toggle('low', game.clock < 10);
 
-    // left bar: you; right bar: the whole opponent pack (shield/super from the one you face)
+    // each bar is a whole pack (just you when solo); shield/super from you and the one you face
     ([player, focus()] as Shooter[]).forEach((s, i) => {
-      const frac = i === 0 ? s.hpFrac : game.enemyFrac();
+      const frac = game.teamFrac(i === 0 ? 0 : 1);
       hpFill[i].style.width = frac * 100 + '%';
       chipDelay[i] -= dt;
       if (chipDelay[i] <= 0) chip[i] = Math.max(frac, chip[i] - dt * 0.4);

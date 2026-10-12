@@ -14,6 +14,10 @@ export interface Settings {
   pucks: number;
   /** show the player's dotted shooting line */
   aimLine: boolean;
+  /** buttons layout: move with the ◀ ▶ buttons or a slider */
+  moveControl: 'buttons' | 'slider';
+  /** your pack: you plus 0-2 CPU pack-mates (1-3) */
+  playerPack: number;
   /** opponent health level (1-5 -> 50/75/100/150/200%) */
   enemyHealth: number;
   /** opponent movement speed level (1-5, 3 = normal) */
@@ -90,6 +94,8 @@ export const DEFAULT_SETTINGS: Settings = {
   realism: true,
   showFps: false,
   magazine: 10,
+  playerPack: 1,
+  moveControl: 'buttons',
   roundTime: 60,
   burst: 1,
   pack: 1,
