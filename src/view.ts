@@ -720,6 +720,8 @@ export class View {
         this.trails.set(m.idx, trail);
         seen.add(m.idx);
         const glowColor = dragon ? ITEMS.dragon.color : gold ? GATES.x5.color : this.teamBall[m.team];
+        // the 2D glow draws over everything, so hold it until the ball has cleared the robot that fired it
+        if (this.leavingBarrel(m)) continue;
         this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(p.x, p.y, m.radius), color: hex(glowColor), trail: trail.slice(1) });
         continue;
       }
@@ -742,7 +744,7 @@ export class View {
       const mesh = this.marbleMesh[m.team];
       mesh.setMatrixAt(counts[m.team]++, this.tmpM);
       // fast marbles get a ThorVG motion streak
-      if (this.fxOn && speed > 11) {
+      if (this.fxOn && speed > 11 && !this.leavingBarrel(m)) {
         const a = this.project(p.x, p.y, m.radius + h);
         const k = Math.min(0.09, speed * 0.005);
         const b = this.project(p.x - v.x * k, p.y - v.y * k, m.radius + h);
@@ -756,6 +758,13 @@ export class View {
       const p = m.body.translation();
       const h = this.hopH[m.idx];
       this.tmpV.set(p.x, 0.02, -p.y);
+      // the shadow follows the drawn ball while it leaves the belly
+      const lo = this.spawnOff.get(m.idx);
+      if (lo && m.age < LAUNCH_T) {
+        const k = (1 - m.age / LAUNCH_T) ** 2;
+        this.tmpV.x += lo.x * k;
+        this.tmpV.z += lo.z * k;
+      }
       this.tmpS.setScalar(m.radius * (1.05 - Math.min(0.5, h * 0.8)));
       this.tmpQ.identity();
       this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS);
@@ -958,6 +967,16 @@ export class View {
     if (!off || m.age >= LAUNCH_T) return null;
     const k = (1 - m.age / LAUNCH_T) ** 2;
     return this.tmpOff.copy(off).multiplyScalar(k);
+  }
+
+  /**
+   * True while a fresh shot is still beside the robot that fired it. Overlay effects
+   * (streaks, glows) skip it then: they are drawn on top of the 3D scene and would
+   * show through the robot.
+   */
+  private leavingBarrel(m: { idx: number; age?: number; spawnOrder?: number }) {
+    if (m.age === undefined || m.spawnOrder === undefined) return false;
+    return m.age < 0.24 && this.spawnSeen.get(m.idx) === m.spawnOrder;
   }
 
   private hop(idx: number, m: { hop: number }, dt: number) {
@@ -1580,6 +1599,27 @@ export class View {
     this.camBase.lerp(this.camGoal, k);
     this.camLook.lerp(this.lookGoal, k);
     this.snapCamera = false;
+  }
+
+  private heightCache = new Map<string, number>();
+  /** screen point just above a robot's head, for its floating health tag (null if hidden) */
+  tagPoint(slot: number) {
+    const sm = this.shooters[slot];
+    const s = this.game.shooters[slot];
+    if (!sm || !s || !sm.root.visible) return null;
+    let h = this.heightCache.get(sm.id);
+    if (h === undefined) {
+      const box = new THREE.Box3().setFromObject(sm.root);
+      h = box.max.y - sm.root.position.y;
+      this.heightCache.set(sm.id, h);
+    }
+    // behind the camera (first-person, your own robot) there is nothing to tag
+    this.tmpV.set(s.x, h + 0.35, -s.y).project(this.camera);
+    if (this.tmpV.z > 1) return null;
+    const pt = this.project(s.x, s.y, h + 0.35);
+    // far fighters get smaller tags so a pack's tags don't pile up
+    const scale = Math.max(0.6, Math.min(1, this.screenRadius(s.x, s.y, 1) / 60));
+    return { ...pt, scale };
   }
 
   private sizeCache = new Map<string, number>();

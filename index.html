@@ -56,6 +56,8 @@
             </div>
           </div>
         </div>
+        <!-- "over fighters" mode: a health tag that follows each robot -->
+        <div id="unit-tags"></div>
         <div class="hud-btns">
           <button id="hud-settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
           <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
@@ -318,6 +320,11 @@
               <div class="set-head"><b>Layout</b></div>
               <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom.</span>
               <div class="seg" data-setting="layout"><button data-value="gestures">Gestures</button><button data-value="buttons">Buttons</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Health display</b></div>
+              <span>Top bar like a fighting game, or a health tag that floats over each fighter and follows it.</span>
+              <div class="seg" data-setting="hudMode"><button data-value="top">Top bar</button><button data-value="tags">Over fighters</button></div>
             </div>
             <div class="setting">
               <div class="set-head"><b>Move with</b><em>buttons layout</em></div>

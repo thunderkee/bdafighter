@@ -14,6 +14,8 @@ export interface Settings {
   pucks: number;
   /** show the player's dotted shooting line */
   aimLine: boolean;
+  /** health display: the fighting-game top bar, or tags that follow each fighter */
+  hudMode: 'top' | 'tags';
   /** buttons layout: move with the ◀ ▶ buttons or a slider */
   moveControl: 'buttons' | 'slider';
   /** your pack: you plus 0-2 CPU pack-mates (1-3) */
@@ -96,6 +98,7 @@ export const DEFAULT_SETTINGS: Settings = {
   magazine: 10,
   playerPack: 1,
   moveControl: 'buttons',
+  hudMode: 'top',
   roundTime: 60,
   burst: 1,
   pack: 1,

@@ -45,7 +45,12 @@
           <button data-cam="angle">3/4</button>
           <button id="animate" class="toggle">Animate</button>
         </div>
-        <p class="view-hint">Click a block to select it · drag to orbit · scroll to zoom · arrows / PgUp / PgDn nudge (Shift = bigger)</p>
+        <div class="gizmo-tools" role="group" aria-label="Transform tool">
+          <button data-gizmo="translate" title="Move (W)">✥ Move</button>
+          <button data-gizmo="rotate" title="Rotate (E)">⟳ Rotate</button>
+          <button data-gizmo="scale" title="Scale (R)">⤢ Scale</button>
+        </div>
+        <p class="view-hint">Click a block, then drag its handles to move / rotate / scale (W / E / R) · drag empty space to orbit · scroll to zoom · arrows / PgUp / PgDn nudge</p>
       </section>
 
       <!-- inspector -->

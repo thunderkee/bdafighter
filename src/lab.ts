@@ -1,6 +1,7 @@
 import './lab.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { BUILTINS, CHARACTERS, DEFAULT_SIZE, ShooterMesh, characterById, reloadRoster, resolveColor, type CharacterDef } from './robot';
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
 import { MATCH } from './config';
@@ -168,7 +169,7 @@ let camName = 'angle';
 function setCam(name: string) {
   camName = name;
   // narrow viewports need the camera further back to fit the unit's width
-  const fit = Math.max(1, 0.72 / Math.max(0.3, camera.aspect));
+  const fit = Math.max(1.2, 0.8 / Math.max(0.3, camera.aspect));
   const [x, y, z] = CAMS[name];
   camera.position.set(x * fit, 0.75 + (y - 0.75) * fit, z * fit);
   controls.target.set(0, 0.75, 0);
@@ -177,6 +178,7 @@ function setCam(name: string) {
 document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => b.addEventListener('click', () => setCam(b.dataset.cam!)));
 
 let animate = false;
+document.querySelectorAll<HTMLElement>('[data-gizmo]').forEach((b) => b.addEventListener('click', () => setGizmoMode(b.dataset.gizmo as GizmoMode)));
 $('animate').addEventListener('click', () => {
   animate = !animate;
   $('animate').classList.toggle('on', animate);
@@ -194,27 +196,70 @@ function rebuildPreview() {
   scene.add(model.root);
   updateHelper();
 }
+// on-canvas gizmo: drag the arrows / rings / boxes to move, rotate or scale the selected block
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setSize(0.85);
+gizmo.setSpace('local');
+scene.add(gizmo.getHelper());
+type GizmoMode = 'translate' | 'rotate' | 'scale';
+let gizmoUsed = false;
+function setGizmoMode(mode: GizmoMode) {
+  gizmo.setMode(mode);
+  document.querySelectorAll<HTMLElement>('[data-gizmo]').forEach((b) => b.classList.toggle('on', b.dataset.gizmo === mode));
+}
+gizmo.addEventListener('dragging-changed', (e) => {
+  const dragging = !!(e as unknown as { value: boolean }).value;
+  controls.enabled = !dragging;
+  if (dragging) {
+    gizmoUsed = true;
+    pushUndo();
+  } else {
+    // the drag is done: rebuild from the edited block and refresh the form
+    designChanged(true);
+    updateHelper();
+  }
+});
+// while dragging, write the transform straight into the block (rebuilt on release)
+gizmo.addEventListener('objectChange', () => {
+  const b = selected ? getBlock(selected) : null;
+  const o = gizmo.object;
+  if (!b || !o) return;
+  b.p = [r2(o.position.x), r2(o.position.y), r2(o.position.z)];
+  b.r = [r2(o.rotation.x), r2(o.rotation.y), r2(o.rotation.z)];
+  b.s = [r2(o.scale.x), r2(o.scale.y), r2(o.scale.z)];
+});
+
 function updateHelper() {
   if (helper) {
     scene.remove(helper);
     helper.dispose();
     helper = null;
   }
-  if (!model || !selected || selected === 'r') return;
   let target: THREE.Object3D | null = null;
-  model.root.traverse((o) => {
-    if (o.userData.path === selected) target = o;
-  });
+  if (model && selected && selected !== 'r') {
+    model.root.traverse((o) => {
+      if (o.userData.path === selected) target = o;
+    });
+  }
   if (target) {
     helper = new THREE.BoxHelper(target, 0xffd23e);
     scene.add(helper);
-  }
+    gizmo.attach(target);
+  } else gizmo.detach();
 }
 
 // click (not drag) on a block selects it
 let downAt: { x: number; y: number } | null = null;
-renderer.domElement.addEventListener('pointerdown', (e) => (downAt = { x: e.clientX, y: e.clientY }));
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  downAt = { x: e.clientX, y: e.clientY };
+  gizmoUsed = false;
+});
 renderer.domElement.addEventListener('pointerup', (e) => {
+  // a press that worked the gizmo never changes the selection
+  if (gizmoUsed) {
+    downAt = null;
+    return;
+  }
   if (!downAt || !model) return;
   const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
   downAt = null;
@@ -261,7 +306,8 @@ renderer.setAnimationLoop((now) => {
       fake.vx = fake.aim = fake.recoil = 0;
       fake.firing = false;
     }
-    model.sync(fake as unknown as Shooter, t, dt);
+    // hold the pose still while a block is being dragged, so animation never fights the gizmo
+    if (!gizmo.dragging) model.sync(fake as unknown as Shooter, t, dt);
     model.root.position.set(0, model.root.position.y, 0);
   }
   helper?.update();
@@ -772,7 +818,13 @@ window.addEventListener('keydown', (e) => {
     else stepHistory(undo, redo);
     return;
   }
-  if (typing || !selected || selected === 'r') return;
+  if (typing) return;
+  const modes: Record<string, GizmoMode> = { w: 'translate', e: 'rotate', r: 'scale' };
+  if (!e.metaKey && !e.ctrlKey && modes[e.key.toLowerCase()]) {
+    setGizmoMode(modes[e.key.toLowerCase()]);
+    return;
+  }
+  if (!selected || selected === 'r') return;
   const b = getBlock(selected);
   if (!b) return;
   const step = e.shiftKey ? 0.1 : 0.02;
@@ -807,4 +859,5 @@ renderProfile();
 renderPalette();
 renderTree();
 renderForm();
+setGizmoMode('translate');
 syncUndoButtons();

@@ -72,6 +72,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | FPS meter       | Show / Hide                                                              |
 |           | Camera          | Far / Mid / Near / Cockpit (first person)                                |
 |           | Layout          | **Gestures** or **Buttons**: ◀ ▶ bottom-left; ▼ shield above fire, bottom-right |
+|           | Health display  | **Top bar** (fighting-game HUD) or **Over fighters**: a health + shield tag floats over each robot and follows it (YOU in green, pack-mates blue, opponents red; glows when a super is ready) |
 |           | Move with       | **◀ ▶ Buttons** or **Slider**: drag along the slider and the robot slides to that spot in its lane |
 |           | Fire buttons    | **Single** FIRE, or **Triple**: front-left / front / front-right         |
 |           | Left / Right    | **Move** slides the robot; **Aim** turns its aim (◀ ▶ become ↶ ↷, A / D too) |
@@ -90,7 +91,8 @@ and the game picks them up on its next load.
 - **Colours**: palette swatches (body, trim, accent, joints, eyes/glow, marble). Blocks painted with a palette
   colour follow the swatch.
 - **Blocks**: every unit, built-ins included, opens as a tree of blocks (box, ball, tube, spike, ring, group).
-  Click a block on the model or in the list, then edit size, position, rotation, scale, colour and finish
+  Click a block on the model or in the list, then drag its on-canvas handles to move / rotate / scale it
+  (W / E / R switch tools), or edit size, position, rotation, scale, colour and finish
   (matte / glow / glossy). Add, duplicate, mirror to the other side, delete; arrows / PgUp / PgDn nudge.
   **Moves as** tags the animated parts: *Aims* (turns with the aim), *Leg* (walk cycle), *Barrel* (recoils),
   *Ball exit* (an empty marker on the belly where marbles leave), *Jaw*, *Flame*, *Trigger*.

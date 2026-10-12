@@ -538,6 +538,7 @@ export function boot() {
     $('title-unit').textContent = characterById(st.character).name.toUpperCase();
     $('title-stage').textContent = stageById(st.stage).name.toUpperCase();
     document.body.classList.toggle('buttons', st.layout === 'buttons');
+    document.body.classList.toggle('hud-tags', st.hudMode === 'tags');
     document.body.classList.toggle('slider', st.layout === 'buttons' && st.moveControl === 'slider');
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
@@ -698,6 +699,8 @@ export function boot() {
     last = now;
 
     if (screen === 'playing' && !paused && flow !== 'round') updateFlow(dt);
+    // health tags ride along every frame (and hide outside the fight)
+    if (screen === 'playing') updateTags(dt);
     if (screen === 'playing' && !paused && flow === 'round') {
       if (game.hitstop > 0) {
         game.hitstop -= dt;
@@ -808,6 +811,51 @@ export function boot() {
   let lastItem: ItemType | null | undefined;
   let faceSlot = 1;
   let lastEffects = '';
+  // ---------- health tags that follow each fighter ----------
+  const tagBox = $('unit-tags');
+  const tags = game.shooters.map(() => {
+    const el = document.createElement('div');
+    el.className = 'unit-tag hidden';
+    el.innerHTML = '<span class="tag-name"></span><div class="tag-hp"><i class="chip"></i><i class="fill"></i></div><div class="tag-sp"><i></i></div>';
+    tagBox.appendChild(el);
+    return {
+      el,
+      name: el.querySelector<HTMLElement>('.tag-name')!,
+      chip: el.querySelector<HTMLElement>('.chip')!,
+      fill: el.querySelector<HTMLElement>('.fill')!,
+      sp: el.querySelector<HTMLElement>('.tag-sp i')!,
+      chipFrac: 1,
+      id: '',
+    };
+  });
+  const updateTags = (dt: number) => {
+    const on = saveData.settings.hudMode === 'tags' && flow === 'round';
+    const ids = unitIds();
+    game.shooters.forEach((s, i) => {
+      const t = tags[i];
+      const pt = on && s.active && !s.out ? view.tagPoint(i) : null;
+      t.el.classList.toggle('hidden', !pt);
+      if (!pt) return;
+      if (t.id !== ids[i]) {
+        t.id = ids[i];
+        t.name.textContent = i === 0 ? 'YOU' : characterById(ids[i]).name.toUpperCase();
+        t.el.classList.toggle('you', i === 0);
+        t.el.classList.toggle('ally', i !== 0 && s.team === 0);
+        t.el.classList.toggle('foe', s.team === 1);
+      }
+      const frac = Math.max(0, s.health) / Math.max(1, s.maxHealth);
+      // a white trail shows the chunk just lost, then drains away
+      t.chipFrac = Math.max(frac, t.chipFrac - dt * 0.5);
+      if (frac > t.chipFrac) t.chipFrac = frac;
+      t.fill.style.width = frac * 100 + '%';
+      t.chip.style.width = t.chipFrac * 100 + '%';
+      t.sp.style.width = (s.shield / SHIELD.max) * 100 + '%';
+      t.el.classList.toggle('low', frac < 0.3);
+      t.el.classList.toggle('super', s.superReady);
+      t.el.style.transform = `translate(${pt.x.toFixed(1)}px, ${pt.y.toFixed(1)}px) translate(-50%, -100%) scale(${pt.scale.toFixed(2)})`;
+    });
+  };
+
   const updateHud = (dt: number) => {
     // countdown + KO banners
     if (game.phase === 'countdown') {

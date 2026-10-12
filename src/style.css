@@ -1507,3 +1507,95 @@ body.slider .pad-slider {
 .pad-slider.active .target {
   opacity: 0.8;
 }
+
+/* ---------- health tags over each fighter ("Over fighters" health display) ---------- */
+#unit-tags {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+}
+body.hud-tags #unit-tags {
+  display: block;
+}
+/* the top bar keeps names, portraits, rounds and the clock; health moves to the tags */
+body.hud-tags .vs-bar .hp,
+body.hud-tags .vs-bar .sp,
+body.hud-tags .vs-bar .readout {
+  display: none;
+}
+.unit-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 74px;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  will-change: transform;
+  font: 700 10px var(--display);
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  text-align: center;
+  text-shadow: 0 1px 2px #000;
+}
+.unit-tag.hidden {
+  display: none;
+}
+.unit-tag .tag-name {
+  display: block;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.unit-tag .tag-hp {
+  position: relative;
+  height: 7px;
+  background: rgba(4, 8, 18, 0.8);
+  border: 1px solid var(--team, var(--player));
+  overflow: hidden;
+}
+.unit-tag .tag-hp i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+}
+.unit-tag .tag-hp .chip {
+  background: #fff;
+  opacity: 0.55;
+}
+.unit-tag .tag-hp .fill {
+  background: var(--team, var(--player));
+}
+.unit-tag.low .tag-hp .fill {
+  background: #ff3e3e;
+  animation: blink 0.4s steps(2) infinite;
+}
+.unit-tag .tag-sp {
+  height: 3px;
+  margin-top: 2px;
+  background: rgba(4, 8, 18, 0.7);
+}
+.unit-tag .tag-sp i {
+  display: block;
+  height: 100%;
+  background: var(--cyan);
+}
+.unit-tag.foe {
+  --team: var(--enemy);
+}
+.unit-tag.ally {
+  --team: var(--player);
+}
+.unit-tag.you {
+  --team: var(--good);
+  width: 86px;
+}
+.unit-tag.you .tag-hp {
+  height: 9px;
+}
+.unit-tag.super .tag-hp {
+  box-shadow: 0 0 8px var(--amber);
+  border-color: var(--amber);
+}
