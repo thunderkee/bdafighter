@@ -786,132 +786,135 @@ export class ShooterMesh {
     }
   }
 
-  /**
-   * Beetle-type mech (medal-fighter style): insect legs, carapace chest,
-   * rhino horn with a forked tip, missile tubes on the head, revolver right
-   * arm (the barrel) and a sub-machine gun on the left.
-   */
+  /** Metabee from the figure sheet: chibi build, big round head with twin launchers, white ribbed core,
+   * yellow side plates and shoulder blocks, black gun barrels on the forearms and back, blocky yellow boots */
   private buildBeetle(
     def: CharacterDef,
     m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; gold: THREE.Material; eyeMat: THREE.Material; ballMat: THREE.Material },
   ) {
-    const box = (w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-      mesh.position.set(x, y, z);
-      return mesh;
-    };
-    const cyl = (r: number, h: number, mat: THREE.Material, seg = 12) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), mat);
-    const cone = (r: number, h: number, mat: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), mat);
-    const visor = new THREE.MeshBasicMaterial({ color: 0x07070b });
     void def;
+    const white = this.paint(0xf2f2ee);
+    const grey = this.paint(0xb9bcc4);
+    const deep = this.paint(0xd99a0c);
+    const visor = new THREE.MeshBasicMaterial({ color: 0x07070b });
+    const hole = new THREE.MeshBasicMaterial({ color: 0x050507 });
+    /** a black gun barrel pointing along -z, with a dark bore */
+    const gun = (len: number, r: number) => {
+      const g = new THREE.Group();
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), m.trim);
+      tube.rotation.x = Math.PI / 2;
+      tube.position.z = -len / 2;
+      const bore = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.6, r * 0.6, 0.012, 10), hole);
+      bore.rotation.x = Math.PI / 2;
+      bore.position.z = -len - 0.002;
+      g.add(tube, bore);
+      return g;
+    };
 
-    // digitigrade insect legs with toe spikes
+    // legs: white thighs, black knee hinge, big yellow boots crossed with an X, white feet with black claws
     for (const side of [-1, 1]) {
       const leg = new THREE.Group();
-      leg.position.set(side * 0.27, 0.5, 0);
-      leg.add(box(0.26, 0.24, 0.3, m.body, 0, -0.06, 0.02)); // thigh
-      const shin = box(0.2, 0.28, 0.22, m.trim, 0, -0.27, 0.06);
-      shin.rotation.x = -0.25;
-      leg.add(shin);
-      leg.add(box(0.12, 0.08, 0.12, m.accent, 0, -0.16, -0.12)); // knee light
-      leg.add(box(0.42, 0.14, 0.6, m.body, 0, -0.42, -0.06)); // foot
-      leg.add(box(0.04, 0.15, 0.6, m.trim, 0, -0.42, -0.06)); // toe split
-      for (const cx of [-0.13, 0.13]) {
-        const spike = cone(0.06, 0.18, m.trim);
-        spike.rotation.x = -Math.PI / 2;
-        spike.position.set(cx, -0.44, -0.44);
-        leg.add(spike);
+      leg.position.set(side * 0.19, 0.55, 0);
+      leg.add(rbox(0.13, 0.14, 0.14, 0.04, white, 0, -0.04, 0));
+      leg.add(rbox(0.12, 0.06, 0.12, 0.02, m.trim, 0, -0.13, 0));
+      leg.add(rbox(0.25, 0.3, 0.28, 0.05, m.body, 0, -0.3, 0));
+      leg.add(rbox(0.28, 0.08, 0.31, 0.03, m.body, 0, -0.43, 0));
+      for (const tilt of [-0.62, 0.62]) {
+        const x = rbox(0.03, 0.34, 0.02, 0.008, deep, 0, -0.32, -0.145);
+        x.rotation.z = tilt;
+        leg.add(x);
       }
+      leg.add(rbox(0.22, 0.07, 0.34, 0.03, white, 0, -0.505, -0.03));
+      for (const x of [-0.06, 0.06]) {
+        const claw = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.12, 4), m.trim);
+        claw.rotation.x = -Math.PI / 2;
+        claw.position.set(x, -0.52, -0.24);
+        leg.add(claw);
+      }
+      const heel = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 4), m.trim);
+      heel.rotation.x = Math.PI / 2;
+      heel.position.set(0, -0.52, 0.18);
+      leg.add(heel);
       this.root.add(leg);
       this.legs.push(leg);
     }
-    this.root.add(box(0.56, 0.16, 0.4, m.trim, 0, 0.56, 0)); // waist
+    // the round yellow pelvis, with a white crotch plate
+    const pelvis = new THREE.Mesh(new THREE.SphereGeometry(0.2, 18, 12), m.body);
+    pelvis.scale.set(1.15, 0.75, 1.05);
+    pelvis.position.set(0, 0.6, 0.03);
+    this.root.add(pelvis);
+    this.root.add(rbox(0.12, 0.1, 0.06, 0.025, white, 0, 0.56, -0.19));
 
-    this.turret.position.y = 0.62;
+    this.turret.position.y = 0.66;
     this.root.add(this.turret);
-    this.markBelly(this.turret, 0, 0.06, -0.35);
-    // carapace chest: yellow shell, black plate, medal in the middle
-    this.turret.add(box(0.82, 0.5, 0.6, m.body, 0, 0.26, 0));
-    this.turret.add(box(0.56, 0.3, 0.06, m.trim, 0, 0.28, -0.31));
+    // torso: white ribbed core between yellow side plates, yellow collar
+    this.turret.add(rbox(0.2, 0.16, 0.18, 0.05, white, 0, 0.06, 0));
+    for (const y of [0.02, 0.06, 0.1]) this.turret.add(rbox(0.16, 0.012, 0.02, 0.004, grey, 0, y, -0.092));
+    this.turret.add(rbox(0.3, 0.22, 0.26, 0.07, white, 0, 0.24, 0));
     for (const side of [-1, 1]) {
-      const rib = box(0.06, 0.26, 0.02, m.body, side * 0.14, 0.28, -0.345);
-      rib.rotation.z = side * 0.3;
-      this.turret.add(rib);
+      const plate = rbox(0.1, 0.22, 0.28, 0.04, m.body, side * 0.17, 0.25, 0);
+      plate.rotation.z = side * -0.08;
+      this.turret.add(plate);
     }
-    const medal = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), m.ballMat);
-    medal.position.set(0, 0.3, -0.34);
-    this.turret.add(medal);
-    // elytra on the back, cracked open
+    this.turret.add(rbox(0.36, 0.07, 0.26, 0.03, m.body, 0, 0.37, 0));
+    this.turret.add(rbox(0.08, 0.1, 0.03, 0.01, grey, 0, 0.24, -0.135));
+    this.markBelly(this.turret, 0, 0.14, -0.16);
+    // backpack (the trigger) with a dark vent, and the two black barrels angled up behind the shoulders
+    this.trigger = rbox(0.16, 0.14, 0.08, 0.03, white, 0, 0.28, 0.16);
+    this.trigger.add(rbox(0.08, 0.05, 0.02, 0.008, m.trim, 0, -0.02, 0.04));
+    this.turret.add(this.trigger);
     for (const side of [-1, 1]) {
-      const wing = box(0.36, 0.56, 0.08, m.body, side * 0.2, 0.32, 0.36);
-      wing.rotation.set(0.12, side * 0.3, side * 0.06);
-      this.turret.add(wing);
-      this.turret.add(box(0.03, 0.5, 0.09, m.trim, side * 0.035, 0.32, 0.34));
+      const back = gun(0.26, 0.045);
+      back.position.set(side * 0.13, 0.32, 0.14);
+      back.rotation.set(-2.3, side * -0.35, 0);
+      this.turret.add(back);
     }
-
-    // shoulders and forward-held arms
+    // shoulders, white upper arms, yellow forearm blocks; each forearm carries a black barrel
     for (const side of [-1, 1]) {
       const sh = new THREE.Group();
-      sh.position.set(side * 0.56, 0.36, 0);
-      sh.add(box(0.36, 0.32, 0.44, m.body));
-      sh.add(box(0.38, 0.07, 0.46, m.trim, 0, 0.17, 0));
-      sh.add(box(0.06, 0.16, 0.3, m.accent, side * 0.19, 0, 0));
-      const arm = box(0.2, 0.2, 0.36, m.trim, 0, -0.26, -0.16);
-      sh.add(arm);
+      sh.position.set(side * 0.28, 0.34, 0);
+      sh.add(rbox(0.16, 0.13, 0.2, 0.04, m.body, 0, 0, 0));
+      sh.add(rbox(0.17, 0.03, 0.21, 0.01, white, 0, -0.07, 0));
+      sh.add(rbox(0.08, 0.14, 0.08, 0.025, white, side * 0.02, -0.15, 0));
+      sh.add(rbox(0.13, 0.17, 0.15, 0.04, m.body, side * 0.03, -0.3, -0.02));
+      sh.add(rbox(0.08, 0.07, 0.08, 0.025, white, side * 0.03, -0.42, -0.02));
       if (side < 0) {
-        // sub-machine gun
-        const smg = new THREE.Group();
-        smg.position.set(0, -0.28, -0.42);
-        smg.add(box(0.16, 0.18, 0.36, m.body));
-        smg.add(box(0.06, 0.12, 0.08, m.trim, 0, -0.14, 0.08)); // magazine
-        const muzzle = cyl(0.04, 0.24, m.joint);
-        muzzle.rotation.x = Math.PI / 2;
-        muzzle.position.z = -0.28;
-        smg.add(muzzle);
-        sh.add(smg);
+        const off = gun(0.24, 0.04);
+        off.position.set(side * 0.1, -0.3, 0.06);
+        sh.add(off);
       }
       this.turret.add(sh);
     }
-    // revolver right arm: the barrel that recoils on every shot
-    this.barrel.position.set(0.56, 0.08, -0.5);
-    this.barrelZ = -0.5;
-    const drum = cyl(0.13, 0.18, m.joint, 10);
-    drum.rotation.x = Math.PI / 2;
-    const tube = cyl(0.065, 0.46, m.trim);
-    tube.rotation.x = Math.PI / 2;
-    tube.position.z = -0.3;
-    const ring = cyl(0.085, 0.06, m.gold);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.z = -0.52;
-    const sight = box(0.03, 0.06, 0.2, m.accent, 0, 0.08, -0.3);
-    this.barrel.add(drum, tube, ring, sight);
+    // the right forearm barrel is the main gun: it recoils on every shot
+    this.barrel.position.set(0.41, 0.04, 0.06);
+    this.barrelZ = 0.06;
+    this.barrel.add(gun(0.26, 0.045));
     this.turret.add(this.barrel);
 
-    // head, like the figure: a big round yellow dome, a black visor band with two big green eyes,
-    // a white chin, and the stalk on top carrying the twin black seeker-missile launchers
-    const white = this.paint(0xf2f2ee);
-    const hole = new THREE.MeshBasicMaterial({ color: 0x050507 });
+    // head, like the figure: a big round yellow dome, wider toward the jaw, a black visor band with two
+    // big green eyes, a white rounded lower face, and the stalk carrying the twin black seeker launchers
+    this.turret.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.1, 12), white).translateY(0.43));
     const head = new THREE.Group();
-    head.position.set(0, 0.84, -0.02);
+    head.position.set(0, 0.72, -0.02);
     head.scale.setScalar(1.15);
     const dome = new THREE.Mesh(new THREE.SphereGeometry(0.33, 24, 18), m.body);
-    dome.scale.set(1, 0.98, 1.04);
-    dome.position.set(0, 0.06, 0.03);
+    dome.scale.set(1, 0.95, 1.04);
+    dome.position.set(0, 0.07, 0.03);
     head.add(dome);
-    // the face: a wide black visor across the dome, big green eyes, a white rounded lower face
-    head.add(rbox(0.54, 0.19, 0.2, 0.08, visor, 0, -0.02, -0.2));
+    // the lower shell: the helmet flares out around the jaw
+    head.add(rbox(0.64, 0.22, 0.56, 0.11, m.body, 0, -0.14, 0.04));
+    head.add(rbox(0.56, 0.2, 0.2, 0.08, visor, 0, -0.03, -0.21));
     for (const side of [-1, 1]) {
-      const eye = rbox(0.18, 0.1, 0.02, 0.035, m.eyeMat, side * 0.11, -0.02, -0.302);
+      const eye = rbox(0.19, 0.1, 0.02, 0.035, m.eyeMat, side * 0.115, -0.03, -0.312);
       eye.rotation.z = side * 0.2;
       head.add(eye);
     }
-    head.add(rbox(0.36, 0.18, 0.22, 0.08, white, 0, -0.19, -0.17));
-    head.add(rbox(0.14, 0.012, 0.02, 0.004, m.joint, 0, -0.2, -0.282));
-    // the stalk and the two launchers angled up and out, three holes along each and an open muzzle
-    head.add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 0.2, 12), m.body).translateY(0.44).translateZ(0.02));
+    head.add(rbox(0.42, 0.2, 0.24, 0.09, white, 0, -0.2, -0.17));
+    head.add(rbox(0.16, 0.012, 0.02, 0.004, m.joint, 0, -0.21, -0.292));
+    head.add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 0.2, 12), m.body).translateY(0.45).translateZ(0.02));
     for (const side of [-1, 1]) {
       const pod = new THREE.Group();
-      pod.position.set(side * 0.2, 0.6, 0.02);
+      pod.position.set(side * 0.2, 0.61, 0.02);
       pod.scale.setScalar(1.15);
       pod.rotation.z = side * 0.32;
       const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.32, 16), m.trim);
@@ -934,10 +937,6 @@ export class ShooterMesh {
       head.add(pod);
     }
     this.turret.add(head);
-
-    // trigger on the back, pushed in on every shot
-    this.trigger = box(0.26, 0.16, 0.16, m.gold, 0, 0.06, 0.42);
-    this.turret.add(this.trigger);
   }
 
   /** Build the model from a Unit Lab block design, wiring up the animated parts. */
