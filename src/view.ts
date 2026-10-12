@@ -1588,7 +1588,9 @@ export class View {
     const p = this.game.shooters[0];
     const lean = Math.sin(p.aim);
     // stop following near the rail ends so the robot visibly reaches the wall
-    const follow = (k: number, limit: number) => Math.max(-limit, Math.min(limit, p.x * k));
+    // camera follow limits grow with the table so a wide stage keeps you in shot
+    const wk = ARENA.railHalfWidth / 4.1;
+    const follow = (k: number, limit: number) => Math.max(-limit * wk, Math.min(limit * wk, p.x * k));
     switch (this.cameraMode) {
       case 'far':
         this.camGoal.set(follow(0.85, 2.8) - lean * 1.1, 8.4, -p.y + 8.4);

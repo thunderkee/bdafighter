@@ -8,6 +8,8 @@ interface RMarble {
   idx: number;
   active: true;
   team: Team;
+  /** slot that fired it */
+  owner: number;
   kind: MarbleKind;
   radius: number;
   hop: number;
@@ -75,6 +77,7 @@ export class Recorder {
         idx: m.idx,
         active: true,
         team: m.team,
+        owner: m.owner,
         kind: m.kind,
         radius: m.radius,
         hop: 0,
@@ -152,6 +155,8 @@ export class ReplayGame {
   /** frame where the winner fired the round-ending shot (-1 if unknown, e.g. time-up) and who fired it */
   shotAt = -1;
   by = -1;
+  /** slots that were down before the round ended: hidden for the whole replay */
+  private gone = new Set<number>();
   /** current frame and the KO frame, for the replay camera */
   get frame() {
     return this.i;
@@ -187,6 +192,8 @@ export class ReplayGame {
     this.i = Math.max(0, this.shotAt >= 0 ? this.shotAt - 40 : ko - 132);
     this.end = Math.min(rec.frames.length - 1, ko + 24);
     this.koAt = ko;
+    // robots already knocked out of a pack fight stay out of the replay entirely
+    for (const sh of real.shooters) if (sh.active && sh.out) this.gone.add(sh.slot);
     this.shooters = real.shooters;
     this.bumps = rec.frames[this.i]?.bumps ?? [];
     this.apply();
@@ -198,18 +205,19 @@ export class ReplayGame {
       this.done = true;
       return;
     }
-    this.shooters = f.shooters;
+    this.shooters = this.gone.size ? f.shooters.map((sh) => (this.gone.has(sh.slot) ? Object.assign(Object.create(Object.getPrototypeOf(sh)), sh, { out: true, firing: false }) : sh)) : f.shooters;
     this.covers = f.covers;
     this.pins = f.pins;
     this.time = f.time;
     this.slowT = f.slowT;
     this.slowOwner = f.slowOwner;
-    this.marbles = f.marbles;
+    this.marbles = this.gone.size ? f.marbles.filter((m) => !this.gone.has(m.owner)) : f.marbles;
     this.bumps = f.bumps;
     this.missiles = f.missiles;
     this.gates = f.gates;
     this.drops = f.drops;
-    this.fx.push(...f.fx);
+    // and so do their hits, shots and explosions
+    this.fx.push(...(this.gone.size ? f.fx.filter((x) => !('slot' in x) || !this.gone.has((x as { slot: number }).slot)) : f.fx));
   }
 
   /** Advance by real seconds; plays at half speed, a quarter near the KO. */

@@ -19,6 +19,8 @@ export interface Settings {
   hudMode: 'top' | 'tags';
   /** buttons layout: move with the ◀ ▶ buttons or a slider */
   moveControl: 'buttons' | 'slider';
+  /** table width: small / normal / large (rebuilds the arena, so it reloads the game) */
+  arenaWidth: 'small' | 'normal' | 'large';
   /** CPU intelligence for the opponent pack and for your pack-mates */
   enemyIQ: AILevel;
   allyIQ: AILevel;
@@ -106,6 +108,7 @@ export const DEFAULT_SETTINGS: Settings = {
   playerPack: 1,
   enemyIQ: 'normal',
   allyIQ: 'normal',
+  arenaWidth: 'normal',
   enemyTactic: 'nearest',
   allyTactic: 'nearest',
   moveControl: 'buttons',

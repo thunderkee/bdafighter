@@ -210,9 +210,33 @@ export class Stage {
     this.def = stageById(id);
     this.buildFloor();
     this.buildRails();
+    // the floor and rails are built for the current table width; the scenery is laid out for the standard one
+    const sized = new Set(this.group.children);
     this.buildScenery();
     this.buildBackdrop();
+    this.fitWidth(sized);
     this.buildParticles();
+  }
+
+  /**
+   * Scenery is placed for the standard 10 m table. On a smaller or larger table, props
+   * outside the walls slide in or out by the difference, and long pieces spanning the
+   * table (arches, highway, stands) stretch to match.
+   */
+  private fitWidth(sized: Set<THREE.Object3D>) {
+    const shift = ARENA.width / 2 - 5;
+    if (Math.abs(shift) < 1e-3) return;
+    const box = new THREE.Box3();
+    for (const o of this.group.children) {
+      if (sized.has(o)) continue;
+      const x = o.position.x;
+      if (Math.abs(x) >= 4.5) o.position.x += Math.sign(x) * shift;
+      else if (Math.abs(x) < 0.5) {
+        box.setFromObject(o);
+        const w = box.max.x - box.min.x;
+        if (w > 8 && w < 45) o.scale.x *= ARENA.width / 10;
+      }
+    }
   }
 
   private buildFloor() {

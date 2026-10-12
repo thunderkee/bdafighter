@@ -13,6 +13,16 @@ export const ARENA = {
   wallThickness: 0.5,
 };
 
+/** table widths for the Stage width setting; the rail stops 0.9 m short of each wall */
+export const ARENA_WIDTHS = { small: 8, normal: 10, large: 13 } as const;
+export type ArenaWidth = keyof typeof ARENA_WIDTHS;
+/** set before the game (physics walls) and the stage are built */
+export function setArenaWidth(key: string | undefined) {
+  const w = ARENA_WIDTHS[(key ?? 'normal') as ArenaWidth] ?? ARENA_WIDTHS.normal;
+  ARENA.width = w;
+  ARENA.railHalfWidth = w / 2 - 0.9;
+}
+
 export const MATCH = {
   duration: 60,
   maxHealth: 100,

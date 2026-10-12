@@ -1,4 +1,4 @@
-import { AI_PROFILES, ARENA, MATCH, type ShooterStats } from './config';
+import { AI_PROFILES, ARENA, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { Game, STEP, slotTeam, type Shooter } from './game';
@@ -58,6 +58,8 @@ const ITEM_ICONS: Record<ItemType, string> = {
 
 export function boot() {
   let saveData = store.load();
+  // the table width is fixed for the session: walls and scenery are built for it
+  setArenaWidth(saveData.settings.arenaWidth);
   /** magazine size is a match rule, the same for both robots */
   const magazine = () => Math.max(3, Math.min(10, Math.round(saveData.settings.magazine || 10)));
   /** a unit's traits scale its speed, cadence and shield recharge (health is separate) */
@@ -559,7 +561,18 @@ export function boot() {
     });
   };
   const saveSetting = (patch: Partial<store.Settings>) => {
+    const widthChanged = patch.arenaWidth !== undefined && patch.arenaWidth !== saveData.settings.arenaWidth;
     saveData = store.save({ settings: { ...saveData.settings, ...patch } });
+    if (widthChanged) {
+      // a new table needs new walls and scenery: reload straight back into these settings
+      try {
+        sessionStorage.setItem('mf-reopen-settings', 'arena');
+      } catch {
+        // fine without it
+      }
+      location.reload();
+      return;
+    }
     input.release();
     applySettings();
   };
@@ -624,6 +637,17 @@ export function boot() {
     $('settings').classList.remove('hidden');
   };
   $('settings-btn').addEventListener('click', () => openSettings('title'));
+  // back from a reload for a new stage width: reopen settings where we were
+  try {
+    const tab = sessionStorage.getItem('mf-reopen-settings');
+    if (tab) {
+      sessionStorage.removeItem('mf-reopen-settings');
+      showTab(tab);
+      openSettings('title');
+    }
+  } catch {
+    // storage unavailable
+  }
   $('pause-settings-btn').addEventListener('click', () => openSettings('paused'));
   $('result-settings-btn').addEventListener('click', () => openSettings('result'));
   // in-match gear: pause, then jump straight to settings

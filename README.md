@@ -55,6 +55,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 |           | Opponent unit   | Auto (different from yours) or any of the 14                             |
 |           | Your pack       | Solo / 2 / 3: CPU pack-mates share your rail (you start in the middle of three); anyone can use the whole rail, and a robot moving into a pack-mate steps forward to slip past in front of it, then drops back onto the rail once clear, drawn see-through during play so they never block the view. Packs scale armour and damage like the opponent's. A team is out when all its robots are down |
 | Arena     | Stage           | Orbital Deck, Beach, Lava Forge, Snowfield, Neo City, Rainy Forest, River Dusk, Cyberpunk, Soccer Field (pucks and props match the theme) |
+|           | Stage width     | **Small / Normal / Large** (8 / 10 / 13 m table; the rail, lanes, camera and scenery follow). Reloads the game straight back into settings |
 |           | Pucks           | Off / 1–5, each count has its own symmetric layout (applies next match)  |
 |           | Walls           | Off / 1 / 2 / 3 cover walls per side; each takes 5 hits, then breaks     |
 |           | Pins            | Off / 2 / 4 / 6 / 8 pinball pins that deflect marbles                    |
@@ -147,7 +148,8 @@ that pass through it are transformed; each gate has limited charges, then shatte
    is played if that leaves both on two; capped at 5 rounds).
 3. **Quick replay** after every KO: it opens over the shoulder of whoever landed the finishing ball as they fire it
    (slowed for the moment), then rides the shot across to the loser for the impact, quarter speed right at the
-   KO (a time-up round falls back to a sweeping side camera on the loser), letterboxed, tap to skip. Between rounds the loser slumps, sparking.
+   KO (a time-up round falls back to a sweeping side camera on the loser), letterboxed, tap to skip. Robots
+   already knocked out of a pack fight are left out of the replay. Between rounds the loser slumps, sparking.
 4. **Finale**: after the deciding replay the loser explodes (pops, boom, clattering debris), then the result.
 
 ## Knockout
