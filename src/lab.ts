@@ -418,7 +418,7 @@ setCam('angle');
 let userMoved = false;
 controls.addEventListener('start', () => (userMoved = true));
 
-const fake = { x: 0, y: 0, aim: 0, recoil: 0, vx: 0, flash: 0, stagger: 0, health: 100, firing: false, team: 0 };
+const fake = { x: 0, y: 0, aim: 0, recoil: 0, vx: 0, flash: 0, stagger: 0, health: 100, firing: false, team: 0, kickT: 9, heavyT: 9 };
 let t = 0;
 let last = performance.now();
 renderer.setAnimationLoop((now) => {
@@ -431,9 +431,13 @@ renderer.setAnimationLoop((now) => {
       fake.aim = Math.sin(t * 0.7) * 0.5;
       fake.recoil = Math.max(0, Math.sin(t * 5)) ** 6;
       fake.firing = true;
+      // preview the firing animation: a regular shot each pulse, a special move every 4 s
+      fake.kickT = (t % (Math.PI * 2 / 5)) * 1;
+      fake.heavyT = t % 4;
     } else {
       fake.vx = fake.aim = fake.recoil = 0;
       fake.firing = false;
+      fake.kickT = fake.heavyT = 9;
     }
     // hold the pose still while a block is being dragged, so animation never fights the gizmo
     if (!gizmo.dragging && !free?.moved) model.sync(fake as unknown as Shooter, t, dt);

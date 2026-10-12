@@ -179,6 +179,14 @@ Physics stays in Rapier (rolling resistance, energy loss on impacts). On top of 
 clacks and wall/puck hits and cast contact shadows, and ThorVG draws motion streaks on fast marbles and
 small impact rings where they clack.
 
+## Firing animation
+
+Every shot has a reaction, on every body type: a **regular shot** is a quick punch (the robot rocks back
+and squashes, a flash pops at the belly, a few sparks spit out). A **special move** (super shot, the opening
+volley of a Multi Shot run, a Dragon Shot salvo, launching a homing missile) throws the robot back with a
+squash-and-spring, makes it glow in its ball colour, and fires a big flash, a floor shockwave ring and a
+shower of sparks. Shot timing is unchanged.
+
 ## Super shot
 
 Every 3 hits charges a super (pips by the SUPER label, and next to the opponent's name). The next marble fired

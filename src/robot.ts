@@ -1390,6 +1390,8 @@ export class ShooterMesh {
     this.bellyMark = mark;
   }
 
+  private glowCol = new THREE.Color();
+
   /** true once the robot has been blown apart */
   broken = false;
 
@@ -1456,9 +1458,22 @@ export class ShooterMesh {
     this.wingL.rotation.set(0, 0.35 + flare, -(lift + beat + flare * 0.5));
 
 
-    // hit flash; the player's own robot flashes softer so it never washes out
+    // firing: a regular shot is a quick punch (rock back, squash); a special move
+    // throws the robot back, squashes and springs, and makes it glow in its ball colour
+    const kickT = s.kickT ?? 9;
+    const heavyT = s.heavyT ?? 9;
+    const punch = Math.max(0, 1 - kickT / 0.16) ** 2;
+    const heavy = heavyT < 0.9 ? Math.exp(-heavyT * 4.5) : 0;
+    const spring = heavy * Math.cos(heavyT * 17);
+    const lean = punch * 0.09 + heavy * 0.3;
+    const slide = punch * 0.05 + heavy * 0.2;
+    const squash = punch * 0.06 + spring * 0.16;
+
+    // hit flash (the player's own robot flashes softer so it never washes out), plus the special-move glow
     const f = s.flash > 0 ? (s.team === 0 ? 0.45 : 0.9) : 0;
-    for (const m of this.mats) m.emissive.setRGB(f, f, f);
+    const glow = heavy * 0.6;
+    this.glowCol.setHex(this.ball);
+    for (const m of this.mats) m.emissive.setRGB(Math.min(1, f + this.glowCol.r * glow), Math.min(1, f + this.glowCol.g * glow), Math.min(1, f + this.glowCol.b * glow));
     const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
     this.root.position.y = bob + hurt;
 
@@ -1468,9 +1483,11 @@ export class ShooterMesh {
       this.root.position.x += (Math.random() * 2 - 1) * jolt;
       this.root.position.z += (Math.random() * 2 - 1) * jolt;
     }
-    const back = s.stagger > 0 ? Math.sin((s.stagger / 0.45) * Math.PI) * 0.35 : 0;
-    // tip away from the attacker (player leans toward +z, opponent toward -z)
+    const back = (s.stagger > 0 ? Math.sin((s.stagger / 0.45) * Math.PI) * 0.35 : 0) + lean;
+    // tip away from the attacker / the shot (player leans toward +z, opponent toward -z)
     this.root.rotation.x = s.team === 0 ? back : -back;
+    this.root.position.z += s.team === 0 ? slide : -slide;
+    this.root.scale.set(1 + squash * 0.6, 1 - squash, 1 + squash * 0.6);
     this.root.rotation.y = (s.team === 0 ? 0 : Math.PI) + (jolt ? (Math.random() * 2 - 1) * jolt : 0);
   }
 }

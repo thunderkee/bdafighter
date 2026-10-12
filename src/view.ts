@@ -518,10 +518,13 @@ export class View {
           break;
         case 'muzzle':
           if (f.slot === 0) this.shake(0.015);
+          // the opening volley of a multi-shot run is a special move too
+          this.shotFlash(f.slot, g.shooters[f.slot].heavyT < 0.02);
           break;
         case 'super-fire': {
           const s = g.shooters[f.slot];
           this.shake(f.slot === 0 ? 0.35 : 0.15);
+          this.shotFlash(f.slot, true);
           const sp = this.project(s.x, s.y, 1);
           this.fx2d?.ring(sp.x, sp.y, hex(0xffe066));
           break;
@@ -546,6 +549,8 @@ export class View {
         case 'missile-launch': {
           const s = g.shooters[f.slot];
           this.shake(f.slot === 0 ? 0.25 : 0.1);
+          // a robot launching a missile (gate conversions start mid-table)
+          if (s.heavyT < 0.05) this.shotFlash(f.slot, true);
           const sp = this.project(s.x, s.y, 1);
           this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.missile.color));
           break;
@@ -803,6 +808,7 @@ export class View {
     });
 
     this.updateSparks(wdt);
+    this.updateShotFx(dt);
     this.updateAimDots(showAim && this.showAimLine);
     this.followPlayer(dt);
 
@@ -1691,6 +1697,92 @@ export class View {
     const k = cut ? 1 : 1 - Math.exp(-dt * 4);
     this.camBase.lerp(this.camGoal, k);
     this.camLook.lerp(this.lookGoal, k);
+  }
+
+  // ---------- firing effects: belly flash, and a floor shockwave for special moves ----------
+  private shotFx: { mesh: THREE.Object3D; mat: THREE.SpriteMaterial | THREE.MeshBasicMaterial; t: number; life: number; size: number; ring: boolean }[] = [];
+  private ringGeo = new THREE.RingGeometry(0.8, 1, 40).rotateX(-Math.PI / 2);
+  /** soft round glow (white centre fading out) for camera-facing flashes */
+  private flashTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d')!;
+    const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(0.6, 'rgba(255,255,255,0.25)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  })();
+
+  /** a pooled additive flash or ring */
+  private takeShotFx(ring: boolean) {
+    let fx = this.shotFx.find((x) => x.ring === ring && x.t >= x.life);
+    if (!fx) {
+      let mesh: THREE.Object3D;
+      let mat: THREE.SpriteMaterial | THREE.MeshBasicMaterial;
+      if (ring) {
+        mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+        mesh = new THREE.Mesh(this.ringGeo, mat);
+      } else {
+        mat = new THREE.SpriteMaterial({ map: this.flashTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+        mesh = new THREE.Sprite(mat);
+      }
+      mesh.renderOrder = 5;
+      this.scene.add(mesh);
+      fx = { mesh, mat, t: 0, life: 0, size: 1, ring };
+      this.shotFx.push(fx);
+    }
+    return fx;
+  }
+
+  /** muzzle flash at the belly; special moves add a big flash, a shockwave ring and sparks */
+  private shotFlash(slot: number, special: boolean) {
+    const sm = this.shooters[slot];
+    const s = this.game.shooters[slot];
+    if (!sm || !s || !sm.root.visible || sm.broken) return;
+    const at = sm.muzzleWorld(this.tmpMuzzle);
+    const color = this.teamBall[slotTeam(slot)];
+    const flash = this.takeShotFx(false);
+    flash.t = 0;
+    flash.life = special ? 0.3 : 0.12;
+    flash.size = special ? 2.2 : 1.0;
+    flash.mesh.position.copy(at);
+    flash.mat.color.set(special ? color : 0xfff4d6).lerp(this.tmpC.set(0xffffff), special ? 0.3 : 0);
+    if (!this.fxOn) return;
+    // little sparks spit from the belly on every shot
+    this.burst(at.x, -at.z, special ? color : 0xfff2b0, special ? 16 : 3, special ? 7 : 3.5, { h: at.y });
+    if (!special) return;
+    const ring = this.takeShotFx(true);
+    ring.t = 0;
+    ring.life = 0.55;
+    ring.size = 3;
+    ring.mesh.position.set(s.x, 0.05, -s.y);
+    ring.mat.color.set(color);
+  }
+
+  private updateShotFx(dt: number) {
+    for (const fx of this.shotFx) {
+      if (fx.t >= fx.life) {
+        fx.mesh.visible = false;
+        continue;
+      }
+      fx.t += dt;
+      const u = Math.min(1, fx.t / fx.life);
+      fx.mesh.visible = true;
+      const mat = fx.mat;
+      if (fx.ring) {
+        // the shockwave races out across the floor and thins away
+        fx.mesh.scale.setScalar(0.3 + (1 - (1 - u) ** 3) * fx.size);
+        mat.opacity = (1 - u) * 0.9;
+      } else {
+        // the flash pops big, then shrinks as it fades
+        fx.mesh.scale.setScalar(fx.size * (u < 0.2 ? 0.55 + u * 2.25 : 1 - (u - 0.2) * 0.75));
+        mat.opacity = 1 - u;
+      }
+    }
   }
 
   /** seconds since your robot went down (drives the rising death camera) */

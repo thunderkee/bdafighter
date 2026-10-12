@@ -232,6 +232,9 @@ export class Shooter {
   cooldown = 0;
   flash = 0;
   recoil = 0;
+  /** seconds since the last shot, and since the last special move (drives the firing animation) */
+  kickT = 9;
+  heavyT = 9;
 
   shots = 0;
   hits = 0;
@@ -321,6 +324,7 @@ export class Shooter {
     this.stats = stats;
     this.active = active;
     this.out = false;
+    this.kickT = this.heavyT = 9;
     this.lane = lane;
     this.x = (lane[0] + lane[1]) / 2;
     this.passing = false;
@@ -879,6 +883,10 @@ export class Game {
       age: 0,
       recover: 0,
     });
+    if (!from) {
+      s.kickT = 0;
+      s.heavyT = 0;
+    }
     this.fx.push({ type: 'missile-launch', slot: s.slot });
   }
 
@@ -1178,6 +1186,8 @@ export class Game {
     s.flash = Math.max(0, s.flash - dt);
     s.stagger = Math.max(0, s.stagger - dt);
     s.recoil = Math.max(0, s.recoil - adt * 8);
+    s.kickT += adt;
+    s.heavyT += adt;
     s.cooldown -= adt;
     s.sinceHit += dt;
     s.sinceHurt += dt;
@@ -1419,6 +1429,8 @@ export class Game {
     });
     s.shots++;
     s.recoil = 1;
+    s.kickT = 0;
+    if (isSuper) s.heavyT = 0;
     this.fx.push({ type: isSuper ? 'super-fire' : 'muzzle', slot: s.slot });
     sfx.play(isSuper ? 'super' : 'fire', s.slot === 0 ? 1 : 0.45);
   }
@@ -1441,6 +1453,9 @@ export class Game {
       s.shots++;
     }
     s.recoil = 1;
+    // a multi-shot fan is a special move: the first volley of a run gets the big reaction
+    s.kickT = 0;
+    if (s.heavyT > 1.2) s.heavyT = 0;
     this.fx.push({ type: 'muzzle', slot: s.slot });
     sfx.play('fire', s.slot === 0 ? 1 : 0.45);
   }
@@ -1465,7 +1480,11 @@ export class Game {
     const v = m.body.linvel();
     m.body.setLinvel({ x: v.x + DRAGON.amp * DRAGON.freq * weave, y: v.y }, true);
     s.recoil = 1;
-    this.fx.push({ type: 'super-fire', slot: s.slot });
+    s.kickT = 0;
+    // one big reaction for the whole three-ball salvo
+    const first = s.heavyT > 1.2;
+    if (first) s.heavyT = 0;
+    this.fx.push({ type: first ? 'super-fire' : 'muzzle', slot: s.slot });
     sfx.play('fire', 1);
   }
 
