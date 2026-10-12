@@ -341,6 +341,17 @@ export class Portrait {
           trim,
         );
     }
+    if (d.body === 'lizard') {
+      // horn swept back off the top of the head
+      this.poly(
+        [
+          [54, 30],
+          [76, 6],
+          [68, 32],
+        ],
+        shade(body, 0.8),
+      );
+    }
     // skull
     this.poly(
       [
@@ -430,6 +441,18 @@ export class Portrait {
       ],
       joint,
     );
+    if (cat) {
+      // sabre fangs reach past the lower jaw
+      for (const fx of [38, 58])
+        this.poly(
+          [
+            [fx, 70],
+            [fx + 5, 70],
+            [fx + 2.5, 84],
+          ],
+          [250, 250, 245],
+        );
+    }
     void hp;
   }
 

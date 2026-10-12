@@ -32,7 +32,7 @@ export interface CharacterDef {
   palette: Palette;
   crest: 'vfin' | 'vfin-short' | 'horns' | 'unihorn' | 'fin' | 'eva' | 'beetle' | 'tyrant';
   /** body plan: humanoid mech (default) or a beast that fires from its mouth */
-  body?: 'mech' | 'rex' | 'cat' | 'lizard';
+  body?: 'mech' | 'rex' | 'cat' | 'lizard' | 'beetle';
   /** mech gun: chest cannon (default) or a T-rex head blaster */
   barrel?: 'chest' | 'rexhead';
   /** portrait style */
@@ -167,8 +167,10 @@ export const CHARACTERS: CharacterDef[] = [
     id: 'kabuto',
     ball: 0xffe14d,
     name: 'Kabuto Bee',
-    palette: { body: 0xffc81a, trim: 0x26262e, accent: 0xe8312f, joint: 0x3a3a44, wing: 0xffc81a, wingTip: 0x26262e, eye: 0x6dff9a },
+    palette: { body: 0xf2b20f, trim: 0x1d1d24, accent: 0xe8312f, joint: 0x2c2c34, wing: 0xf2b20f, wingTip: 0x1d1d24, eye: 0x4dff6a },
     crest: 'beetle',
+    body: 'beetle',
+    darkFace: true,
     eyes: 'twin',
     wings: 'none',
     shoulders: 'round',
@@ -207,7 +209,7 @@ export const CHARACTERS: CharacterDef[] = [
     id: 'liger',
     ball: 0x6ff0ff,
     name: 'Fang Liger',
-    palette: { body: 0xf0f2f6, trim: 0x2f63e8, accent: 0xffc23d, joint: 0x3a4152, wing: 0xf0f2f6, wingTip: 0x2f63e8, eye: 0x6dff9a },
+    palette: { body: 0xe9edf3, trim: 0x1d3a9e, accent: 0xffc23d, joint: 0x161a24, wing: 0xe9edf3, wingTip: 0x1d3a9e, eye: 0xff3b2f },
     crest: 'horns',
     eyes: 'twin',
     wings: 'none',
@@ -221,7 +223,7 @@ export const CHARACTERS: CharacterDef[] = [
     id: 'ember',
     ball: 0xff7a1a,
     name: 'Ember Lizard',
-    palette: { body: 0xff8a3a, trim: 0xffe0a0, accent: 0xffd23e, joint: 0xe06a22, wing: 0xff8a3a, wingTip: 0xffd23e, eye: 0x1c2230 },
+    palette: { body: 0xf2662a, trim: 0xffd99a, accent: 0xffd23e, joint: 0x8a2a14, wing: 0xf2662a, wingTip: 0xffd23e, eye: 0xffe14d },
     crest: 'fin',
     eyes: 'twin',
     wings: 'none',
@@ -229,7 +231,7 @@ export const CHARACTERS: CharacterDef[] = [
     offhand: 'none',
     feet: 'toe',
     body: 'lizard',
-    face: 'cute',
+    face: 'beast',
   },
 ];
 
@@ -241,7 +243,7 @@ export class ShooterMesh {
   turret = new THREE.Group();
   barrel = new THREE.Group();
   wings = new THREE.Group();
-  trigger: THREE.Mesh;
+  trigger!: THREE.Mesh;
   legs: THREE.Group[] = [];
   mats: THREE.MeshLambertMaterial[] = [];
   readonly id: string;
@@ -287,6 +289,10 @@ export class ShooterMesh {
     const cyl = (rt: number, rb: number, h: number, m: THREE.Material, seg = 14) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
     const cone = (r: number, h: number, m: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), m);
 
+    if (def.body === 'beetle') {
+      this.buildBeetle(def, { body, trim, accent, joint, gold, eyeMat, ballMat });
+      return;
+    }
     if (def.body && def.body !== 'mech') {
       this.trigger = box(0.01, 0.01, 0.01, joint); // beasts have no trigger
       this.buildBeast(def, { body, trim, accent, joint, gold, eyeMat, ballMat });
@@ -534,7 +540,9 @@ export class ShooterMesh {
       this.turret.add(head);
       mouth(head, -0.52, -0.08, 0.48);
     } else if (def.body === 'cat') {
-      // four-legged liger: body low, head turns to aim, blades along the back
+      // sabre-tooth liger: crouched low on armoured legs, head thrust forward
+      const claw = new THREE.MeshLambertMaterial({ color: 0xffc23d });
+      this.mats.push(claw);
       const order: [number, number][] = [
         [-1, -1],
         [1, -1],
@@ -542,92 +550,339 @@ export class ShooterMesh {
         [-1, 1],
       ]; // FL, FR, BR, BL — diagonal pairs swing together
       for (const [sx, sz] of order) {
+        const front = sz < 0;
         const leg = new THREE.Group();
-        leg.position.set(sx * 0.3, 0.55, sz * 0.38);
-        leg.add(box(0.18, 0.4, 0.2, m.body, 0, -0.18, 0));
-        leg.add(box(0.22, 0.12, 0.3, m.trim, 0, -0.46, -0.05)); // paw
+        leg.position.set(sx * 0.32, front ? 0.66 : 0.6, sz * 0.42);
+        leg.add(box(0.26, 0.34, 0.32, m.body, 0, -0.1, front ? 0 : 0.04)); // armoured upper leg
+        leg.add(box(0.28, 0.06, 0.34, m.trim, 0, 0.08, 0)); // shoulder plate edge
+        leg.add(box(0.16, 0.26, 0.18, m.joint, 0, -0.36, front ? -0.02 : 0.08)); // dark frame
+        leg.add(box(0.3, 0.1, 0.36, m.trim, 0, -0.56, -0.06)); // paw
+        for (const cx of [-0.09, 0, 0.09]) {
+          const c = cone(0.035, 0.16, claw);
+          c.rotation.x = -Math.PI / 2 - 0.3;
+          c.position.set(cx, -0.58, -0.28);
+          leg.add(c);
+        }
         this.root.add(leg);
         this.legs.push(leg);
       }
-      const torso = box(0.62, 0.36, 1.05, m.body, 0, 0.72, 0.05);
-      this.root.add(torso);
-      this.root.add(box(0.5, 0.06, 0.8, m.trim, 0, 0.92, 0.08)); // back plate
+      // chest high, haunches lower: a stalking crouch
+      const chest = box(0.62, 0.44, 0.5, m.body, 0, 0.78, -0.26);
+      chest.rotation.x = -0.12;
+      this.root.add(chest);
+      this.root.add(box(0.44, 0.26, 0.6, m.joint, 0, 0.66, 0.14)); // exposed frame at the waist
+      this.root.add(box(0.58, 0.36, 0.4, m.body, 0, 0.72, 0.44)); // haunches
+      const spine = box(0.42, 0.06, 1.0, m.trim, 0, 0.98, 0.06);
+      spine.rotation.x = -0.1;
+      this.root.add(spine);
+      // twin swept blades on the back, edges glowing
       for (const side of [-1, 1]) {
-        const blade = box(0.04, 0.12, 0.9, m.gold, side * 0.36, 0.95, 0.2);
-        blade.rotation.y = side * 0.1;
-        blade.rotation.z = side * -0.3;
+        const blade = new THREE.Group();
+        blade.position.set(side * 0.22, 1.0, 0.0);
+        blade.rotation.set(0.3, side * 0.1, side * -0.3);
+        blade.add(box(0.05, 0.12, 0.9, claw, 0, 0.04, 0.24));
+        blade.add(box(0.06, 0.03, 0.86, m.eyeMat, 0, 0.11, 0.26));
         this.root.add(blade);
       }
-      const tail = box(0.08, 0.08, 0.5, m.trim, 0, 0.9, 0.75);
-      tail.rotation.x = -0.6;
+      // tail arcs up and back, tipped with a blade
+      const tail = new THREE.Group();
+      tail.position.set(0, 0.82, 0.62);
+      [0.12, 0.1, 0.08].forEach((w, k) => {
+        const seg = box(w, w, 0.3, k % 2 ? m.trim : m.joint, 0, k * 0.1, 0.12 + k * 0.26);
+        seg.rotation.x = -0.35;
+        tail.add(seg);
+      });
+      const tip = cone(0.05, 0.3, claw);
+      tip.rotation.x = Math.PI / 2 - 0.4;
+      tip.position.set(0, 0.34, 0.86);
+      tail.add(tip);
       this.root.add(tail);
       // head on the turret, so it swings with the aim
-      this.turret.position.set(0, 0.86, -0.5);
+      this.turret.position.set(0, 0.84, -0.56);
       this.root.add(this.turret);
+      this.turret.add(box(0.26, 0.22, 0.28, m.joint, 0, -0.04, 0.2)); // neck
       const head = new THREE.Group();
-      head.add(box(0.46, 0.38, 0.46, m.body, 0, 0.06, -0.08));
-      head.add(box(0.3, 0.16, 0.24, m.body, 0, -0.02, -0.38)); // snout
+      head.add(box(0.44, 0.3, 0.42, m.body, 0, 0.06, -0.04)); // skull
+      head.add(box(0.32, 0.14, 0.3, m.body, 0, 0.02, -0.36)); // upper snout
+      head.add(box(0.2, 0.08, 0.08, m.joint, 0, 0.05, -0.52)); // nose
+      head.add(box(0.36, 0.05, 0.36, m.trim, 0, 0.22, -0.1)); // helmet plate
+      const crestBlade = cone(0.05, 0.4, claw);
+      crestBlade.position.set(0, 0.28, -0.24);
+      crestBlade.rotation.x = -1.15;
+      head.add(crestBlade);
       for (const side of [-1, 1]) {
-        head.add(box(0.07, 0.04, 0.04, m.eyeMat, side * 0.15, 0.14, -0.31));
-        const ear = cone(0.06, 0.18, m.trim);
-        ear.position.set(side * 0.16, 0.32, 0);
+        // brows slope down to the middle: a permanent glare
+        const brow = box(0.2, 0.06, 0.1, m.trim, side * 0.11, 0.17, -0.26);
+        brow.rotation.z = side * 0.4;
+        const eye = box(0.13, 0.035, 0.02, m.eyeMat, side * 0.11, 0.115, -0.255);
+        eye.rotation.z = side * 0.4;
+        head.add(brow, eye);
+        // ear fins swept back
+        const ear = box(0.04, 0.24, 0.16, m.trim, side * 0.19, 0.28, 0.1);
+        ear.rotation.set(0.75, 0, side * -0.3);
         head.add(ear);
+        // sabre fangs hang below the jaw line
+        const fang = cone(0.035, 0.24, white);
+        fang.rotation.x = Math.PI;
+        fang.position.set(side * 0.1, -0.12, -0.46);
+        head.add(fang);
       }
-      // mane of armour plates
-      for (let k = 0; k < 8; k++) {
-        const a = (k / 8) * Math.PI * 2;
-        const plate = cone(0.06, 0.24, m.accent);
-        plate.position.set(Math.cos(a) * 0.3, 0.06 + Math.sin(a) * 0.28, 0.08);
+      // armoured mane, alternating colours, open at the bottom for the neck
+      for (let k = 0; k < 9; k++) {
+        const a = -0.35 + (k / 8) * (Math.PI + 0.7);
+        const plate = cone(0.07, 0.3, k % 2 ? m.accent : m.trim);
+        plate.position.set(Math.cos(a) * 0.3, 0.04 + Math.sin(a) * 0.26, 0.12);
         plate.rotation.z = a - Math.PI / 2;
         head.add(plate);
       }
-      teeth(head, 0.1, -0.48, -0.32, -0.1, true);
+      teeth(head, 0.12, -0.48, -0.3, -0.07, true);
       this.turret.add(head);
-      mouth(head, -0.52, -0.1, 0.26);
+      mouth(head, -0.5, -0.1, 0.28);
     } else {
-      // chubby lizard: round head and belly, flame on the tail tip
+      // fire lizard: lean and upright, claws raised, horned head, tail ablaze
+      const claw = new THREE.MeshLambertMaterial({ color: 0xf4efe6 });
+      this.mats.push(claw);
       for (const side of [-1, 1]) {
         const leg = new THREE.Group();
-        leg.position.set(side * 0.24, 0.36, 0);
-        leg.add(sph(0.16, m.body, 0, -0.14, 0));
-        leg.add(sph(0.14, m.body, 0, -0.28, -0.1)); // foot
+        leg.position.set(side * 0.22, 0.42, 0.04);
+        const thigh = sph(0.17, m.body, 0, -0.08, 0.02);
+        thigh.scale.set(0.9, 1.15, 1);
+        leg.add(thigh);
+        leg.add(box(0.12, 0.2, 0.12, m.joint, 0, -0.24, 0.04)); // shin
+        leg.add(box(0.2, 0.08, 0.3, m.body, 0, -0.38, -0.06)); // foot
+        for (const cx of [-0.06, 0, 0.06]) {
+          const c = cone(0.025, 0.1, claw);
+          c.rotation.x = -Math.PI / 2;
+          c.position.set(cx, -0.39, -0.25);
+          leg.add(c);
+        }
         this.root.add(leg);
         this.legs.push(leg);
       }
-      const torso = sph(0.36, m.body, 0, 0.58, 0.02);
-      torso.scale.set(1, 1.05, 0.9);
-      const belly = sph(0.27, m.trim, 0, 0.55, -0.12);
-      belly.scale.set(1, 1.1, 0.6);
+      const torso = sph(0.3, m.body, 0, 0.66, 0.04);
+      torso.scale.set(1, 1.3, 0.85);
+      const belly = sph(0.23, m.trim, 0, 0.62, -0.08);
+      belly.scale.set(1, 1.35, 0.62);
       this.root.add(torso, belly);
-      // tail curls up behind, flame at the tip
+      // a row of dark ridges down the back
+      for (let k = 0; k < 3; k++) {
+        const ridge = cone(0.04, 0.14, m.joint);
+        ridge.position.set(0, 0.88 - k * 0.16, 0.28 + k * 0.02);
+        ridge.rotation.x = 1.2;
+        this.root.add(ridge);
+      }
+      // long tail sweeping back and up, a big flame at the tip
       const tail = new THREE.Group();
-      tail.position.set(0, 0.44, 0.3);
-      [0.12, 0.1, 0.08].forEach((r, k) => tail.add(sph(r, m.body, 0, k * 0.14, 0.12 + k * 0.14)));
+      tail.position.set(0, 0.42, 0.28);
+      [0.13, 0.11, 0.09, 0.075].forEach((r, k) => tail.add(sph(r, m.body, 0, k * 0.1 + (k > 1 ? (k - 1) * 0.08 : 0), 0.12 + k * 0.17)));
       const flame = new THREE.Group();
-      flame.position.set(0, 0.46, 0.52);
-      flame.add(new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 8), new THREE.MeshBasicMaterial({ color: 0xff7a1a })));
-      const core = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 8), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
-      core.position.y = -0.03;
-      flame.add(core);
+      flame.position.set(0, 0.56, 0.68);
+      // teardrop layers: a round base with a licking tip, glowing additively
+      const fire = (r: number, h: number, color: number, y: number, opacity: number) => {
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+        const base = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat);
+        base.position.y = y;
+        const lick = new THREE.Mesh(new THREE.ConeGeometry(r * 0.95, h, 10), mat);
+        lick.position.y = y + h / 2;
+        flame.add(base, lick);
+      };
+      fire(0.15, 0.38, 0xff4a0a, -0.12, 0.85);
+      fire(0.1, 0.28, 0xffa21a, -0.1, 0.9);
+      fire(0.055, 0.16, 0xfff07a, -0.08, 1);
       tail.add(flame);
       this.flame = flame;
       this.root.add(tail);
       this.turret.position.y = 0.9;
       this.root.add(this.turret);
-      for (const side of [-1, 1]) this.turret.add(sph(0.08, m.body, side * 0.36, -0.2, -0.12)); // arms
-      const head = new THREE.Group();
-      head.position.set(0, 0.22, -0.02);
-      const skull = sph(0.4, m.body);
-      skull.scale.set(1, 0.95, 0.95);
-      head.add(skull);
+      // arms reach forward, claws spread
       for (const side of [-1, 1]) {
-        head.add(sph(0.1, white, side * 0.16, 0.08, -0.32)); // big eyes
-        head.add(sph(0.06, new THREE.MeshBasicMaterial({ color: 0x1c2230 }), side * 0.16, 0.08, -0.4));
-        head.add(sph(0.02, new THREE.MeshBasicMaterial({ color: 0xffffff }), side * 0.14, 0.11, -0.45));
+        const arm = new THREE.Group();
+        arm.position.set(side * 0.3, -0.04, -0.06);
+        const upper = box(0.1, 0.1, 0.24, m.body, 0, -0.04, -0.08);
+        upper.rotation.x = 0.4;
+        arm.add(upper);
+        arm.add(box(0.11, 0.08, 0.12, m.body, 0, -0.12, -0.24)); // hand
+        for (const cx of [-0.035, 0.035]) {
+          const c = cone(0.02, 0.1, claw);
+          c.rotation.x = -Math.PI / 2 - 0.4;
+          c.position.set(cx, -0.14, -0.34);
+          arm.add(c);
+        }
+        this.turret.add(arm);
       }
+      // head: cranium, long snout, glaring slit eyes, horn swept back
+      const head = new THREE.Group();
+      head.position.set(0, 0.24, -0.06);
+      const skull = sph(0.27, m.body, 0, 0.04, 0.02);
+      skull.scale.set(1, 0.88, 1.12);
+      head.add(skull);
+      head.add(box(0.3, 0.15, 0.32, m.body, 0, -0.02, -0.28)); // snout
+      head.add(box(0.24, 0.05, 0.08, m.joint, 0, 0.04, -0.44)); // nostril ridge
+      const horn = cone(0.06, 0.36, m.body);
+      horn.position.set(0, 0.2, 0.3);
+      horn.rotation.x = 1.9;
+      head.add(horn);
+      for (const side of [-1, 1]) {
+        const brow = box(0.16, 0.06, 0.08, m.joint, side * 0.11, 0.15, -0.2);
+        brow.rotation.z = side * 0.45;
+        const eye = box(0.11, 0.04, 0.02, m.eyeMat, side * 0.11, 0.095, -0.215);
+        eye.rotation.z = side * 0.45;
+        const pupil = box(0.025, 0.045, 0.01, dark, side * 0.1, 0.095, -0.228);
+        head.add(brow, eye, pupil);
+      }
+      teeth(head, 0.11, -0.42, -0.2, -0.1, true);
       this.turret.add(head);
-      mouth(head, -0.38, -0.12, 0.24);
+      mouth(head, -0.44, -0.1, 0.26);
     }
+  }
+
+  /**
+   * Beetle-type mech (medal-fighter style): insect legs, carapace chest,
+   * rhino horn with a forked tip, missile tubes on the head, revolver right
+   * arm (the barrel) and a sub-machine gun on the left.
+   */
+  private buildBeetle(
+    def: CharacterDef,
+    m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; gold: THREE.Material; eyeMat: THREE.Material; ballMat: THREE.Material },
+  ) {
+    const box = (w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      mesh.position.set(x, y, z);
+      return mesh;
+    };
+    const cyl = (r: number, h: number, mat: THREE.Material, seg = 12) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), mat);
+    const cone = (r: number, h: number, mat: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), mat);
+    const visor = new THREE.MeshBasicMaterial({ color: 0x07070b });
+    void def;
+
+    // digitigrade insect legs with toe spikes
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Group();
+      leg.position.set(side * 0.27, 0.5, 0);
+      leg.add(box(0.26, 0.24, 0.3, m.body, 0, -0.06, 0.02)); // thigh
+      const shin = box(0.2, 0.28, 0.22, m.trim, 0, -0.27, 0.06);
+      shin.rotation.x = -0.25;
+      leg.add(shin);
+      leg.add(box(0.12, 0.08, 0.12, m.accent, 0, -0.16, -0.12)); // knee light
+      leg.add(box(0.42, 0.14, 0.6, m.body, 0, -0.42, -0.06)); // foot
+      leg.add(box(0.04, 0.15, 0.6, m.trim, 0, -0.42, -0.06)); // toe split
+      for (const cx of [-0.13, 0.13]) {
+        const spike = cone(0.06, 0.18, m.trim);
+        spike.rotation.x = -Math.PI / 2;
+        spike.position.set(cx, -0.44, -0.44);
+        leg.add(spike);
+      }
+      this.root.add(leg);
+      this.legs.push(leg);
+    }
+    this.root.add(box(0.56, 0.16, 0.4, m.trim, 0, 0.56, 0)); // waist
+
+    this.turret.position.y = 0.62;
+    this.root.add(this.turret);
+    // carapace chest: yellow shell, black plate, medal in the middle
+    this.turret.add(box(0.82, 0.5, 0.6, m.body, 0, 0.26, 0));
+    this.turret.add(box(0.56, 0.3, 0.06, m.trim, 0, 0.28, -0.31));
+    for (const side of [-1, 1]) {
+      const rib = box(0.06, 0.26, 0.02, m.body, side * 0.14, 0.28, -0.345);
+      rib.rotation.z = side * 0.3;
+      this.turret.add(rib);
+    }
+    const medal = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), m.ballMat);
+    medal.position.set(0, 0.3, -0.34);
+    this.turret.add(medal);
+    // elytra on the back, cracked open
+    for (const side of [-1, 1]) {
+      const wing = box(0.36, 0.56, 0.08, m.body, side * 0.2, 0.32, 0.36);
+      wing.rotation.set(0.12, side * 0.3, side * 0.06);
+      this.turret.add(wing);
+      this.turret.add(box(0.03, 0.5, 0.09, m.trim, side * 0.035, 0.32, 0.34));
+    }
+
+    // shoulders and forward-held arms
+    for (const side of [-1, 1]) {
+      const sh = new THREE.Group();
+      sh.position.set(side * 0.56, 0.36, 0);
+      sh.add(box(0.36, 0.32, 0.44, m.body));
+      sh.add(box(0.38, 0.07, 0.46, m.trim, 0, 0.17, 0));
+      sh.add(box(0.06, 0.16, 0.3, m.accent, side * 0.19, 0, 0));
+      const arm = box(0.2, 0.2, 0.36, m.trim, 0, -0.26, -0.16);
+      sh.add(arm);
+      if (side < 0) {
+        // sub-machine gun
+        const smg = new THREE.Group();
+        smg.position.set(0, -0.28, -0.42);
+        smg.add(box(0.16, 0.18, 0.36, m.body));
+        smg.add(box(0.06, 0.12, 0.08, m.trim, 0, -0.14, 0.08)); // magazine
+        const muzzle = cyl(0.04, 0.24, m.joint);
+        muzzle.rotation.x = Math.PI / 2;
+        muzzle.position.z = -0.28;
+        smg.add(muzzle);
+        sh.add(smg);
+      }
+      this.turret.add(sh);
+    }
+    // revolver right arm: the barrel that recoils on every shot
+    this.barrel.position.set(0.56, 0.08, -0.5);
+    this.barrelZ = -0.5;
+    const drum = cyl(0.13, 0.18, m.joint, 10);
+    drum.rotation.x = Math.PI / 2;
+    const tube = cyl(0.065, 0.46, m.trim);
+    tube.rotation.x = Math.PI / 2;
+    tube.position.z = -0.3;
+    const ring = cyl(0.085, 0.06, m.gold);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.z = -0.52;
+    const sight = box(0.03, 0.06, 0.2, m.accent, 0, 0.08, -0.3);
+    this.barrel.add(drum, tube, ring, sight);
+    this.turret.add(this.barrel);
+
+    // head: black face, slanted green eyes, mandibles, rhino horn, missile tubes
+    const head = new THREE.Group();
+    head.position.set(0, 0.86, -0.02);
+    head.add(box(0.72, 0.46, 0.64, m.body)); // helmet
+    head.add(box(0.58, 0.26, 0.06, visor, 0, -0.04, -0.32)); // black face
+    for (const side of [-1, 1]) {
+      const eye = box(0.17, 0.055, 0.02, m.eyeMat, side * 0.13, 0.0, -0.355);
+      eye.rotation.z = side * 0.42;
+      head.add(eye);
+      const mandible = cone(0.04, 0.2, m.trim);
+      mandible.rotation.set(-Math.PI / 2 - 0.5, 0, side * 0.35);
+      mandible.position.set(side * 0.16, -0.22, -0.36);
+      head.add(mandible);
+      head.add(box(0.08, 0.2, 0.26, m.accent, side * 0.38, -0.02, 0)); // ear discs
+      // seeker-missile tubes rising off the back of the head
+      const tube2 = cyl(0.065, 0.36, m.trim, 10);
+      tube2.position.set(side * 0.24, 0.36, 0.2);
+      tube2.rotation.x = 0.4;
+      const warhead = cone(0.065, 0.14, m.accent);
+      warhead.position.set(side * 0.24, 0.57, 0.28);
+      warhead.rotation.x = 0.4;
+      head.add(tube2, warhead);
+    }
+    // the rhino horn tapers as it curls forward, ending in a fork
+    const hornSegs: [number, number, number, number, number, number][] = [
+      // top radius, bottom radius, length, y, z, tilt
+      [0.09, 0.13, 0.3, 0.34, -0.17, -0.2],
+      [0.065, 0.09, 0.26, 0.56, -0.26, -0.6],
+      [0.045, 0.065, 0.22, 0.7, -0.42, -1.05],
+    ];
+    for (const [rt, rb, h, y, z, tilt] of hornSegs) {
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 6), m.body);
+      seg.position.set(0, y, z);
+      seg.rotation.x = tilt;
+      head.add(seg);
+    }
+    for (const side of [-1, 1]) {
+      const fork = cone(0.045, 0.2, m.body);
+      fork.position.set(side * 0.05, 0.76, -0.58);
+      fork.rotation.set(-1.45, 0, -side * 0.4);
+      head.add(fork);
+    }
+    this.turret.add(head);
+
+    // trigger on the back, pushed in on every shot
+    this.trigger = box(0.26, 0.16, 0.16, m.gold, 0, 0.06, 0.42);
+    this.turret.add(this.trigger);
   }
 
   private buildCrest(

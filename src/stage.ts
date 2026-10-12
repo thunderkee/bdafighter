@@ -67,7 +67,7 @@ export const STAGES: StageDef[] = [
     name: 'Lava Forge',
     swatch: [0x2a1a17, 0xff5a1a],
     sky: 0x1a0605,
-    fog: [0x2a0905, 26, 64],
+    fog: [0x2a0905, 28, 72],
     hemi: [0xffb08a, 0x400a00, 1.3],
     sun: [0xffc08a, 1.6],
     floor: 0x2b211f,
@@ -84,7 +84,7 @@ export const STAGES: StageDef[] = [
     name: 'Snowfield',
     swatch: [0xeaf4fc, 0x7fb6e8],
     sky: 0xbfd6ea,
-    fog: [0xd8e7f4, 26, 66],
+    fog: [0xd8e7f4, 30, 76],
     hemi: [0xe8f0ff, 0x7f98b8, 1.2],
     sun: [0xf2f8ff, 1.5],
     floor: 0xe6f0f9,
@@ -99,7 +99,7 @@ export const STAGES: StageDef[] = [
     name: 'Neo City',
     swatch: [0x2a2c33, 0xffcf3e],
     sky: 0x0b0e1c,
-    fog: [0x0f1326, 30, 72],
+    fog: [0x0f1326, 32, 80],
     hemi: [0xa8b8ff, 0x251c33, 1.4],
     sun: [0xffe2c0, 1.6],
     floor: 0x2b2d35,
@@ -115,7 +115,7 @@ export const STAGES: StageDef[] = [
     name: 'Rainy Forest',
     swatch: [0x1f3a24, 0x7fc06a],
     sky: 0x1b2824,
-    fog: [0x26352f, 18, 52],
+    fog: [0x26352f, 24, 64],
     hemi: [0xb8d0c0, 0x1a2a1a, 1.25],
     sun: [0xc8d8ff, 0.9],
     floor: 0x2d3b27,
@@ -146,7 +146,7 @@ export const STAGES: StageDef[] = [
     name: 'Cyberpunk',
     swatch: [0x14081f, 0xff2bd6],
     sky: 0x07030f,
-    fog: [0x1a0828, 26, 70],
+    fog: [0x1a0828, 30, 80],
     hemi: [0xb080ff, 0x200830, 1.3],
     sun: [0xff80d0, 1.2],
     floor: 0x120a1c,
@@ -211,6 +211,7 @@ export class Stage {
     this.buildFloor();
     this.buildRails();
     this.buildScenery();
+    this.buildBackdrop();
     this.buildParticles();
   }
 
@@ -460,7 +461,9 @@ export class Stage {
         const r = new THREE.Mesh(new THREE.PlaneGeometry(rand(0.6, 2.2), 0.06), ripple);
         r.rotation.x = -Math.PI / 2;
         const side = Math.random() < 0.5 ? -1 : 1;
-        r.position.set(side * rand(6.5, 20), -0.02, rand(-30, 30));
+        // half on the sides, half behind the far rail where the camera looks
+        if (i % 2) r.position.set(side * rand(6.5, 20), -0.02, rand(-30, 30));
+        else r.position.set(rand(-12, 12), -0.02, rand(-40, -14));
         this.group.add(r);
         const z0 = r.position.z;
         const ph = rand(0, 6);
@@ -630,8 +633,8 @@ export class Stage {
         }, 4);
         // a volcano on the horizon with a glowing crater and lava falls
         const volcano = new THREE.Mesh(new THREE.ConeGeometry(16, 14, 9, 1, true), lam(0x24140f, { flatShading: true }));
-        add(volcano, 6, 6, -58);
-        const crater = add(new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 0.4, 12), basic(0xff7a2a)), 6, 13, -58);
+        add(volcano, 5, 6, -42);
+        const crater = add(new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 0.4, 12), basic(0xff7a2a)), 5, 13, -42);
         this.glowMats.push((crater as THREE.Mesh).material as THREE.MeshBasicMaterial);
         for (const side of [-1, 1]) {
           const fall = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 9), basic(0xff5a1a, { side: THREE.DoubleSide }));
@@ -650,7 +653,7 @@ export class Stage {
       }
       case 'space': {
         const planet = new THREE.Mesh(new THREE.SphereGeometry(9, 32, 20), lam(0x5b4bd6, { emissive: 0x1a1240 }));
-        add(planet, 18, -2, -50);
+        add(planet, 8, -3, -46);
         const ring = new THREE.Mesh(new THREE.RingGeometry(11, 15, 48), basic(0x9fd8ff, { transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
         ring.position.copy(planet.position);
         ring.rotation.set(1.2, 0.3, 0);
@@ -746,7 +749,7 @@ export class Stage {
         cabin.add(roof);
         cabin.add(at(new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.5), basic(0xffd27a)), 0, 1.2, 1.21));
         add(cabin, 11, 0, -16);
-        range(0xdfe8f4, -1, 50, 9, [10, 22]);
+        range(0xdfe8f4, -1, 34, 11, [5, 10]);
         // aurora ribbon
         const aurora = new THREE.Mesh(
           new THREE.PlaneGeometry(70, 10, 20, 1),
@@ -766,7 +769,7 @@ export class Stage {
             }),
           }),
         );
-        add(aurora, 0, 22, -60);
+        add(aurora, 0, 9, -58);
         const pos = aurora.geometry.attributes.position as THREE.BufferAttribute;
         const base = Float32Array.from(pos.array as Float32Array);
         this.movers.push((t) => {
@@ -880,8 +883,9 @@ export class Stage {
       }
       case 'river': {
         // low sun over the water, hills, reeds, lanterns and a drifting boat
-        add(new THREE.Mesh(new THREE.CircleGeometry(6, 28), basic(0xffd08a, { fog: false })), 0, 7, -70);
-        range(0x5a3a5a, -1, 58, 10, [6, 14]);
+        // a low sun sinking behind the far hills, in shot during play
+        add(new THREE.Mesh(new THREE.CircleGeometry(3.4, 28), basic(0xffd08a, { fog: false })), -2, 2.2, -56);
+        range(0x5a3a5a, -0.5, 34, 12, [2.5, 5]);
         const reed = lam(0x6a7a3a);
         sides((side, z) => {
           for (let k = 0; k < 5; k++) {
@@ -907,7 +911,9 @@ export class Stage {
         boat.add(sail);
         g.add(boat);
         this.movers.push((t) => {
-          boat.position.set(-12, Math.sin(t * 1.2) * 0.06, ((t * 0.8) % 60) - 30);
+          // sails across behind the far rail
+          boat.position.set(((t * 0.9) % 44) - 22, Math.sin(t * 1.2) * 0.06, -19);
+          boat.rotation.y = Math.PI / 2;
           boat.rotation.z = Math.sin(t * 0.9) * 0.05;
         });
         break;
@@ -1020,6 +1026,610 @@ export class Stage {
           add(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 14, 8), lam(0x8a8f98)), x, 7, z);
           add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.4, 0.4), basic(0xffffee)), x, 14, z);
         }
+        break;
+      }
+    }
+  }
+
+  /**
+   * The strip the gameplay camera actually sees beyond the arena: behind the
+   * far rail (z -13 to -36), widening with distance, below the HUD. Every
+   * stage dresses it so the scenery is part of the fight, not just the intro.
+   */
+  private buildBackdrop() {
+    const d = this.def;
+    const g = this.group;
+    const lam = (color: number, extra: THREE.MeshLambertMaterialParameters = {}) => new THREE.MeshLambertMaterial({ color, ...extra });
+    const basic = (color: number, extra: THREE.MeshBasicMaterialParameters = {}) => new THREE.MeshBasicMaterial({ color, ...extra });
+    const add = <O extends THREE.Object3D>(m: O, x: number, y: number, z: number) => {
+      m.position.set(x, y, z);
+      g.add(m);
+      return m;
+    };
+    const box = (w: number, h: number, dd: number, mat: THREE.Material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), mat);
+    /** half-width of the view at depth z (with the camera's sideways drift) */
+    const halfW = (z: number) => 6.4 + Math.max(0, -z - 13) * 0.2 + 2;
+    /** jittered rows across the background; the middle stays clear close in, behind the opponent */
+    const rows = (zs: number[], spacing: number, gap: number, fn: (x: number, z: number, i: number) => void) => {
+      let i = 0;
+      for (const z0 of zs) {
+        const w = halfW(z0);
+        for (let x = -w; x <= w; x += spacing) {
+          const xx = x + rand(-spacing * 0.3, spacing * 0.3);
+          if (Math.abs(xx) < gap && z0 > -19) continue;
+          fn(xx, z0 + rand(-0.8, 0.8), i++);
+        }
+      }
+    };
+    /** an arch over the far rail: two posts and a beam, framing the opponent */
+    const arch = (post: THREE.Material, beam: THREE.Material, h: number, z: number, sign?: THREE.Material) => {
+      for (const side of [-1, 1]) add(box(0.4, h, 0.4, post), side * 5.6, h / 2, z);
+      add(box(11.6, 0.4, 0.4, beam), 0, h, z);
+      if (sign) add(box(3.4, 0.7, 0.08, sign), 0, h - 0.6, z + 0.22);
+    };
+    /** a string of lights sagging between two points */
+    const garland = (x0: number, x1: number, y: number, z: number, sag: number, colors: number[], n = 12) => {
+      const pts: THREE.Vector3[] = [];
+      for (let k = 0; k <= 24; k++) {
+        const u = k / 24;
+        pts.push(new THREE.Vector3(x0 + (x1 - x0) * u, y - Math.sin(u * Math.PI) * sag, z));
+      }
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2018 })));
+      const bulbs: THREE.Mesh[] = [];
+      for (let k = 1; k < n; k++) {
+        const u = k / n;
+        const b = add(new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), basic(colors[k % colors.length])), x0 + (x1 - x0) * u, y - Math.sin(u * Math.PI) * sag - 0.15, z);
+        bulbs.push(b);
+      }
+      this.movers.push((t) => bulbs.forEach((b, k) => b.scale.setScalar(0.85 + Math.max(0, Math.sin(t * 2.5 + k)) * 0.3)));
+    };
+    /** something crossing the background left to right (or back), looping */
+    const crosser = (obj: THREE.Object3D, y: number, z: number, speed: number, span = 26) => {
+      g.add(obj);
+      const ph = rand(0, span * 2);
+      const dir = speed > 0 ? 1 : -1;
+      this.movers.push((t) => {
+        obj.position.set((((t * Math.abs(speed) + ph) % (span * 2)) - span) * dir, y, z);
+        obj.rotation.y = dir > 0 ? -Math.PI / 2 : Math.PI / 2;
+      });
+    };
+
+    switch (d.id) {
+      case 'forest': {
+        const bark = lam(0x3e2c1e);
+        const leaves = [lam(0x1f4a28, { flatShading: true }), lam(0x2e6a34, { flatShading: true }), lam(0x3a7a3a, { flatShading: true })];
+        // a tree line behind the far rail, denser further back
+        rows([-15.5, -19, -24, -30], 2.6, 3, (x, z, i) => {
+          const h = rand(4, 8) + (z < -20 ? 2 : 0);
+          const tree = new THREE.Group();
+          const trunk = box(0.4, h, 0.4, bark);
+          trunk.position.y = h / 2;
+          tree.add(trunk);
+          for (let k = 0; k < 3; k++) {
+            const c = new THREE.Mesh(new THREE.DodecahedronGeometry(rand(1.2, 2), 0), leaves[(i + k) % 3]);
+            c.position.set(rand(-0.6, 0.6), h - k * 1.1, rand(-0.5, 0.5));
+            tree.add(c);
+          }
+          tree.rotation.y = rand(0, 6);
+          add(tree, x, 0, z);
+        });
+        // undergrowth right behind the rail: ferns, mossy rocks, a fallen log, glowing mushrooms
+        const fern = lam(0x3a8a3a, { side: THREE.DoubleSide });
+        const moss = lam(0x56604c, { flatShading: true });
+        rows([-13.8, -14.8], 1.4, 1.4, (x, z) => {
+          if (Math.random() < 0.5) {
+            const f = new THREE.Group();
+            for (let k = 0; k < 6; k++) {
+              const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 3), fern);
+              leaf.rotation.set(1.0, (k / 6) * Math.PI * 2, 0);
+              leaf.translateY(0.45);
+              f.add(leaf);
+            }
+            add(f, x, 0.05, z);
+          } else add(new THREE.Mesh(new THREE.DodecahedronGeometry(rand(0.3, 0.6), 0), moss), x, 0.2, z);
+          if (Math.random() < 0.4) {
+            const cap = add(new THREE.Mesh(new THREE.SphereGeometry(rand(0.12, 0.2), 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), basic(pick([0x7fffd4, 0xffa0e0, 0xd8ff6a]))), x + 0.4, 0.22, z + 0.2);
+            add(box(0.05, 0.22, 0.05, lam(0xe8e0d0)), x + 0.4, 0.11, z + 0.2);
+            const ph = rand(0, 6);
+            this.movers.push((t) => cap.scale.setScalar(1 + Math.sin(t * 2 + ph) * 0.08));
+          }
+        });
+        const log = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.45, 5, 9), bark);
+        log.rotation.set(0, 0.25, Math.PI / 2);
+        add(log, -4.5, 0.4, -16.5);
+        // branches hanging into the top corners of the shot
+        for (const side of [-1, 1]) {
+          const bough = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), leaves[1]);
+          bough.scale.set(1.6, 0.6, 1);
+          add(bough, side * 6.2, 4.6, -12);
+          const ph = rand(0, 6);
+          this.movers.push((t) => (bough.rotation.z = Math.sin(t * 0.8 + ph) * 0.05));
+        }
+        // mist banks drifting between the trees
+        const mist = basic(0xc8dcd0, { transparent: true, opacity: 0.14, depthWrite: false });
+        for (let i = 0; i < 4; i++) {
+          const m = add(new THREE.Mesh(new THREE.PlaneGeometry(16, 2), mist), 0, rand(0.6, 1.8), -17 - i * 4);
+          const ph = rand(0, 6);
+          this.movers.push((t) => (m.position.x = Math.sin(t * 0.12 + ph) * 5));
+        }
+        break;
+      }
+      case 'river': {
+        // a lantern garland strung across behind the far rail
+        for (const side of [-1, 1]) add(box(0.18, 4.2, 0.18, lam(0x3a2a1a)), side * 5.7, 2.1, -13.6);
+        garland(-5.7, 5.7, 4.1, -13.6, 0.9, [0xffa94a, 0xff6a5a, 0xffe08a]);
+        // reeds and rocks along the far bank of the pier
+        const reed = lam(0x6a7a3a);
+        rows([-13.6, -14.4], 0.8, 2.2, (x, z) => {
+          for (let k = 0; k < 4; k++) {
+            const h = rand(0.7, 1.6);
+            const r = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, h, 4), reed);
+            r.rotation.z = rand(-0.25, 0.25);
+            add(r, x + rand(-0.3, 0.3), h / 2, z + rand(-0.3, 0.3));
+          }
+          if (Math.random() < 0.4) add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 4), lam(0x6a3a1a)), x, 1.3, z);
+        });
+        // an arched wooden bridge across the river behind
+        const wood = lam(0x5a3a22);
+        const bridge = new THREE.Group();
+        for (let k = -10; k <= 10; k++) {
+          const u = k / 10;
+          const plank = box(1.05, 0.12, 2, wood);
+          plank.position.set(k, 2.2 - u * u * 1.6, 0);
+          plank.rotation.z = -u * 0.32;
+          bridge.add(plank);
+          if (k % 2 === 0) {
+            const post = box(0.1, 0.8, 0.1, wood);
+            post.position.set(k, 2.6 - u * u * 1.6, -0.9);
+            bridge.add(post);
+          }
+        }
+        for (const x of [-7, 0, 7]) {
+          const pier = box(0.5, 2.6, 0.5, lam(0x3a2a1a));
+          pier.position.set(x, 0.9 - (x / 10) ** 2 * 1.6, 0);
+          bridge.add(pier);
+        }
+        add(bridge, 0, 0, -25);
+        // a lantern glowing on the bridge
+        add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.3), basic(0xffa94a)), 2, 3, -25.9);
+        // lily pads on the water
+        const pad = lam(0x3a7a3a, { side: THREE.DoubleSide });
+        for (let i = 0; i < 18; i++) {
+          const p = new THREE.Mesh(new THREE.CircleGeometry(rand(0.25, 0.5), 10, 0.3, Math.PI * 1.8), pad);
+          p.rotation.x = -Math.PI / 2;
+          add(p, rand(-11, 11), -0.02, rand(-23, -14));
+        }
+        break;
+      }
+      case 'cyber': {
+        // neon arch over the far rail, with a scrolling sign
+        const post = lam(0x241a30);
+        const sign = new THREE.MeshBasicMaterial({
+          map: paint(256, 52, (c) => {
+            c.fillStyle = '#12051c';
+            c.fillRect(0, 0, 256, 52);
+            c.strokeStyle = '#ff2bd6';
+            c.lineWidth = 4;
+            c.strokeRect(3, 3, 250, 46);
+            c.fillStyle = '#2bf0ff';
+            c.font = '900 30px sans-serif';
+            c.fillText('MARBLE // 弾', 24, 37);
+          }),
+        });
+        arch(post, post, 3.8, -12.9, sign);
+        for (const side of [-1, 1]) {
+          add(box(0.06, 3.6, 0.06, basic(0xff2bd6)), side * 5.38, 1.9, -12.68);
+          add(box(11, 0.06, 0.06, basic(0x2bf0ff)), 0, 3.56, -12.68);
+        }
+        // tower wall behind, strips of neon at random heights
+        const tower = lam(0x150c22);
+        rows([-18, -23, -30], 3.2, 2.5, (x, z) => {
+          const h = rand(6, 18);
+          const w = rand(2, 3.2);
+          add(box(w, h, w, tower), x, h / 2, z);
+          const col = pick([0xff2bd6, 0x2bf0ff, 0xffe14d, 0x8a5cff]);
+          for (let k = 0; k < 3; k++) add(box(w + 0.05, 0.08, w + 0.05, basic(col)), x, rand(0.8, Math.min(h, 7)), z);
+          if (Math.random() < 0.5) {
+            // a glowing window column on the tower face
+            add(box(0.3, Math.min(h, 6) * 0.8, 0.05, basic(pick([0xffe14d, 0x2bf0ff]), { transparent: true, opacity: 0.7 })), x + rand(-0.5, 0.5), Math.min(h, 6) * 0.45, z + w / 2 + 0.03);
+          }
+        });
+        // a giant holo ad flickering behind the opponent
+        const holo = add(
+          new THREE.Mesh(
+            new THREE.PlaneGeometry(6, 3.4),
+            new THREE.MeshBasicMaterial({
+              transparent: true,
+              depthWrite: false,
+              side: THREE.DoubleSide,
+              map: paint(192, 108, (c) => {
+                const gr = c.createLinearGradient(0, 0, 192, 108);
+                gr.addColorStop(0, 'rgba(255,43,214,0.55)');
+                gr.addColorStop(1, 'rgba(43,240,255,0.45)');
+                c.fillStyle = gr;
+                c.fillRect(0, 0, 192, 108);
+                c.fillStyle = '#ffffff';
+                c.font = '900 40px sans-serif';
+                c.fillText('NEO', 14, 50);
+                c.font = '700 22px sans-serif';
+                c.fillText('FIGHT CLUB 2077', 14, 88);
+              }),
+            }),
+          ),
+          5,
+          3.6,
+          -17,
+        );
+        this.movers.push((t) => ((holo.material as THREE.MeshBasicMaterial).opacity = Math.random() < 0.03 ? 0.25 : 0.8 + Math.sin(t * 3) * 0.1));
+        // flying cars streaking across the shot
+        for (let i = 0; i < 6; i++) {
+          const car = new THREE.Group();
+          car.add(box(0.9, 0.3, 1.8, lam(0x2a2236)));
+          car.add(Object.assign(box(0.7, 0.2, 0.8, basic(0x12051c)), {}));
+          const trail = box(0.12, 0.06, 3, basic(pick([0xff2bd6, 0x2bf0ff, 0xffe14d])));
+          trail.position.z = 2.3;
+          car.add(trail);
+          crosser(car, rand(2.2, 5), -15 - i * 2.4, (i % 2 ? 1 : -1) * rand(5, 10));
+        }
+        break;
+      }
+      case 'soccer': {
+        // stands behind the far goal, packed with a waving crowd
+        const crowdColors = [0xe8312f, 0x2f63e8, 0xffc23d, 0xffffff, 0x1aa860, 0x333333];
+        const m4 = new THREE.Matrix4();
+        for (let row = 0; row < 6; row++) {
+          const z = -19 - row * 1.5;
+          const y = 0.3 + row * 0.7;
+          add(box(26, 0.7, 1.5, lam(row % 2 ? 0x8a909a : 0x9aa0aa)), 0, y, z);
+          const n = 48;
+          const crowd = new THREE.InstancedMesh(new THREE.BoxGeometry(0.38, 0.6, 0.32), lam(0xffffff), n);
+          for (let k = 0; k < n; k++) {
+            m4.makeTranslation(-12.5 + k * 0.53, y + 0.65, z);
+            crowd.setMatrixAt(k, m4);
+            crowd.setColorAt(k, new THREE.Color(pick(crowdColors)));
+          }
+          g.add(crowd);
+          const rowPh = row * 0.5;
+          this.movers.push((t) => {
+            for (let k = 0; k < n; k++) {
+              const lift = Math.max(0, Math.sin(t * 2.2 - k * 0.22 + rowPh)) * 0.3;
+              m4.makeTranslation(-12.5 + k * 0.53, y + 0.65 + lift, z);
+              crowd.setMatrixAt(k, m4);
+            }
+            crowd.instanceMatrix.needsUpdate = true;
+          });
+        }
+        // ad boards between the goal and the stands
+        const ads = [0xe8312f, 0x2f63e8, 0xffc23d, 0x1aa860, 0x111111];
+        for (let x = -11; x <= 11; x += 2.8) {
+          const col = pick(ads);
+          add(
+            new THREE.Mesh(
+              new THREE.BoxGeometry(2.6, 0.7, 0.1),
+              new THREE.MeshLambertMaterial({
+                emissive: 0x222222,
+                map: paint(128, 32, (c) => {
+                  c.fillStyle = css(col);
+                  c.fillRect(0, 0, 128, 32);
+                  c.fillStyle = '#ffffff';
+                  c.font = '900 18px sans-serif';
+                  c.fillText(pick(['MARBLE', 'GOAL!', 'B-FIGHT', 'SPORT', 'FIZZ']), 10, 23);
+                }),
+              }),
+            ),
+            x,
+            0.35,
+            -17.4,
+          );
+        }
+        // floodlight towers at the far corners and corner flags
+        for (const side of [-1, 1]) {
+          add(box(0.3, 7, 0.3, lam(0x8a8f98)), side * 9.5, 3.5, -24);
+          add(box(2.6, 1.3, 0.3, basic(0xffffee)), side * 9.5, 6.8, -23.8);
+          add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6), lam(0xffffff)), side * 4.8, 0.7, -12.85);
+          const flag = add(new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.3), lam(0xffd23e, { side: THREE.DoubleSide })), side * 4.6, 1.25, -12.85);
+          this.movers.push((t) => (flag.rotation.y = Math.sin(t * 4 + side) * 0.3));
+        }
+        break;
+      }
+      case 'beach': {
+        // a sand bar behind the far rail with beach life on it
+        const sand = new THREE.Mesh(new THREE.PlaneGeometry(30, 5), lam(0xe8d29c));
+        sand.rotation.x = -Math.PI / 2;
+        add(sand, 0, -0.02, -15.4);
+        const trunk = lam(0x8a6440);
+        const leaf = lam(0x2f9a4a, { side: THREE.DoubleSide });
+        for (const [x, z] of [
+          [-6.4, -14.2],
+          [6.8, -15],
+          [-9.5, -16.8],
+          [10, -17],
+        ]) {
+          const palm = new THREE.Group();
+          const h = rand(3.4, 4.4);
+          const t = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, h, 6), trunk);
+          t.position.y = h / 2;
+          t.rotation.z = -Math.sign(x) * 0.15;
+          palm.add(t);
+          for (let i = 0; i < 7; i++) {
+            const l = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.2, 4), leaf);
+            l.position.y = h;
+            l.rotation.set(Math.PI / 2.3, (i / 7) * Math.PI * 2, 0);
+            l.translateY(1.1);
+            palm.add(l);
+          }
+          add(palm, x, 0, z);
+          const ph = rand(0, 6);
+          this.movers.push((tt) => (palm.rotation.z = Math.sin(tt * 0.9 + ph) * 0.03));
+        }
+        for (const [x, col] of [
+          [-3.4, 0xff4a3d],
+          [3.2, 0x2f7cff],
+          [0.2, 0xffd23e],
+        ] as [number, number][]) {
+          const u = new THREE.Group();
+          u.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.2, 6), lam(0xffffff)), {}));
+          u.children[0].position.y = 1.1;
+          const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.2, 0.5, 8, 1, true), lam(col, { side: THREE.DoubleSide }));
+          canopy.position.y = 2.2;
+          u.add(canopy);
+          u.rotation.z = rand(-0.15, 0.15);
+          add(u, x, 0, -15.6);
+          const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.6), lam(pick([0xff8ab8, 0x8affd0, 0xffe14d]), { side: THREE.DoubleSide }));
+          towel.rotation.x = -Math.PI / 2;
+          add(towel, x + 1, 0.01, -15.2);
+        }
+        // lifeguard tower and a sandcastle
+        const tower = new THREE.Group();
+        for (const [x, z] of [
+          [-0.5, -0.5],
+          [0.5, -0.5],
+          [-0.5, 0.5],
+          [0.5, 0.5],
+        ])
+          tower.add(Object.assign(box(0.1, 2, 0.1, lam(0xffffff)), {}).translateX(x).translateZ(z).translateY(1));
+        tower.add(box(1.4, 0.8, 1.4, lam(0xff4a3d)).translateY(2.4));
+        tower.add(box(1.6, 0.1, 1.6, lam(0xffffff)).translateY(2.85));
+        add(tower, 8.2, 0, -16);
+        const castle = new THREE.Group();
+        for (const [x, h] of [
+          [-0.3, 0.6],
+          [0.3, 0.6],
+          [0, 0.9],
+        ])
+          castle.add(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, h, 8), lam(0xe8c88a)).translateX(x).translateY(h / 2));
+        add(castle, -1.8, 0, -14.4);
+        // a sailboat on the sea and gulls low over the far end
+        const boat = new THREE.Group();
+        boat.add(box(0.9, 0.3, 2.4, lam(0xffffff)));
+        const sail = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.2), lam(0xff4a3d, { side: THREE.DoubleSide }));
+        sail.position.y = 1.3;
+        sail.rotation.y = Math.PI / 2;
+        boat.add(sail);
+        crosser(boat, 0.1, -28, 1.2, 24);
+        for (let i = 0; i < 5; i++) {
+          const bird = new THREE.Group();
+          for (const s2 of [-1, 1]) {
+            const w = box(0.5, 0.03, 0.12, basic(0xffffff));
+            w.position.x = s2 * 0.24;
+            bird.add(w);
+          }
+          g.add(bird);
+          const r = rand(3, 7);
+          const h = rand(3, 4.6);
+          const ph = rand(0, 6);
+          this.movers.push((t) => {
+            const a = t * 0.35 + ph;
+            bird.position.set(Math.cos(a) * r, h + Math.sin(t * 2 + ph) * 0.2, -20 + Math.sin(a) * 4);
+            bird.rotation.y = -a;
+            bird.children.forEach((w, k) => (w.rotation.z = (k ? 1 : -1) * (0.3 + Math.sin(t * 6 + ph) * 0.35)));
+          });
+        }
+        break;
+      }
+      case 'lava': {
+        // braziers on the far corners of the rails
+        for (const side of [-1, 1]) {
+          add(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.25, 0.5, 8), lam(0x1d1514)), side * 5.25, 0.95, -12.4);
+          const fire = add(new THREE.Mesh(new THREE.ConeGeometry(0.38, 1, 8), basic(0xff7a1a, { transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending })), side * 5.25, 1.7, -12.4);
+          this.movers.push(() => fire.scale.set(0.9 + Math.random() * 0.2, 0.8 + Math.random() * 0.5, 0.9 + Math.random() * 0.2));
+        }
+        // obsidian spires and rocks rising out of the lava behind the far rail
+        const rock = lam(0x1d1514, { flatShading: true });
+        const vein = basic(0xff6a1a);
+        rows([-15, -19, -25], 2.8, 3, (x, z) => {
+          const h = rand(1.5, z < -18 ? 6 : 3.4);
+          const spire = new THREE.Mesh(new THREE.ConeGeometry(rand(0.6, 1.1), h, 5), rock);
+          spire.rotation.y = rand(0, 3);
+          add(spire, x, h / 2 - 0.1, z);
+          if (Math.random() < 0.5) add(box(0.06, h * 0.6, 0.06, vein), x + 0.2, h * 0.3, z + 0.45);
+        });
+        // a rock arch and lava falls pouring off the far cliffs
+        const archL = new THREE.Mesh(new THREE.TorusGeometry(3, 0.6, 5, 10, Math.PI), rock);
+        add(archL, -5, 0, -21);
+        for (const x of [-9, 3, 9.5]) {
+          const fall = add(new THREE.Mesh(new THREE.PlaneGeometry(1.2, 6), basic(0xff5a1a, { side: THREE.DoubleSide })), x, 3, -30);
+          const ph = rand(0, 6);
+          this.movers.push((t) => ((fall.material as THREE.MeshBasicMaterial).color.setRGB(1, 0.35 + Math.sin(t * 4 + ph) * 0.08, 0.1)));
+        }
+        // bubbling lava domes
+        for (let i = 0; i < 8; i++) {
+          const bub = add(new THREE.Mesh(new THREE.SphereGeometry(rand(0.2, 0.4), 8, 6), basic(0xffa040)), rand(-9, 9), 0, rand(-26, -14));
+          const ph = rand(0, 6);
+          this.movers.push((t) => {
+            const k = (t * 0.7 + ph) % 2;
+            bub.scale.setScalar(k < 1 ? k : 0.01);
+          });
+        }
+        break;
+      }
+      case 'snow': {
+        const pine = lam(0x2f6b4f, { flatShading: true });
+        const cap = lam(0xffffff, { flatShading: true });
+        rows([-15.5, -19, -24, -30], 2.4, 3, (x, z) => {
+          const tree = new THREE.Group();
+          const h = rand(3, 5.5) + (z < -20 ? 1.5 : 0);
+          for (let i = 0; i < 3; i++) {
+            const tier = new THREE.Mesh(new THREE.ConeGeometry(1.3 - i * 0.32, h * 0.45, 7), i === 2 ? cap : pine);
+            tier.position.y = h * 0.28 + i * h * 0.24;
+            tree.add(tier);
+            if (i < 2) {
+              const dust = new THREE.Mesh(new THREE.ConeGeometry(1.1 - i * 0.3, h * 0.12, 7), cap);
+              dust.position.y = h * 0.42 + i * h * 0.24;
+              tree.add(dust);
+            }
+          }
+          add(tree, x, 0, z);
+        });
+        // snowmen guarding the far rail, with scarves and coal eyes
+        for (const x of [-3.6, 3.8]) {
+          const man = new THREE.Group();
+          [0.5, 0.36, 0.26].forEach((r, k) => man.add(new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), lam(0xffffff)).translateY([0.45, 1.15, 1.65][k])));
+          const nose = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28, 6), lam(0xff7a1a));
+          nose.rotation.x = Math.PI / 2;
+          nose.position.set(0, 1.65, 0.3);
+          man.add(nose);
+          man.add(new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 6, 12), lam(0xe8312f)).translateY(1.38).rotateX(Math.PI / 2));
+          for (const s2 of [-1, 1]) man.add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), basic(0x111111)).translateX(s2 * 0.09).translateY(1.72).translateZ(0.23));
+          add(man, x, 0, -14.4);
+        }
+        // a cabin with a lit window and chimney smoke
+        const cabin = new THREE.Group();
+        cabin.add(box(3, 2, 2.4, lam(0x6a4a2e)).translateY(1));
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(2.4, 1.3, 4), lam(0xffffff));
+        roof.position.y = 2.6;
+        roof.rotation.y = Math.PI / 4;
+        cabin.add(roof);
+        cabin.add(new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.55), basic(0xffd27a)).translateY(1.2).translateZ(1.21));
+        cabin.add(box(0.4, 1, 0.4, lam(0x5a5a62)).translateX(0.8).translateY(3));
+        add(cabin, -7, 0, -20);
+        const smoke = basic(0xdde4ec, { transparent: true, opacity: 0.5, depthWrite: false });
+        for (let i = 0; i < 4; i++) {
+          const puff = add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), smoke), -6.2, 3.6, -20);
+          this.movers.push((t) => {
+            const k = (t * 0.25 + i / 4) % 1;
+            puff.position.set(-6.2 + k * 0.8, 3.6 + k * 2.4, -20);
+            puff.scale.setScalar(0.6 + k * 1.6);
+          });
+        }
+        // ice crystals catching the light
+        for (const [x, z] of [
+          [6.2, -14],
+          [-6, -14.6],
+          [9, -18],
+        ]) {
+          const ice = add(new THREE.Mesh(new THREE.OctahedronGeometry(0.6, 0), lam(0xbfe8ff, { emissive: 0x3a7aa0, flatShading: true, transparent: true, opacity: 0.85 })), x, 0.7, z);
+          ice.scale.y = 1.8;
+        }
+        break;
+      }
+      case 'city': {
+        // the skyline right behind the far rail
+        const wallMat = lam(0x1b1f2e);
+        const winMat = new THREE.MeshBasicMaterial({
+          map: paint(64, 128, (c) => {
+            c.fillStyle = '#10131f';
+            c.fillRect(0, 0, 64, 128);
+            for (let y = 6; y < 128; y += 10)
+              for (let x = 4; x < 64; x += 10) {
+                if (Math.random() < 0.5) continue;
+                c.fillStyle = Math.random() < 0.7 ? '#ffd27a' : '#7fe6ff';
+                c.fillRect(x, y, 5, 6);
+              }
+          }),
+        });
+        rows([-22, -28, -34], 3.6, 0, (x, z) => {
+          const h = rand(5, 16);
+          const w = rand(2.6, 3.6);
+          add(new THREE.Mesh(new THREE.BoxGeometry(w, h, w), [winMat, winMat, wallMat, wallMat, winMat, winMat]), x, h / 2, z);
+          if (Math.random() < 0.3) add(box(0.06, 1.2, 0.06, basic(0xff3e5e)), x, h + 0.6, z); // antenna light
+        });
+        // an elevated highway with traffic crossing the shot
+        const deck = lam(0x3a3e48);
+        add(box(40, 0.4, 2.6, deck), 0, 2.2, -17);
+        add(box(40, 0.5, 0.12, lam(0x8a8f98)), 0, 2.6, -15.75);
+        for (let x = -12; x <= 12; x += 6) add(box(0.6, 2.2, 0.6, deck), x, 1.1, -17);
+        for (let x = -12; x <= 12; x += 3) add(box(0.08, 0.08, 0.08, basic(0xffcf3e)), x, 2.9, -15.75);
+        for (let i = 0; i < 6; i++) {
+          const car = new THREE.Group();
+          const col = pick([0xe8312f, 0x2f63e8, 0xf4f4f4, 0x222222, 0xffcf3e]);
+          car.add(box(1.0, 0.45, 2.0, lam(col)).translateY(0.25));
+          car.add(box(0.85, 0.35, 1.1, lam(0x14161c)).translateY(0.6).translateZ(0.1));
+          for (const s2 of [-1, 1]) car.add(box(0.2, 0.12, 0.05, basic(0xfff4c0)).translateX(s2 * 0.32).translateY(0.3).translateZ(-1.02));
+          for (const s2 of [-1, 1]) car.add(box(0.2, 0.1, 0.05, basic(0xff2a2a)).translateX(s2 * 0.32).translateY(0.3).translateZ(1.02));
+          crosser(car, 2.4, -17 + (i % 2 ? 0.6 : -0.6), (i % 2 ? 1 : -1) * rand(5, 8), 20);
+        }
+        // big billboard behind the opponent, traffic lights on the far corners
+        add(
+          new THREE.Mesh(
+            new THREE.PlaneGeometry(4.6, 2),
+            new THREE.MeshBasicMaterial({
+              map: paint(256, 112, (c) => {
+                const gr = c.createLinearGradient(0, 0, 256, 0);
+                gr.addColorStop(0, '#ff3e8e');
+                gr.addColorStop(1, '#3ef0ff');
+                c.fillStyle = gr;
+                c.fillRect(0, 0, 256, 112);
+                c.fillStyle = '#ffffff';
+                c.font = '900 40px sans-serif';
+                c.fillText('MARBLE', 24, 52);
+                c.font = '700 24px sans-serif';
+                c.fillText('FIGHT NIGHT', 26, 90);
+              }),
+            }),
+          ),
+          -4.2,
+          3.75,
+          -17.9,
+        );
+        for (const side of [-1, 1]) {
+          add(box(0.12, 3.4, 0.12, lam(0x2a2e36)), side * 5.4, 1.7, -12.8);
+          const lamps = new THREE.Group();
+          lamps.add(box(0.36, 0.9, 0.3, lam(0x1a1c22)));
+          const lights = [0xff2a2a, 0xffcf3e, 0x3aff6a].map((c, k) => {
+            const l = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), basic(c));
+            l.position.set(0, 0.28 - k * 0.28, 0.16);
+            lamps.add(l);
+            return l;
+          });
+          add(lamps, side * 5.4, 3.4, -12.8);
+          this.movers.push((t) => {
+            const phase = Math.floor((t / 3 + (side > 0 ? 1 : 0)) % 3);
+            lights.forEach((l, k) => l.scale.setScalar(k === phase ? 1.15 : 0.5));
+          });
+        }
+        break;
+      }
+      case 'space': {
+        // a docking gantry over the far rail, lights chasing along the beam
+        const steel = lam(0x2c3650);
+        arch(steel, steel, 3.8, -13);
+        const chase: THREE.Mesh[] = [];
+        for (let k = 0; k < 14; k++) chase.push(add(box(0.3, 0.12, 0.08, basic(0x3ef0ff)), -5.2 + k * 0.8, 3.55, -12.75));
+        this.movers.push((t) => chase.forEach((c, k) => c.scale.setScalar(((t * 8 - k) % 14 + 14) % 14 < 2 ? 1.6 : 0.6)));
+        // a hangar wall with bays behind the deck
+        rows([-18, -24], 4, 3, (x, z) => {
+          const h = rand(2, 4.5);
+          add(box(3.4, h, 1.2, lam(0x1b2236)), x, h / 2, z);
+          add(box(2.4, 0.1, 0.05, basic(pick([0x3ef0ff, 0xff3e8e, 0xffcf3e]))), x, h * 0.75, z + 0.62);
+        });
+        // asteroids tumbling past and a shuttle crossing
+        const roid = lam(0x6a6570, { flatShading: true });
+        for (let i = 0; i < 9; i++) {
+          const a = add(new THREE.Mesh(new THREE.DodecahedronGeometry(rand(0.4, 1.3), 0), roid), rand(-10, 10), rand(2.5, 5.5), rand(-36, -20));
+          const spin = rand(0.2, 0.8);
+          const x0 = a.position.x;
+          const ph = rand(0, 6);
+          this.movers.push((t) => {
+            a.rotation.set(t * spin, t * spin * 0.7, 0);
+            a.position.x = x0 + Math.sin(t * 0.1 + ph) * 1.5;
+          });
+        }
+        const shuttle = new THREE.Group();
+        shuttle.add(box(0.9, 0.5, 2.6, lam(0xd8dce6)));
+        shuttle.add(box(2.4, 0.08, 1, lam(0x9aa0b0)).translateZ(0.5));
+        shuttle.add(box(0.5, 0.3, 0.1, basic(0x3ef0ff)).translateZ(1.32));
+        crosser(shuttle, 4.2, -22, 3, 24);
         break;
       }
     }
