@@ -887,57 +887,51 @@ export class ShooterMesh {
     this.barrel.add(drum, tube, ring, sight);
     this.turret.add(this.barrel);
 
-    // head: compact helmet, V visor, slanted eyes, mandibles, rhino horn, seeker missiles
+    // head, like the figure: a big round yellow dome, a black visor band with two big green eyes,
+    // a white chin, and the stalk on top carrying the twin black seeker-missile launchers
+    const white = this.paint(0xf2f2ee);
+    const hole = new THREE.MeshBasicMaterial({ color: 0x050507 });
     const head = new THREE.Group();
-    head.position.set(0, 0.8, -0.02);
-    head.add(box(0.6, 0.38, 0.56, m.body, 0, 0, 0)); // helmet
-    // the brow drops to a point over the visor: a permanent scowl
+    head.position.set(0, 0.84, -0.02);
+    head.scale.setScalar(1.15);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.33, 24, 18), m.body);
+    dome.scale.set(1, 0.98, 1.04);
+    dome.position.set(0, 0.06, 0.03);
+    head.add(dome);
+    // the face: a wide black visor across the dome, big green eyes, a white rounded lower face
+    head.add(rbox(0.54, 0.19, 0.2, 0.08, visor, 0, -0.02, -0.2));
     for (const side of [-1, 1]) {
-      const brow = box(0.3, 0.07, 0.08, m.body, side * 0.13, 0.08, -0.29);
-      brow.rotation.z = side * 0.32;
-      head.add(brow);
-    }
-    head.add(box(0.5, 0.2, 0.05, visor, 0, -0.04, -0.28)); // black face
-    for (const side of [-1, 1]) {
-      const eye = box(0.15, 0.045, 0.02, m.eyeMat, side * 0.12, -0.01, -0.31);
-      eye.rotation.z = side * 0.38;
+      const eye = rbox(0.18, 0.1, 0.02, 0.035, m.eyeMat, side * 0.11, -0.02, -0.302);
+      eye.rotation.z = side * 0.2;
       head.add(eye);
-      const mandible = cone(0.035, 0.16, m.trim);
-      mandible.rotation.set(-Math.PI / 2 - 0.5, 0, side * 0.35);
-      mandible.position.set(side * 0.13, -0.19, -0.3);
-      head.add(mandible);
-      head.add(box(0.07, 0.18, 0.22, m.accent, side * 0.32, -0.02, 0.02)); // ear discs
-      // seeker missiles: low twin launchers swept back along the helmet
+    }
+    head.add(rbox(0.36, 0.18, 0.22, 0.08, white, 0, -0.19, -0.17));
+    head.add(rbox(0.14, 0.012, 0.02, 0.004, m.joint, 0, -0.2, -0.282));
+    // the stalk and the two launchers angled up and out, three holes along each and an open muzzle
+    head.add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 0.2, 12), m.body).translateY(0.44).translateZ(0.02));
+    for (const side of [-1, 1]) {
       const pod = new THREE.Group();
-      pod.position.set(side * 0.2, 0.22, 0.12);
-      pod.rotation.set(-0.35, 0, side * -0.25);
-      pod.add(box(0.12, 0.1, 0.32, m.trim));
-      for (const dx of [-0.03, 0.03]) {
-        const tip = cone(0.022, 0.07, m.accent);
-        tip.rotation.x = -Math.PI / 2;
-        tip.position.set(dx, 0, -0.19);
-        pod.add(tip);
+      pod.position.set(side * 0.2, 0.6, 0.02);
+      pod.scale.setScalar(1.15);
+      pod.rotation.z = side * 0.32;
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.32, 16), m.trim);
+      tube.rotation.z = Math.PI / 2;
+      pod.add(tube);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.05, 16), m.trim);
+      rim.rotation.z = Math.PI / 2;
+      rim.position.x = side * 0.15;
+      pod.add(rim);
+      const mouth = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 14), hole);
+      mouth.rotation.z = Math.PI / 2;
+      mouth.position.x = side * 0.176;
+      pod.add(mouth);
+      for (const dx of [-0.09, -0.01, 0.07]) {
+        const h = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.02, 10), hole);
+        h.rotation.x = Math.PI / 2;
+        h.position.set(side * dx, 0, -0.07);
+        pod.add(h);
       }
       head.add(pod);
-    }
-    // the rhino horn tapers as it curls forward, ending in a fork
-    const hornSegs: [number, number, number, number, number, number][] = [
-      // top radius, bottom radius, length, y, z, tilt
-      [0.07, 0.11, 0.26, 0.3, -0.15, -0.25],
-      [0.05, 0.07, 0.24, 0.5, -0.24, -0.65],
-      [0.035, 0.05, 0.2, 0.63, -0.39, -1.1],
-    ];
-    for (const [rt, rb, h, y, z, tilt] of hornSegs) {
-      const seg = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 6), m.body);
-      seg.position.set(0, y, z);
-      seg.rotation.x = tilt;
-      head.add(seg);
-    }
-    for (const side of [-1, 1]) {
-      const fork = cone(0.035, 0.16, m.body);
-      fork.position.set(side * 0.04, 0.68, -0.53);
-      fork.rotation.set(-1.5, 0, -side * 0.4);
-      head.add(fork);
     }
     this.turret.add(head);
 
@@ -1242,11 +1236,13 @@ export class ShooterMesh {
       const backFin = rbox(0.035, 0.14, 0.22, 0.012, m.accent, side * 0.18, 0.18, 0.34);
       backFin.rotation.set(-0.4, side * 0.35, 0);
       head.add(backFin);
-      // angular yellow eyes, slanted down toward the nose, with dark pupils
-      const eye = rbox(0.11, 0.05, 0.02, 0.01, m.eyeMat, side * 0.075, -0.01, -0.315);
-      eye.rotation.z = side * 0.4;
+      // angular yellow eyes, slanted down toward the nose, tapering to a sharp outer point
+      const eye = rbox(0.1, 0.05, 0.02, 0.012, m.eyeMat, side * 0.07, -0.015, -0.315);
+      eye.rotation.z = side * 0.32;
       head.add(eye);
-      head.add(rbox(0.025, 0.025, 0.01, 0.004, black, side * 0.065, -0.012, -0.328));
+      const tail = rbox(0.07, 0.026, 0.02, 0.008, m.eyeMat, side * 0.122, 0.012, -0.314);
+      tail.rotation.z = side * 0.6;
+      head.add(tail);
       const cheek = rbox(0.04, 0.17, 0.05, 0.012, m.accent, side * 0.125, -0.15, -0.29);
       cheek.rotation.set(0.25, 0, -side * 0.35);
       head.add(cheek);
@@ -1497,24 +1493,44 @@ export class ShooterMesh {
     this.barrel.add(jaw);
     this.jaw = jaw;
     this.turret.add(this.barrel);
-    // head: tall gunmetal bucket helmet, green forehead gem, silver face with red eyes
+    // head, like the figure: a tall domed gunmetal helmet that flares out at the bottom, a centre crest,
+    // a long green gem on the forehead, a heavy V brow over red eyes, a recessed silver face and frowning mouth
     this.turret.add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.1, 10), helmet).translateY(0.56));
     const head = new THREE.Group();
     head.position.set(0, 0.8, -0.02);
-    head.add(rbox(0.34, 0.42, 0.36, 0.08, helmet, 0, 0.04, 0));
-    head.add(rbox(0.1, 0.1, 0.3, 0.03, helmetLite, 0, 0.26, 0.01));
+    head.scale.setScalar(1.1);
+    head.add(rbox(0.3, 0.4, 0.34, 0.13, helmet, 0, 0.06, 0.01));
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), helmet);
+    crown.scale.set(1, 0.6, 1.12);
+    crown.position.set(0, 0.2, 0.01);
+    head.add(crown);
+    const crest = rbox(0.06, 0.07, 0.36, 0.025, helmetLite, 0, 0.27, 0.02);
+    head.add(crest);
+    head.add(rbox(0.06, 0.12, 0.05, 0.02, helmetLite, 0, 0.2, -0.16));
     for (const side of [-1, 1]) {
-      head.add(rbox(0.06, 0.3, 0.26, 0.02, helmet, side * 0.18, -0.02, 0));
-      const eye = rbox(0.08, 0.03, 0.02, 0.006, m.eyeMat, side * 0.06, 0.02, -0.205);
-      eye.rotation.z = side * 0.3;
+      // side guards flare out toward the jaw
+      const guard = rbox(0.07, 0.3, 0.32, 0.03, helmet, side * 0.135, -0.06, 0.02);
+      guard.rotation.z = side * -0.08;
+      head.add(guard);
+      head.add(rbox(0.045, 0.22, 0.06, 0.015, helmet, side * 0.105, -0.06, -0.175));
+      const brow = rbox(0.1, 0.04, 0.06, 0.012, helmet, side * 0.05, 0.035, -0.19);
+      brow.rotation.z = side * 0.35;
+      head.add(brow);
+      const eye = rbox(0.06, 0.026, 0.02, 0.006, m.eyeMat, side * 0.05, 0.005, -0.198);
+      eye.rotation.z = side * 0.35;
       head.add(eye);
     }
-    head.add(rbox(0.24, 0.22, 0.06, 0.02, face, 0, -0.04, -0.17));
-    head.add(rbox(0.28, 0.06, 0.08, 0.02, helmet, 0, 0.09, -0.17));
-    head.add(rbox(0.12, 0.04, 0.02, 0.006, m.joint, 0, -0.1, -0.205));
+    head.add(rbox(0.18, 0.2, 0.05, 0.02, face, 0, -0.05, -0.17));
+    head.add(rbox(0.09, 0.012, 0.02, 0.004, helmet, 0, -0.1, -0.198));
+    for (const side of [-1, 1]) {
+      const frown = rbox(0.03, 0.012, 0.02, 0.004, helmet, side * 0.055, -0.108, -0.198);
+      frown.rotation.z = side * 0.5;
+      head.add(frown);
+    }
+    head.add(rbox(0.14, 0.05, 0.06, 0.02, face, 0, -0.16, -0.16));
     const gemG = new THREE.Group();
-    gemG.position.set(0, 0.17, -0.19);
-    gemG.scale.set(1, 1.7, 1);
+    gemG.position.set(0, 0.11, -0.19);
+    gemG.scale.set(1, 2.1, 1);
     const g = rbox(0.045, 0.045, 0.03, 0.008, gem);
     g.rotation.z = Math.PI / 4;
     gemG.add(g);
