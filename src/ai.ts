@@ -40,6 +40,8 @@ export class AIController {
   private t = 0;
   /** seconds until it next considers charging a big shot */
   private chargeCool = rand(3, 6);
+  /** below 1 charges more often and bigger (an arcade boss) */
+  chargeEager = 1;
 
   constructor(
     private game: Game,
@@ -98,9 +100,10 @@ export class AIController {
       this.chargeCool -= dt;
       if (this.chargeCool <= 0 && this.burstLeft <= 0 && me.reload <= 0 && me.ammo >= 3 && Math.abs(desired - me.aim) < 0.2) {
         // sharper CPUs think about it more often (Rookie every ~6-12 s, Ace every ~3-7 s)
-        this.chargeCool = rand(4, 8) * (0.6 + pr.reaction * 2);
-        if (Math.random() < 0.6) {
-          me.chargeWant = Math.max(2, Math.min(CHARGE.max, Math.floor(me.ammo) - 1, Math.round(rand(2, 5.4))));
+        this.chargeCool = rand(4, 8) * (0.6 + pr.reaction * 2) * this.chargeEager;
+        if (Math.random() < (this.chargeEager < 1 ? 0.85 : 0.6)) {
+          const lo = this.chargeEager < 1 ? 3 : 2;
+          me.chargeWant = Math.max(lo, Math.min(CHARGE.max, Math.floor(me.ammo) - 1, Math.round(rand(lo, 5.4))));
           me.firing = false;
           return;
         }

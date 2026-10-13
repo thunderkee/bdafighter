@@ -729,6 +729,7 @@ export class View {
       if (!sm) return;
       // knocked-out pack members leave only their wreck behind
       sm.root.visible = s.active && !s.out;
+      sm.size = s.size ?? 1;
       if (sm.root.visible && !sm.broken) sm.sync(s, this.time, dt * this.rate(i));
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);

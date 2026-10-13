@@ -309,6 +309,8 @@ export const characterById = (id: string) => CHARACTERS.find((c) => c.id === id)
 
 export class ShooterMesh {
   root = new THREE.Group();
+  /** model scale on top of the animation (an arcade boss stands taller) */
+  size = 1;
   /** everything above the hips; rotates with aim */
   turret: THREE.Object3D = new THREE.Group();
   barrel: THREE.Object3D = new THREE.Group();
@@ -1962,7 +1964,7 @@ export class ShooterMesh {
     // tip away from the attacker / the shot (player leans toward +z, opponent toward -z)
     this.root.rotation.x = s.team === 0 ? back : -back;
     this.root.position.z += s.team === 0 ? slide : -slide;
-    this.root.scale.set(1 + squash * 0.6, 1 - squash, 1 + squash * 0.6);
+    this.root.scale.set((1 + squash * 0.6) * this.size, (1 - squash) * this.size, (1 + squash * 0.6) * this.size);
     this.root.rotation.y = (s.team === 0 ? 0 : Math.PI) + (jolt ? (Math.random() * 2 - 1) * jolt : 0);
   }
 }

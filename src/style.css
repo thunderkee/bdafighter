@@ -854,6 +854,29 @@ body.buttons #hints {
     linear-gradient(135deg, #ffc23d, var(--line-dim) 35%, var(--line-dim) 65%, #ffc23d) border-box;
   border: 1px solid transparent;
 }
+.arcade-next.boss {
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(135deg, #ff3e5e, var(--line-dim) 35%, var(--line-dim) 65%, #ff3e5e) border-box;
+}
+.arcade-next.boss b {
+  color: #ff5a72;
+  animation: boss-blink 0.9s steps(2, start) infinite;
+}
+@keyframes boss-blink {
+  to {
+    opacity: 0.45;
+  }
+}
+/* the VS intro on a boss stage: a red challenger card */
+#intro.boss .p2 .ic-tag {
+  color: #ff5a72;
+  animation: boss-blink 0.6s steps(2, start) infinite;
+}
+#intro.boss .p2 b {
+  color: #ff8a9a;
+  text-shadow: 0 0 18px rgba(255, 62, 94, 0.8);
+}
 .arcade-next b {
   font: 900 12px var(--display);
   letter-spacing: 0.2em;

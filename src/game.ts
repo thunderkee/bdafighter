@@ -307,8 +307,15 @@ export class Shooter {
     );
   }
 
+  /** body size: 1 for everyone, bigger for an arcade boss (hit box and model grow together) */
+  size = 1;
   get halfWidth() {
-    return 0.62;
+    return 0.62 * this.size;
+  }
+  setSize(k: number) {
+    this.size = k;
+    const c = this.collider as unknown as { setHalfExtents?: (v: { x: number; y: number }) => void };
+    c.setHalfExtents?.({ x: 0.62 * k, y: 0.5 * k });
   }
 
   get hpFrac() {
@@ -342,6 +349,7 @@ export class Shooter {
   reset(stats: ShooterStats, maxHealth: number, active: boolean, lane: [number, number]) {
     this.stats = stats;
     this.active = active;
+    if (this.size !== 1) this.setSize(1);
     this.out = false;
     this.kickT = this.heavyT = 9;
     this.lane = lane;
@@ -419,6 +427,8 @@ export interface MatchOptions {
   duration: number;
   /** CPU opponents charge shots too */
   cpuCharge?: boolean;
+  /** an arcade boss: this slot is bigger (hit box and model) */
+  boss?: { slot: number; size: number };
   /** and your CPU pack-mates */
   allyCharge?: boolean;
   /** balls fired per trigger pull, both robots (1-5) */
@@ -771,6 +781,7 @@ export class Game {
     this.clock = opts.duration > 0 ? opts.duration : Infinity;
     this.burst = Math.max(1, Math.min(5, Math.round(opts.burst)));
     this.cpuCharge = opts.cpuCharge ?? true;
+    if (opts.boss) this.shooters[opts.boss.slot]?.setSize(opts.boss.size);
     this.allyCharge = opts.allyCharge ?? true;
     this.tactics = opts.tactics ?? ['nearest', 'nearest'];
     this.koSource = null;
