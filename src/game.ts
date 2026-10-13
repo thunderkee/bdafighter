@@ -47,6 +47,14 @@ export const STEP = 1 / 60;
 export const SUPER_HITS = 3;
 /** how a super marble differs from a normal one */
 const SUPER = { radius: 2.2, mass: 40, speed: 1.15, damage: 4 };
+/**
+ * Charge shot (you only): a press fires as usual; keep holding past `hold` seconds and every
+ * `per` seconds one more ball leaves the magazine into the charge (up to `max`). Letting go
+ * fires one ball that many times the size and power. You move at `moveMul` speed meanwhile.
+ */
+export const CHARGE = { hold: 0.5, per: 0.5, max: 5, moveMul: 0.45 };
+/** 0..1: how far a shooter's charge has built (0 while not charging) */
+export const chargeLevel = (s: { chargeHold: number }) => (s.chargeHold < CHARGE.hold ? 0 : Math.min(1, (s.chargeHold - CHARGE.hold) / (CHARGE.per * CHARGE.max)));
 /** player + up to three opponents */
 /** slot 0 is you, 1-3 the opponent pack, 4-5 your pack-mates */
 export const MAX_SHOOTERS = 6;
@@ -254,6 +262,10 @@ export class Shooter {
   /** Smart Lock: seconds left, and the slot it's locked onto (-1 none) */
   lockT = 0;
   lockSlot = -1;
+  /** seconds the fire button has been held this press, balls stored in the charge, and whether this press already fired */
+  chargeHold = 0;
+  stored = 0;
+  pressShot = false;
   /** the Smart Lock has been steering the aim (it lets go to straight ahead when it ends) */
   lockSteer = false;
   /** dragon balls still to launch, and the gap timer */
@@ -355,6 +367,8 @@ export class Shooter {
     this.item = null;
     this.multiT = this.wiperT = this.lockT = 0;
     this.lockSlot = -1;
+    this.chargeHold = this.stored = 0;
+    this.pressShot = false;
     this.lockSteer = false;
     this.dragonQueue = this.dragonTimer = 0;
     this.burstQueue = this.burstTimer = 0;
@@ -434,6 +448,8 @@ export class Game {
   duration: number = MATCH.duration;
   /** balls per trigger pull */
   burst = 1;
+  /** long-press charge shots for the player (the CPU keeps holding to stream) */
+  chargeShots = true;
   winner: Team | -1 | null = null;
   /** seconds of frozen physics after a heavy hit */
   hitstop = 0;
@@ -1185,7 +1201,7 @@ export class Game {
     // the whole rail is open; pack-mates step forward to pass each other
     const lo = -ARENA.railHalfWidth;
     const hi = ARENA.railHalfWidth;
-    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1);
+    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
     const prevX = s.x;
     if (canAct || this.phase === 'countdown') {
       if (s.moveTarget !== null) {
@@ -1273,7 +1289,39 @@ export class Game {
       if (s.shieldIdle > SHIELD.regenDelay && s.shieldLock <= 0) s.shield = Math.min(SHIELD.max, s.shield + SHIELD.regen * (s.stats.agility ?? 1) * dt);
     }
 
-    if (canAct && s.firing && !s.shieldUp && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
+    // charge shot: holding past the threshold stores balls; letting go fires them as one
+    const chargeable = this.chargeShots && s.slot === 0;
+    if (chargeable) {
+      const holding = canAct && s.firing && !s.shieldUp && s.reload <= 0;
+      if (holding) {
+        s.chargeHold += adt;
+        if (s.chargeHold >= CHARGE.hold) {
+          s.burstQueue = 0;
+          // one ball per `per` seconds after the threshold: a 3 s hold stores 5
+          const want = Math.min(CHARGE.max, Math.floor((s.chargeHold - CHARGE.hold) / CHARGE.per + 1e-6));
+          while (s.stored < want && s.ammo >= 1) {
+            s.ammo -= 1;
+            s.stored++;
+            s.idle = 0;
+            sfx.play('tick', 0.6 + s.stored * 0.12);
+          }
+        }
+      } else if (s.chargeHold > 0 || s.stored > 0) {
+        if (s.stored > 0) {
+          // released: the charged ball; interrupted (shield, round over): the balls go back
+          if (!s.firing && canAct && !s.shieldUp) this.fireCharged(s, s.stored);
+          else s.ammo = Math.min(s.stats.capacity, s.ammo + s.stored);
+        }
+        if (s.ammo < 1 && s.reload <= 0) s.reload = s.stats.reloadTime;
+        s.stored = 0;
+        s.chargeHold = 0;
+      }
+      if (!s.firing) s.pressShot = false;
+    }
+    // a charging press doesn't stream shots: one shot per press, the rest is charge
+    const mayFire = !chargeable || (!s.pressShot && s.chargeHold < CHARGE.hold);
+    if (mayFire && canAct && s.firing && !s.shieldUp && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
+      s.pressShot = true;
       const multi = s.multiT > 0 && !s.superReady;
       if (multi) this.fireVolley(s);
       else this.fire(s);
@@ -1479,6 +1527,34 @@ export class Game {
     if (isSuper) s.heavyT = 0;
     this.fx.push({ type: isSuper ? 'super-fire' : 'muzzle', slot: s.slot });
     sfx.play(isSuper ? 'super' : 'fire', s.slot === 0 ? 1 : 0.45);
+  }
+
+  /** The charge shot: one ball `n` times the size and power of a regular one, dead straight. */
+  private fireCharged(s: Shooter, n: number) {
+    const m = this.takeMarble();
+    if (!m) {
+      s.ammo = Math.min(s.stats.capacity, s.ammo + n);
+      return;
+    }
+    const st = s.stats;
+    const radius = st.marbleRadius * n;
+    this.launch(m, s, {
+      angle: s.aim,
+      radius,
+      // big ones roll a touch slower but carry far more weight
+      speed: st.muzzleSpeed * (1 - (n - 1) * 0.04),
+      mass: st.marbleMass * n * n,
+      damage: st.damage * n,
+      kind: 'super',
+      push: radius,
+    });
+    s.shots++;
+    s.recoil = 1;
+    s.kickT = 0;
+    s.heavyT = 0;
+    s.idle = 0;
+    this.fx.push({ type: 'super-fire', slot: s.slot });
+    sfx.play('super', 0.7 + n * 0.1);
   }
 
   /** Multi shot: a fan of marbles from one trigger pull. */

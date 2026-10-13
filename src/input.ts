@@ -8,7 +8,7 @@ const TRIPLE_ANGLE = 0.42; // radians for the front-left / front-right fire butt
 /**
  * Touch first:
  *   left 40% of the screen  — drag sideways to slide along the rail
- *   right 60% of the screen — hold to fire, drag sideways to aim
+ *   right 60% of the screen — tap to fire, hold to charge a big shot, drag sideways to aim
  * Buttons layout: on-screen ◀ ▶ and FIRE replace the gesture zones.
  * Mouse (can be switched off): cursor aims, hold button to fire.
  * Keyboard: A/D or arrows move (or turn aim, per settings), Q/E nudge aim, Space fires.

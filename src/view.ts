@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ARENA, COLORS, MATCH } from './config';
-import { MAX_SHOOTERS, slotTeam, type Drop, type Game, type Gate, type Team } from './game';
+import { CHARGE, MAX_SHOOTERS, chargeLevel, slotTeam, type Drop, type Game, type Gate, type Team } from './game';
 
 /** every robot slot: 0 you, 1-3 opponents, 4-5 your pack-mates */
 const SLOTS = Array.from({ length: MAX_SHOOTERS }, (_, i) => i);
@@ -380,6 +380,7 @@ export class View {
     this.hemi.intensity = d.hemi[2];
     this.sun.color.set(d.sun[0]);
     this.sun.intensity = d.sun[1];
+    this.lightBase = [d.hemi[2], d.sun[1]];
     // pucks take the stage's theme
     for (const p of this.puckMeshes) this.scene.remove(p);
     this.puckMeshes = this.game.bumps.map((b) => {
@@ -660,6 +661,48 @@ export class View {
     return slot >= 0 && slot === g.slowOwner ? SLOWMO.owner : SLOWMO.world;
   }
 
+  /** the stage's own light levels, and how far a charge shot has dimmed them (0..1) */
+  private lightBase: [number, number] = [1.6, 1.9];
+  private dim = 0;
+  private chargeOrb: THREE.Group | null = null;
+
+  /** charging a shot: the arena darkens around you and a ball of light swells at the muzzle */
+  private updateCharge(dt: number) {
+    const s = this.game.shooters[0];
+    const charging = !!s && s.alive && s.chargeHold >= CHARGE.hold && !this.cine;
+    const lvl = charging ? chargeLevel(s) : 0;
+    // dim quickly as it builds, come back fast when it's released
+    this.dim += ((charging ? 0.35 + lvl * 0.65 : 0) - this.dim) * Math.min(1, dt * (charging ? 5 : 9));
+    this.hemi.intensity = this.lightBase[0] * (1 - 0.7 * this.dim);
+    this.sun.intensity = this.lightBase[1] * (1 - 0.8 * this.dim);
+    if (!this.chargeOrb) {
+      const g = new THREE.Group();
+      const glow = (r: number, opacity: number) =>
+        new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
+      g.add(glow(1, 0.85), glow(1.18, 0.3), glow(1.4, 0.1));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.05, 8, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+      ring.name = 'ring';
+      g.add(ring);
+      g.renderOrder = 5;
+      this.scene.add(g);
+      this.chargeOrb = g;
+    }
+    const orb = this.chargeOrb;
+    orb.visible = charging;
+    if (!charging) return;
+    const sm = this.shooters[0];
+    sm.muzzleWorld(this.tmpMuzzle);
+    // grows smoothly toward the next stored ball, so the size reads as "how big it will be"
+    const r = s.stats.marbleRadius * Math.max(0.6, Math.min(CHARGE.max, s.stored + ((s.chargeHold - CHARGE.hold) % CHARGE.per) / CHARGE.per));
+    const pulse = 1 + Math.sin(this.time * (14 + s.stored * 4)) * 0.08;
+    orb.position.set(this.tmpMuzzle.x, Math.max(this.tmpMuzzle.y, r), this.tmpMuzzle.z);
+    orb.scale.setScalar(r * pulse);
+    const col = this.tmpC.set(this.teamBall[0]).lerp(new THREE.Color(0xffffff), 0.35 + 0.3 * Math.sin(this.time * 9));
+    orb.children.forEach((c, i) => ((c as THREE.Mesh).material as THREE.MeshBasicMaterial).color.copy(i === 0 ? new THREE.Color(0xffffff).lerp(col, 0.4) : col));
+    const ring = orb.getObjectByName('ring')!;
+    ring.rotation.set(this.time * 3, this.time * 4.2, 0);
+  }
+
   render(dt: number, showAim: boolean) {
     const g = this.game;
     this.time += dt;
@@ -681,6 +724,7 @@ export class View {
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
     this.updateKo(dt);
+    this.updateCharge(dt);
     this.updateRobotFx(dt);
     this.updateShields(dt);
     this.updateSmoke(dt);

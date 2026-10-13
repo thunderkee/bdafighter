@@ -46,7 +46,7 @@ interface Frame {
 const SHOOTER_KEYS = [
   'x', 'vx', 'y', 'forward', 'team', 'aim', 'firing', 'maxHealth', 'health', 'ammo', 'reload', 'flash', 'recoil', 'stagger',
   'item', 'multiT', 'wiperT', 'dragonQueue', 'shielding', 'shield', 'shieldLock', 'superReady', 'charge', 'sinceHit', 'sinceHurt', 'stats',
-  'slot', 'active', 'out', 'lane', 'kickT', 'heavyT', 'lockT', 'lockSlot',
+  'slot', 'active', 'out', 'lane', 'kickT', 'heavyT', 'lockT', 'lockSlot', 'chargeHold', 'stored',
 ] as const;
 
 function cloneShooter(s: Shooter): Shooter {

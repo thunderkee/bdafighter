@@ -1,7 +1,7 @@
 import { AI_PROFILES, ARENA, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
-import { Game, STEP, slotTeam, type Shooter } from './game';
+import { CHARGE, Game, STEP, chargeLevel, slotTeam, type Shooter } from './game';
 import { View } from './view';
 import { Input, PadTracker } from './input';
 import { AIController } from './ai';
@@ -702,6 +702,8 @@ export function boot() {
       start: startMatch,
       /** a bot that plays the player's side, for bot-vs-bot balance runs */
       bot(name: string) {
+        // the test bot streams shots like the CPU does
+        game.chargeShots = false;
         const b = new AIController(game, player, AI_PROFILES[name]);
         return (dt: number) => b.update(dt);
       },
@@ -848,6 +850,8 @@ export function boot() {
   };
 
   let lastItem: ItemType | null | undefined;
+  let lastCharge = -1;
+  let lastCharging = false;
   let faceSlot = 1;
   let lastEffects = '';
   // ---------- health tags that follow each fighter ----------
@@ -966,6 +970,20 @@ export function boot() {
       superPips[i].forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));
       superRows[i].classList.toggle('ready', s.superReady);
     });
+
+    // charge shot: the fire button swells and the arena darkens while it builds
+    {
+      const lvl = chargeLevel(player);
+      const charging = player.alive && player.chargeHold >= CHARGE.hold;
+      if (Math.abs(lvl - lastCharge) > 0.01 || charging !== lastCharging) {
+        lastCharge = lvl;
+        lastCharging = charging;
+        document.body.style.setProperty('--charge', lvl.toFixed(2));
+        document.body.classList.toggle('charging', charging);
+        document.body.classList.toggle('charge-full', charging && player.stored >= CHARGE.max);
+      }
+      document.body.classList.toggle('pressing', player.firing);
+    }
 
     // item slot + opponent's held item
     if (player.item !== lastItem) {
