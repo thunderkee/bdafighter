@@ -1034,6 +1034,17 @@ $('reset-unit').addEventListener('click', () => {
   commit(true);
 });
 
+// every edited and custom unit as a file, to back up or to share the designs
+$('export-roster').addEventListener('click', () => {
+  flushSave();
+  const url = URL.createObjectURL(new Blob([JSON.stringify(roster, null, 1)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'marble-fighter-roster.json';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
 $('play').addEventListener('click', () => {
   flushSave();
   const save = store.load();
