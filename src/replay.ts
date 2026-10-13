@@ -194,6 +194,12 @@ export class ReplayGame {
     this.koAt = ko;
     // robots already knocked out of a pack fight stay out of the replay entirely
     for (const sh of real.shooters) if (sh.active && sh.out) this.gone.add(sh.slot);
+    // you fell earlier in a pack fight: show only the last exchange, the robot that fired the
+    // deciding shot and the one it knocked out, and leave the rest of the field out
+    const you = real.shooters[0];
+    const pack = real.shooters.filter((sh) => sh.active).length > 2;
+    if (pack && you?.active && you.out && this.by >= 0)
+      for (const sh of real.shooters) if (sh.active && !sh.out && sh.slot !== this.by && sh.health > 0) this.gone.add(sh.slot);
     this.shooters = real.shooters;
     this.bumps = rec.frames[this.i]?.bumps ?? [];
     this.apply();

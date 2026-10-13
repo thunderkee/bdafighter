@@ -403,6 +403,15 @@ export class ShooterMesh {
       } else {
         leg.add(box(0.42, 0.1, 0.12, accent, 0, -0.42, -0.4)); // toe cap
       }
+      // detail: knee seam, knee bolt, calf piston, shin vents, heel block, sole rim
+      leg.add(box(0.34, 0.035, 0.36, joint, 0, -0.13, 0));
+      leg.add(box(0.06, 0.06, 0.02, gold, 0, -0.18, -0.235));
+      const piston = cyl(0.028, 0.028, 0.2, trim, 8);
+      piston.position.set(side * 0.12, -0.25, 0.18);
+      leg.add(piston);
+      for (let k = 0; k < 3; k++) leg.add(box(0.02, 0.025, 0.2, trim, side * 0.165, -0.2 - k * 0.05, 0.02));
+      leg.add(box(0.2, 0.1, 0.08, trim, 0, -0.38, 0.29));
+      leg.add(box(0.44, 0.03, 0.68, joint, 0, -0.465, -0.06));
       this.root.add(leg);
       this.legs.push(leg);
     }
@@ -427,6 +436,21 @@ export class ShooterMesh {
     const coreBall = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 8), ballMat);
     coreBall.position.set(0, 0.45, -0.32);
     this.turret.add(coreBall);
+    // detail: collar, chest panel lines, vented side armour, back plate and twin thrusters
+    this.turret.add(box(0.5, 0.06, 0.42, joint, 0, 0.52, 0));
+    for (const side of [-1, 1]) {
+      this.turret.add(box(0.015, 0.22, 0.015, joint, side * 0.28, 0.32, -0.352));
+      this.turret.add(box(0.04, 0.3, 0.42, trim, side * 0.41, 0.24, 0.02));
+      for (let k = 0; k < 3; k++) this.turret.add(box(0.045, 0.025, 0.32, joint, side * 0.415, 0.14 + k * 0.07, 0.02));
+      const thruster = cyl(0.075, 0.095, 0.18, joint, 12);
+      thruster.rotation.x = Math.PI / 2;
+      thruster.position.set(side * 0.22, 0.2, 0.38);
+      const nozzle = cyl(0.055, 0.055, 0.02, new THREE.MeshBasicMaterial({ color: 0x08060f }), 12);
+      nozzle.rotation.x = Math.PI / 2;
+      nozzle.position.set(side * 0.22, 0.2, 0.475);
+      this.turret.add(thruster, nozzle);
+    }
+    this.turret.add(box(0.6, 0.3, 0.05, trim, 0, 0.3, 0.32));
 
     if (def.barrel === 'rexhead') {
       // a T-rex head blaster held in front: the marble leaves its jaws
@@ -491,6 +515,13 @@ export class ShooterMesh {
       arm.rotation.x = -0.5;
       const fist = box(0.22, 0.2, 0.22, joint, -side * 0.08, -0.4, -0.24);
       sh.add(arm, fist);
+      // detail: shoulder rivets, elbow joint, forearm plate, wrist band
+      for (const rz of [-0.1, 0.1]) sh.add(box(0.04, 0.025, 0.04, gold, side * 0.08, 0.22, rz));
+      sh.add(new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), joint).translateY(-0.17).translateZ(0.02));
+      const plate = box(0.23, 0.08, 0.2, trim, 0, -0.3, -0.12);
+      plate.rotation.x = -0.5;
+      sh.add(plate);
+      sh.add(box(0.24, 0.04, 0.24, accent, -side * 0.08, -0.31, -0.24));
       if (side === -1) this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
       if (side === 1 && def.offhand === 'gatling') this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
       this.turret.add(sh);
@@ -513,7 +544,17 @@ export class ShooterMesh {
         head.add(eye);
       }
     }
-    for (const side of [-1, 1]) head.add(box(0.1, 0.24, 0.3, trim, side * 0.4, -0.02, 0)); // ear blocks
+    for (const side of [-1, 1]) {
+      head.add(box(0.1, 0.24, 0.3, trim, side * 0.4, -0.02, 0)); // ear blocks
+      // detail: ear vents and a sensor antenna
+      for (let k = 0; k < 3; k++) head.add(box(0.02, 0.025, 0.2, joint, side * 0.455, -0.08 + k * 0.05, 0));
+      head.add(box(0.025, 0.18, 0.025, joint, side * 0.4, 0.18, 0.1));
+      head.add(box(0.05, 0.03, 0.05, accent, side * 0.4, 0.28, 0.1));
+    }
+    // detail: brow ledge over the eyes, mouth grille, a fin down the back of the helmet
+    head.add(box(0.6, 0.04, 0.08, trim, 0, 0.11, -0.35));
+    for (let k = 0; k < 4; k++) head.add(box(0.02, 0.07, 0.01, def.darkFace ? trim : joint, -0.06 + k * 0.04, -0.15, -0.373));
+    head.add(box(0.06, 0.16, 0.3, trim, 0, 0.3, 0.2));
     head.add(box(0.12, 0.1, 0.06, def.eyes === 'mono' ? gold : accent, 0, 0.2, -0.35)); // forehead sensor
     this.buildCrest(head, def, { body, trim, accent, joint, gold, glowMat });
     this.turret.add(head);
@@ -617,6 +658,22 @@ export class ShooterMesh {
       this.turret.add(box(0.44, 0.3, 0.46, m.joint, 0, -0.12, 0.12)); // exposed frame
       this.turret.add(box(0.52, 0.4, 0.42, m.body, 0, 0.04, 0.36)); // hips
       this.turret.add(box(0.42, 0.06, 0.9, m.trim, 0, 0.35, 0.1)); // spine armour
+      // detail: vented flank armour, a glowing chest core, hip pistons
+      for (const side of [-1, 1]) {
+        const flank = box(0.04, 0.3, 0.42, m.trim, side * 0.31, 0.08, -0.16);
+        flank.rotation.x = 0.1;
+        this.turret.add(flank);
+        for (let k = 0; k < 3; k++) {
+          const slat = box(0.045, 0.025, 0.32, m.joint, side * 0.315, 0.0 + k * 0.07, -0.16);
+          slat.rotation.x = 0.1;
+          this.turret.add(slat);
+        }
+        const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), m.joint);
+        piston.position.set(side * 0.27, -0.06, 0.36);
+        piston.rotation.x = 0.5;
+        this.turret.add(piston);
+      }
+      this.turret.add(sph(0.07, m.ballMat, 0, 0.14, -0.46));
       // a ridge of dark blade-spines down the back, raked toward the tail
       [0.14, 0.18, 0.16, 0.12, 0.09].forEach((h, k) => {
         const spine = cone(0.07, h, k === 1 ? m.accent : m.joint);
@@ -632,6 +689,10 @@ export class ShooterMesh {
         const seg = box(w, w * 0.85, 0.34, k % 2 ? m.trim : m.body, 0, -k * 0.05, 0.14 + k * 0.3);
         seg.rotation.x = 0.1;
         tail.add(seg);
+        // armour band between segments
+        const band = box(w + 0.03, w * 0.85 + 0.03, 0.05, m.joint, 0, -k * 0.05, 0.29 + k * 0.3);
+        band.rotation.x = 0.1;
+        tail.add(band);
         if (k < 3) {
           const spine = cone(0.05, 0.1 - k * 0.02, m.joint);
           spine.scale.set(0.4, 1, 1.3);
@@ -659,6 +720,12 @@ export class ShooterMesh {
       const neck = box(0.3, 0.28, 0.34, m.body, 0, 0.2, -0.5);
       neck.rotation.x = -0.4;
       this.turret.add(neck);
+      // detail: plates stacked down the neck
+      for (let k = 0; k < 2; k++) {
+        const np = box(0.24, 0.04, 0.14, m.trim, 0, 0.36 - k * 0.07, -0.44 - k * 0.1);
+        np.rotation.x = -0.4;
+        this.turret.add(np);
+      }
       const head = new THREE.Group();
       head.position.set(0, 0.36, -0.72);
       head.add(box(0.4, 0.27, 0.44, m.body, 0, 0.04, -0.06)); // skull
@@ -680,6 +747,12 @@ export class ShooterMesh {
         head.add(horn);
       }
       teeth(head, 0.13, -0.6, -0.26, -0.11, true);
+      // detail: nostril slits, jaw-hinge bolts, a scar plate across the snout
+      for (const side of [-1, 1]) {
+        head.add(box(0.04, 0.02, 0.03, dark, side * 0.07, 0.06, -0.64));
+        head.add(box(0.03, 0.05, 0.05, m.gold, side * 0.19, -0.08, 0.06));
+      }
+      head.add(box(0.33, 0.03, 0.12, m.trim, 0, 0.07, -0.42));
       this.turret.add(head);
       mouth(head, -0.62, -0.09, 0.3);
     } else {
@@ -1982,8 +2055,10 @@ interface HeroMats {
 }
 
 /** a rounded (bevelled) box: armour that catches the light on its edges */
+/** an armour block; `r` was its corner rounding, now kept sharp (no bevel) across the roster */
 function rbox(w: number, h: number, d: number, r: number, mat: THREE.Material, x = 0, y = 0, z = 0) {
-  const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, Math.min(w, h, d) / 2 - 0.001)), mat);
+  void r;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   mesh.position.set(x, y, z);
   return mesh;
 }

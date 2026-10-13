@@ -254,6 +254,8 @@ export class Shooter {
   /** Smart Lock: seconds left, and the slot it's locked onto (-1 none) */
   lockT = 0;
   lockSlot = -1;
+  /** the Smart Lock has been steering the aim (it lets go to straight ahead when it ends) */
+  lockSteer = false;
   /** dragon balls still to launch, and the gap timer */
   dragonQueue = 0;
   /** extra balls left in the current trigger pull (fire-rate setting), and the gap timer */
@@ -353,6 +355,7 @@ export class Shooter {
     this.item = null;
     this.multiT = this.wiperT = this.lockT = 0;
     this.lockSlot = -1;
+    this.lockSteer = false;
     this.dragonQueue = this.dragonTimer = 0;
     this.burstQueue = this.burstTimer = 0;
     this.sinceHit = this.sinceHurt = 99;
@@ -1206,14 +1209,17 @@ export class Game {
     s.body.setNextKinematicTranslation({ x: s.x, y: s.y });
     // Smart Lock: the aim snaps onto the closest opponent, leading it as it moves
     s.lockSlot = -1;
-    if (s.lockT > 0 && s.alive) {
-      const t = this.lockTarget(s);
-      if (t) {
-        s.lockSlot = t.slot;
-        const dist = Math.hypot(t.x - s.x, t.y - s.y);
-        const lead = t.vx * (dist / Math.max(1, s.stats.muzzleSpeed));
-        s.aim = Math.atan2(t.x + lead - s.x, (t.y - s.y) * s.forward);
-      }
+    const t = s.lockT > 0 && s.alive ? this.lockTarget(s) : null;
+    if (t) {
+      s.lockSlot = t.slot;
+      const dist = Math.hypot(t.x - s.x, t.y - s.y);
+      const lead = t.vx * (dist / Math.max(1, s.stats.muzzleSpeed));
+      s.aim = Math.atan2(t.x + lead - s.x, (t.y - s.y) * s.forward);
+      s.lockSteer = true;
+    } else if (s.lockSteer) {
+      // the lock ran out (or lost its target): back to shooting straight ahead
+      s.aim = 0;
+      s.lockSteer = false;
     }
     s.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, s.aim));
 
