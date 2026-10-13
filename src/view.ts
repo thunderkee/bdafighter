@@ -362,8 +362,9 @@ export class View {
 
   // ---------- stage ----------
 
-  setStage(id: string) {
-    if (this.stage.def.id === id) return;
+  /** swap the stage; `rebuild` remakes it even when it's the same one (the table width changed) */
+  setStage(id: string, rebuild = false) {
+    if (this.stage.def.id === id && !rebuild) return;
     this.scene.remove(this.stage.group);
     this.stage.dispose();
     this.stage = new Stage(id);

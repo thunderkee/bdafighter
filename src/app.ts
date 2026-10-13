@@ -59,10 +59,16 @@ const ITEM_ICONS: Record<ItemType, string> = {
 
 export function boot() {
   let saveData = store.load();
+  /** an arcade run: the stage number, how many were cleared, and this stage's match setup */
+  let arcade: { stage: number; cleared: number; cfg: Partial<store.Settings>; next?: Partial<store.Settings> } | null = null;
+  /** the settings a match plays by: yours, with the arcade stage's layered on top */
+  const S = (): store.Settings => (arcade ? { ...saveData.settings, ...arcade.cfg } : saveData.settings);
   // the table width is fixed for the session: walls and scenery are built for it
-  setArenaWidth(saveData.settings.arenaWidth);
+  setArenaWidth(S().arenaWidth);
+  /** the table width the walls and scenery are built for right now */
+  let tableWidth = S().arenaWidth ?? 'normal';
   /** magazine size is a match rule, the same for both robots */
-  const magazine = () => Math.max(3, Math.min(10, Math.round(saveData.settings.magazine || 10)));
+  const magazine = () => Math.max(3, Math.min(10, Math.round(S().magazine || 10)));
   /** a unit's traits scale its speed, cadence and shield recharge (health is separate) */
   const withTraits = <S extends ShooterStats>(stats: S, id: string): S => {
     const t = characterById(id).traits;
@@ -78,10 +84,10 @@ export function boot() {
     const base = computeStats(STARTER_BUILD);
     // a bigger pack hits softer each, like the opponent's
     const sc = PACK_SCALE[allySize() - 1];
-    return withTraits({ ...base, capacity: magazine(), damage: base.damage * sc.damage }, saveData.settings.character);
+    return withTraits({ ...base, capacity: magazine(), damage: base.damage * sc.damage }, S().character);
   };
   const enemyStats = () => {
-    const st = saveData.settings;
+    const st = S();
     const base = computeStats(STARTER_BUILD, brain(aiOverride ?? st.enemyIQ).stats);
     const power = level(st.enemyPower);
     return {
@@ -94,15 +100,15 @@ export function boot() {
       muzzleSpeed: base.muzzleSpeed * (0.85 + 0.15 * power),
     };
   };
-  const enemyMaxHealth = () => MATCH.maxHealth * HEALTH[Math.max(1, Math.min(5, saveData.settings.enemyHealth)) - 1];
-  const packSize = () => Math.max(1, Math.min(3, Math.round(saveData.settings.pack || 1)));
+  const enemyMaxHealth = () => MATCH.maxHealth * HEALTH[Math.max(1, Math.min(5, S().enemyHealth)) - 1];
+  const packSize = () => Math.max(1, Math.min(3, Math.round(S().pack || 1)));
   /** bigger packs get less armour and punch each, so two or three stay beatable */
   const PACK_SCALE = [
     { health: 1, damage: 1 },
     { health: 0.6, damage: 0.5 },
     { health: 0.4, damage: 0.38 },
   ];
-  const allySize = () => Math.max(1, Math.min(3, Math.round(saveData.settings.playerPack || 1)));
+  const allySize = () => Math.max(1, Math.min(3, Math.round(S().playerPack || 1)));
   /** your CPU pack-mates: standard stats with the same pack scaling as the other side */
   const packAllies = () => {
     const sc = PACK_SCALE[allySize() - 1];
@@ -128,9 +134,71 @@ export function boot() {
   let allyIds: string[] = [];
   /** opponent robot: the chosen one, or on auto the dragon unless the player picked it */
   const enemyCharacter = () => {
-    const st = saveData.settings;
+    const st = S();
     if (st.enemyCharacter && st.enemyCharacter !== 'auto') return st.enemyCharacter;
     return st.character === 'dragon' ? 'angel' : 'dragon';
+  };
+
+  // ---------- arcade: a ladder of matches, each with its own opponent, rules and arena ----------
+  const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
+  const DIFFS = ['easy', 'normal', 'hard', 'ace'] as const;
+  /** a fresh stage: random opponent and pack, random difficulty, random arena and its rules */
+  const rollStage = (prev?: Partial<store.Settings>): Partial<store.Settings> => {
+    const me = saveData.settings.character;
+    const diff = pick(DIFFS);
+    // the opponent's stats lean with the difficulty, give or take a level
+    const base = { easy: 2, normal: 3, hard: 4, ace: 4 }[diff];
+    const lv = () => Math.max(1, Math.min(5, base + pick([-1, 0, 0, 1])));
+    const units = CHARACTERS.map((c) => c.id).filter((id) => id !== me && id !== prev?.enemyCharacter);
+    const stages = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
+    // about half the stages are pack fights, on one side or both
+    let pack = 1;
+    let playerPack = 1;
+    if (Math.random() < 0.5) {
+      pack = pick([1, 2, 3]);
+      playerPack = pick([1, 2, 3]);
+      if (pack === 1 && playerPack === 1) pack = 2;
+    }
+    return {
+      enemyCharacter: pick(units.length ? units : CHARACTERS.map((c) => c.id)),
+      enemyIQ: diff,
+      enemyHealth: lv(),
+      enemySpeed: lv(),
+      enemyAgility: lv(),
+      enemyPower: lv(),
+      enemyAim: Math.random() < 0.15 ? 'straight' : 'flexible',
+      enemyTactic: pick(['nearest', 'weakest', 'hunt'] as const),
+      cpuCharge: Math.random() < 0.75,
+      pack,
+      playerPack,
+      allyIQ: pick(['normal', 'hard'] as const),
+      allyTactic: pick(['nearest', 'weakest', 'assist'] as const),
+      allyCharge: true,
+      stage: pick(stages.length ? stages : STAGES.map((st) => st.id)),
+      arenaWidth: pick(['small', 'normal', 'large'] as const),
+      covers: pick([0, 0, 1, 2, 3]),
+      pins: pick([0, 0, 2, 4, 6, 8]),
+      pucks: pick([0, 1, 2, 3, 4]),
+      items: Math.random() < 0.8,
+      gates: Math.random() < 0.6,
+    };
+  };
+  const WIDTH_NAME = { small: 'NARROW', normal: 'STANDARD', large: 'WIDE' } as const;
+  /** difficulty as the Settings call it */
+  const DIFF_NAME: Record<string, string> = { easy: 'ROOKIE', normal: 'REGULAR', hard: 'VETERAN', ace: 'ACE' };
+  /** one stage in a line: opponent, difficulty, arena */
+  const describeStage = (c: Partial<store.Settings>) => {
+    const foe = characterById(c.enemyCharacter ?? 'dragon').name.toUpperCase() + ((c.pack ?? 1) > 1 ? ` +${(c.pack ?? 1) - 1}` : '');
+    const rules = [WIDTH_NAME[c.arenaWidth ?? 'normal'] + ' TABLE', c.covers ? `${c.covers} COVER` : '', c.pins ? `${c.pins} PINS` : '', c.pucks ? `${c.pucks} PUCKS` : '', c.items ? 'AIR DROPS' : '', c.gates ? 'GATES' : '']
+      .filter(Boolean)
+      .join(' · ');
+    return {
+      foe,
+      diff: DIFF_NAME[c.enemyIQ ?? 'normal'] ?? 'REGULAR',
+      arena: stageById(c.stage ?? 'space').name.toUpperCase(),
+      rules,
+      you: (c.playerPack ?? 1) > 1 ? `YOU +${(c.playerPack ?? 1) - 1}` : 'SOLO',
+    };
   };
 
   const game = new Game(playerStats(), enemyStats());
@@ -141,9 +209,9 @@ export function boot() {
   /** the opponent the HUD shows: the one the player is facing */
   const focus = () => game.targetFor(player);
   const unitIds = () => {
-    const ids = [saveData.settings.character, enemyCharacter()];
+    const ids = [S().character, enemyCharacter()];
     for (let i = 2; i <= 3; i++) ids.push(packIds[i - 2] ?? enemyCharacter());
-    for (let i = 0; i < 2; i++) ids.push(allyIds[i] ?? saveData.settings.character);
+    for (let i = 0; i < 2; i++) ids.push(allyIds[i] ?? S().character);
     return ids;
   };
   const input = new Input($('touch'), player, (x, y) => view.screenToWorld(x, y));
@@ -153,7 +221,7 @@ export function boot() {
   void fx2d.init().then(() => {
     if (fx2d.ready) view.fx2d = fx2d;
   });
-  const faces = [new Portrait($<HTMLCanvasElement>('face-player'), saveData.settings.character), new Portrait($<HTMLCanvasElement>('face-enemy'), enemyCharacter())];
+  const faces = [new Portrait($<HTMLCanvasElement>('face-player'), S().character), new Portrait($<HTMLCanvasElement>('face-enemy'), enemyCharacter())];
   let facesStarted = false;
 
   sfx.setMuted(saveData.muted);
@@ -189,7 +257,7 @@ export function boot() {
   const buildPips = () => {
     pips.innerHTML = '';
     for (let i = 0; i < player.stats.capacity; i++) pips.appendChild(document.createElement('i'));
-    $('magazine').style.setProperty('--ball', hexc(characterById(saveData.settings.character).ball));
+    $('magazine').style.setProperty('--ball', hexc(characterById(S().character).ball));
   };
 
   const setTouchClass = () => document.body.classList.toggle('touch', input.mode === 'touch');
@@ -212,7 +280,8 @@ export function boot() {
   };
 
   const updateRecord = () => {
-    $('record').textContent = saveData.matches ? `RECORD ${saveData.wins} W / ${saveData.matches - saveData.wins} L` : '';
+    const arcadeBest = saveData.arcadeBest ? ` · ARCADE BEST STAGE ${saveData.arcadeBest}` : '';
+    $('record').textContent = saveData.matches ? `RECORD ${saveData.wins} W / ${saveData.matches - saveData.wins} L${arcadeBest}` : '';
   };
   updateRecord();
 
@@ -250,7 +319,7 @@ export function boot() {
 
   /** fresh table for the next round: health, ammo, marbles, items, gates */
   const setupRound = () => {
-    const st = saveData.settings;
+    const st = S();
     view.resetMatch();
     game.reset(playerStats(), {
       enemies: packEnemies(),
@@ -285,9 +354,22 @@ export function boot() {
     lastCount = -1;
   };
 
+  /** build the table for these settings: new walls and scenery when the width changes */
+  const fitTable = (st: store.Settings) => {
+    const want = st.arenaWidth ?? 'normal';
+    let rebuilt = false;
+    if (want !== tableWidth) {
+      tableWidth = want;
+      setArenaWidth(want);
+      game.resizeArena();
+      rebuilt = true;
+    }
+    view.setStage(st.stage, rebuilt);
+  };
+
   const startMatch = () => {
     sfx.unlock();
-    const st = saveData.settings;
+    const st = S();
     // the Opponent settings tune the other side; your pack-mates play at standard skill
     ais.forEach((a, i) => {
       const foe = slotTeam(i + 1) === 1;
@@ -305,7 +387,7 @@ export function boot() {
     const ids = unitIds();
     ais.forEach((a, i) => (a.agility *= traitMul(characterById(ids[i + 1]).traits?.agility)));
     view.setCharacters(unitIds());
-    view.setStage(st.stage);
+    fitTable(st);
     roundNo = 1;
     roundWins[0] = roundWins[1] = 0;
     totals.dealt = totals.shots = totals.hits = 0;
@@ -323,6 +405,10 @@ export function boot() {
         ? `PACK OF ${allySize()} // ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
         : `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
     $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : `CPU // ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
+    if (arcade) {
+      $('intro-p1-sub').textContent = `ARCADE STAGE ${arcade.stage} // ${$('intro-p1-sub').textContent}`;
+      $('intro-p2-sub').textContent = packSize() > 1 ? `${DIFF_NAME[st.enemyIQ]} // ${$('intro-p2-sub').textContent}` : `CPU // ${DIFF_NAME[st.enemyIQ]}`;
+    }
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
     for (const id of ['title', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
@@ -435,10 +521,69 @@ export function boot() {
     $('r-acc').textContent = totals.shots ? Math.round((totals.hits / totals.shots) * 100) + '%' : '–';
     $('r-hp').textContent = Math.ceil(player.hpFrac * 100) + '%';
     $('session').textContent = `SESSION ${sessionWins} / ${sessionMatches} WON`;
+    showArcadeResult(w);
     $('result').classList.remove('hidden');
     hud.classList.add('hidden');
     sfx.play(w === 0 ? 'win' : 'lose');
     updateRecord();
+  };
+
+  /** the result screen in arcade: stage clear (and a look at the next one), or game over */
+  const showArcadeResult = (w: -1 | 0 | 1) => {
+    const panel = $('arcade-next');
+    $('arcade-quit').classList.toggle('hidden', !arcade);
+    panel.classList.toggle('hidden', !arcade);
+    if (!arcade) {
+      $('again-btn').textContent = 'REMATCH';
+      return;
+    }
+    const best = saveData.arcadeBest ?? 0;
+    const title = $('result-title');
+    let head = '';
+    let stageCfg = arcade.cfg;
+    if (w === 0) {
+      arcade.cleared = arcade.stage;
+      const record = arcade.cleared > best;
+      if (record) saveData = store.save({ arcadeBest: arcade.cleared });
+      title.textContent = `STAGE ${arcade.stage} CLEAR`;
+      $('result-sub').textContent = `ARCADE // ${arcade.cleared} CLEARED${record ? ' · NEW BEST' : ''}`;
+      arcade.next = rollStage(arcade.cfg);
+      stageCfg = arcade.next;
+      head = `NEXT // STAGE ${arcade.stage + 1}`;
+      $('again-btn').textContent = 'NEXT STAGE ▶';
+    } else {
+      title.textContent = w === 1 ? 'GAME OVER' : 'DRAW';
+      $('result-sub').textContent = `ARCADE // REACHED STAGE ${arcade.stage} · BEST ${Math.max(best, arcade.cleared)}`;
+      arcade.next = undefined;
+      head = `RETRY // STAGE ${arcade.stage}`;
+      $('again-btn').textContent = 'RETRY STAGE';
+    }
+    const d = describeStage(stageCfg);
+    panel.innerHTML = `<b>${head}</b><div><span>OPPONENT</span><em>${d.foe}</em></div><div><span>DIFFICULTY</span><em>${d.diff}</em></div><div><span>ARENA</span><em>${d.arena}</em></div><div><span>RULES</span><em>${d.rules}</em></div><div><span>YOUR SIDE</span><em>${d.you}</em></div>`;
+  };
+
+  /** start a new arcade run from stage 1 */
+  const startArcade = () => {
+    arcade = { stage: 1, cleared: 0, cfg: rollStage() };
+    startMatch();
+  };
+  /** rematch, or in arcade the next stage (after a win) or the same stage again */
+  const playAgain = () => {
+    if (arcade?.next) {
+      arcade.stage++;
+      arcade.cfg = arcade.next;
+      arcade.next = undefined;
+    }
+    startMatch();
+  };
+  /** leave the arcade run: back to the title with your own table */
+  const quitArcade = () => {
+    arcade = null;
+    screen = 'title';
+    $('result').classList.add('hidden');
+    $('title').classList.remove('hidden');
+    fitTable(S());
+    applySettings();
   };
 
   /** Per-frame timeline for the intro, the replay and the finale. */
@@ -494,8 +639,13 @@ export function boot() {
     useItem();
   });
 
-  $('play-btn').addEventListener('click', startMatch);
-  $('again-btn').addEventListener('click', startMatch);
+  $('play-btn').addEventListener('click', () => {
+    arcade = null;
+    startMatch();
+  });
+  $('arcade-btn').addEventListener('click', startArcade);
+  $('again-btn').addEventListener('click', playAgain);
+  $('arcade-quit').addEventListener('click', quitArcade);
   $('pause-btn').addEventListener('click', () => setPaused(true));
   $('resume-btn').addEventListener('click', () => setPaused(false));
   // restart from round 1, straight into the fight (no intro this time)
@@ -702,6 +852,20 @@ export function boot() {
       view,
       faces,
       start: startMatch,
+      /** arcade, for testing the ladder without playing every match */
+      arcade: {
+        run: () => arcade,
+        start: startArcade,
+        next: playAgain,
+        quit: quitArcade,
+        settings: S,
+        finish(w: -1 | 0 | 1) {
+          matchWinner = w;
+          roundWins[0] = w === 0 ? 2 : 0;
+          roundWins[1] = w === 1 ? 2 : 0;
+          endMatch();
+        },
+      },
       /** a bot that plays the player's side, for bot-vs-bot balance runs */
       bot(name: string) {
         // the test bot streams shots like the CPU does
@@ -790,17 +954,17 @@ export function boot() {
             vignette.classList.add('on');
             requestAnimationFrame(() => vignette.classList.remove('on'));
           }
-          if (saveData.settings.vibrate) {
+          if (S().vibrate) {
             // taking a hit buzzes harder than landing one
             if (f.power !== 'normal') buzz(f.team === 0 ? [90, 40, 140] : [40, 30, 60]);
             else buzz(f.team === 0 ? 45 : 14);
           }
         }
-        if (f.type === 'super-ready' && f.slot === 0 && saveData.settings.vibrate) buzz([20, 40, 20]);
+        if (f.type === 'super-ready' && f.slot === 0 && S().vibrate) buzz([20, 40, 20]);
         if (f.type === 'pickup') {
           const def = ITEMS[f.item];
           if (f.slot === 0) showToast(`${def.name.toUpperCase()} ACQUIRED`, def.color);
-          if (f.slot === 0 && saveData.settings.vibrate) buzz(25);
+          if (f.slot === 0 && S().vibrate) buzz(25);
         }
         if (f.type === 'use' && slotTeam(f.slot) === 1) showToast(`ENEMY ${ITEMS[f.item].name.toUpperCase()}`, 0xff3e5e);
         if (f.type === 'drop-destroyed') showToast(f.team === 0 ? 'SUPPLY DESTROYED' : 'ENEMY SUPPLY DENIED', f.team === 0 ? 0xff3e5e : ITEMS[f.item].color);
@@ -837,7 +1001,7 @@ export function boot() {
     if (fpsAcc > 0.5) {
       fps = Math.round(fpsFrames / fpsAcc);
       fpsAcc = fpsFrames = 0;
-      if (saveData.settings.showFps) {
+      if (S().showFps) {
         const el = $('fps');
         el.textContent = `${fps} FPS`;
         el.classList.toggle('slow', fps < 50 && fps >= 30);
@@ -847,7 +1011,7 @@ export function boot() {
     if (debug) {
       const d = $('debug');
       d.classList.remove('hidden');
-      d.textContent = `fps ${fps}\nmarbles ${game.activeMarbles()}\nai ${brain(aiOverride ?? saveData.settings.enemyIQ).name}\npad ${pad.debug()}\nx ${player.x.toFixed(2)}${player.railPush ? ' END' : ''}`;
+      d.textContent = `fps ${fps}\nmarbles ${game.activeMarbles()}\nai ${brain(aiOverride ?? S().enemyIQ).name}\npad ${pad.debug()}\nx ${player.x.toFixed(2)}${player.railPush ? ' END' : ''}`;
     }
   };
 
@@ -901,7 +1065,7 @@ export function boot() {
   };
 
   const updateTags = (dt: number) => {
-    const on = saveData.settings.hudMode === 'tags' && flow === 'round';
+    const on = S().hudMode === 'tags' && flow === 'round';
     const ids = unitIds();
     game.shooters.forEach((s, i) => {
       const t = tags[i];

@@ -837,6 +837,47 @@ body.buttons #hints {
   color: var(--cyan);
   font-size: 13px;
 }
+.btn.arcade {
+  background: linear-gradient(180deg, #ffe08a, var(--amber, #ffc23d) 45%, #c7861a);
+  color: #1a0f00;
+}
+/* arcade result: the next stage (or the one to retry) at a glance */
+.arcade-next {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(290px, 100%);
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(135deg, #ffc23d, var(--line-dim) 35%, var(--line-dim) 65%, #ffc23d) border-box;
+  border: 1px solid transparent;
+}
+.arcade-next b {
+  font: 900 12px var(--display);
+  letter-spacing: 0.2em;
+  color: #ffc23d;
+  margin-bottom: 4px;
+}
+.arcade-next div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+}
+.arcade-next span {
+  flex: none;
+  font: 700 10px var(--display);
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.arcade-next em {
+  font: 700 11px var(--display);
+  font-style: normal;
+  text-align: right;
+  color: var(--ink);
+}
 .btn.small {
   min-width: 0;
   padding: 10px 18px;

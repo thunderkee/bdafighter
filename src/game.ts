@@ -586,10 +586,24 @@ export class Game {
     return m ? h / m : 0;
   }
 
+  /** the side walls and bump fences, kept so a new table width can rebuild them */
+  private arenaColliders: RAPIER.Collider[] = [];
+  private ground: RAPIER.RigidBody | null = null;
+
+  /** the table width changed (setArenaWidth): move the walls to the new edges */
+  resizeArena() {
+    for (const c of this.arenaColliders) {
+      this.tags.delete(c.handle);
+      this.world.removeCollider(c, false);
+    }
+    this.arenaColliders = [];
+    this.buildArena();
+  }
+
   private buildArena() {
     const hw = ARENA.width / 2;
     const t = ARENA.wallThickness;
-    const ground = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    const ground = (this.ground ??= this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed()));
     for (const side of [-1, 1]) {
       const wall = this.world.createCollider(
         RAPIER.ColliderDesc.cuboid(t / 2, ARENA.length / 2)
@@ -601,10 +615,11 @@ export class Game {
       );
       this.tags.set(wall.handle, { kind: 'wall' });
       // fences keep bumps in the middle band; marbles pass straight through
-      this.world.createCollider(
+      const fence = this.world.createCollider(
         RAPIER.ColliderDesc.cuboid(hw, 0.1).setTranslation(0, side * ARENA.bumpFenceY).setCollisionGroups(GROUPS.fence),
         ground,
       );
+      this.arenaColliders.push(wall, fence);
     }
   }
 

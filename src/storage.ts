@@ -82,6 +82,8 @@ export interface Settings {
 export interface SaveData {
   matches: number;
   wins: number;
+  /** the furthest arcade stage cleared */
+  arcadeBest?: number;
   muted: boolean;
   settings: Settings;
 }
