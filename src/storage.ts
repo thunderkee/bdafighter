@@ -26,6 +26,8 @@ export interface Settings {
   allyIQ: AILevel;
   /** who each CPU pack goes after */
   enemyTactic: 'nearest' | 'weakest' | 'hunt';
+  /** CPU opponents hold fire to charge big shots too */
+  cpuCharge: boolean;
   allyTactic: 'nearest' | 'weakest' | 'assist';
   /** your pack: you plus 0-2 CPU pack-mates (1-3) */
   playerPack: number;
@@ -110,6 +112,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allyIQ: 'normal',
   arenaWidth: 'normal',
   enemyTactic: 'nearest',
+  cpuCharge: true,
   allyTactic: 'nearest',
   moveControl: 'buttons',
   hudMode: 'top',
@@ -129,6 +132,7 @@ export const OPPONENT_DEFAULTS: Partial<Settings> = {
   enemyAim: 'flexible',
   enemyIQ: 'normal',
   enemyTactic: 'nearest',
+  cpuCharge: true,
 };
 
 const DEFAULTS: SaveData = { matches: 0, wins: 0, muted: false, settings: DEFAULT_SETTINGS };

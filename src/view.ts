@@ -664,43 +664,52 @@ export class View {
   /** the stage's own light levels, and how far a charge shot has dimmed them (0..1) */
   private lightBase: [number, number] = [1.6, 1.9];
   private dim = 0;
-  private chargeOrb: THREE.Group | null = null;
+  private chargeOrbs: THREE.Group[] = [];
 
-  /** charging a shot: the arena darkens around you and a ball of light swells at the muzzle */
+  /** a ball of light at a muzzle, layered glows and a spinning ring */
+  private makeChargeOrb() {
+    const g = new THREE.Group();
+    const glow = (r: number, opacity: number) =>
+      new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
+    g.add(glow(1, 0.85), glow(1.18, 0.3), glow(1.4, 0.1));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.05, 8, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.name = 'ring';
+    g.add(ring);
+    g.renderOrder = 5;
+    g.visible = false;
+    this.scene.add(g);
+    return g;
+  }
+
+  /**
+   * Charging a shot: a ball of light swells at the muzzle of whoever is charging (your
+   * opponents' warn you a big one is coming), and when it's you the arena darkens around you.
+   */
   private updateCharge(dt: number) {
-    const s = this.game.shooters[0];
-    const charging = !!s && s.alive && s.chargeHold >= CHARGE.hold && !this.cine;
-    const lvl = charging ? chargeLevel(s) : 0;
+    const g = this.game;
+    const you = g.shooters[0];
+    const yours = !!you && you.alive && you.chargeHold >= CHARGE.hold && !this.cine;
+    const lvl = yours ? chargeLevel(you) : 0;
     // dim quickly as it builds, come back fast when it's released
-    this.dim += ((charging ? 0.35 + lvl * 0.65 : 0) - this.dim) * Math.min(1, dt * (charging ? 5 : 9));
+    this.dim += ((yours ? 0.35 + lvl * 0.65 : 0) - this.dim) * Math.min(1, dt * (yours ? 5 : 9));
     this.hemi.intensity = this.lightBase[0] * (1 - 0.7 * this.dim);
     this.sun.intensity = this.lightBase[1] * (1 - 0.8 * this.dim);
-    if (!this.chargeOrb) {
-      const g = new THREE.Group();
-      const glow = (r: number, opacity: number) =>
-        new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
-      g.add(glow(1, 0.85), glow(1.18, 0.3), glow(1.4, 0.1));
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.05, 8, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
-      ring.name = 'ring';
-      g.add(ring);
-      g.renderOrder = 5;
-      this.scene.add(g);
-      this.chargeOrb = g;
-    }
-    const orb = this.chargeOrb;
-    orb.visible = charging;
-    if (!charging) return;
-    const sm = this.shooters[0];
-    sm.muzzleWorld(this.tmpMuzzle);
-    // grows smoothly toward the next stored ball, so the size reads as "how big it will be"
-    const r = s.stats.marbleRadius * Math.max(0.6, Math.min(CHARGE.max, s.stored + ((s.chargeHold - CHARGE.hold) % CHARGE.per) / CHARGE.per));
-    const pulse = 1 + Math.sin(this.time * (14 + s.stored * 4)) * 0.08;
-    orb.position.set(this.tmpMuzzle.x, Math.max(this.tmpMuzzle.y, r), this.tmpMuzzle.z);
-    orb.scale.setScalar(r * pulse);
-    const col = this.tmpC.set(this.teamBall[0]).lerp(new THREE.Color(0xffffff), 0.35 + 0.3 * Math.sin(this.time * 9));
-    orb.children.forEach((c, i) => ((c as THREE.Mesh).material as THREE.MeshBasicMaterial).color.copy(i === 0 ? new THREE.Color(0xffffff).lerp(col, 0.4) : col));
-    const ring = orb.getObjectByName('ring')!;
-    ring.rotation.set(this.time * 3, this.time * 4.2, 0);
+    g.shooters.forEach((s, i) => {
+      const orb = (this.chargeOrbs[i] ??= this.makeChargeOrb());
+      const sm = this.shooters[i];
+      const charging = !!sm && sm.root.visible && s.alive && s.chargeHold >= CHARGE.hold;
+      orb.visible = charging;
+      if (!charging) return;
+      sm.muzzleWorld(this.tmpMuzzle);
+      // grows smoothly toward the next stored ball, so the size reads as "how big it will be"
+      const r = s.stats.marbleRadius * Math.max(0.6, Math.min(CHARGE.max, s.stored + ((s.chargeHold - CHARGE.hold) % CHARGE.per) / CHARGE.per));
+      const pulse = 1 + Math.sin(this.time * (14 + s.stored * 4) + i) * 0.08;
+      orb.position.set(this.tmpMuzzle.x, Math.max(this.tmpMuzzle.y, r), this.tmpMuzzle.z);
+      orb.scale.setScalar(r * pulse);
+      const col = this.tmpC.set(this.teamBall[s.team]).lerp(new THREE.Color(0xffffff), 0.35 + 0.3 * Math.sin(this.time * 9 + i));
+      orb.children.forEach((c, k) => ((c as THREE.Mesh).material as THREE.MeshBasicMaterial).color.copy(k === 0 ? new THREE.Color(0xffffff).lerp(col, 0.4) : col));
+      orb.getObjectByName('ring')!.rotation.set(this.time * 3 + i, this.time * 4.2, 0);
+    });
   }
 
   render(dt: number, showAim: boolean) {

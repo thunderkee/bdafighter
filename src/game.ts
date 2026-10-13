@@ -266,6 +266,8 @@ export class Shooter {
   chargeHold = 0;
   stored = 0;
   pressShot = false;
+  /** a CPU's planned charge: how many balls to store before letting go (0 = not charging) */
+  chargeWant = 0;
   /** the Smart Lock has been steering the aim (it lets go to straight ahead when it ends) */
   lockSteer = false;
   /** dragon balls still to launch, and the gap timer */
@@ -367,7 +369,7 @@ export class Shooter {
     this.item = null;
     this.multiT = this.wiperT = this.lockT = 0;
     this.lockSlot = -1;
-    this.chargeHold = this.stored = 0;
+    this.chargeHold = this.stored = this.chargeWant = 0;
     this.pressShot = false;
     this.lockSteer = false;
     this.dragonQueue = this.dragonTimer = 0;
@@ -415,6 +417,8 @@ export interface MatchOptions {
   playerHealth?: number;
   /** round length in seconds; 0 = no time limit */
   duration: number;
+  /** CPU opponents charge shots too */
+  cpuCharge?: boolean;
   /** balls fired per trigger pull, both robots (1-5) */
   burst: number;
 }
@@ -448,8 +452,10 @@ export class Game {
   duration: number = MATCH.duration;
   /** balls per trigger pull */
   burst = 1;
-  /** long-press charge shots for the player (the CPU keeps holding to stream) */
+  /** long-press charge shots for the player */
   chargeShots = true;
+  /** CPU opponents charge too, when their AI decides to (see Shooter.chargeWant) */
+  cpuCharge = true;
   winner: Team | -1 | null = null;
   /** seconds of frozen physics after a heavy hit */
   hitstop = 0;
@@ -741,6 +747,7 @@ export class Game {
     this.duration = opts.duration;
     this.clock = opts.duration > 0 ? opts.duration : Infinity;
     this.burst = Math.max(1, Math.min(5, Math.round(opts.burst)));
+    this.cpuCharge = opts.cpuCharge ?? true;
     this.tactics = opts.tactics ?? ['nearest', 'nearest'];
     this.koSource = null;
     this.winner = null;
@@ -1289,10 +1296,13 @@ export class Game {
       if (s.shieldIdle > SHIELD.regenDelay && s.shieldLock <= 0) s.shield = Math.min(SHIELD.max, s.shield + SHIELD.regen * (s.stats.agility ?? 1) * dt);
     }
 
-    // charge shot: holding past the threshold stores balls; letting go fires them as one
-    const chargeable = this.chargeShots && s.slot === 0;
-    if (chargeable) {
-      const holding = canAct && s.firing && !s.shieldUp && s.reload <= 0;
+    // charge shot: holding past the threshold stores balls; letting go fires them as one.
+    // You charge by holding fire; a CPU opponent charges when its AI plans it (chargeWant).
+    const human = this.chargeShots && s.slot === 0;
+    const cpu = !human && this.cpuCharge && s.team === 1 && s.chargeWant > 0;
+    if (human || cpu || s.chargeHold > 0 || s.stored > 0) {
+      const holding = canAct && (human ? s.firing : cpu) && !s.shieldUp && s.reload <= 0;
+      let letGo = false;
       if (holding) {
         s.chargeHold += adt;
         if (s.chargeHold >= CHARGE.hold) {
@@ -1303,25 +1313,31 @@ export class Game {
             s.ammo -= 1;
             s.stored++;
             s.idle = 0;
-            sfx.play('tick', 0.6 + s.stored * 0.12);
+            sfx.play('tick', (0.6 + s.stored * 0.12) * (human ? 1 : 0.5));
           }
+          // the CPU lets go once it has what it planned, or when the magazine runs dry
+          if (cpu && s.stored > 0 && (s.stored >= s.chargeWant || s.ammo < 1)) letGo = true;
         }
-      } else if (s.chargeHold > 0 || s.stored > 0) {
+      }
+      if (letGo || (!holding && (s.chargeHold > 0 || s.stored > 0))) {
         if (s.stored > 0) {
           // released: the charged ball; interrupted (shield, round over): the balls go back
-          if (!s.firing && canAct && !s.shieldUp) this.fireCharged(s, s.stored);
+          const chose = human ? !s.firing : letGo;
+          if (chose && canAct && !s.shieldUp) this.fireCharged(s, s.stored);
           else s.ammo = Math.min(s.stats.capacity, s.ammo + s.stored);
         }
         if (s.ammo < 1 && s.reload <= 0) s.reload = s.stats.reloadTime;
         s.stored = 0;
         s.chargeHold = 0;
+        if (!human) s.chargeWant = 0;
       }
-      if (!s.firing) s.pressShot = false;
+      if (human && !s.firing) s.pressShot = false;
     }
-    // a charging press doesn't stream shots: one shot per press, the rest is charge
-    const mayFire = !chargeable || (!s.pressShot && s.chargeHold < CHARGE.hold);
+    // a charging press doesn't stream shots: one shot per press, the rest is charge;
+    // a charging CPU holds its fire until it lets go
+    const mayFire = human ? !s.pressShot && s.chargeHold < CHARGE.hold : s.chargeWant === 0 && s.chargeHold === 0;
     if (mayFire && canAct && s.firing && !s.shieldUp && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
-      s.pressShot = true;
+      if (human) s.pressShot = true;
       const multi = s.multiT > 0 && !s.superReady;
       if (multi) this.fireVolley(s);
       else this.fire(s);

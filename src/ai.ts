@@ -1,6 +1,6 @@
 import { ARENA, type AIProfile } from './config';
 import { GATE } from './items';
-import type { Game, Shooter } from './game';
+import { CHARGE, type Game, type Shooter } from './game';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
@@ -38,6 +38,8 @@ export class AIController {
   private shieldCheck = 0;
   private reactQueue: { at: number; target: number }[] = [];
   private t = 0;
+  /** seconds until it next considers charging a big shot */
+  private chargeCool = rand(3, 6);
 
   constructor(
     private game: Game,
@@ -60,6 +62,8 @@ export class AIController {
     this.t = 0;
     this.holdTime = 0;
     this.shieldT = 0;
+    this.chargeCool = rand(3, 6);
+    this.me.chargeWant = 0;
   }
 
   update(dt: number) {
@@ -82,6 +86,26 @@ export class AIController {
     const desired = this.desiredAim();
     const maxTurn = pr.turnRate * dt;
     me.aim += Math.max(-maxTurn, Math.min(maxTurn, desired - me.aim));
+
+    // --- charge shots: now and then an opponent stores a few balls and lets go of one big one ---
+    if (g.cpuCharge && me.team === 1) {
+      if (me.chargeWant > 0) {
+        // keep tracking the target; the game fires once the planned balls are in
+        me.firing = false;
+        if (me.shieldUp || me.reload > 0) me.chargeWant = 0;
+        return;
+      }
+      this.chargeCool -= dt;
+      if (this.chargeCool <= 0 && this.burstLeft <= 0 && me.reload <= 0 && me.ammo >= 3 && Math.abs(desired - me.aim) < 0.2) {
+        // sharper CPUs think about it more often (Rookie every ~6-12 s, Ace every ~3-7 s)
+        this.chargeCool = rand(4, 8) * (0.6 + pr.reaction * 2);
+        if (Math.random() < 0.6) {
+          me.chargeWant = Math.max(2, Math.min(CHARGE.max, Math.floor(me.ammo) - 1, Math.round(rand(2, 5.4))));
+          me.firing = false;
+          return;
+        }
+      }
+    }
 
     // --- trigger: bursts and pauses, respecting the magazine ---
     if (me.reload > 0) {
