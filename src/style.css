@@ -1007,6 +1007,19 @@ body:not(.touch) .touch-only {
   height: 34px;
   clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
 }
+.char img.portrait {
+  width: 100%;
+  max-width: 64px;
+  height: auto;
+  aspect-ratio: 120 / 136;
+  object-fit: contain;
+  background: none;
+  border: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+.char.on img.portrait {
+  filter: drop-shadow(0 0 6px rgba(62, 240, 255, 0.55));
+}
 .char span,
 .stage-card span {
   line-height: 1.15;

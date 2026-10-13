@@ -8,6 +8,7 @@ import { AIController } from './ai';
 import { Fx2D } from './fx2d';
 import { Portrait } from './face';
 import { CHARACTERS, characterById } from './robot';
+import { fillPortraits } from './portraits';
 import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
@@ -591,7 +592,7 @@ export function boot() {
     const btn = document.createElement('button');
     btn.className = 'char';
     btn.dataset.id = c.id;
-    btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
+    btn.innerHTML = `<i data-portrait="${c.id}" style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
     btn.addEventListener('click', () => saveSetting({ character: c.id }));
     $('char-grid').appendChild(btn);
   }
@@ -607,7 +608,7 @@ export function boot() {
       const btn = document.createElement('button');
       btn.className = 'char enemy-char';
       btn.dataset.id = c.id;
-      btn.innerHTML = `<i style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
+      btn.innerHTML = `<i data-portrait="${c.id}" style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
       btn.addEventListener('click', () => saveSetting({ enemyCharacter: c.id }));
       $('enemy-char-grid').appendChild(btn);
     }
@@ -620,6 +621,9 @@ export function boot() {
     btn.addEventListener('click', () => saveSetting({ stage: s.id }));
     $('stage-grid').appendChild(btn);
   }
+  // the unit pickers show each fighter in 3/4 view (rendered one per frame, swatches until then)
+  fillPortraits($('char-grid'));
+  fillPortraits($('enemy-char-grid'));
 
   // settings tabs
   const showTab = (tab: string) => {
