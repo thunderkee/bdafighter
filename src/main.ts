@@ -20,8 +20,12 @@ import './style.css';
   document.addEventListener('dblclick', (e) => e.preventDefault(), opts);
 }
 
-// The physics WASM and three.js load behind the loading screen.
-import('./app')
+// The shared roster from the Unit Studio comes first, so the units are ready when the
+// game builds them; then the physics WASM and three.js load behind the loading screen.
+import('./published')
+  .then(({ refreshPublished }) => refreshPublished())
+  .catch(() => {})
+  .then(() => import('./app'))
   .then(({ boot }) => boot())
   .catch((err) => {
     console.error(err);

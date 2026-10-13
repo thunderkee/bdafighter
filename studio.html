@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050914" />
+    <title>Unit Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body data-mode="studio">
+    <header class="bar">
+      <a class="back" href="./" title="Back to the game">◀ GAME</a>
+      <h1>UNIT STUDIO</h1>
+      <span class="studio-note">Edits the roster every player gets</span>
+      <div class="bar-actions">
+        <button id="undo" title="Undo (Ctrl+Z)">↶</button>
+        <button id="redo" title="Redo (Ctrl+Shift+Z)">↷</button>
+        <span id="status" class="status">Saved</span>
+        <span id="pub-status" class="status pub">Checking…</span>
+        <button id="import-device" class="ghost" title="Bring in the units you edited in this browser's Unit Lab">Import my Lab edits</button>
+        <button id="versions" class="ghost" title="Load an earlier published version">History</button>
+        <button id="studio-key" class="ghost" title="Change the studio key this browser uses">Key</button>
+        <button id="publish" class="primary" title="Make this roster live for every player">PUBLISH</button>
+        <button id="play" class="primary">PLAY AS UNIT</button>
+      </div>
+    </header>
+
+    <main class="lab">
+      <!-- roster -->
+      <aside class="roster">
+        <div class="roster-head">
+          <b>UNITS</b>
+          <button id="new-unit" title="Copy the selected unit into a new one">+ NEW</button>
+        </div>
+        <div id="unit-list" class="unit-list"></div>
+        <div class="roster-foot">
+          <button id="reset-unit" class="ghost">Reset to original</button>
+          <button id="delete-unit" class="danger">Delete unit</button>
+          <button id="export-roster" class="ghost" title="Save every edited unit as a file">Export edits</button>
+        </div>
+      </aside>
+
+      <!-- 3D preview -->
+      <section class="viewport">
+        <div id="view"></div>
+        <div class="view-tools">
+          <button data-cam="front">Front</button>
+          <button data-cam="side">Side</button>
+          <button data-cam="back">Back</button>
+          <button data-cam="angle">3/4</button>
+          <button id="animate" class="toggle">Animate</button>
+        </div>
+        <div class="gizmo-tools" role="group" aria-label="Transform tool">
+          <button data-gizmo="translate" title="Move (W)">✥ Move</button>
+          <button data-gizmo="rotate" title="Rotate (E)">⟳ Rotate</button>
+          <button data-gizmo="scale" title="Scale (R)">⤢ Scale</button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button id="canvas-undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶ Undo</button>
+          <button id="canvas-redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷ Redo</button>
+        </div>
+        <div id="edit-tools" class="edit-tools hidden" role="group" aria-label="Shape edit mode">
+          <b>EDIT SHAPE</b>
+          <button data-edit="vertex" title="Select points (1)">• Vertex</button>
+          <button data-edit="edge" title="Select edges (2)">╱ Edge</button>
+          <button data-edit="face" title="Select faces (3)">▰ Face</button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button id="extrude" title="Pull the selected faces out (E)">⇧ Extrude</button>
+          <button id="edit-all" title="Select everything (A)">All</button>
+          <button id="edit-done" class="primary" title="Leave edit mode (Tab / Esc)">Done</button>
+        </div>
+        <div id="draw-bar" class="draw-bar hidden">
+          <span id="draw-hint">Click to place points on the grid plane. Click the first point, double-click or press Enter to close the shape.</span>
+          <button id="draw-undo" title="Remove the last point (Backspace)">↶ Point</button>
+          <button id="draw-cancel" title="Esc">Cancel</button>
+          <button id="draw-finish" class="primary">Finish</button>
+        </div>
+        <p class="view-hint">Click a block (Shift / ⌘ to add more), pick Move / Rotate / Scale (W / E / R), then drag it or a handle · Tab edits a shape's points, edges and faces · drag empty space to orbit</p>
+      </section>
+
+      <!-- inspector -->
+      <section class="inspector">
+        <div class="tabs" role="tablist">
+          <button role="tab" data-tab="profile" class="on">Profile</button>
+          <button role="tab" data-tab="colors">Colours</button>
+          <button role="tab" data-tab="blocks">Blocks</button>
+        </div>
+
+        <div class="tab-panel" data-panel="profile">
+          <label class="field">
+            <span>Name</span>
+            <input id="unit-name" type="text" maxlength="22" spellcheck="false" />
+          </label>
+          <p class="note">Traits are 1–5; 3 is a standard unit. They apply wherever this unit fights, as you or as the CPU.</p>
+          <div id="traits"></div>
+        </div>
+
+        <div class="tab-panel hidden" data-panel="colors">
+          <p class="note">Blocks painted with a palette colour follow these swatches, so one change recolours the whole unit.</p>
+          <div id="palette" class="palette"></div>
+        </div>
+
+        <div class="tab-panel hidden" data-panel="blocks">
+          <div class="add-row">
+            <span>Add</span>
+            <button data-add="box">Box</button>
+            <button data-add="rbox">Rounded</button>
+            <button data-add="capsule">Capsule</button>
+            <button data-add="sphere">Ball</button>
+            <button data-add="cylinder">Tube</button>
+            <button data-add="cone">Spike</button>
+            <button data-add="torus">Ring</button>
+            <button data-add="group">Group</button>
+            <button id="draw" title="Draw an outline and extrude it into a solid">✎ Draw shape</button>
+          </div>
+          <div class="edit-row">
+            <button id="dup">Duplicate</button>
+            <button id="mirror" title="Copy to the other side (mirrors across the centre line)">Mirror</button>
+            <button id="group-sel" title="Put the selected blocks in a new group (Ctrl+G)">Group</button>
+            <button id="move-up" title="Move up the list ([)">▲</button>
+            <button id="move-down" title="Move down the list (])">▼</button>
+            <button id="edit-shape" title="Edit points, edges and faces (Tab)">Edit shape</button>
+            <button id="del" class="danger">Delete</button>
+          </div>
+          <p class="tree-tip">Shift / ⌘-click to select several · drag layers to reorder or drop into a group · click a colour dot to repaint</p>
+          <div id="tree" class="tree"></div>
+          <div id="block-form" class="block-form"></div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/lab.ts"></script>
+  </body>
+</html>

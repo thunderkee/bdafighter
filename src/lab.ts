@@ -2,7 +2,8 @@ import './lab.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { BUILTINS, CHARACTERS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, reloadRoster, resolveColor, type CharacterDef } from './robot';
+import { BUILTINS, CHARACTERS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, reloadRoster, resolveColor, setPublished, type CharacterDef } from './robot';
+import { API, cachedPublished, fetchPublished, type PublishedRoster } from './published';
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
 import { MATCH } from './config';
@@ -12,6 +13,9 @@ import type { Shooter } from './game';
 
 // Unit Lab: edit a unit's name, traits, colours and block design. Everything
 // saves to the device roster, which the game reads when it loads.
+//
+// Unit Studio (studio.html, the same editor): edits the roster published to every
+// player. Work saves on this device until Publish sends it to the server.
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -22,8 +26,30 @@ const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
 const DEG = 180 / Math.PI;
 
 // ---------- state ----------
-const roster: RosterData = clone(loadRoster());
+const STUDIO = document.body.dataset.mode === 'studio';
+/** the studio's unpublished work, and which published version it started from */
+const STUDIO_DRAFT = 'marble-fighter:studio:v1';
+type StudioDraft = RosterData & { baseVersion?: number };
+/** the latest published roster the studio knows about */
+let published: PublishedRoster | null = null;
+const roster: StudioDraft = STUDIO ? await openStudio() : clone(loadRoster());
 reloadRoster(roster);
+
+/** studio start: resume unpublished work if it's still based on the live version, else start from the live roster */
+async function openStudio(): Promise<StudioDraft> {
+  // the studio's own roster *is* the published layer, so don't apply it twice
+  setPublished({ units: {} });
+  published = await fetchPublished(8000);
+  const saved = loadRoster(STUDIO_DRAFT) as StudioDraft;
+  const hasWork = Object.keys(saved.units).length > 0;
+  if (!published) return hasWork ? clone(saved) : { units: {} };
+  const live: StudioDraft = { units: clone(published.units), baseVersion: published.version };
+  if (!hasWork) return live;
+  const changed = JSON.stringify(saved.units) !== JSON.stringify(published.units);
+  if (!changed) return live;
+  if (saved.baseVersion === published.version) return clone(saved);
+  return confirm(`You have unpublished studio changes based on version ${saved.baseVersion ?? 0}, but version ${published.version} has been published since.\n\nOK keeps your changes (publishing them replaces version ${published.version}); Cancel starts from version ${published.version}.`) ? clone(saved) : live;
+}
 let currentId = characterById(store.load().settings.character).id;
 /** working design for the current unit; linked into the roster on the first edit */
 let draft: Block = { shape: 'group', p: [0, 0, 0], r: [0, 0, 0], s: [1, 1, 1] };
@@ -64,7 +90,8 @@ function scheduleSave() {
 }
 function flushSave() {
   clearTimeout(saveTimer);
-  const ok = saveRoster(roster);
+  const ok = STUDIO ? saveRoster(roster, STUDIO_DRAFT) : saveRoster(roster);
+  if (STUDIO) syncPublishStatus();
   status.textContent = ok ? 'Saved' : 'Storage full!';
   status.classList.toggle('dirty', !ok);
 }
@@ -1044,6 +1071,143 @@ $('export-roster').addEventListener('click', () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
+
+// ---------- studio: publish to every player ----------
+const KEY_STORE = 'marble-fighter:studio-key';
+const ago = (iso: string | null) => {
+  if (!iso) return '';
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  return s < 90 ? 'just now' : s < 5400 ? `${Math.round(s / 60)} min ago` : s < 129600 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`;
+};
+const unpublished = () => !published || JSON.stringify(roster.units) !== JSON.stringify(published.units);
+function syncPublishStatus() {
+  if (!STUDIO) return;
+  const el = $('pub-status');
+  if (!published) el.textContent = 'Server unreachable · working offline';
+  else el.textContent = `Live v${published.version}${published.updatedAt ? ` · ${ago(published.updatedAt)}` : ''}${unpublished() ? ' · unpublished changes' : ''}`;
+  el.classList.toggle('dirty', unpublished());
+  $<HTMLButtonElement>('publish').disabled = !unpublished();
+}
+const studioKey = (ask: boolean) => {
+  let k = '';
+  try {
+    k = localStorage.getItem(KEY_STORE) ?? '';
+  } catch {
+    // no storage: ask every time
+  }
+  if (!k && ask) {
+    k = (prompt('Studio key (set as the STUDIO_KEY secret on the Worker):') ?? '').trim();
+    if (k)
+      try {
+        localStorage.setItem(KEY_STORE, k);
+      } catch {
+        // keep it for this publish only
+      }
+  }
+  return k;
+};
+/** units from this browser's own Unit Lab edits, brought in so they can be published */
+let imported: string[] = [];
+if (STUDIO) {
+  $('play').classList.add('hidden');
+  $('import-device').addEventListener('click', () => {
+    const device = loadRoster();
+    const ids = Object.keys(device.units);
+    if (!ids.length) {
+      alert("This browser has no Unit Lab edits to import.");
+      return;
+    }
+    const names = ids.map((id) => characterById(id)?.id === id ? characterById(id).name : device.units[id].name ?? id);
+    if (!confirm(`Import ${ids.length} unit${ids.length > 1 ? 's' : ''} from this browser's Unit Lab?\n\n${names.join(', ')}\n\nThey replace the studio's copies of the same units. Nothing is live until you publish.`)) return;
+    pushUndo();
+    for (const id of ids) roster.units[id] = clone(device.units[id]);
+    imported = [...new Set([...imported, ...ids])];
+    exitEditQuiet();
+    if (ids.includes(currentId) || !roster.units[currentId]) loadDraft();
+    selected = null;
+    selection = [];
+    commit(true);
+  });
+  $('versions').addEventListener('click', async () => {
+    const res = await fetch(`${API}/versions`, { cache: 'no-store' }).catch(() => null);
+    const list = res?.ok ? ((await res.json()) as { versions: number[] }).versions : null;
+    if (!list) return alert("Couldn't reach the server.");
+    if (!list.length) return alert('No earlier versions yet: each publish keeps the one it replaces.');
+    const pick = Number(prompt(`Load an earlier published version into the studio (you can look it over, then Publish to make it live again).\n\nVersions: ${list.slice(0, 30).join(', ')}`, String(list[0])));
+    if (!list.includes(pick)) return;
+    const v = await fetch(`${API}/v/${pick}`, { cache: 'no-store' }).then((r) => (r.ok ? (r.json() as Promise<PublishedRoster>) : null)).catch(() => null);
+    if (!v) return alert("Couldn't load that version.");
+    pushUndo();
+    roster.units = clone(v.units);
+    exitEditQuiet();
+    loadDraft();
+    selected = null;
+    selection = [];
+    commit(true);
+  });
+  $('studio-key').addEventListener('click', () => {
+    try {
+      localStorage.removeItem(KEY_STORE);
+    } catch {
+      // nothing stored
+    }
+    studioKey(true);
+  });
+  $('publish').addEventListener('click', async () => {
+    const key = studioKey(true);
+    if (!key) return;
+    const btn = $<HTMLButtonElement>('publish');
+    btn.disabled = true;
+    btn.textContent = 'PUBLISHING…';
+    try {
+      const res = await fetch(API, { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify({ units: roster.units }) });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; version?: number; updatedAt?: string };
+      if (!res.ok || !body.version) {
+        if (res.status === 401)
+          try {
+            localStorage.removeItem(KEY_STORE);
+          } catch {
+            // nothing stored
+          }
+        alert(`Publish failed: ${body.error ?? res.statusText}`);
+        return;
+      }
+      published = { version: body.version, updatedAt: body.updatedAt ?? new Date().toISOString(), units: clone(roster.units) };
+      roster.baseVersion = body.version;
+      flushSave();
+      // units brought in from this browser's Lab now come from the published roster; offer to drop the local copies
+      const device = loadRoster();
+      const same = imported.filter((id) => device.units[id] && JSON.stringify(device.units[id]) === JSON.stringify(roster.units[id]));
+      if (same.length && confirm(`Published v${body.version}. Every player gets it on their next load.\n\nRemove the ${same.length} imported unit${same.length > 1 ? 's' : ''} from this browser's own Unit Lab edits, so you see the published versions (and later publishes) here too?`)) {
+        for (const id of same) delete device.units[id];
+        saveRoster(device);
+      }
+      imported = [];
+    } catch {
+      alert("Publish failed: couldn't reach the server.");
+    } finally {
+      btn.textContent = 'PUBLISH';
+      syncPublishStatus();
+    }
+  });
+  syncPublishStatus();
+  setInterval(syncPublishStatus, 30000);
+} else {
+  // the Lab: pick up a newer publish in the background (it sits under this device's own edits)
+  const startVersion = cachedPublished().version;
+  fetchPublished().then((p) => {
+    if (!p || p.version === startVersion) return;
+    setPublished(p);
+    reloadRoster(roster);
+    renderRoster();
+    if (!roster.units[currentId]) {
+      loadDraft();
+      rebuildPreview();
+      renderTree();
+      renderForm();
+    }
+  });
+}
 
 $('play').addEventListener('click', () => {
   flushSave();

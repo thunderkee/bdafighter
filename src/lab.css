@@ -151,6 +151,26 @@ input[type='color'] {
   color: var(--amber);
 }
 
+.status.pub {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.studio-note {
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.04em;
+}
+
+body[data-mode='studio'] .bar {
+  background: linear-gradient(180deg, #2a1a06, #1a1206);
+  border-bottom-color: rgba(255, 194, 61, 0.35);
+}
+
+body[data-mode='studio'] .bar h1 {
+  color: var(--amber);
+}
+
 /* ---------- layout ---------- */
 .lab {
   display: grid;

@@ -4,6 +4,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import type { Shooter } from './game';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
 import shippedRoster from './roster-shipped.json';
+import { cachedPublished } from './published';
 
 /**
  * SD (super-deformed) marble-shooter robots built from primitives:
@@ -269,19 +270,32 @@ function applyEntry(def: CharacterDef, u: UnitEntry | undefined, id = def.id): C
 }
 
 /** the built-ins as shipped (code designs plus the shipped Unit Lab edits) */
+/** the roster published from the Unit Studio: shared by every player, above the shipped designs */
+let PUBLISHED: RosterData = cachedPublished();
+export function setPublished(data: RosterData) {
+  PUBLISHED = { units: data.units ?? {} };
+}
+
+/** a built-in unit as everyone gets it: shipped design, then the published one */
 export const shippedById = (id: string) => {
   const b = BUILTINS.find((c) => c.id === id);
-  return b ? applyEntry(b, SHIPPED.units[id]) : undefined;
+  return b ? applyEntry(applyEntry(b, SHIPPED.units[id]), PUBLISHED.units[id]) : undefined;
 };
 
-/** built-ins with the shipped designs, then this device's roster edits, then any custom units */
+/** built-ins with the shipped and published designs, then this device's edits; then shared and own custom units */
 export function rosterCharacters(data = loadRoster()): CharacterDef[] {
-  const out = BUILTINS.map((b) => applyEntry(applyEntry(b, SHIPPED.units[b.id]), data.units[b.id]));
-  for (const u of Object.values(data.units)) {
-    if (BUILTINS.some((b) => b.id === u.id)) continue;
-    const base = shippedById(u.base) ?? BUILTINS[0];
-    out.push(applyEntry(base, u, u.id));
+  const isBuiltin = (id: string) => BUILTINS.some((b) => b.id === id);
+  const out = BUILTINS.map((b) => applyEntry(shippedById(b.id)!, data.units[b.id]));
+  const customs = new Map<string, CharacterDef>();
+  for (const u of Object.values(PUBLISHED.units)) {
+    if (isBuiltin(u.id)) continue;
+    customs.set(u.id, applyEntry(shippedById(u.base) ?? BUILTINS[0], u, u.id));
   }
+  for (const u of Object.values(data.units)) {
+    if (isBuiltin(u.id)) continue;
+    customs.set(u.id, applyEntry(customs.get(u.id) ?? shippedById(u.base) ?? BUILTINS[0], u, u.id));
+  }
+  out.push(...customs.values());
   return out;
 }
 

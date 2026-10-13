@@ -1,9 +1,18 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bdafighter",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "ROSTER",
+      "id": "e371f611788246c9939c8f52991bb3cd"
+    }
+  ]
 }

@@ -71,26 +71,27 @@ export interface RosterData {
   units: Record<string, UnitEntry>;
 }
 
-const KEY = 'marble-fighter:roster:v1';
-let memory: RosterData = { units: {} };
+/** this device's own edits; the Unit Studio keeps its unpublished work under another key */
+export const ROSTER_KEY = 'marble-fighter:roster:v1';
+const memory: Record<string, RosterData> = {};
 
-export function loadRoster(): RosterData {
+export function loadRoster(key = ROSTER_KEY): RosterData {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw) as RosterData;
-      if (parsed && typeof parsed.units === 'object') memory = parsed;
+      if (parsed && typeof parsed.units === 'object') memory[key] = parsed;
     }
   } catch {
     // keep the in-memory copy
   }
-  return memory;
+  return (memory[key] ??= { units: {} });
 }
 
-export function saveRoster(data: RosterData) {
-  memory = data;
+export function saveRoster(data: RosterData, key = ROSTER_KEY) {
+  memory[key] = data;
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    localStorage.setItem(key, JSON.stringify(data));
     return true;
   } catch {
     return false;

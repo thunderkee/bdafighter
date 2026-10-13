@@ -8,9 +8,9 @@ export default defineConfig({
   plugins: [wasm()],
   build: {
     target: 'es2022',
-    // two pages: the game, and the Unit Lab character editor
+    // three pages: the game, the Unit Lab character editor, and the Unit Studio that publishes to everyone
     rollupOptions: {
-      input: { main: 'index.html', editor: 'editor.html' },
+      input: { main: 'index.html', editor: 'editor.html', studio: 'studio.html' },
     },
   },
   optimizeDeps: {

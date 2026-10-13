@@ -5,3 +5,7 @@ dist
 
 # exported art (SVG renders etc.), kept out of the repo
 exports/
+
+# wrangler dev state
+.wrangler/
+.dev.vars
