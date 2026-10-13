@@ -28,6 +28,8 @@ export interface Settings {
   enemyTactic: 'nearest' | 'weakest' | 'hunt';
   /** CPU opponents hold fire to charge big shots too */
   cpuCharge: boolean;
+  /** and so do your CPU pack-mates */
+  allyCharge: boolean;
   allyTactic: 'nearest' | 'weakest' | 'assist';
   /** your pack: you plus 0-2 CPU pack-mates (1-3) */
   playerPack: number;
@@ -113,6 +115,7 @@ export const DEFAULT_SETTINGS: Settings = {
   arenaWidth: 'normal',
   enemyTactic: 'nearest',
   cpuCharge: true,
+  allyCharge: true,
   allyTactic: 'nearest',
   moveControl: 'buttons',
   hudMode: 'top',

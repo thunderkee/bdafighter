@@ -265,6 +265,7 @@ export function boot() {
       duration: st.roundTime ?? 60,
       burst: st.burst ?? 1,
       cpuCharge: st.cpuCharge ?? true,
+      allyCharge: st.allyCharge ?? true,
     });
     for (const a of ais) a.reset();
     recorder.clear();

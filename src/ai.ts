@@ -87,8 +87,8 @@ export class AIController {
     const maxTurn = pr.turnRate * dt;
     me.aim += Math.max(-maxTurn, Math.min(maxTurn, desired - me.aim));
 
-    // --- charge shots: now and then an opponent stores a few balls and lets go of one big one ---
-    if (g.cpuCharge && me.team === 1) {
+    // --- charge shots: now and then a CPU robot stores a few balls and lets go of one big one ---
+    if (g.cpuCharges(me)) {
       if (me.chargeWant > 0) {
         // keep tracking the target; the game fires once the planned balls are in
         me.firing = false;

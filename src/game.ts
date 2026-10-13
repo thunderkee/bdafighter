@@ -419,6 +419,8 @@ export interface MatchOptions {
   duration: number;
   /** CPU opponents charge shots too */
   cpuCharge?: boolean;
+  /** and your CPU pack-mates */
+  allyCharge?: boolean;
   /** balls fired per trigger pull, both robots (1-5) */
   burst: number;
 }
@@ -456,6 +458,12 @@ export class Game {
   chargeShots = true;
   /** CPU opponents charge too, when their AI decides to (see Shooter.chargeWant) */
   cpuCharge = true;
+  /** and so do your CPU pack-mates */
+  allyCharge = true;
+  /** may this CPU robot plan charge shots? (you charge by holding fire instead) */
+  cpuCharges(s: Shooter) {
+    return s.slot !== 0 && (s.team === 1 ? this.cpuCharge : this.allyCharge);
+  }
   winner: Team | -1 | null = null;
   /** seconds of frozen physics after a heavy hit */
   hitstop = 0;
@@ -748,6 +756,7 @@ export class Game {
     this.clock = opts.duration > 0 ? opts.duration : Infinity;
     this.burst = Math.max(1, Math.min(5, Math.round(opts.burst)));
     this.cpuCharge = opts.cpuCharge ?? true;
+    this.allyCharge = opts.allyCharge ?? true;
     this.tactics = opts.tactics ?? ['nearest', 'nearest'];
     this.koSource = null;
     this.winner = null;
@@ -1297,9 +1306,9 @@ export class Game {
     }
 
     // charge shot: holding past the threshold stores balls; letting go fires them as one.
-    // You charge by holding fire; a CPU opponent charges when its AI plans it (chargeWant).
+    // You charge by holding fire; a CPU robot (opponent or pack-mate) charges when its AI plans it (chargeWant).
     const human = this.chargeShots && s.slot === 0;
-    const cpu = !human && this.cpuCharge && s.team === 1 && s.chargeWant > 0;
+    const cpu = !human && this.cpuCharges(s) && s.chargeWant > 0;
     if (human || cpu || s.chargeHold > 0 || s.stored > 0) {
       const holding = canAct && (human ? s.firing : cpu) && !s.shieldUp && s.reload <= 0;
       let letGo = false;
