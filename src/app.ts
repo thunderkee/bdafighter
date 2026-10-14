@@ -156,22 +156,35 @@ export function boot() {
 
   // ---------- arcade: a ladder of matches, each with its own opponent, rules and arena ----------
   const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
-  const DIFFS = ['easy', 'normal', 'hard', 'ace'] as const;
-  /** a fresh stage: random opponent and pack, random difficulty, random arena and its rules */
+  /** the difficulty climbs one step per stage: intelligence and the opponent's stat level */
+  const TIERS = [
+    { name: 'VERY EASY', iq: 'easy', lv: 1 },
+    { name: 'EASY', iq: 'easy', lv: 2 },
+    { name: 'MEDIUM', iq: 'normal', lv: 3 },
+    { name: 'HARD', iq: 'hard', lv: 4 },
+    { name: 'VERY HARD', iq: 'ace', lv: 4 },
+    { name: 'EXPERT', iq: 'ace', lv: 5 },
+  ] as const;
+  /** each ordinary stage is one step up from the last (bosses sit between them) */
+  const tierAt = (stage: number) => TIERS[Math.min(TIERS.length - 1, Math.max(0, stage - 1 - Math.floor(stage / BOSS.every)))];
+  const stageLabel = (stage: number) => (bossAt(stage) ? 'BOSS' : tierAt(stage).name);
   /** the big hero builds make the best bosses */
   const BOSS_UNITS = ['tyrant', 'liger', 'rex', 'violet', 'kabuto', 'baron', 'bastion'];
-  const rollStage = (prev?: Partial<store.Settings>, boss = false): Partial<store.Settings> => {
+  /** stage `stage`: a random opponent, pack and arena, at that stage's difficulty */
+  const rollStage = (stage: number, prev?: Partial<store.Settings>): Partial<store.Settings> => {
     const me = saveData.settings.character;
-    if (boss) {
+    if (bossAt(stage)) {
+      // each boss is a little tougher than the one before
+      const k = stage / BOSS.every - 1;
       const pool = BOSS_UNITS.filter((id) => id !== me && id !== prev?.enemyCharacter && CHARACTERS.some((c) => c.id === id));
       const arena = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
       return {
         enemyCharacter: pick(pool.length ? pool : CHARACTERS.map((c) => c.id).filter((id) => id !== me)),
         enemyIQ: 'ace',
-        enemyHealth: 3,
-        enemySpeed: 4,
-        enemyAgility: 4,
-        enemyPower: 4,
+        enemyHealth: Math.min(5, 3 + k),
+        enemySpeed: Math.min(5, 4 + Math.floor(k / 2)),
+        enemyAgility: Math.min(5, 4 + Math.floor(k / 2)),
+        enemyPower: Math.min(5, 4 + Math.min(1, k)),
         enemyAim: 'flexible',
         enemyTactic: 'hunt',
         cpuCharge: true,
@@ -190,10 +203,7 @@ export function boot() {
         gates: Math.random() < 0.5,
       };
     }
-    const diff = pick(DIFFS);
-    // the opponent's stats lean with the difficulty, give or take a level
-    const base = { easy: 2, normal: 3, hard: 4, ace: 4 }[diff];
-    const lv = () => Math.max(1, Math.min(5, base + pick([-1, 0, 0, 1])));
+    const tier = tierAt(stage);
     const units = CHARACTERS.map((c) => c.id).filter((id) => id !== me && id !== prev?.enemyCharacter);
     const stages = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
     // about half the stages are pack fights, on one side or both
@@ -206,11 +216,11 @@ export function boot() {
     }
     return {
       enemyCharacter: pick(units.length ? units : CHARACTERS.map((c) => c.id)),
-      enemyIQ: diff,
-      enemyHealth: lv(),
-      enemySpeed: lv(),
-      enemyAgility: lv(),
-      enemyPower: lv(),
+      enemyIQ: tier.iq,
+      enemyHealth: tier.lv,
+      enemySpeed: tier.lv,
+      enemyAgility: tier.lv,
+      enemyPower: tier.lv,
       enemyAim: Math.random() < 0.15 ? 'straight' : 'flexible',
       enemyTactic: pick(['nearest', 'weakest', 'hunt'] as const),
       cpuCharge: Math.random() < 0.75,
@@ -229,17 +239,15 @@ export function boot() {
     };
   };
   const WIDTH_NAME = { small: 'NARROW', normal: 'STANDARD', large: 'WIDE' } as const;
-  /** difficulty as the Settings call it */
-  const DIFF_NAME: Record<string, string> = { easy: 'ROOKIE', normal: 'REGULAR', hard: 'VETERAN', ace: 'ACE' };
   /** one stage in a line: opponent, difficulty, arena */
-  const describeStage = (c: Partial<store.Settings>) => {
+  const describeStage = (c: Partial<store.Settings>, stage: number) => {
     const foe = characterById(c.enemyCharacter ?? 'dragon').name.toUpperCase() + ((c.pack ?? 1) > 1 ? ` +${(c.pack ?? 1) - 1}` : '');
     const rules = [WIDTH_NAME[c.arenaWidth ?? 'normal'] + ' TABLE', c.covers ? `${c.covers} COVER` : '', c.pins ? `${c.pins} PINS` : '', c.pucks ? `${c.pucks} PUCKS` : '', c.items ? 'AIR DROPS' : '', c.gates ? 'GATES' : '']
       .filter(Boolean)
       .join(' · ');
     return {
       foe,
-      diff: DIFF_NAME[c.enemyIQ ?? 'normal'] ?? 'REGULAR',
+      diff: stageLabel(stage),
       arena: stageById(c.stage ?? 'space').name.toUpperCase(),
       rules,
       you: (c.playerPack ?? 1) > 1 ? `YOU +${(c.playerPack ?? 1) - 1}` : 'SOLO',
@@ -463,7 +471,7 @@ export function boot() {
     }
     if (arcade) {
       $('intro-p1-sub').textContent = `ARCADE STAGE ${arcade.stage} // ${$('intro-p1-sub').textContent}`;
-      $('intro-p2-sub').textContent = packSize() > 1 ? `${DIFF_NAME[st.enemyIQ]} // ${$('intro-p2-sub').textContent}` : `CPU // ${DIFF_NAME[st.enemyIQ]}`;
+      $('intro-p2-sub').textContent = packSize() > 1 ? `${stageLabel(arcade.stage)} // ${$('intro-p2-sub').textContent}` : `CPU // ${stageLabel(arcade.stage)}`;
     }
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
@@ -603,7 +611,7 @@ export function boot() {
       if (record) saveData = store.save({ arcadeBest: arcade.cleared });
       title.textContent = bossAt(arcade.stage) ? 'BOSS DEFEATED' : `STAGE ${arcade.stage} CLEAR`;
       $('result-sub').textContent = `ARCADE // ${arcade.cleared} CLEARED${record ? ' · NEW BEST' : ''}`;
-      arcade.next = rollStage(arcade.cfg, bossAt(arcade.stage + 1));
+      arcade.next = rollStage(arcade.stage + 1, arcade.cfg);
       stageCfg = arcade.next;
       head = bossAt(arcade.stage + 1) ? `⚠ BOSS AHEAD // STAGE ${arcade.stage + 1}` : `NEXT // STAGE ${arcade.stage + 1}`;
       $('again-btn').textContent = 'NEXT STAGE ▶';
@@ -614,7 +622,7 @@ export function boot() {
       head = `RETRY // STAGE ${arcade.stage}`;
       $('again-btn').textContent = 'RETRY STAGE';
     }
-    const d = describeStage(stageCfg);
+    const d = describeStage(stageCfg, w === 0 ? arcade.stage + 1 : arcade.stage);
     const nextIsBoss = bossAt(w === 0 ? arcade.stage + 1 : arcade.stage);
     panel.classList.toggle('boss', nextIsBoss);
     if (nextIsBoss) d.foe = `BOSS ${d.foe}`;
@@ -623,7 +631,7 @@ export function boot() {
 
   /** start a new arcade run from stage 1 */
   const startArcade = () => {
-    arcade = { stage: 1, cleared: 0, cfg: rollStage(undefined, bossAt(1)) };
+    arcade = { stage: 1, cleared: 0, cfg: rollStage(1) };
     startMatch();
   };
   /** rematch, or in arcade the next stage (after a win) or the same stage again */
