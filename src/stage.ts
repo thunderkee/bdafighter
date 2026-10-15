@@ -329,223 +329,411 @@ export class Stage {
     const W = ARENA.width;
     const L = ARENA.length;
     const cvs = document.createElement('canvas');
-    cvs.width = 256;
-    cvs.height = 640;
+    cvs.width = 512;
+    cvs.height = 1280;
     const c = cvs.getContext('2d')!;
-    const px = (x: number) => ((x + W / 2) / W) * cvs.width;
-    const py = (y: number) => ((L / 2 - y) / L) * cvs.height;
+    const CW = cvs.width;
+    const CH = cvs.height;
+    const px = (x: number) => ((x + W / 2) / W) * CW;
+    const py = (y: number) => ((L / 2 - y) / L) * CH;
+    /** canvas pixels per metre across the table */
+    const m = CW / W;
     c.fillStyle = css(d.floor);
-    c.fillRect(0, 0, cvs.width, cvs.height);
+    c.fillRect(0, 0, CW, CH);
+    const speckle = (n: number, rgb: string, a0: number, a1: number, size = 2) => {
+      for (let i = 0; i < n; i++) {
+        c.fillStyle = `rgba(${rgb},${rand(a0, a1)})`;
+        c.fillRect(rand(0, CW), rand(0, CH), size, size);
+      }
+    };
+    /** the band in front of each rail, in canvas y (top edge, height) */
+    const railBand = (side: number, depth: number) => {
+      const y0 = py(side * ARENA.railY + 0.7);
+      const y1 = py(side * ARENA.railY - side * depth);
+      return [Math.min(y0, y1), Math.abs(y1 - y0)] as const;
+    };
 
-    // stage-specific surface detail
+    // every arena has its own ground; only the soccer pitch keeps the sports markings
     switch (d.pattern) {
-      case 'sand':
-        for (let i = 0; i < 900; i++) {
-          c.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '160,120,60'},${rand(0.05, 0.16)})`;
-          c.fillRect(rand(0, 256), rand(0, 640), 2, 2);
-        }
-        c.strokeStyle = 'rgba(160,120,60,0.18)';
-        c.lineWidth = 2;
-        for (let y = 20; y < 640; y += 26) {
+      case 'grid': {
+        // spaceship deck: big bolted plates with bevelled seams, hazard bands at the rails,
+        // a hexagonal hatch at the centre and running lights down the sides
+        const P = 64;
+        for (let y = 0; y < CH; y += P)
+          for (let x = 0; x < CW; x += P) {
+            c.fillStyle = `rgba(255,255,255,${(((x + y) / P) % 2) * 0.025 + rand(0, 0.02)})`;
+            c.fillRect(x, y, P, P);
+            c.fillStyle = 'rgba(0,0,0,0.45)';
+            c.fillRect(x, y, P, 2);
+            c.fillRect(x, y, 2, P);
+            c.fillStyle = 'rgba(160,220,255,0.08)';
+            c.fillRect(x, y + 2, P, 1);
+            c.fillRect(x + 2, y, 1, P);
+            c.fillStyle = 'rgba(180,220,255,0.18)';
+            for (const [bx, by] of [[8, 8], [P - 10, 8], [8, P - 10], [P - 10, P - 10]]) c.fillRect(x + bx, y + by, 3, 3);
+          }
+        for (const side of [-1, 1]) {
+          const [y, h] = railBand(side, 0.9);
+          c.save();
           c.beginPath();
-          for (let x = 0; x <= 256; x += 16) c.lineTo(x, y + Math.sin(x / 30 + y) * 4);
+          c.rect(0, y, CW, h);
+          c.clip();
+          c.fillStyle = '#e8b21f';
+          c.fillRect(0, y, CW, h);
+          c.fillStyle = '#16161c';
+          for (let x = -CH; x < CW + CH; x += 36) {
+            c.beginPath();
+            c.moveTo(x, y);
+            c.lineTo(x + 18, y);
+            c.lineTo(x + 18 + h, y + h);
+            c.lineTo(x + h, y + h);
+            c.fill();
+          }
+          c.restore();
+          c.globalAlpha = 0.35;
+          c.fillStyle = '#000';
+          c.fillRect(0, y, CW, h);
+          c.globalAlpha = 1;
+        }
+        c.strokeStyle = 'rgba(0,0,0,0.5)';
+        c.lineWidth = 4;
+        const hex = (r: number) => {
+          c.beginPath();
+          for (let k = 0; k < 6; k++) c.lineTo(px(0) + Math.cos((k * Math.PI) / 3) * r, py(0) + Math.sin((k * Math.PI) / 3) * r);
+          c.closePath();
+        };
+        hex(1.3 * m);
+        c.fillStyle = 'rgba(255,255,255,0.05)';
+        c.fill();
+        c.stroke();
+        c.strokeStyle = css(d.floorLine);
+        c.globalAlpha = 0.5;
+        c.lineWidth = 2;
+        hex(1.05 * m);
+        c.stroke();
+        c.globalAlpha = 1;
+        c.fillStyle = css(d.floorLine);
+        for (let y = 24; y < CH; y += 48) for (const x of [10, CW - 16]) c.fillRect(x, y, 6, 18);
+        break;
+      }
+      case 'sand': {
+        // a beach: wind ripples, damp darker sand at each end, footprints and shells
+        speckle(3000, '255,255,255', 0.05, 0.18);
+        speckle(2200, '150,110,60', 0.06, 0.18);
+        c.strokeStyle = 'rgba(150,110,60,0.16)';
+        c.lineWidth = 3;
+        for (let y = 20; y < CH; y += 22) {
+          c.beginPath();
+          for (let x = 0; x <= CW; x += 16) c.lineTo(x, y + Math.sin(x / 38 + y * 0.7) * 6);
           c.stroke();
         }
-        // shells and pebbles
-        for (let i = 0; i < 40; i++) {
-          c.fillStyle = pick(['#fff4e0', '#f2c9a0', '#d9b48a']);
+        for (const side of [-1, 1]) {
+          const [y, h] = railBand(side, 1.2);
+          const g = c.createLinearGradient(0, y, 0, y + h);
+          g.addColorStop(side > 0 ? 0 : 1, 'rgba(120,85,45,0.28)');
+          g.addColorStop(side > 0 ? 1 : 0, 'rgba(120,85,45,0)');
+          c.fillStyle = g;
+          c.fillRect(0, y, CW, h);
+        }
+        // a trail of footprints wandering across
+        let fx = rand(80, 160);
+        for (let y = 60; y < CH; y += 46) {
+          fx += rand(-14, 14);
+          c.fillStyle = 'rgba(150,110,60,0.22)';
+          for (const dx of [-9, 9]) {
+            c.beginPath();
+            c.ellipse(fx + dx, y + (dx > 0 ? 22 : 0), 6, 11, 0, 0, Math.PI * 2);
+            c.fill();
+          }
+        }
+        for (let i = 0; i < 70; i++) {
+          c.fillStyle = pick(['#fff4e0', '#f2c9a0', '#d9b48a', '#f6dccb']);
           c.beginPath();
-          c.ellipse(rand(0, 256), rand(0, 640), rand(2, 4), rand(1.5, 3), rand(0, 3), 0, Math.PI * 2);
+          c.ellipse(rand(0, CW), rand(0, CH), rand(3, 7), rand(2, 5), rand(0, 3), 0, Math.PI * 2);
           c.fill();
         }
         break;
-      case 'cracks':
-        c.strokeStyle = '#ff6a1a';
-        c.shadowColor = '#ff8a2a';
-        c.shadowBlur = 8;
+      }
+      case 'cracks': {
+        // the forge floor: dark basalt flagstones with deep seams (no glow), iron grates at the rails
+        const rows = 18;
+        const rh = CH / rows;
+        for (let r = 0; r < rows; r++) {
+          let x = -rand(0, 60);
+          while (x < CW) {
+            const w = rand(70, 140);
+            const shade = rand(-0.06, 0.06);
+            c.fillStyle = shade > 0 ? `rgba(255,230,210,${shade})` : `rgba(0,0,0,${-shade * 2})`;
+            c.beginPath();
+            const j = () => rand(-5, 5);
+            c.moveTo(x + 3 + j(), r * rh + 3 + j());
+            c.lineTo(x + w - 3 + j(), r * rh + 3 + j());
+            c.lineTo(x + w - 3 + j(), (r + 1) * rh - 3 + j());
+            c.lineTo(x + 3 + j(), (r + 1) * rh - 3 + j());
+            c.closePath();
+            c.fill();
+            c.strokeStyle = 'rgba(0,0,0,0.55)';
+            c.lineWidth = 4;
+            c.stroke();
+            c.strokeStyle = 'rgba(255,220,200,0.06)';
+            c.lineWidth = 1;
+            c.stroke();
+            x += w;
+          }
+        }
+        speckle(2500, '255,240,230', 0.02, 0.07);
+        for (const side of [-1, 1]) {
+          const [y, h] = railBand(side, 0.8);
+          c.fillStyle = '#1a1414';
+          c.fillRect(0, y, CW, h);
+          c.fillStyle = '#3a302c';
+          for (let x = 4; x < CW; x += 14) c.fillRect(x, y + 4, 7, h - 8);
+        }
+        break;
+      }
+      case 'ice': {
+        // a frozen lake: frost bloom, skate scratches, long cracks and drifted snow at the sides
+        for (let i = 0; i < 40; i++) {
+          const g = c.createRadialGradient(rand(0, CW), rand(0, CH), 0, rand(0, CW), rand(0, CH), rand(40, 120));
+          g.addColorStop(0, 'rgba(255,255,255,0.22)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          c.fillStyle = g;
+          c.fillRect(0, 0, CW, CH);
+        }
+        c.strokeStyle = 'rgba(255,255,255,0.35)';
+        c.lineWidth = 1.5;
+        for (let i = 0; i < 40; i++) {
+          const x = rand(0, CW);
+          const y = rand(0, CH);
+          c.beginPath();
+          c.arc(x, y, rand(60, 220), rand(0, 6), rand(0, 6) + rand(0.4, 1.2));
+          c.stroke();
+        }
+        c.strokeStyle = 'rgba(90,140,190,0.4)';
         c.lineWidth = 2;
-        for (let i = 0; i < 26; i++) {
-          let x = rand(0, 256);
-          let y = rand(0, 640);
+        for (let i = 0; i < 14; i++) {
+          let x = rand(0, CW);
+          let y = rand(0, CH);
+          c.beginPath();
+          c.moveTo(x, y);
+          for (let k = 0; k < 7; k++) {
+            x += rand(-40, 40);
+            y += rand(-40, 40);
+            c.lineTo(x, y);
+          }
+          c.stroke();
+        }
+        for (const x0 of [0, CW]) {
+          const g = c.createLinearGradient(x0, 0, x0 === 0 ? 70 : CW - 70, 0);
+          g.addColorStop(0, 'rgba(255,255,255,0.95)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          c.fillStyle = g;
+          c.fillRect(x0 === 0 ? 0 : CW - 70, 0, 70, CH);
+        }
+        break;
+      }
+      case 'asphalt': {
+        // a city street: tar seams, a zebra crossing at the middle, stop bars at the rails,
+        // manholes and oil stains
+        speckle(5000, '255,255,255', 0.02, 0.08);
+        speckle(3000, '0,0,0', 0.1, 0.25);
+        c.strokeStyle = 'rgba(0,0,0,0.45)';
+        c.lineWidth = 3;
+        for (let i = 0; i < 8; i++) {
+          let x = rand(0, CW);
+          let y = rand(0, CH);
           c.beginPath();
           c.moveTo(x, y);
           for (let k = 0; k < 6; k++) {
-            x += rand(-30, 30);
-            y += rand(-30, 30);
+            x += rand(-50, 50);
+            y += rand(10, 50);
             c.lineTo(x, y);
           }
           c.stroke();
         }
-        c.shadowBlur = 0;
-        break;
-      case 'grid':
-        c.strokeStyle = 'rgba(62,240,255,0.12)';
-        c.lineWidth = 1;
-        for (let x = 0; x <= 256; x += 16) {
-          c.beginPath();
-          c.moveTo(x, 0);
-          c.lineTo(x, 640);
-          c.stroke();
+        c.fillStyle = 'rgba(245,245,240,0.85)';
+        const zh = 1.6 * m;
+        for (let x = 20; x < CW - 20; x += 44) c.fillRect(x, py(0) - zh / 2, 26, zh);
+        c.fillStyle = 'rgba(255,207,62,0.9)';
+        for (const x of [10, CW - 18]) c.fillRect(x, 0, 8, CH);
+        for (const side of [-1, 1]) {
+          const [y, h] = railBand(side, 0.9);
+          c.fillStyle = 'rgba(245,245,240,0.85)';
+          c.fillRect(24, side > 0 ? y + h - 10 : y, CW - 48, 10);
         }
-        for (let y = 0; y <= 640; y += 16) {
+        for (const [x, y] of [[0.3, 0.3], [0.7, 0.68]]) {
+          c.fillStyle = 'rgba(0,0,0,0.5)';
           c.beginPath();
-          c.moveTo(0, y);
-          c.lineTo(256, y);
-          c.stroke();
-        }
-        // deck panel bolts
-        c.fillStyle = 'rgba(62,240,255,0.25)';
-        for (let x = 0; x <= 256; x += 64) for (let y = 0; y <= 640; y += 64) c.fillRect(x - 2, y - 2, 4, 4);
-        break;
-      case 'ice':
-        c.strokeStyle = 'rgba(120,170,220,0.25)';
-        c.lineWidth = 1.5;
-        for (let i = 0; i < 40; i++) {
-          const x = rand(0, 256);
-          const y = rand(0, 640);
-          c.beginPath();
-          c.moveTo(x, y);
-          c.lineTo(x + rand(-40, 40), y + rand(-40, 40));
-          c.stroke();
-        }
-        break;
-      case 'asphalt':
-        for (let i = 0; i < 1400; i++) {
-          c.fillStyle = `rgba(255,255,255,${rand(0.02, 0.07)})`;
-          c.fillRect(rand(0, 256), rand(0, 640), 2, 2);
-        }
-        c.strokeStyle = 'rgba(255,255,255,0.5)';
-        c.lineWidth = 3;
-        for (const x of [12, 244]) {
-          c.beginPath();
-          c.moveTo(x, 0);
-          c.lineTo(x, 640);
-          c.stroke();
-        }
-        // a manhole and some patching
-        c.fillStyle = 'rgba(0,0,0,0.35)';
-        c.beginPath();
-        c.arc(200, 420, 14, 0, Math.PI * 2);
-        c.fill();
-        break;
-      case 'moss':
-        // mossy ground with puddles catching the sky
-        for (let i = 0; i < 70; i++) {
-          c.fillStyle = `rgba(${pick(['120,170,90', '70,110,60', '160,190,110'])},${rand(0.12, 0.3)})`;
-          c.beginPath();
-          c.ellipse(rand(0, 256), rand(0, 640), rand(6, 20), rand(4, 14), rand(0, 3), 0, Math.PI * 2);
+          c.arc(CW * x, CH * y, 26, 0, Math.PI * 2);
           c.fill();
-        }
-        for (let i = 0; i < 12; i++) {
-          const x = rand(10, 246);
-          const y = rand(10, 630);
-          c.fillStyle = 'rgba(110,140,150,0.55)';
-          c.beginPath();
-          c.ellipse(x, y, rand(10, 24), rand(5, 10), 0, 0, Math.PI * 2);
-          c.fill();
-          c.fillStyle = 'rgba(220,240,255,0.25)';
-          c.beginPath();
-          c.ellipse(x - 3, y - 2, rand(4, 8), 2, 0, 0, Math.PI * 2);
-          c.fill();
-        }
-        break;
-      case 'planks':
-        // a wooden pier: boards with grain and nails
-        for (let y = 0; y < 640; y += 20) {
-          c.fillStyle = `rgba(0,0,0,${rand(0.05, 0.18)})`;
-          c.fillRect(0, y, 256, 20);
-          c.fillStyle = 'rgba(30,18,8,0.7)';
-          c.fillRect(0, y, 256, 2);
-          c.strokeStyle = 'rgba(255,220,170,0.12)';
-          for (let k = 0; k < 3; k++) {
+          c.strokeStyle = 'rgba(255,255,255,0.12)';
+          c.lineWidth = 2;
+          for (let r = 8; r < 26; r += 6) {
             c.beginPath();
-            c.moveTo(0, y + rand(4, 18));
-            c.bezierCurveTo(80, y + rand(4, 18), 170, y + rand(4, 18), 256, y + rand(4, 18));
+            c.arc(CW * x, CH * y, r, 0, Math.PI * 2);
             c.stroke();
           }
-          c.fillStyle = 'rgba(40,30,20,0.8)';
-          for (const x of [20, 236]) c.fillRect(x, y + 8, 3, 3);
+        }
+        for (let i = 0; i < 5; i++) {
+          const g = c.createRadialGradient(0, 0, 0, 0, 0, 40);
+          g.addColorStop(0, 'rgba(0,0,0,0.35)');
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          c.save();
+          c.translate(rand(0, CW), rand(0, CH));
+          c.scale(1, 0.6);
+          c.fillStyle = g;
+          c.fillRect(-40, -40, 80, 80);
+          c.restore();
         }
         break;
-      case 'neon':
-        // wet black street with neon grid and circuit traces
-        c.strokeStyle = 'rgba(255,43,214,0.22)';
-        c.lineWidth = 1;
-        for (let x = 0; x <= 256; x += 32) {
+      }
+      case 'moss': {
+        // a forest clearing: moss, a flagstone path down the middle, fallen leaves and roots
+        for (let i = 0; i < 160; i++) {
+          c.fillStyle = `rgba(${pick(['120,170,90', '70,110,60', '160,190,110', '50,80,40'])},${rand(0.12, 0.32)})`;
           c.beginPath();
-          c.moveTo(x, 0);
-          c.lineTo(x, 640);
-          c.stroke();
+          c.ellipse(rand(0, CW), rand(0, CH), rand(10, 40), rand(8, 28), rand(0, 3), 0, Math.PI * 2);
+          c.fill();
         }
-        for (let y = 0; y <= 640; y += 32) {
+        c.strokeStyle = 'rgba(60,40,25,0.55)';
+        c.lineWidth = 6;
+        for (let i = 0; i < 6; i++) {
           c.beginPath();
-          c.moveTo(0, y);
-          c.lineTo(256, y);
-          c.stroke();
-        }
-        c.strokeStyle = 'rgba(43,240,255,0.5)';
-        c.shadowColor = '#2bf0ff';
-        c.shadowBlur = 6;
-        for (let i = 0; i < 16; i++) {
-          let x = Math.round(rand(0, 8)) * 32;
-          let y = Math.round(rand(0, 20)) * 32;
-          c.beginPath();
+          const x = pick([rand(0, 60), rand(CW - 60, CW)]);
+          const y = rand(0, CH);
           c.moveTo(x, y);
-          for (let k = 0; k < 4; k++) {
-            if (Math.random() < 0.5) x += pick([-32, 32]);
-            else y += pick([-32, 32]);
-            c.lineTo(x, y);
-          }
+          c.bezierCurveTo(x + rand(-60, 60), y + rand(20, 80), x + rand(-60, 60), y + rand(80, 140), x + rand(-40, 40), y + rand(140, 200));
           c.stroke();
         }
-        c.shadowBlur = 0;
-        break;
-      case 'pitch':
-        // mowing stripes
-        for (let y = 0; y < 640; y += 40) {
-          if ((y / 40) % 2) continue;
-          c.fillStyle = 'rgba(255,255,255,0.07)';
-          c.fillRect(0, y, 256, 40);
+        for (let y = 30; y < CH; y += 70) {
+          const x = CW / 2 + rand(-30, 30);
+          c.fillStyle = 'rgba(150,150,140,0.55)';
+          c.beginPath();
+          c.ellipse(x, y, rand(34, 46), rand(22, 28), rand(-0.3, 0.3), 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.08)';
+          c.beginPath();
+          c.ellipse(x - 6, y - 5, 18, 8, 0, 0, Math.PI * 2);
+          c.fill();
         }
-        // penalty boxes in front of each rail
-        c.strokeStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 160; i++) {
+          c.fillStyle = pick(['#c8782a', '#a0522d', '#d9a441', '#7a8a3a']);
+          c.save();
+          c.translate(rand(0, CW), rand(0, CH));
+          c.rotate(rand(0, 6));
+          c.beginPath();
+          c.ellipse(0, 0, 7, 3.5, 0, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        }
+        break;
+      }
+      case 'planks': {
+        // a wooden pier: long boards with grain, iron straps and nails, a rope coil
+        const bw = 40;
+        for (let y = 0; y < CH; y += bw) {
+          c.fillStyle = `rgba(0,0,0,${rand(0.04, 0.2)})`;
+          c.fillRect(0, y, CW, bw);
+          c.fillStyle = 'rgba(30,18,8,0.75)';
+          c.fillRect(0, y, CW, 3);
+          const seam = rand(80, CW - 80);
+          c.fillRect(seam, y, 3, bw);
+          c.strokeStyle = 'rgba(255,220,170,0.12)';
+          c.lineWidth = 1.5;
+          for (let k = 0; k < 4; k++) {
+            c.beginPath();
+            c.moveTo(0, y + rand(6, bw - 4));
+            c.bezierCurveTo(160, y + rand(6, bw - 4), 340, y + rand(6, bw - 4), CW, y + rand(6, bw - 4));
+            c.stroke();
+          }
+          c.fillStyle = 'rgba(40,30,20,0.85)';
+          for (const x of [26, seam - 10, seam + 12, CW - 30]) c.fillRect(x, y + 16, 5, 5);
+        }
+        c.fillStyle = 'rgba(40,40,44,0.75)';
+        for (const x of [70, CW - 90]) c.fillRect(x, 0, 14, CH);
+        c.strokeStyle = 'rgba(216,192,138,0.9)';
+        c.lineWidth = 5;
+        for (let r = 8; r < 34; r += 6) {
+          c.beginPath();
+          c.arc(CW * 0.8, CH * 0.45, r, 0, Math.PI * 2);
+          c.stroke();
+        }
+        break;
+      }
+      case 'neon': {
+        // a circuit board: copper traces with pads and vias, a chip at the centre
+        c.lineCap = 'round';
+        const trace = (col: string, wdt: number) => {
+          c.strokeStyle = col;
+          c.lineWidth = wdt;
+          for (let i = 0; i < 46; i++) {
+            let x = Math.round(rand(0, 16)) * 32;
+            let y = Math.round(rand(0, 40)) * 32;
+            c.beginPath();
+            c.moveTo(x, y);
+            for (let k = 0; k < 5; k++) {
+              const r = Math.random();
+              if (r < 0.4) x += pick([-32, 32]);
+              else if (r < 0.8) y += pick([-32, 32]);
+              else {
+                x += pick([-32, 32]);
+                y += pick([-32, 32]);
+              }
+              c.lineTo(x, y);
+            }
+            c.stroke();
+            c.fillStyle = col;
+            c.beginPath();
+            c.arc(x, y, wdt * 1.6, 0, Math.PI * 2);
+            c.fill();
+          }
+        };
+        trace('rgba(255,43,214,0.35)', 3);
+        trace('rgba(43,240,255,0.5)', 2);
+        const cw = 2.4 * m;
+        c.fillStyle = '#07040c';
+        c.fillRect(px(0) - cw / 2, py(0) - cw / 2, cw, cw);
+        c.strokeStyle = 'rgba(43,240,255,0.8)';
         c.lineWidth = 3;
-        for (const side of [-1, 1]) {
-          c.strokeRect(px(-3.4), py(side * ARENA.railY + side * -0.6) - (side > 0 ? 0 : 0), px(3.4) - px(-3.4), side > 0 ? py(ARENA.railY - 4.2) - py(ARENA.railY) : py(-ARENA.railY) - py(-ARENA.railY + 4.2));
+        c.strokeRect(px(0) - cw / 2, py(0) - cw / 2, cw, cw);
+        c.fillStyle = 'rgba(255,43,214,0.7)';
+        for (let k = 0; k < 8; k++) {
+          const o = -cw / 2 + ((k + 0.5) * cw) / 8;
+          c.fillRect(px(0) + o - 3, py(0) - cw / 2 - 14, 6, 12);
+          c.fillRect(px(0) + o - 3, py(0) + cw / 2 + 2, 6, 12);
+          c.fillRect(px(0) - cw / 2 - 14, py(0) + o - 3, 12, 6);
+          c.fillRect(px(0) + cw / 2 + 2, py(0) + o - 3, 12, 6);
         }
         break;
-    }
-
-    // shared markings: centre line, rail boxes, puck fences, centre circle
-    c.strokeStyle = css(d.floorLine);
-    c.globalAlpha = 0.85;
-    c.lineWidth = 3;
-    c.setLineDash(d.pattern === 'pitch' ? [] : [10, 8]);
-    c.beginPath();
-    c.moveTo(0, py(0));
-    c.lineTo(cvs.width, py(0));
-    c.stroke();
-    c.setLineDash([]);
-    for (const side of [-1, 1]) {
-      c.strokeRect(px(-ARENA.railHalfWidth - 0.7), py(side * ARENA.railY + 0.6), px(ARENA.railHalfWidth + 0.7) - px(-ARENA.railHalfWidth - 0.7), py(-0.6) - py(0.6));
-      if (d.pattern !== 'pitch') {
-        c.globalAlpha = 0.4;
+      }
+      case 'pitch': {
+        // the soccer pitch keeps its full markings: mowing stripes, halfway line, centre circle, boxes
+        for (let y = 0; y < CH; y += 80) {
+          if ((y / 80) % 2) continue;
+          c.fillStyle = 'rgba(255,255,255,0.07)';
+          c.fillRect(0, y, CW, 80);
+        }
+        c.strokeStyle = 'rgba(255,255,255,0.85)';
+        c.lineWidth = 5;
         c.beginPath();
-        c.moveTo(0, py(side * ARENA.bumpFenceY));
-        c.lineTo(cvs.width, py(side * ARENA.bumpFenceY));
+        c.moveTo(0, py(0));
+        c.lineTo(CW, py(0));
         c.stroke();
-        c.globalAlpha = 0.85;
+        c.beginPath();
+        c.arc(px(0), py(0), 68, 0, Math.PI * 2);
+        c.stroke();
+        for (const side of [-1, 1]) {
+          const [y, h] = railBand(side, 4.2);
+          c.strokeRect(px(-3.4), y, px(3.4) - px(-3.4), h);
+        }
+        break;
       }
     }
-    c.beginPath();
-    c.arc(px(0), py(0), 34, 0, Math.PI * 2);
-    c.stroke();
-    c.globalAlpha = 1;
 
     const tex = new THREE.CanvasTexture(cvs);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
-    const glowy = d.pattern === 'cracks' || d.pattern === 'grid' || d.pattern === 'neon';
+    const glowy = d.pattern === 'grid' || d.pattern === 'neon';
     const mat = glowy
       ? new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: d.pattern === 'neon' ? 0.6 : 0.35 })
       : new THREE.MeshLambertMaterial({ map: tex });
@@ -1869,19 +2057,10 @@ export class Stage {
         break;
       }
       case 'lava': {
-        // dark basalt with a few faces cracked open, molten core glowing through
-        const shell = new THREE.DodecahedronGeometry(radius, 1).toNonIndexed();
-        const pos = shell.attributes.position.array as Float32Array;
-        const kept: number[] = [];
-        for (let t = 0; t < pos.length; t += 9) if (Math.random() > 0.16) for (let k = 0; k < 9; k++) kept.push(pos[t + k]);
-        const cracked = new THREE.BufferGeometry();
-        cracked.setAttribute('position', new THREE.Float32BufferAttribute(kept, 3));
-        cracked.computeVertexNormals();
-        const rock = new THREE.Mesh(cracked, new THREE.MeshLambertMaterial({ color: 0x2b211e, emissive: 0x5a1606, flatShading: true, side: THREE.DoubleSide }));
+        // a lump of dark basalt (no molten core)
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(radius, 1), new THREE.MeshLambertMaterial({ color: 0x2b211e, flatShading: true }));
         rock.position.y = radius;
-        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(radius * 0.86, 1), new THREE.MeshBasicMaterial({ color: 0xff6a1a }));
-        core.position.y = radius;
-        g.add(core, rock);
+        g.add(rock);
         break;
       }
       case 'space': {
@@ -2024,14 +2203,14 @@ export class Stage {
         break;
       }
       case 'lava': {
-        // an obsidian slab split by glowing seams
+        // an obsidian slab split by dark seams
         add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.72, 0.36), lam(0x1d1517, { flatShading: true })), 0, 0.36, 0);
         for (const [x, rz] of [
           [-0.35, 0.5],
           [0.25, -0.35],
           [0.5, 0.6],
         ])
-          add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.372), glow(0xff5a14)), x, 0.36, 0).rotation.z = rz;
+          add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.372), lam(0x0c0809)), x, 0.36, 0).rotation.z = rz;
         add(new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.06, 0.38), lam(0x2c2224)), 0, 0.74, 0);
         break;
       }
