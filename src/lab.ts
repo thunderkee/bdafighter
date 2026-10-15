@@ -5,7 +5,6 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { BUILTINS, CHARACTERS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, reloadRoster, resolveColor, setPublished, type CharacterDef } from './robot';
 import { API, cachedPublished, fetchPublished, type PublishedRoster } from './published';
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
-import { studioEnv } from './finish';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
 import { MATCH } from './config';
 import { computeStats, STARTER_BUILD } from './parts';
@@ -203,7 +202,6 @@ renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 viewEl.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-scene.environment = studioEnv(renderer);
 scene.add(new THREE.HemisphereLight(0xdfefff, 0x2a3350, 1.7));
 const sun = new THREE.DirectionalLight(0xffffff, 1.7);
 sun.position.set(3, 6, -4);
