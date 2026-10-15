@@ -281,12 +281,22 @@ export class View {
     this.robotFx = SLOTS.map((i) => new RobotFx(this.scene, this.teamBall[slotTeam(i)]));
     this.hopH = new Float32Array(MATCH.marblePool);
     this.hopV = new Float32Array(MATCH.marblePool);
-    // soft contact shadows under every marble
+    // soft contact shadows under every marble, puck, pin, cover wall and robot
+    const soft = document.createElement('canvas');
+    soft.width = soft.height = 64;
+    const sc = soft.getContext('2d')!;
+    const grad = sc.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(0,0,0,0.62)');
+    grad.addColorStop(0.55, 'rgba(0,0,0,0.38)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    sc.fillStyle = grad;
+    sc.fillRect(0, 0, 64, 64);
     this.shadows = new THREE.InstancedMesh(
-      new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false }),
-      MATCH.marblePool,
+      new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(soft), transparent: true, depthWrite: false }),
+      MATCH.marblePool + 64,
     );
+    this.shadows.renderOrder = 1;
     this.shadows.frustumCulled = false;
     this.scene.add(this.shadows);
     this.smokeMesh = new THREE.InstancedMesh(
@@ -369,6 +379,7 @@ export class View {
     this.stage.dispose();
     this.stage = new Stage(id);
     this.applyStage();
+    this.themeObstacles();
   }
 
   private applyStage() {
@@ -825,11 +836,33 @@ export class View {
         this.tmpV.x += lo.x * k;
         this.tmpV.z += lo.z * k;
       }
-      this.tmpS.setScalar(m.radius * (1.05 - Math.min(0.5, h * 0.8)));
+      this.tmpS.setScalar(m.radius * (1.25 - Math.min(0.55, h * 0.8)));
       this.tmpQ.identity();
       this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS);
       this.shadows.setMatrixAt(shadowN++, this.tmpM);
     }
+    // the rest of the table: pucks, pins, cover walls, and the robots themselves
+    const ground = (x: number, z: number, sx: number, sz: number) => {
+      if (shadowN >= this.shadows.instanceMatrix.count) return;
+      this.tmpV.set(x, 0.018, z);
+      this.tmpS.set(sx, 1, sz);
+      this.tmpQ.identity();
+      this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS);
+      this.shadows.setMatrixAt(shadowN++, this.tmpM);
+    };
+    for (const b of g.bumps) {
+      if (!b.active) continue;
+      const p = b.body.translation();
+      ground(p.x, -p.y, b.radius * 1.2, b.radius * 1.2);
+    }
+    for (const p of g.pins ?? []) if (p.active) ground(p.x, -p.y, 0.26, 0.26);
+    for (const c of g.covers ?? []) if (c.active) ground(c.x, -c.y, 0.86, 0.3);
+    g.shooters.forEach((s, i) => {
+      const sm = this.shooters[i];
+      if (!sm || !sm.root.visible || sm.broken) return;
+      const k = s.size ?? 1;
+      ground(sm.root.position.x, sm.root.position.z, 0.7 * k, 0.55 * k);
+    });
     this.shadows.count = this.realismOn ? shadowN : 0;
     this.shadows.instanceMatrix.needsUpdate = true;
     for (const t of [0, 1] as Team[]) {
@@ -839,16 +872,16 @@ export class View {
     for (let i = powerCount; i < this.powerMeshes.length; i++) this.powerMeshes[i].visible = false;
     for (const idx of this.trails.keys()) if (!seen.has(idx)) this.trails.delete(idx);
 
-    // pucks: round ones roll, barrels just turn
-    const rolls = this.stage.def.id !== 'city';
+    // pucks: round ones roll about their centre, barrels, drums and flat stones just turn
+
     g.bumps.forEach((b, i) => {
       const mesh = this.puckMeshes[i];
       if (!mesh) return;
       mesh.visible = b.active;
       if (!b.active) return;
       const p = b.body.translation();
-      mesh.position.set(p.x, 0, -p.y);
-      if (rolls && this.realismOn) {
+      mesh.position.set(p.x, mesh.userData.lift ?? 0, -p.y);
+      if (mesh.userData.roll && this.realismOn) {
         const v = b.body.linvel();
         const speed = Math.hypot(v.x, v.y);
         if (speed > 0.01) {
@@ -1323,43 +1356,39 @@ export class View {
     if (Math.random() < 0.25) this.burst(l.x + (Math.random() - 0.5) * 0.8, l.y, Math.random() < 0.4 ? 0xffd27a : 0x6a6a74, 1, 1.5, { h: 1.2, float: true, size: 0.1 });
   }
 
-  /** Cover walls (crates), pinball pins and per-robot wiper bricks. */
-  private buildObstacleMeshes() {
-    const metal = new THREE.MeshLambertMaterial({ color: 0x8c96ac });
-    const dark = new THREE.MeshLambertMaterial({ color: 0x3a4152 });
-    const stripe = new THREE.MeshLambertMaterial({ color: 0xffc23d });
+  /** Cover walls and pinball pins in the stage's own style (rebuilt with the stage). */
+  private themeObstacles() {
+    for (const g of this.coverMeshes) this.scene.remove(g);
+    for (const p of this.pinMeshes) this.scene.remove(p.root);
+    this.coverMeshes = [];
+    this.pinMeshes = [];
     for (const c of this.game.covers) {
-      const g = new THREE.Group();
-      const block = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.75, 0.36), metal.clone());
-      block.position.y = 0.375;
-      g.add(block);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.1, 0.38), dark);
-      cap.position.y = 0.72;
-      g.add(cap);
-      for (const x of [-0.45, 0, 0.45]) {
-        const st = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.37), stripe);
-        st.position.set(x, 0.36, 0);
-        st.rotation.z = 0.5;
-        g.add(st);
-      }
+      const g = this.stage.makeCover();
+      // its main block darkens with wear relative to its own colour
+      const block = g.children[0] as THREE.Mesh;
+      const own = (m: THREE.Material) => {
+        const c = (m as THREE.MeshLambertMaterial).clone();
+        c.userData.base = c.color.clone();
+        return c;
+      };
+      // keep a single material single: a box with a one-entry list would only draw one side
+      block.material = Array.isArray(block.material) ? block.material.map(own) : own(block.material);
       g.visible = false;
       this.scene.add(g);
       this.coverMeshes.push(g);
       this.coverFlash[c.idx] = 0;
     }
     for (const _p of this.game.pins) {
-      const root = new THREE.Group();
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.5, 14), new THREE.MeshPhongMaterial({ color: 0xd8e0ee, shininess: 100 }));
-      post.position.y = 0.25;
-      const cap = new THREE.MeshBasicMaterial({ color: 0x3ef0ff });
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 8, 20), cap);
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = 0.48;
-      root.add(post, ring);
-      root.visible = false;
-      this.scene.add(root);
-      this.pinMeshes.push({ root, cap });
+      const pin = this.stage.makePin();
+      pin.root.visible = false;
+      this.scene.add(pin.root);
+      this.pinMeshes.push(pin);
     }
+  }
+
+  /** Cover walls, pinball pins and per-robot wiper bricks. */
+  private buildObstacleMeshes() {
+    this.themeObstacles();
     // wiper: a brick slab with a painted brick texture
     const cvs = document.createElement('canvas');
     cvs.width = 128;
@@ -1392,10 +1421,12 @@ export class View {
       // darkens as it takes hits, flashes white on each one
       this.coverFlash[c.idx] = Math.max(0, this.coverFlash[c.idx] - dt * 5);
       const block = m.children[0] as THREE.Mesh;
-      const mat = block.material as THREE.MeshLambertMaterial;
       const wear = c.hp / 5;
-      mat.color.setRGB(0.35 + 0.2 * wear, 0.38 + 0.21 * wear, 0.45 + 0.22 * wear);
-      mat.emissive.setScalar(this.coverFlash[c.idx] * 0.6);
+      for (const mat of (Array.isArray(block.material) ? block.material : [block.material]) as THREE.MeshLambertMaterial[]) {
+        const base = mat.userData.base as THREE.Color | undefined;
+        if (base) mat.color.copy(base).multiplyScalar(0.55 + 0.45 * wear);
+        mat.emissive?.setScalar(this.coverFlash[c.idx] * 0.6);
+      }
       m.rotation.z = c.hp < 3 ? Math.sin(this.time * 40) * 0.01 * this.coverFlash[c.idx] : 0;
     });
     g.pins?.forEach((p, i) => {
@@ -1403,7 +1434,7 @@ export class View {
       if (!pm) return;
       pm.root.visible = p.active;
       pm.root.position.set(p.x, 0, -p.y);
-      pm.cap.color.set(p.glow > 0 ? 0xffffff : 0x3ef0ff);
+      pm.cap.color.set(p.glow > 0 ? 0xffffff : (pm.cap.userData.base as number) ?? 0x3ef0ff);
     });
     g.shooters.forEach((s, i) => {
       const brick = this.wiperMeshes[i];

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ARENA } from './config';
 
 // Themed stages. Each one is data (colours, lighting) plus a scenery builder,
@@ -1861,32 +1862,40 @@ export class Stage {
         break;
       }
       case 'lava': {
-        const rock = new THREE.Mesh(
-          new THREE.DodecahedronGeometry(radius, 0),
-          new THREE.MeshLambertMaterial({ color: 0x2a1a16, emissive: 0xff4a10, emissiveIntensity: 0.35, flatShading: true }),
-        );
-        rock.position.y = radius * 0.8;
-        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(radius * 0.55, 0), new THREE.MeshBasicMaterial({ color: 0xff7a2a }));
-        core.position.y = radius * 0.8;
+        // dark basalt with a few faces cracked open, molten core glowing through
+        const shell = new THREE.DodecahedronGeometry(radius, 1).toNonIndexed();
+        const pos = shell.attributes.position.array as Float32Array;
+        const kept: number[] = [];
+        for (let t = 0; t < pos.length; t += 9) if (Math.random() > 0.16) for (let k = 0; k < 9; k++) kept.push(pos[t + k]);
+        const cracked = new THREE.BufferGeometry();
+        cracked.setAttribute('position', new THREE.Float32BufferAttribute(kept, 3));
+        cracked.computeVertexNormals();
+        const rock = new THREE.Mesh(cracked, new THREE.MeshLambertMaterial({ color: 0x2b211e, emissive: 0x5a1606, flatShading: true, side: THREE.DoubleSide }));
+        rock.position.y = radius;
+        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(radius * 0.86, 1), new THREE.MeshBasicMaterial({ color: 0xff6a1a }));
+        core.position.y = radius;
         g.add(core, rock);
         break;
       }
       case 'space': {
-        const geo = new THREE.IcosahedronGeometry(radius, 1);
+        // weld the corners first so neighbouring faces move together (no cracks or stray spikes),
+        // then dent the rock inward only, so it never pokes past its rolling radius
+        const geo = mergeVertices(new THREE.IcosahedronGeometry(radius, 1).deleteAttribute('normal').deleteAttribute('uv'));
         const p = geo.attributes.position;
         for (let i = 0; i < p.count; i++) {
-          const k = 0.82 + Math.random() * 0.3;
+          const k = 0.8 + Math.random() * 0.2;
           p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k);
         }
-        geo.computeVertexNormals();
-        const rock = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x8a8590, flatShading: true }));
-        rock.position.y = radius * 0.85;
+        const rockGeo = geo.toNonIndexed();
+        rockGeo.computeVertexNormals();
+        const rock = new THREE.Mesh(rockGeo, new THREE.MeshLambertMaterial({ color: 0x8a8590, flatShading: true }));
+        rock.position.y = radius;
         g.add(rock);
         break;
       }
       case 'snow': {
         const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(radius, 2), new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }));
-        ball.position.y = radius * 0.9;
+        ball.position.y = radius;
         g.add(ball);
         break;
       }
@@ -1961,7 +1970,201 @@ export class Stage {
         break;
       }
     }
+    // round pucks roll about their own centre; the rest only turn, and sit flat on the floor
+    const roll = ['beach', 'lava', 'space', 'snow', 'soccer'].includes(this.def.id);
+    if (roll) {
+      for (const c of g.children) c.position.y -= radius;
+      g.userData.lift = radius;
+    } else {
+      const box = new THREE.Box3().setFromObject(g);
+      // the cyber drum hovers on purpose
+      if (this.def.id !== 'cyber') for (const c of g.children) c.position.y -= box.min.y;
+      g.userData.lift = 0;
+    }
+    g.userData.roll = roll;
     return g;
+  }
+
+  /**
+   * A cover wall in this stage's style, 1.4 wide x 0.36 deep (its collider). The first child
+   * is the main block: it darkens as the wall takes hits and flashes on each one.
+   */
+  makeCover(): THREE.Group {
+    const g = new THREE.Group();
+    const lam = (color: number, extra: THREE.MeshLambertMaterialParameters = {}) => new THREE.MeshLambertMaterial({ color, ...extra });
+    const glow = (color: number) => new THREE.MeshBasicMaterial({ color });
+    const add = (m: THREE.Mesh, x = 0, y = 0, z = 0) => {
+      m.position.set(x, y, z);
+      g.add(m);
+      return m;
+    };
+    switch (this.def.id) {
+      case 'beach': {
+        // two driftwood logs lashed together
+        const wood = lam(0xb4936a);
+        for (const [y, r] of [
+          [0.2, 0.2],
+          [0.52, 0.17],
+        ]) {
+          const log = add(new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, 1.42, 12), y === 0.2 ? wood : lam(0xa58560)), 0, y, 0);
+          log.rotation.z = Math.PI / 2;
+        }
+        for (const x of [-0.5, 0.5]) {
+          const rope = add(new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.025, 6, 16), lam(0xd8c08a)), x, 0.36, 0);
+          rope.rotation.y = Math.PI / 2;
+          rope.scale.set(1, 1.7, 1);
+        }
+        break;
+      }
+      case 'lava': {
+        // an obsidian slab split by glowing seams
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.72, 0.36), lam(0x1d1517, { flatShading: true })), 0, 0.36, 0);
+        for (const [x, rz] of [
+          [-0.35, 0.5],
+          [0.25, -0.35],
+          [0.5, 0.6],
+        ])
+          add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.372), glow(0xff5a14)), x, 0.36, 0).rotation.z = rz;
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.06, 0.38), lam(0x2c2224)), 0, 0.74, 0);
+        break;
+      }
+      case 'snow': {
+        // a block of blue ice with a snow cap
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.68, 0.36), new THREE.MeshPhongMaterial({ color: 0x7cc0e8, shininess: 90, specular: 0xffffff, emissive: 0x0c2a40 })), 0, 0.34, 0);
+        const cap = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 1.2, 4, 10), lam(0xffffff)), 0, 0.7, 0);
+        cap.rotation.z = Math.PI / 2;
+        cap.scale.set(0.6, 1, 1.25);
+        break;
+      }
+      case 'city': {
+        // a concrete jersey barrier with a reflective red-and-white band
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 0.36), lam(0xb9b8b1)), 0, 0.15, 0);
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.44, 0.22), lam(0xc4c3bc)), 0, 0.52, 0);
+        for (let k = 0; k < 6; k++) add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.225), lam(k % 2 ? 0xffffff : 0xe8332a)), -0.58 + k * 0.232, 0.6, 0);
+        break;
+      }
+      case 'forest': {
+        // a fallen mossy log
+        const log = add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.33, 1.42, 12), lam(0x5e4430)), 0, 0.31, 0);
+        log.rotation.z = Math.PI / 2;
+        for (const x of [-0.71, 0.71]) {
+          const ring = add(new THREE.Mesh(new THREE.CircleGeometry(0.29, 12), lam(0xc49a64)), x, 0.31, 0);
+          ring.rotation.y = (x > 0 ? 1 : -1) * (Math.PI / 2);
+        }
+        const moss = add(new THREE.Mesh(new THREE.SphereGeometry(0.33, 12, 6, 0, Math.PI * 2, 0, Math.PI / 3), lam(0x4f8a3c)), -0.15, 0.36, 0);
+        moss.scale.set(1.9, 0.7, 0.95);
+        break;
+      }
+      case 'river': {
+        // a stack of wooden crates
+        for (const [x, w, h] of [
+          [-0.36, 0.68, 0.7],
+          [0.36, 0.68, 0.56],
+        ]) {
+          add(new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.36), lam(0x9a6a3c)), x, h / 2, 0);
+          for (const y of [0.1, h - 0.1]) add(new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.06, 0.37), lam(0x6a4426)), x, y, 0);
+          const brace = add(new THREE.Mesh(new THREE.BoxGeometry(0.06, h * 1.15, 0.37), lam(0x6a4426)), x, h / 2, 0);
+          brace.rotation.z = 0.75;
+        }
+        break;
+      }
+      case 'cyber': {
+        // a dark block outlined in neon
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 0.36), lam(0x1b1428)), 0, 0.35, 0);
+        for (const y of [0.04, 0.68]) add(new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.04, 0.38), glow(0xff2bd6)), 0, y, 0);
+        for (const x of [-0.69, 0.69]) add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.68, 0.38), glow(0x2bf0ff)), x, 0.35, 0);
+        break;
+      }
+      case 'soccer': {
+        // a pitch-side advertising board
+        const ad = paint(256, 64, (c) => {
+          c.fillStyle = '#1f3f9a';
+          c.fillRect(0, 0, 256, 64);
+          c.fillStyle = '#ffffff';
+          c.font = '900 34px "Arial Black", Impact, sans-serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillText('MARBLE', 128, 34);
+        });
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 0.12), [lam(0x15306f), lam(0x15306f), lam(0x15306f), lam(0x15306f), lam(0xffffff, { map: ad }), lam(0xffffff, { map: ad })]), 0, 0.42, 0);
+        for (const x of [-0.6, 0.6]) {
+          const leg = add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.36), lam(0x6a6f78)), x, 0.18, 0.05);
+          leg.rotation.x = -0.35;
+        }
+        break;
+      }
+      default: {
+        // space: a steel barrier with hazard stripes
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.75, 0.36), lam(0x8c96ac)), 0, 0.375, 0);
+        add(new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.1, 0.38), lam(0x3a4152)), 0, 0.72, 0);
+        for (const x of [-0.45, 0, 0.45]) add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.37), lam(0xffc23d)), x, 0.36, 0).rotation.z = 0.5;
+      }
+    }
+    return g;
+  }
+
+  /** A pinball pin in this stage's style (radius 0.16): `cap` lights up when it's hit. */
+  makePin(): { root: THREE.Group; cap: THREE.MeshBasicMaterial } {
+    const root = new THREE.Group();
+    const lam = (color: number) => new THREE.MeshLambertMaterial({ color });
+    const post = (r0: number, r1: number, h: number, mat: THREE.Material, seg = 14) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, h, seg), mat);
+      m.position.y = h / 2;
+      root.add(m);
+      return m;
+    };
+    const [capColor, capY, capR] = (() => {
+      switch (this.def.id) {
+        case 'beach':
+          // a bamboo post
+          post(0.14, 0.13, 0.55, lam(0xc8b46a), 10);
+          for (const y of [0.18, 0.38]) root.add(new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.02, 6, 12), lam(0x9a8a4a)).translateY(y).rotateX(Math.PI / 2));
+          return [0xffd23e, 0.56, 0.12] as const;
+        case 'lava':
+          // a basalt column
+          post(0.18, 0.15, 0.55, new THREE.MeshLambertMaterial({ color: 0x241a1a, flatShading: true }), 6);
+          return [0xff5a14, 0.56, 0.15] as const;
+        case 'snow':
+          // an ice pillar with a snow cap
+          post(0.17, 0.13, 0.5, new THREE.MeshPhongMaterial({ color: 0xa8dcf4, shininess: 90, transparent: true, opacity: 0.9 }), 8);
+          root.add(new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), lam(0xffffff)).translateY(0.5));
+          return [0x9ff2ff, 0.5, 0.15] as const;
+        case 'city':
+          // a yellow bollard with a black band
+          post(0.15, 0.14, 0.55, lam(0xf2c21a));
+          root.add(new THREE.Mesh(new THREE.CylinderGeometry(0.152, 0.152, 0.1, 14), lam(0x1a1a1a)).translateY(0.36));
+          return [0xffffff, 0.56, 0.13] as const;
+        case 'forest':
+          // a tree stump
+          post(0.2, 0.16, 0.42, lam(0x5e4430), 10);
+          root.add(new THREE.Mesh(new THREE.CircleGeometry(0.155, 12).rotateX(-Math.PI / 2), lam(0xc49a64)).translateY(0.425));
+          return [0x9cff6a, 0.43, 0.1] as const;
+        case 'river':
+          // a mooring post wrapped in rope
+          post(0.16, 0.15, 0.6, lam(0x4a3220), 10);
+          root.add(new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.035, 6, 14), lam(0xd8c08a)).translateY(0.42).rotateX(Math.PI / 2));
+          return [0xffc23d, 0.61, 0.12] as const;
+        case 'cyber':
+          // a neon pylon
+          post(0.17, 0.12, 0.55, lam(0x1b1428), 8);
+          return [0xff2bd6, 0.56, 0.13] as const;
+        case 'soccer':
+          // a training pole on a weighted base
+          root.add(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 0.05, 14), lam(0x2a2a30)).translateY(0.025));
+          post(0.05, 0.05, 0.7, lam(0xff6a1a), 10);
+          return [0xffffff, 0.7, 0.06] as const;
+        default:
+          post(0.18, 0.16, 0.5, new THREE.MeshPhongMaterial({ color: 0xd8e0ee, shininess: 100 }));
+          return [0x3ef0ff, 0.48, 0.17] as const;
+      }
+    })();
+    const cap = new THREE.MeshBasicMaterial({ color: capColor });
+    cap.userData.base = capColor;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(capR, 0.03, 8, 20), cap);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = capY;
+    root.add(ring);
+    return { root, cap };
   }
 
   /** stage particles are part of the realism setting */
