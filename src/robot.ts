@@ -1539,22 +1539,35 @@ export class ShooterMesh {
       this.jaw = jaw;
       this.turret.add(this.barrel);
       this.barrelZ = -0.34;
-      // the tail blade in the left hand: a curve of tapering plates
+      // the tail blade in the left hand: a thick curve of tapering plates gripped in the fist,
+      // a bright cutting edge down the outside and spikes along the spine
+      const edgeMat = this.paint(0xd8dde4);
       const blade: [number, number, number, number, number][] = [
-        [-0.74, 0.62, 0.02, 0.2, 0.3],
-        [-0.82, 0.32, -0.04, 0.18, 0.15],
-        [-0.84, 0.0, -0.06, 0.15, 0],
-        [-0.8, -0.3, -0.05, 0.12, -0.15],
-        [-0.7, -0.55, -0.02, 0.08, -0.35],
+        [-0.76, 0.66, -0.14, 0.34, 0.32],
+        [-0.84, 0.34, -0.2, 0.32, 0.16],
+        [-0.86, 0.0, -0.22, 0.28, 0],
+        [-0.82, -0.32, -0.2, 0.22, -0.16],
+        [-0.72, -0.6, -0.16, 0.15, -0.38],
       ];
-      for (const [x, y, z, w, rz] of blade) {
-        const seg = box(w * 0.55, 0.34, w, m.body, x, y, z);
+      blade.forEach(([x, y, z, w, rz], k) => {
+        const seg = new THREE.Group();
+        seg.position.set(x, y, z);
         seg.rotation.z = rz;
+        seg.add(box(w * 0.75, 0.38, w * 1.3, k % 2 ? m.trim : m.body));
+        seg.add(box(0.05, 0.36, w * 1.1, edgeMat, -w * 0.4, 0, 0)); // cutting edge
+        seg.add(box(w * 0.78, 0.04, w * 1.34, m.joint, 0, 0.17, 0)); // plate seam
+        const spike = cone(0.05 + w * 0.12, 0.16 + w * 0.3, m.trim);
+        spike.rotation.z = -Math.PI / 2;
+        spike.position.set(w * 0.4 + 0.06, 0, 0);
+        seg.add(spike);
         this.turret.add(seg);
-        const edge = box(0.03, 0.28, w * 0.9, m.trim, x + 0.06, y, z);
-        edge.rotation.z = rz;
-        this.turret.add(edge);
-      }
+      });
+      const tip = cone(0.07, 0.3, edgeMat);
+      tip.position.set(-0.6, -0.86, -0.14);
+      tip.rotation.z = Math.PI - 0.6;
+      this.turret.add(tip);
+      // the grip where the fist holds it
+      this.turret.add(box(0.2, 0.12, 0.26, m.joint, -0.64, 0.0, -0.24));
     }
 
     // ---------- head ----------
