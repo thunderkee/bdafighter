@@ -874,8 +874,18 @@ export function boot() {
     const st = saveData.settings;
     return step === 'fighter' ? st.character : step === 'rival' ? st.enemyCharacter || 'auto' : st.stage;
   };
+  /** restart a one-shot CSS animation class on an element */
+  const replay = (el: Element, cls: string) => {
+    el.classList.remove(cls);
+    void (el as HTMLElement).offsetWidth;
+    el.classList.add(cls);
+  };
   const showPreview = () => {
     const id = chosen();
+    // the preview screen blinks like a CRT changing channel; the name plate and meters refresh
+    replay($('preview'), 'switch');
+    replay(document.querySelector('.plate')!, 'flash');
+    replay($('pv-stats'), 'refill');
     if (step === 'arena') {
       preview.showStage(id);
       $('pv-tag').textContent = 'ARENA';
@@ -907,12 +917,13 @@ export function boot() {
       saveSetting(step === 'fighter' ? { character: id } : step === 'rival' ? { enemyCharacter: id } : { stage: id });
       grid.querySelectorAll<HTMLElement>('.tile').forEach((t) => t.classList.toggle('on', t.dataset.id === id));
       showPreview();
-      sfx.play('tick');
     };
     const tile = (id: string, html: string) => {
       const b = document.createElement('button');
       b.className = 'tile' + (id === chosen() ? ' on' : '');
       b.dataset.id = id;
+      // tiles drop in one after another
+      b.style.setProperty('--i', String(grid.children.length));
       b.innerHTML = html;
       b.addEventListener('click', () => pick(id));
       grid.appendChild(b);
@@ -949,6 +960,7 @@ export function boot() {
   };
   const goStep = (next: Step) => {
     step = next;
+    replay(document.querySelector('#select .step-head h2')!, 'type');
     markSteps();
     if (step === 'rules') {
       show('setup');
@@ -1038,12 +1050,27 @@ export function boot() {
     $(settingsFrom).classList.remove('hidden');
   });
 
+  // every key on the menus clicks, and on phones taps back with a tiny buzz
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      const key = (e.target as Element | null)?.closest?.('.key, .tile, .seg button, .ver-tabs button, .tabs button, .icon-btn');
+      if (!key) return;
+      sfx.unlock();
+      sfx.play('tick', 0.5);
+      buzz(6);
+      replay(key, 'tap');
+      // the power LED on the case blinks with each press
+      document.querySelectorAll('.led').forEach((l) => replay(l, 'blip'));
+    },
+    { capture: true },
+  );
   // in-match view switch: near (default), mid, far, cockpit
   const cycleView = () => {
     const order = ['near', 'mid', 'far', 'first'] as const;
     const next = order[(order.indexOf(saveData.settings.camera) + 1) % order.length];
     saveSetting({ camera: next });
-    sfx.play('tick');
+    replay($('view-btn'), 'flip');
   };
   $('view-btn').addEventListener('pointerdown', (e) => {
     e.preventDefault();
