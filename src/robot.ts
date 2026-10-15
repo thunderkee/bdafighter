@@ -1402,7 +1402,7 @@ export class ShooterMesh {
     }
 
     // ---------- the gun: a chest cannon, unless the kit carries its own ----------
-    const chestGun = kit === 'mech' || kit === 'eva';
+    const chestGun = kit === 'mech';
     if (chestGun) {
       this.markBelly(this.turret, 0, 0.16, -0.66);
       this.barrel.position.set(0, 0.16, -0.32);
@@ -1419,6 +1419,10 @@ export class ShooterMesh {
       this.turret.add(this.barrel);
     } else if (kit === 'lizard') {
       this.markBelly(this.turret, 0, 0.76, -0.68); // the mouth
+    } else if (kit === 'beetle') {
+      this.markBelly(this.turret, 0.66, 0, -0.64); // the right forearm gun
+    } else if (kit === 'eva') {
+      this.markBelly(this.turret, 0.52, 0.02, -0.98); // the rifle in the right hand
     } else {
       this.markBelly(this.turret, 0, 0.16, -0.4);
     }
@@ -1494,6 +1498,26 @@ export class ShooterMesh {
       this.turret.add(sh);
     }
 
+    // EVA: a pallet rifle in the right hand is the gun, pointing down the lane
+    if (kit === 'eva') {
+      const gunmetal = this.paint(0x5d646e);
+      this.barrel.position.set(0.52, 0.02, -0.36);
+      this.barrel.add(box(0.13, 0.15, 0.5, gunmetal, 0, 0, -0.1)); // receiver
+      this.barrel.add(box(0.1, 0.16, 0.2, gunmetal, 0, -0.02, 0.24)); // stock
+      this.barrel.add(box(0.06, 0.16, 0.08, black, 0, -0.14, -0.08)); // magazine
+      this.barrel.add(box(0.05, 0.05, 0.22, black, 0, 0.1, -0.08)); // sight rail
+      this.barrel.add(box(0.135, 0.03, 0.2, m.accent, 0, 0.02, -0.2)); // stripe
+      ventX(this.barrel, 0.07, -0.04, -0.02, 2, 0.16, 1);
+      const tube = cyl(0.035, 0.3, black);
+      tube.rotation.x = Math.PI / 2;
+      tube.position.z = -0.45;
+      const bore = cyl(0.025, 0.02, hole);
+      bore.rotation.x = Math.PI / 2;
+      bore.position.z = -0.6;
+      this.barrel.add(tube, bore);
+      this.turret.add(this.barrel);
+      this.barrelZ = -0.36;
+    }
     // Metabee's right forearm gun is the main gun; it recoils on every shot
     if (kit === 'beetle') {
       this.barrel.position.set(0.66, 0.0, -0.34);
