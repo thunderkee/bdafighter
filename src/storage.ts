@@ -86,6 +86,8 @@ export interface SaveData {
   arcadeBest?: number;
   /** the near chase camera became the default once; older saves are moved to it */
   nearCam?: boolean;
+  /** a clear table (no pucks, walls or pins) became the default once */
+  clearTable?: boolean;
   muted: boolean;
   settings: Settings;
 }
@@ -94,7 +96,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mouseAim: true,
   arrows: 'move',
   layout: 'gestures',
-  pucks: 5,
+  pucks: 0,
   aimLine: true,
   enemyHealth: 3,
   enemySpeed: 3,
@@ -156,7 +158,8 @@ export function load(): SaveData {
       if (parsed.settings?.bumps === false && parsed.settings?.pucks === undefined) settings.pucks = 0;
       delete (settings as Record<string, unknown>).bumps;
       if (!parsed.nearCam) settings.camera = 'near';
-      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true };
+      if (!parsed.clearTable) Object.assign(settings, { pucks: 0, covers: 0, pins: 0 });
+      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true, clearTable: true };
     }
   } catch {
     // keep the in-memory copy
