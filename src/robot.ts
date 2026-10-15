@@ -1562,6 +1562,11 @@ export class ShooterMesh {
     const head = new THREE.Group();
     head.position.set(0, 0.9, -0.02);
     head.scale.setScalar(1.06);
+    // Metabee's dome, jaw shell and launchers make a bigger head than the rest: scaled down to match
+    if (kit === 'beetle') {
+      head.scale.setScalar(0.84);
+      head.position.y = 0.86;
+    }
     this.turret.add(head);
     if (kit === 'eva') {
       const slate = this.paint(0x6f7d96);
