@@ -30,6 +30,9 @@ interface StageDef {
   particles: 'none' | 'snow' | 'embers' | 'stars' | 'rain' | 'fireflies' | 'neon' | 'confetti';
 }
 
+/** build the decoration around the table (off: just the field, for speed) */
+const SCENERY = false;
+
 export const STAGES: StageDef[] = [
   {
     id: 'space',
@@ -212,11 +215,15 @@ export class Stage {
     this.buildFloor();
     this.buildRails();
     // the floor and rails are built for the current table width; the scenery is laid out for the standard one
-    const sized = new Set(this.group.children);
-    this.buildScenery();
-    this.buildBackdrop();
-    this.fitWidth(sized);
-    this.buildParticles();
+    // only the table itself: the scenery, backdrop and ambient particles outside the field are
+    // left out, which keeps the frame cheap (set SCENERY to bring them back)
+    if (SCENERY) {
+      const sized = new Set(this.group.children);
+      this.buildScenery();
+      this.buildBackdrop();
+      this.fitWidth(sized);
+      this.buildParticles();
+    }
   }
 
   /**

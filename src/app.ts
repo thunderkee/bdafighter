@@ -6,9 +6,8 @@ import { View } from './view';
 import { Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
-import { Portrait } from './face';
 import { BUILTINS, CHARACTERS, characterById } from './robot';
-import { fillPortraits } from './portraits';
+import { fillPortraits, portrait } from './portraits';
 import { Preview } from './preview';
 import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
@@ -285,7 +284,33 @@ export function boot() {
   void fx2d.init().then(() => {
     if (fx2d.ready) view.fx2d = fx2d;
   });
-  const faces = [new Portrait($<HTMLCanvasElement>('face-player'), S().character), new Portrait($<HTMLCanvasElement>('face-enemy'), enemyCharacter())];
+  /** the health bar's head shot: the unit's 3/4 portrait, cropped to the head; it jolts when hit */
+  class HudFace {
+    private img: HTMLImageElement;
+    private id = '';
+    constructor(canvas: HTMLCanvasElement, id: string) {
+      this.img = new Image();
+      this.img.className = 'hud-face';
+      this.img.alt = '';
+      canvas.replaceWith(this.img);
+      this.setCharacter(id);
+    }
+    init() {}
+    setCharacter(id: string) {
+      if (id === this.id) return;
+      this.id = id;
+      try {
+        this.img.src = portrait(id);
+      } catch {
+        // no WebGL: leave the frame empty
+      }
+    }
+    update(_dt: number, s: Shooter) {
+      this.img.classList.toggle('hit', s.flash > 0);
+      this.img.classList.toggle('down', !s.alive);
+    }
+  }
+  const faces = [new HudFace($<HTMLCanvasElement>('face-player'), S().character), new HudFace($<HTMLCanvasElement>('face-enemy'), enemyCharacter())];
   let facesStarted = false;
 
   sfx.setMuted(saveData.muted);
@@ -352,7 +377,7 @@ export function boot() {
   const startFaces = () => {
     if (facesStarted) return;
     facesStarted = true;
-    faces.forEach((f) => void f.init());
+    faces.forEach((f) => f.init());
   };
 
   // ---------- match flow: intro -> rounds (best of 3) -> replays -> finale ----------
@@ -1210,7 +1235,7 @@ export function boot() {
         faceSlot = shown[1].slot;
         faces[1].setCharacter(unitIds()[faceSlot]);
       }
-      shown.forEach((s, i) => faces[i].update(paused ? 0 : dt, s, Portrait.mood(s, game.phase, game.winner)));
+      shown.forEach((s, i) => faces[i].update(paused ? 0 : dt, s));
       document.body.classList.toggle('slowmo', game.slowT > 0 && flow === 'round');
     }
 

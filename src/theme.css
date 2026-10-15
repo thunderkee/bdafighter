@@ -1288,3 +1288,29 @@ body.pressing .pad-btn.fire.held {
 #mute-btn {
   font: 700 9px var(--mono);
 }
+
+/* health-bar head shots: the unit's 3/4 portrait, zoomed to the head, facing the centre */
+.portrait {
+  overflow: hidden;
+}
+.hud-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 7px;
+  background: #24211d;
+  object-fit: cover;
+  object-position: 50% 0%;
+  transform: scale(1.35);
+  transform-origin: 50% 2%;
+  transition: filter 0.1s;
+}
+.side.enemy .hud-face {
+  transform: scale(-1.35, 1.35);
+}
+.hud-face.hit {
+  filter: brightness(1.9) saturate(0.4);
+}
+.hud-face.down {
+  filter: grayscale(1) brightness(0.6);
+}
