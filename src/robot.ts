@@ -5,6 +5,7 @@ import type { Shooter } from './game';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
  * SD (super-deformed) marble-shooter robots built from primitives:
@@ -383,7 +384,7 @@ export class ShooterMesh {
   wings: THREE.Object3D = new THREE.Group();
   trigger!: THREE.Object3D;
   legs: THREE.Object3D[] = [];
-  mats: THREE.MeshLambertMaterial[] = [];
+  mats: (THREE.MeshLambertMaterial | THREE.MeshPhysicalMaterial)[] = [];
   readonly id: string;
   /** the marble colour this model was built with */
   readonly ball: number;
@@ -421,6 +422,8 @@ export class ShooterMesh {
     // the roster's look is boxy: code-built units swap their round parts for square-sided ones
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
+    // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
+    this.mats = plasticize(this.root);
   }
 
   private build(def: CharacterDef, marbleColor: number) {
@@ -2718,4 +2721,59 @@ function taper(pts: THREE.Vector3[], r0: number, r1: number, mat: THREE.Material
     }
   }
   return g;
+}
+
+/** a studio environment for reflections on the plastic, made once per renderer */
+const envCache = new WeakMap<THREE.WebGLRenderer, THREE.Texture>();
+export function studioEnv(renderer: THREE.WebGLRenderer) {
+  let t = envCache.get(renderer);
+  if (!t) {
+    const pm = new THREE.PMREMGenerator(renderer);
+    t = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+    pm.dispose();
+    envCache.set(renderer, t);
+  }
+  return t;
+}
+
+/**
+ * Swap a model's matte paint for moulded plastic: slightly glossy, with a clear coat that
+ * picks up soft highlights, like a clean toy you want to pick up. Unlit parts (eyes, glows)
+ * and the glass marble keep their own materials. Returns the plastic, for the hit flash.
+ */
+export function plasticize(root: THREE.Object3D) {
+  const swap = new Map<THREE.Material, THREE.MeshPhysicalMaterial>();
+  const make = (m: THREE.MeshLambertMaterial) => {
+    let p = swap.get(m);
+    if (!p) {
+      const hsl = { h: 0, s: 0, l: 0 };
+      m.color.getHSL(hsl);
+      p = new THREE.MeshPhysicalMaterial({
+        color: m.color,
+        // dark plastic a touch glossier, so black parts still show their form
+        roughness: hsl.l < 0.2 ? 0.34 : 0.42,
+        metalness: 0,
+        clearcoat: 0.55,
+        clearcoatRoughness: 0.28,
+        envMapIntensity: 0.6,
+        side: m.side,
+        transparent: m.transparent,
+        opacity: m.opacity,
+        depthWrite: m.depthWrite,
+        blending: m.blending,
+      });
+      p.userData = { ...m.userData };
+      swap.set(m, p);
+      m.dispose();
+    }
+    return p;
+  };
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m) => ((m as THREE.MeshLambertMaterial).isMeshLambertMaterial ? make(m as THREE.MeshLambertMaterial) : m));
+    else if ((mesh.material as THREE.MeshLambertMaterial).isMeshLambertMaterial) mesh.material = make(mesh.material as THREE.MeshLambertMaterial);
+    mesh.castShadow = true;
+  });
+  return [...swap.values()];
 }

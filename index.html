@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#050914" />
+    <meta name="theme-color" content="#1b1916" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Marble Fighter</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app">
@@ -62,6 +62,7 @@
         <!-- Smart Lock: a target square on whoever is locked -->
         <div id="lock-marks"></div>
         <div class="hud-btns">
+          <button id="view-btn" class="icon-btn view" aria-label="Switch view">NEAR</button>
           <button id="hud-settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
           <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
         </div>
@@ -134,101 +135,94 @@
         <div class="intro-skip">TAP TO SKIP</div>
       </div>
 
-      <!-- ================= TITLE ================= -->
-      <div id="title" class="screen">
-        <div class="sys-line">MF-01 // COMBAT LINK <b class="blink">ONLINE</b></div>
-        <div class="logo"><span>MARBLE</span><span>FIGHTER</span></div>
-        <p class="tag">TACTICAL MARBLE COMBAT</p>
-        <div class="title-card panel">
-          <div class="tc-row"><span>UNIT</span><b id="title-unit">SERAPH ZERO</b></div>
-          <div class="tc-row"><span>ARENA</span><b id="title-stage">ORBITAL DECK</b></div>
+      <!-- ================= TITLE: main menu ================= -->
+      <div id="title" class="screen device">
+        <div class="dev-top">
+          <div class="brand"><b>MARBLE</b><b>FIGHTER</b><span>MF-01 · tactical marble combat</span></div>
+          <div class="led-row"><i class="led on"></i><span>POWER</span></div>
         </div>
-        <button id="play-btn" class="btn">LAUNCH</button>
-        <button id="arcade-btn" class="btn arcade" title="A ladder of matches: new opponent, difficulty and arena every stage">ARCADE</button>
-        <button id="settings-btn" class="btn ghost">⚙ SETTINGS</button>
-        <p class="how touch-only">Left thumb: drag to move · Right thumb: tap to fire, hold to charge a big shot, drag to aim</p>
-        <p class="how mouse-only">Mouse aims · click / Space to fire (hold to charge a big shot) · A / D move · F or right-click uses item</p>
-        <p id="record" class="record"></p>
-        <button id="mute-btn" class="icon-btn small" aria-label="Toggle sound">🔊</button>
-      </div>
-
-      <!-- ================= RESULT ================= -->
-      <div id="result" class="screen hidden">
-        <div class="sys-line" id="result-sub">MISSION COMPLETE</div>
-        <div id="result-title" class="result-title">VICTORY</div>
-        <div class="stats panel">
-          <div><span>DAMAGE DEALT</span><b id="r-dealt">0</b></div>
-          <div><span>ACCURACY</span><b id="r-acc">0%</b></div>
-          <div><span>ARMOR LEFT</span><b id="r-hp">0</b></div>
+        <div class="lcd title-lcd">
+          <div class="lcd-row"><span>UNIT</span><b id="title-unit">SERAPH ZERO</b></div>
+          <div class="lcd-row"><span>ARENA</span><b id="title-stage">ORBITAL DECK</b></div>
+          <p id="record" class="lcd-foot"></p>
         </div>
-        <div id="arcade-next" class="panel arcade-next hidden"></div>
-        <button id="again-btn" class="btn">REMATCH</button>
-        <button id="arcade-quit" class="btn ghost hidden">◀ MENU</button>
-        <button id="result-settings-btn" class="btn ghost">⚙ SETTINGS</button>
-        <p id="session" class="record"></p>
+        <nav class="menu">
+          <button id="play-btn" class="key menu-item"><em>01</em><b>Versus</b><small>Fighter, rival, arena and rules</small></button>
+          <button id="arcade-btn" class="key menu-item"><em>02</em><b>Arcade</b><small>A ladder of stages, a boss every five</small></button>
+          <a id="lab-btn" class="key menu-item" href="./editor.html"><em>03</em><b>Unit Lab</b><small>Edit and build units</small></a>
+          <button id="settings-btn" class="key menu-item"><em>04</em><b>Options</b><small>Controls, display, opponents</small></button>
+        </nav>
+        <div class="dev-foot">
+          <i class="grille"></i>
+          <p class="how touch-only">Left thumb drag to move · right thumb tap to fire, hold to charge, drag to aim</p>
+          <p class="how mouse-only">Mouse aims · click / Space fires (hold to charge) · A / D move · F item · V view</p>
+          <button id="mute-btn" class="key round" aria-label="Toggle sound">SND</button>
+        </div>
       </div>
 
-      <!-- ================= PAUSE ================= -->
-      <div id="paused" class="screen hidden">
-        <div class="sys-line">SYSTEM HOLD</div>
-        <div class="result-title">PAUSED</div>
-        <button id="resume-btn" class="btn">RESUME</button>
-        <button id="restart-btn" class="btn ghost">↻ RESTART MATCH</button>
-        <button id="pause-settings-btn" class="btn ghost">⚙ SETTINGS</button>
-      </div>
-
-      <!-- ================= SETTINGS ================= -->
-      <div id="settings" class="screen hidden">
-        <div class="settings-head">
-          <div class="screen-title">SETTINGS</div>
-          <div class="tabs" role="tablist">
-            <button role="tab" data-tab="fighter">Fighter</button>
-            <button role="tab" data-tab="arena">Arena</button>
-            <button role="tab" data-tab="opponent">Opponent</button>
-            <button role="tab" data-tab="controls">Controls</button>
+      <!-- ================= SELECT: fighter, rival, arena ================= -->
+      <div id="select" class="screen device hidden">
+        <header class="step-head">
+          <ol class="steps">
+            <li data-step="fighter"><em>1</em>Fighter</li>
+            <li data-step="rival"><em>2</em>Rival</li>
+            <li data-step="arena"><em>3</em>Arena</li>
+            <li data-step="rules"><em>4</em>Rules</li>
+          </ol>
+          <h2 id="select-title">Select fighter</h2>
+        </header>
+        <div class="bay">
+          <div class="crt" id="preview"></div>
+          <div class="bay-info">
+            <div class="plate"><span id="pv-tag">PLAYER 1</span><b id="pv-name">Seraph Zero</b></div>
+            <div class="meters" id="pv-stats"></div>
           </div>
         </div>
+        <div class="ver-tabs" id="ver-tabs">
+          <button data-ver="1">1.0</button>
+          <button data-ver="2">2.0</button>
+          <button data-ver="c">Custom</button>
+        </div>
+        <div class="pick-grid" id="pick-grid"></div>
+        <footer class="dev-actions">
+          <button id="select-back" class="key">◀ Back</button>
+          <button id="select-next" class="key orange">Next ▶</button>
+        </footer>
+      </div>
 
-        <div class="panels">
-          <section data-panel="fighter">
-            <div class="setting">
-              <div class="set-head"><b>Your unit</b><em id="char-name">Seraph Zero</em></div>
-              <span>Each unit fires its own marble colour.</span>
-              <div class="char-grid" id="char-grid"></div>
-              <a class="lab-link" href="./editor.html">UNIT LAB ▸ <small>edit names, traits and block designs, or build new units</small></a>
-            </div>
+      <!-- ================= RULES: everything else about the match ================= -->
+      <div id="setup" class="screen device hidden">
+        <header class="step-head">
+          <ol class="steps">
+            <li data-step="fighter"><em>1</em>Fighter</li>
+            <li data-step="rival"><em>2</em>Rival</li>
+            <li data-step="arena"><em>3</em>Arena</li>
+            <li data-step="rules"><em>4</em>Rules</li>
+          </ol>
+          <h2>Match rules</h2>
+        </header>
+        <div class="lcd vs-lcd" id="vs-lcd"></div>
+        <div class="panels rules">
+          <section class="on">
             <div class="setting">
               <div class="set-head"><b>Your pack</b><em>you + CPU pack-mates</em></div>
               <span>Bring up to two allies; they share your rail in their own lanes. Bigger packs get less armour and damage each, like the opponent's.</span>
               <div class="seg" data-setting="playerPack"><button data-value="1">Solo</button><button data-value="2">2</button><button data-value="3">3</button></div>
             </div>
             <div class="setting">
-              <div class="set-head"><b>Pack-mate intelligence</b></div>
-              <span>How well your CPU pack-mates aim, lead, dodge and react.</span>
-              <div class="seg" data-setting="allyIQ"><button data-value="easy">Rookie</button><button data-value="normal">Regular</button><button data-value="hard">Veteran</button><button data-value="ace">Ace</button></div>
+              <div class="set-head"><b>Pack</b><em>opponents at once</em></div>
+              <span>Fight up to three. Bigger packs get less armour and damage each.</span>
+              <div class="seg" data-setting="pack"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
             </div>
             <div class="setting">
-              <div class="set-head"><b>Pack-mate tactics</b></div>
-              <span>Who they shoot: the nearest opponent, the weakest one (finish it off together), or whoever you're facing.</span>
-              <div class="seg" data-setting="allyTactic"><button data-value="nearest">Nearest</button><button data-value="weakest">Focus weakest</button><button data-value="assist">Back you up</button></div>
+              <div class="set-head"><b>Intelligence</b></div>
+              <span>How well the opponent aims, leads, dodges and reacts.</span>
+              <div class="seg" data-setting="enemyIQ"><button data-value="easy">Rookie</button><button data-value="normal">Regular</button><button data-value="hard">Veteran</button><button data-value="ace">Ace</button></div>
             </div>
             <div class="setting">
-              <div class="set-head"><b>Pack-mate charge shots</b></div>
-              <span>Your pack-mates hold fire to charge a big shot now and then, like you can.</span>
-              <div class="seg" data-setting="allyCharge"><button data-value="true">On</button><button data-value="false">Off</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Opponent unit</b><em id="enemy-char-name">Auto</em></div>
-              <span>Auto picks a unit different from yours.</span>
-              <div class="char-grid" id="enemy-char-grid"></div>
-            </div>
-          </section>
-
-          <section data-panel="arena">
-            <div class="setting">
-              <div class="set-head"><b>Stage</b><em id="stage-name">Orbital Deck</em></div>
-              <span>Changes the scenery and the pucks to match.</span>
-              <div class="stage-grid" id="stage-grid"></div>
+              <div class="set-head"><b>Round time</b></div>
+              <span>Length of each round. ∞ plays until a knockout.</span>
+              <div class="seg" data-setting="roundTime"><button data-value="60">60s</button><button data-value="90">90s</button><button data-value="0">∞</button></div>
             </div>
             <div class="setting">
               <div class="set-head"><b>Stage width</b></div>
@@ -267,11 +261,6 @@
               </div>
             </div>
             <div class="setting">
-              <div class="set-head"><b>Round time</b></div>
-              <span>Length of each round. ∞ plays until a knockout.</span>
-              <div class="seg" data-setting="roundTime"><button data-value="60">60s</button><button data-value="90">90s</button><button data-value="0">∞</button></div>
-            </div>
-            <div class="setting">
               <div class="set-head"><b>Air drops</b></div>
               <span>Item crates parachute onto each rail. Walk over one to grab it.</span>
               <div class="seg" data-setting="items"><button data-value="true">On</button><button data-value="false">Off</button></div>
@@ -281,91 +270,63 @@
               <span>Sliding gates mid-table: 5× multiplies a ball's power, POW makes a power ball, DRG splits it into a dragon shot, HOM turns it into a homing missile, WALL blocks until shot 5 times.</span>
               <div class="seg" data-setting="gates"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
             </div>
-          </section>
-
-          <section data-panel="opponent">
-            <div class="setting">
-              <div class="set-head"><b>Pack</b><em>opponents at once</em></div>
-              <span>Fight up to three. Bigger packs get less armour and damage each.</span>
-              <div class="seg" data-setting="pack"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Intelligence</b></div>
-              <span>How well the opponent aims, leads, dodges and reacts.</span>
-              <div class="seg" data-setting="enemyIQ"><button data-value="easy">Rookie</button><button data-value="normal">Regular</button><button data-value="hard">Veteran</button><button data-value="ace">Ace</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Pack tactics</b><em>with a pack</em></div>
-              <span>Who they gang up on: the nearest of your side, the weakest (to knock robots out fast), or always you.</span>
-              <div class="seg" data-setting="enemyTactic"><button data-value="nearest">Nearest</button><button data-value="weakest">Focus weakest</button><button data-value="hunt">Hunt you</button></div>
-            </div>
             <div class="setting">
               <div class="set-head"><b>Charge shots</b></div>
               <span>Opponents hold fire to charge a big shot now and then: watch for the glow at their muzzle, and dodge or shield.</span>
               <div class="seg" data-setting="cpuCharge"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
-            <div class="setting">
-              <div class="set-head"><b>Armor</b><em>health</em></div>
-              <div class="seg" data-setting="enemyHealth">
-                <button data-value="1">50%</button><button data-value="2">75%</button><button data-value="3">100%</button><button data-value="4">150%</button><button data-value="5">200%</button>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Speed</b><em>how fast it moves</em></div>
-              <div class="seg level" data-setting="enemySpeed">
-                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Agility</b><em>how often &amp; fast it dodges</em></div>
-              <div class="seg level" data-setting="enemyAgility">
-                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Ball power</b><em>damage &amp; weight</em></div>
-              <div class="seg level" data-setting="enemyPower">
-                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Aim</b></div>
-              <span>Flexible aims, leads and banks. Straight only fires straight ahead.</span>
-              <div class="seg" data-setting="enemyAim"><button data-value="flexible">Flexible</button><button data-value="straight">Straight</button></div>
-            </div>
-            <button class="btn ghost small" id="reset-opponent">RESET OPPONENT</button>
           </section>
+        </div>
+        <footer class="dev-actions">
+          <button id="setup-back" class="key">◀ Back</button>
+          <button id="fight-btn" class="key orange big">Fight</button>
+        </footer>
+      </div>
 
+      <!-- ================= RESULT ================= -->
+      <div id="result" class="screen device hidden">
+        <div class="sys-line" id="result-sub">MISSION COMPLETE</div>
+        <div id="result-title" class="result-title">VICTORY</div>
+        <div class="stats lcd">
+          <div><span>DAMAGE DEALT</span><b id="r-dealt">0</b></div>
+          <div><span>ACCURACY</span><b id="r-acc">0%</b></div>
+          <div><span>ARMOR LEFT</span><b id="r-hp">0</b></div>
+        </div>
+        <div id="arcade-next" class="lcd arcade-next hidden"></div>
+        <button id="again-btn" class="key orange">REMATCH</button>
+        <button id="arcade-quit" class="key">◀ MENU</button>
+        <button id="result-settings-btn" class="key">OPTIONS</button>
+        <p id="session" class="record"></p>
+      </div>
+
+      <!-- ================= PAUSE ================= -->
+      <div id="paused" class="screen device hidden">
+        <div class="sys-line">SYSTEM HOLD</div>
+        <div class="result-title">PAUSED</div>
+        <button id="resume-btn" class="key orange">RESUME</button>
+        <button id="restart-btn" class="key">↻ RESTART MATCH</button>
+        <button id="pause-settings-btn" class="key">OPTIONS</button>
+        <button id="pause-menu-btn" class="key">◀ MAIN MENU</button>
+      </div>
+
+      <!-- ================= OPTIONS ================= -->
+      <div id="settings" class="screen device hidden">
+        <div class="settings-head">
+          <div class="screen-title">Options</div>
+          <div class="tabs" role="tablist">
+            <button role="tab" data-tab="controls">Controls</button>
+            <button role="tab" data-tab="display">Display</button>
+            <button role="tab" data-tab="opponent">Opponent</button>
+            <button role="tab" data-tab="pack">Pack-mates</button>
+          </div>
+        </div>
+
+        <div class="panels">
           <section data-panel="controls">
-            <div class="setting">
-              <div class="set-head"><b>Special effects</b><em>graphics</em></div>
-              <span>Overlay rings, glows, trails, flashes, sparks, smoke and afterimages.</span>
-              <div class="seg" data-setting="effects"><button data-value="true">On</button><button data-value="false">Off</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Realism</b><em>graphics</em></div>
-              <span>Marble hops, spin and shadows, stage particles and full screen resolution.</span>
-              <div class="seg" data-setting="realism"><button data-value="true">On</button><button data-value="false">Off</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>FPS meter</b></div>
-              <span>Shows frames per second in the corner, to check performance.</span>
-              <div class="seg" data-setting="showFps"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Camera</b></div>
-              <span>From a high chase view down to the cockpit.</span>
-              <div class="seg" data-setting="camera"><button data-value="far">Far</button><button data-value="mid">Mid</button><button data-value="near">Near</button><button data-value="first">Cockpit</button></div>
-            </div>
             <div class="setting">
               <div class="set-head"><b>Layout</b></div>
               <span>Touch gestures, or ◀ ▶ FIRE buttons at the bottom.</span>
               <div class="seg" data-setting="layout"><button data-value="gestures">Gestures</button><button data-value="buttons">Buttons</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Health display</b></div>
-              <span>Top bar like a fighting game, or a health tag that floats over each fighter and follows it.</span>
-              <div class="seg" data-setting="hudMode"><button data-value="top">Top bar</button><button data-value="tags">Over fighters</button></div>
             </div>
             <div class="setting">
               <div class="set-head"><b>Move with</b><em>buttons layout</em></div>
@@ -397,9 +358,91 @@
               <div class="seg" data-setting="vibrate"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
           </section>
+          <section data-panel="display">
+            <div class="setting">
+              <div class="set-head"><b>Camera</b></div>
+              <span>From a high chase view down to the cockpit.</span>
+              <div class="seg" data-setting="camera"><button data-value="far">Far</button><button data-value="mid">Mid</button><button data-value="near">Near</button><button data-value="first">Cockpit</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Realism</b><em>graphics</em></div>
+              <span>Marble hops, spin and shadows, stage particles and full screen resolution.</span>
+              <div class="seg" data-setting="realism"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Special effects</b><em>graphics</em></div>
+              <span>Overlay rings, glows, trails, flashes, sparks, smoke and afterimages.</span>
+              <div class="seg" data-setting="effects"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Health display</b></div>
+              <span>Top bar like a fighting game, or a health tag that floats over each fighter and follows it.</span>
+              <div class="seg" data-setting="hudMode"><button data-value="top">Top bar</button><button data-value="tags">Over fighters</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>FPS meter</b></div>
+              <span>Shows frames per second in the corner, to check performance.</span>
+              <div class="seg" data-setting="showFps"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
+            </div>
+          </section>
+          <section data-panel="opponent">
+            <div class="setting">
+              <div class="set-head"><b>Pack tactics</b><em>with a pack</em></div>
+              <span>Who they gang up on: the nearest of your side, the weakest (to knock robots out fast), or always you.</span>
+              <div class="seg" data-setting="enemyTactic"><button data-value="nearest">Nearest</button><button data-value="weakest">Focus weakest</button><button data-value="hunt">Hunt you</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Armor</b><em>health</em></div>
+              <div class="seg" data-setting="enemyHealth">
+                <button data-value="1">50%</button><button data-value="2">75%</button><button data-value="3">100%</button><button data-value="4">150%</button><button data-value="5">200%</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Speed</b><em>how fast it moves</em></div>
+              <div class="seg level" data-setting="enemySpeed">
+                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Agility</b><em>how often &amp; fast it dodges</em></div>
+              <div class="seg level" data-setting="enemyAgility">
+                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Ball power</b><em>damage &amp; weight</em></div>
+              <div class="seg level" data-setting="enemyPower">
+                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Aim</b></div>
+              <span>Flexible aims, leads and banks. Straight only fires straight ahead.</span>
+              <div class="seg" data-setting="enemyAim"><button data-value="flexible">Flexible</button><button data-value="straight">Straight</button></div>
+            </div>
+            <button class="key small" id="reset-opponent">RESET OPPONENT</button>
+          </section>
+          <section data-panel="pack">
+            <div class="setting">
+              <div class="set-head"><b>Pack-mate intelligence</b></div>
+              <span>How well your CPU pack-mates aim, lead, dodge and react.</span>
+              <div class="seg" data-setting="allyIQ"><button data-value="easy">Rookie</button><button data-value="normal">Regular</button><button data-value="hard">Veteran</button><button data-value="ace">Ace</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Pack-mate tactics</b></div>
+              <span>Who they shoot: the nearest opponent, the weakest one (finish it off together), or whoever you're facing.</span>
+              <div class="seg" data-setting="allyTactic"><button data-value="nearest">Nearest</button><button data-value="weakest">Focus weakest</button><button data-value="assist">Back you up</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Pack-mate charge shots</b></div>
+              <span>Your pack-mates hold fire to charge a big shot now and then, like you can.</span>
+              <div class="seg" data-setting="allyCharge"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <a class="lab-link" href="./editor.html">UNIT LAB ▸ <small>edit names, traits and block designs, or build new units</small></a>
+          </section>
         </div>
 
-        <button id="settings-done" class="btn">DONE</button>
+        <button id="settings-done" class="key orange">DONE</button>
       </div>
 
       <div id="loading" class="screen"><p class="sys-line">BOOTING COMBAT SYSTEMS<b class="blink">…</b></p></div>

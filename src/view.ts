@@ -4,7 +4,8 @@ import { CHARGE, MAX_SHOOTERS, chargeLevel, slotTeam, type Drop, type Game, type
 
 /** every robot slot: 0 you, 1-3 opponents, 4-5 your pack-mates */
 const SLOTS = Array.from({ length: MAX_SHOOTERS }, (_, i) => i);
-import { ShooterMesh, characterById } from './robot';
+import { ShooterMesh, characterById, studioEnv } from './robot';
+import { Post } from './post';
 import { Stage } from './stage';
 import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
@@ -212,6 +213,8 @@ export class View {
   private tmpMuzzle = new THREE.Vector3();
   private axis = new THREE.Vector3();
   private time = 0;
+  /** bloom, colour grade, vignette and grain (realism on) */
+  private post: Post;
   /** game-time clock for world animation (slows with slow-mo) */
   private worldTime = 0;
   /** optional ThorVG overlay for screen-space effects */
@@ -266,11 +269,30 @@ export class View {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.renderer = new THREE.WebGLRenderer({ antialias: dpr < 2, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(dpr);
+    // filmic: a neutral tone curve that keeps the palette true, a studio environment for
+    // the plastic and glass to reflect, and real shadows from the key light
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 0.88;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.scene.environment = studioEnv(this.renderer);
+    this.scene.environmentIntensity = 0.55;
     host.appendChild(this.renderer.domElement);
+    this.post = new Post(this.renderer, this.scene, this.camera);
 
     this.hemi = new THREE.HemisphereLight(0xdfe4ff, 0x2a1d4a, 1.6);
     this.sun = new THREE.DirectionalLight(0xffffff, 1.9);
-    this.sun.position.set(4, 12, 6);
+    this.sun.position.set(6, 18, 9);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    const shadowCam = this.sun.shadow.camera;
+    shadowCam.left = shadowCam.bottom = -14;
+    shadowCam.right = shadowCam.top = 14;
+    shadowCam.near = 2;
+    shadowCam.far = 50;
+    this.sun.shadow.bias = -0.0004;
+    this.sun.shadow.normalBias = 0.03;
+    this.sun.shadow.radius = 3;
     this.scene.add(this.hemi, this.sun);
 
     this.stage = new Stage('space');
@@ -300,8 +322,8 @@ export class View {
     this.shadows.frustumCulled = false;
     this.scene.add(this.shadows);
     this.smokeMesh = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(1, 1),
-      new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.34, depthWrite: false, flatShading: true }),
+      new THREE.IcosahedronGeometry(1, 2),
+      new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }),
       SMOKE,
     );
     this.smokeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -322,10 +344,13 @@ export class View {
     }
 
     // marbles: one instanced mesh per team, hidden instances scaled to 0
-    const marbleGeo = new THREE.SphereGeometry(1, 16, 12);
+    const marbleGeo = new THREE.SphereGeometry(1, 24, 16);
+    const swirl = marbleSwirl();
     this.marbleMesh = this.teamBall.map((c) => {
-      const mat = new THREE.MeshPhongMaterial({ color: c, shininess: 90, specular: 0xffffff });
+      // glass marbles with a cat's-eye swirl inside, under a mirror-smooth clear coat
+      const mat = new THREE.MeshPhysicalMaterial({ color: c, map: swirl, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1.3, sheen: 0.4, sheenColor: new THREE.Color(0xffffff) });
       const mesh = new THREE.InstancedMesh(marbleGeo, mat, MATCH.marblePool);
+      mesh.castShadow = true;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false;
       this.scene.add(mesh);
@@ -385,6 +410,9 @@ export class View {
   private applyStage() {
     const d = this.stage.def;
     this.scene.add(this.stage.group);
+    this.stage.group.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).receiveShadow = true;
+    });
     this.renderer.setClearColor(d.sky);
     this.scene.fog = new THREE.Fog(d.fog[0], d.fog[1], d.fog[2]);
     this.hemi.color.set(d.hemi[0]);
@@ -397,6 +425,9 @@ export class View {
     for (const p of this.puckMeshes) this.scene.remove(p);
     this.puckMeshes = this.game.bumps.map((b) => {
       const m = this.stage.makePuck(b.radius);
+      m.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) o.castShadow = true;
+      });
       this.scene.add(m);
       return m;
     });
@@ -406,6 +437,7 @@ export class View {
   /** Apply the realism setting's pixel density (1x when off). */
   setQuality(realism: boolean) {
     this.realismOn = realism;
+    this.renderer.shadowMap.enabled = realism;
     const dpr = realism ? Math.min(window.devicePixelRatio || 1, 2) : 1;
     if (this.renderer.getPixelRatio() !== dpr) {
       this.renderer.setPixelRatio(dpr);
@@ -417,6 +449,7 @@ export class View {
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
     this.renderer.setSize(w, h, false);
+    this.post.setSize(w, h);
     this.camera.aspect = w / h;
     // narrow portrait screens need a wider lens to keep the side walls in view
     this.camera.fov = this.cameraMode === 'first' ? (w / h < 0.75 ? 74 : 62) : w / h < 0.75 ? 54 : 44;
@@ -439,7 +472,7 @@ export class View {
     this.teamBall = [characterById(all[0]).ball, characterById(all[1]).ball];
     // a mirror match keeps the opponent's marbles distinguishable
     if (all[0] === all[1]) this.teamBall[1] = 0xff5a4a;
-    this.teamBall.forEach((c, i) => (this.marbleMesh[i].material as THREE.MeshPhongMaterial).color.set(c));
+    this.teamBall.forEach((c, i) => (this.marbleMesh[i].material as THREE.MeshPhysicalMaterial).color.set(c));
     this.shooters.forEach((old, i) => {
       const ball = this.teamBall[slotTeam(i)];
       (this.shields[i].material as THREE.MeshBasicMaterial).color.set(ball);
@@ -916,7 +949,8 @@ export class View {
     }
     this.camera.rotateZ(Math.sin(t * 0.9) * sh * 0.04);
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.realismOn) this.post.render(dt, this.dim);
+    else this.renderer.render(this.scene, this.camera);
     // point the player at crates dropping on their rail, even off-screen
     this.markers.length = 0;
     const w = this.host.clientWidth;
@@ -1872,6 +1906,16 @@ export class View {
     flash.mesh.position.copy(at);
     flash.mat.color.set(special ? color : 0xfff4d6).lerp(this.tmpC.set(0xffffff), special ? 0.3 : 0);
     if (!this.fxOn) return;
+    // a breath of smoke from the muzzle, drifting up and back
+    for (let k = 0; k < (special ? 7 : 2); k++) {
+      const p = this.smoke.find((q) => q.life <= 0);
+      if (!p) break;
+      p.max = p.life = 0.7 + Math.random() * 0.6;
+      p.p.set(at.x + (Math.random() - 0.5) * 0.15, at.y + Math.random() * 0.1, at.z + (Math.random() - 0.5) * 0.15);
+      p.v.set((Math.random() - 0.5) * 0.5, 0.5 + Math.random() * 0.5, -s.forward * (0.6 + Math.random() * 0.8));
+      p.size = (special ? 0.12 : 0.07) + Math.random() * 0.05;
+      p.shade = 0.62 + Math.random() * 0.2;
+    }
     // little sparks spit from the belly on every shot
     this.burst(at.x, -at.z, special ? color : 0xfff2b0, special ? 16 : 3, special ? 7 : 3.5, { h: at.y });
     if (!special) return;
@@ -1971,4 +2015,35 @@ export class View {
     this.aimDots.count = n;
     this.aimDots.instanceMatrix.needsUpdate = true;
   }
+}
+
+/** a cat's-eye marble's insides, unwrapped: clear glass (white, tinted by the team colour) with twisting vanes */
+function marbleSwirl() {
+  const W = 256;
+  const H = 128;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, W, H);
+  const vane = (x0: number, width: number, shade: string, twist: number) => {
+    g.fillStyle = shade;
+    g.beginPath();
+    for (let y = 0; y <= H; y += 4) g.lineTo(x0 + Math.sin((y / H) * Math.PI * twist) * 26 - width / 2, y);
+    for (let y = H; y >= 0; y -= 4) g.lineTo(x0 + Math.sin((y / H) * Math.PI * twist) * 26 + width / 2, y);
+    g.closePath();
+    g.fill();
+  };
+  for (let k = 0; k < 4; k++) {
+    const x = (k + 0.5) * (W / 4);
+    vane(x, 22, '#5a5a5a', 1.6);
+    vane(x + 4, 7, '#2a2a2a', 1.6);
+    vane(x - 9, 3, '#e8e8e8', 1.6);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
 }

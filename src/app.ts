@@ -7,8 +7,9 @@ import { Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
 import { Portrait } from './face';
-import { CHARACTERS, characterById } from './robot';
+import { BUILTINS, CHARACTERS, characterById } from './robot';
 import { fillPortraits } from './portraits';
+import { Preview } from './preview';
 import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
@@ -45,6 +46,7 @@ const buzz = (pattern: number | number[]) => {
 };
 
 const hexc = (n: number) => '#' + n.toString(16).padStart(6, '0');
+const VIEW_LABEL = { near: 'NEAR', mid: 'MID', far: 'FAR', first: 'COCKPIT' } as const;
 
 /** small line icons for the items, drawn in currentColor */
 const ITEM_ICONS: Record<ItemType, string> = {
@@ -484,7 +486,8 @@ export function boot() {
     }
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
-    for (const id of ['title', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
+    for (const id of ['title', 'select', 'setup', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
+    preview.release();
     startFaces();
     hints.classList.toggle('hidden', sessionMatches >= 2);
     hints.classList.remove('fade');
@@ -604,7 +607,6 @@ export function boot() {
   /** the result screen in arcade: stage clear (and a look at the next one), or game over */
   const showArcadeResult = (w: -1 | 0 | 1) => {
     const panel = $('arcade-next');
-    $('arcade-quit').classList.toggle('hidden', !arcade);
     panel.classList.toggle('hidden', !arcade);
     if (!arcade) {
       $('again-btn').textContent = 'REMATCH';
@@ -656,8 +658,7 @@ export function boot() {
   const quitArcade = () => {
     arcade = null;
     screen = 'title';
-    $('result').classList.add('hidden');
-    $('title').classList.remove('hidden');
+    show('title');
     fitTable(S());
     applySettings();
   };
@@ -715,11 +716,8 @@ export function boot() {
     useItem();
   });
 
-  $('play-btn').addEventListener('click', () => {
-    arcade = null;
-    startMatch();
-  });
-  $('arcade-btn').addEventListener('click', startArcade);
+  $('play-btn').addEventListener('click', () => openSelect('versus'));
+  $('arcade-btn').addEventListener('click', () => openSelect('arcade'));
   $('again-btn').addEventListener('click', playAgain);
   $('arcade-quit').addEventListener('click', quitArcade);
   $('pause-btn').addEventListener('click', () => setPaused(true));
@@ -740,9 +738,9 @@ export function boot() {
     sfx.unlock();
     saveData = store.save({ muted: !saveData.muted });
     sfx.setMuted(saveData.muted);
-    $('mute-btn').textContent = saveData.muted ? '🔇' : '🔊';
+    $('mute-btn').textContent = saveData.muted ? 'OFF' : 'SND';
   });
-  $('mute-btn').textContent = saveData.muted ? '🔇' : '🔊';
+  $('mute-btn').textContent = saveData.muted ? 'OFF' : 'SND';
 
   // ---------- settings ----------
   const padDir = document.querySelectorAll<HTMLElement>('.pad-dir .pad-btn');
@@ -765,12 +763,7 @@ export function boot() {
       view.resize();
     }
     document.body.classList.toggle('triple', st.fireButtons === 'triple');
-    document.querySelectorAll<HTMLElement>('.enemy-char').forEach((c) => c.classList.toggle('on', c.dataset.id === (st.enemyCharacter || 'auto')));
-    $('enemy-char-name').textContent = st.enemyCharacter && st.enemyCharacter !== 'auto' ? characterById(st.enemyCharacter).name : `Auto (${characterById(enemyCharacter()).name})`;
-    document.querySelectorAll<HTMLElement>('#char-grid .char').forEach((c) => c.classList.toggle('on', c.dataset.id === st.character));
-    document.querySelectorAll<HTMLElement>('.stage-card').forEach((c) => c.classList.toggle('on', c.dataset.id === st.stage));
-    $('char-name').textContent = characterById(st.character).name;
-    $('stage-name').textContent = stageById(st.stage).name;
+    $('view-btn').textContent = VIEW_LABEL[st.camera];
     $('title-unit').textContent = characterById(st.character).name.toUpperCase();
     $('title-stage').textContent = stageById(st.stage).name.toUpperCase();
     document.body.classList.toggle('buttons', st.layout === 'buttons');
@@ -795,7 +788,7 @@ export function boot() {
     if (widthChanged) {
       // a new table needs new walls and scenery: reload straight back into these settings
       try {
-        sessionStorage.setItem('mf-reopen-settings', 'arena');
+        sessionStorage.setItem('mf-reopen-settings', 'rules');
       } catch {
         // fine without it
       }
@@ -815,43 +808,161 @@ export function boot() {
   );
   $('reset-opponent').addEventListener('click', () => saveSetting(store.OPPONENT_DEFAULTS));
 
-  // character + stage pickers, built from their lists
-  for (const c of CHARACTERS) {
-    const btn = document.createElement('button');
-    btn.className = 'char';
-    btn.dataset.id = c.id;
-    btn.innerHTML = `<i data-portrait="${c.id}" style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
-    btn.addEventListener('click', () => saveSetting({ character: c.id }));
-    $('char-grid').appendChild(btn);
-  }
-  // opponent picker: Auto, then every unit
-  {
-    const auto = document.createElement('button');
-    auto.className = 'char enemy-char';
-    auto.dataset.id = 'auto';
-    auto.innerHTML = `<i style="background:repeating-linear-gradient(45deg, #3ef0ff 0 4px, #0a1630 4px 8px)"></i><span>Auto</span>`;
-    auto.addEventListener('click', () => saveSetting({ enemyCharacter: 'auto' }));
-    $('enemy-char-grid').appendChild(auto);
-    for (const c of CHARACTERS) {
-      const btn = document.createElement('button');
-      btn.className = 'char enemy-char';
-      btn.dataset.id = c.id;
-      btn.innerHTML = `<i data-portrait="${c.id}" style="background:linear-gradient(135deg, ${hexc(c.palette.body)} 0 50%, ${hexc(c.palette.trim)} 50% 78%, ${hexc(c.ball)} 78%)"></i><span>${c.name}</span>`;
-      btn.addEventListener('click', () => saveSetting({ enemyCharacter: c.id }));
-      $('enemy-char-grid').appendChild(btn);
+  // ---------- select screens: fighter, rival, arena, then the match rules (like a fighting game) ----------
+  const preview = new Preview($('preview'));
+  type Step = 'fighter' | 'rival' | 'arena' | 'rules';
+  let step: Step = 'fighter';
+  let selectMode: 'versus' | 'arcade' = 'versus';
+  /** which roster tab is open: the originals, the 2.0s, or custom units */
+  let ver: '1' | '2' | 'c' = '1';
+  const verOf = (id: string): '1' | '2' | 'c' => {
+    const c = characterById(id);
+    if (!BUILTIN_IDS.has(c.id)) return 'c';
+    return c.from ? '2' : '1';
+  };
+  const BUILTIN_IDS = new Set(BUILTINS.map((c) => c.id));
+  const TRAITS: [keyof NonNullable<ReturnType<typeof characterById>['traits']>, string][] = [
+    ['health', 'Armour'],
+    ['speed', 'Speed'],
+    ['fireRate', 'Fire rate'],
+    ['agility', 'Agility'],
+  ];
+  const meters = (id: string) => {
+    const t = characterById(id).traits;
+    return TRAITS.map(([k, label]) => {
+      const v = Math.max(1, Math.min(5, Math.round(t?.[k] ?? 3)));
+      return `<div class="meter"><span>${label}</span><i>${[1, 2, 3, 4, 5].map((n) => `<b class="${n <= v ? 'lit' : ''}"></b>`).join('')}</i></div>`;
+    }).join('');
+  };
+  const markSteps = () => {
+    const order: Step[] = selectMode === 'arcade' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];
+    document.querySelectorAll<HTMLElement>('.steps li').forEach((li) => {
+      const k = order.indexOf(li.dataset.step as Step);
+      li.classList.toggle('hidden', k < 0);
+      li.classList.toggle('on', li.dataset.step === step);
+      li.classList.toggle('done', k >= 0 && k < order.indexOf(step));
+    });
+  };
+  /** the selected tile for this step */
+  const chosen = () => {
+    const st = saveData.settings;
+    return step === 'fighter' ? st.character : step === 'rival' ? st.enemyCharacter || 'auto' : st.stage;
+  };
+  const showPreview = () => {
+    const id = chosen();
+    if (step === 'arena') {
+      preview.showStage(id);
+      $('pv-tag').textContent = 'ARENA';
+      $('pv-name').textContent = stageById(id).name;
+      $('pv-stats').innerHTML = `<p class="pv-note">${stageById(id).name} · scenery and pucks themed to match</p>`;
+      return;
     }
-  }
-  for (const s of STAGES) {
-    const btn = document.createElement('button');
-    btn.className = 'stage-card';
-    btn.dataset.id = s.id;
-    btn.innerHTML = `<i style="background:linear-gradient(160deg, ${hexc(s.swatch[0])} 0 60%, ${hexc(s.swatch[1])} 60%)"></i><span>${s.name}</span>`;
-    btn.addEventListener('click', () => saveSetting({ stage: s.id }));
-    $('stage-grid').appendChild(btn);
-  }
-  // the unit pickers show each fighter in 3/4 view (rendered one per frame, swatches until then)
-  fillPortraits($('char-grid'));
-  fillPortraits($('enemy-char-grid'));
+    const unit = id === 'auto' ? enemyCharacter() : id;
+    preview.showUnit(unit);
+    $('pv-tag').textContent = step === 'fighter' ? 'PLAYER 1' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
+    $('pv-name').textContent = characterById(unit).name;
+    $('pv-stats').innerHTML = meters(unit);
+  };
+  const buildGrid = () => {
+    const grid = $('pick-grid');
+    grid.innerHTML = '';
+    const arena = step === 'arena';
+    $('ver-tabs').classList.toggle('hidden', arena);
+    grid.classList.toggle('arenas', arena);
+    const pick = (id: string) => {
+      saveSetting(step === 'fighter' ? { character: id } : step === 'rival' ? { enemyCharacter: id } : { stage: id });
+      grid.querySelectorAll<HTMLElement>('.tile').forEach((t) => t.classList.toggle('on', t.dataset.id === id));
+      showPreview();
+      sfx.play('tick');
+    };
+    const tile = (id: string, html: string) => {
+      const b = document.createElement('button');
+      b.className = 'tile' + (id === chosen() ? ' on' : '');
+      b.dataset.id = id;
+      b.innerHTML = html;
+      b.addEventListener('click', () => pick(id));
+      grid.appendChild(b);
+    };
+    if (arena) {
+      for (const st of STAGES) tile(st.id, `<i class="swatch" style="background:linear-gradient(160deg, ${hexc(st.swatch[0])} 0 62%, ${hexc(st.swatch[1])} 62%)"></i><span>${st.name}</span>`);
+      // swap the colour swatches for real stills of each arena, one at a time
+      const swatches = [...grid.querySelectorAll<HTMLElement>('.tile')];
+      const nextShot = () => {
+        const t = swatches.shift();
+        if (!t || step !== 'arena' || $('select').classList.contains('hidden')) return;
+        const i = t.querySelector<HTMLElement>('.swatch');
+        if (i) i.style.background = `center / cover url(${preview.stageShot(t.dataset.id!)})`;
+        setTimeout(nextShot, 40);
+      };
+      setTimeout(nextShot, 300);
+      return;
+    }
+    const hasCustom = CHARACTERS.some((c) => verOf(c.id) === 'c');
+    document.querySelector<HTMLElement>('#ver-tabs [data-ver="c"]')!.classList.toggle('hidden', !hasCustom);
+    if (ver === 'c' && !hasCustom) ver = '1';
+    document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.ver === ver));
+    if (step === 'rival') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
+    for (const c of CHARACTERS) {
+      if (verOf(c.id) !== ver) continue;
+      tile(c.id, `<i data-portrait="${c.id}" style="background:${hexc(c.palette.body)}"></i><span>${c.name}</span>`);
+    }
+    fillPortraits(grid);
+  };
+  const SCREENS = ['title', 'select', 'setup', 'result', 'paused', 'settings'];
+  const show = (id: string) => {
+    for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id);
+    if (id !== 'select') preview.release();
+  };
+  const goStep = (next: Step) => {
+    step = next;
+    markSteps();
+    if (step === 'rules') {
+      show('setup');
+      const st = saveData.settings;
+      const foe = st.enemyCharacter && st.enemyCharacter !== 'auto' ? characterById(st.enemyCharacter).name : `Auto · ${characterById(enemyCharacter()).name}`;
+      $('vs-lcd').innerHTML = `<div class="lcd-row"><span>P1</span><b>${characterById(st.character).name}</b></div><div class="lcd-row"><span>VS</span><b>${foe}</b></div><div class="lcd-row"><span>ARENA</span><b>${stageById(st.stage).name}</b></div>`;
+      return;
+    }
+    show('select');
+    // open the roster tab the current pick lives in
+    if (step !== 'arena') ver = chosen() === 'auto' ? ver : verOf(chosen());
+    $('select-title').textContent = step === 'fighter' ? 'Select fighter' : step === 'rival' ? 'Select rival' : 'Select arena';
+    $('select-next').textContent = selectMode === 'arcade' ? 'Start arcade ▶' : 'Next ▶';
+    buildGrid();
+    showPreview();
+  };
+  const openSelect = (mode: 'versus' | 'arcade') => {
+    sfx.unlock();
+    selectMode = mode;
+    goStep('fighter');
+  };
+  const toTitle = () => {
+    show('title');
+    screen = 'title';
+  };
+  document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) =>
+    b.addEventListener('click', () => {
+      ver = b.dataset.ver as typeof ver;
+      buildGrid();
+    }),
+  );
+  $('select-back').addEventListener('click', () => {
+    if (step === 'fighter') toTitle();
+    else goStep(step === 'arena' ? 'rival' : 'fighter');
+  });
+  $('select-next').addEventListener('click', () => {
+    if (selectMode === 'arcade') {
+      preview.release();
+      startArcade();
+      return;
+    }
+    goStep(step === 'fighter' ? 'rival' : step === 'rival' ? 'arena' : 'rules');
+  });
+  $('setup-back').addEventListener('click', () => goStep('arena'));
+  $('fight-btn').addEventListener('click', () => {
+    arcade = null;
+    startMatch();
+  });
 
   // settings tabs
   const showTab = (tab: string) => {
@@ -859,13 +970,13 @@ export function boot() {
     document.querySelectorAll<HTMLElement>('.panels section').forEach((p) => p.classList.toggle('on', p.dataset.panel === tab));
   };
   document.querySelectorAll<HTMLElement>('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab!)));
-  showTab('fighter');
+  showTab('controls');
   applySettings();
 
   let settingsFrom: 'title' | 'paused' | 'result' = 'title';
   const openSettings = (from: 'title' | 'paused' | 'result') => {
     settingsFrom = from;
-    $(from).classList.add('hidden');
+    for (const k of SCREENS) $(k).classList.add('hidden');
     $('settings').classList.remove('hidden');
   };
   $('settings-btn').addEventListener('click', () => openSettings('title'));
@@ -874,8 +985,9 @@ export function boot() {
     const tab = sessionStorage.getItem('mf-reopen-settings');
     if (tab) {
       sessionStorage.removeItem('mf-reopen-settings');
-      showTab(tab);
-      openSettings('title');
+      // the table width is picked on the rules screen: come back to it
+      selectMode = 'versus';
+      goStep('rules');
     }
   } catch {
     // storage unavailable
@@ -892,6 +1004,33 @@ export function boot() {
     $(settingsFrom).classList.remove('hidden');
   });
 
+  // in-match view switch: near (default), mid, far, cockpit
+  const cycleView = () => {
+    const order = ['near', 'mid', 'far', 'first'] as const;
+    const next = order[(order.indexOf(saveData.settings.camera) + 1) % order.length];
+    saveSetting({ camera: next });
+    sfx.play('tick');
+  };
+  $('view-btn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    cycleView();
+  });
+  $('pause-menu-btn').addEventListener('click', () => {
+    paused = false;
+    sfx.resume();
+    pad.clear();
+    replayEl.classList.add('hidden');
+    introEl.classList.add('hidden');
+    replayGame = null;
+    view.game = game;
+    view.cine = null;
+    input.enabled = false;
+    input.release();
+    hud.classList.add('hidden');
+    quitArcade();
+  });
+
   // on-screen pad: one tracker for every finger on it
   const pad = new PadTracker($('pad'));
   pad.onPress = () => sfx.unlock();
@@ -902,9 +1041,13 @@ export function boot() {
   window.addEventListener('keydown', (e) => {
     if (!$('settings').classList.contains('hidden')) return;
     if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!paused);
+    if (e.code === 'KeyV' && screen === 'playing') cycleView();
     if ((e.code === 'Enter' || e.code === 'Space') && screen !== 'playing') {
       e.preventDefault();
-      startMatch();
+      if (!$('setup').classList.contains('hidden')) $('fight-btn').click();
+      else if (!$('select').classList.contains('hidden')) $('select-next').click();
+      else if (!$('title').classList.contains('hidden')) openSelect('versus');
+      else if (!$('result').classList.contains('hidden')) $('again-btn').click();
     }
   });
   // pause whenever the tab is hidden (also covers ad overlays later)

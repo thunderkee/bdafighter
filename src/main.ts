@@ -1,4 +1,5 @@
 import './style.css';
+import './theme.css';
 
 // iOS Safari ignores user-scalable=no: block pinch and double-tap zoom
 // everywhere except scrolling lists, since a browser zoom swallows the touch

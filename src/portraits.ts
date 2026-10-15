@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ShooterMesh, characterById } from './robot';
+import { ShooterMesh, characterById, studioEnv } from './robot';
 
 // 3/4-view portraits of the units for the pickers: each fighter rendered once into a
 // small picture, one at a time so opening the menu never stutters.
@@ -17,6 +17,8 @@ function setup() {
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   scene = new THREE.Scene();
+  scene.environment = studioEnv(renderer);
+  scene.environmentIntensity = 0.8;
   scene.add(new THREE.HemisphereLight(0xdfefff, 0x2a3350, 2.1));
   const sun = new THREE.DirectionalLight(0xffffff, 2.1);
   sun.position.set(-3, 6, -5);

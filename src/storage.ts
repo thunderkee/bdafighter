@@ -84,6 +84,8 @@ export interface SaveData {
   wins: number;
   /** the furthest arcade stage cleared */
   arcadeBest?: number;
+  /** the near chase camera became the default once; older saves are moved to it */
+  nearCam?: boolean;
   muted: boolean;
   settings: Settings;
 }
@@ -106,7 +108,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gates: true,
   fireButtons: 'single',
   enemyCharacter: 'auto',
-  camera: 'mid',
+  camera: 'near',
   effects: true,
   realism: true,
   showFps: false,
@@ -153,7 +155,8 @@ export function load(): SaveData {
       // older saves had a pucks on/off toggle
       if (parsed.settings?.bumps === false && parsed.settings?.pucks === undefined) settings.pucks = 0;
       delete (settings as Record<string, unknown>).bumps;
-      memory = { ...DEFAULTS, ...parsed, settings };
+      if (!parsed.nearCam) settings.camera = 'near';
+      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true };
     }
   } catch {
     // keep the in-memory copy
