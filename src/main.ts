@@ -5,7 +5,8 @@ import './theme.css';
 // everywhere except scrolling lists, since a browser zoom swallows the touch
 // that was holding a button.
 {
-  const scrollable = (t: EventTarget | null) => t instanceof Element && !!t.closest('.panels');
+  // menu screens and their lists scroll; the arena (and the in-match HUD) never does
+const scrollable = (t: EventTarget | null) => t instanceof Element && !!t.closest('.screen, .panels, .pick-grid');
   const opts = { passive: false } as const;
   for (const g of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(g, (e) => e.preventDefault(), opts);
   document.addEventListener('touchmove', (e) => {
