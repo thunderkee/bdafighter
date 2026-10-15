@@ -1423,8 +1423,10 @@ export class ShooterMesh {
     }
 
     // ---------- the gun: a chest cannon, unless the kit carries its own ----------
-    const chestGun = kit === 'mech';
     const punch = def.pose === 'punch';
+    // a mech in the attack pose carries its gun in the thrown hand instead of a chest cannon
+    const handGun = kit === 'mech' && punch;
+    const chestGun = kit === 'mech' && !handGun;
     if (chestGun) {
       this.markBelly(this.turret, 0, 0.16, -0.66);
       this.barrel.position.set(0, 0.16, -0.32);
@@ -1439,6 +1441,8 @@ export class ShooterMesh {
       bore.position.z = -0.31;
       this.barrel.add(tube, ring, bore);
       this.turret.add(this.barrel);
+    } else if (handGun) {
+      this.markBelly(this.turret, 0.6, 0.2, -1.43); // the machine gun in the thrown hand
     } else if (kit === 'lizard') {
       this.markBelly(this.turret, 0, 0.76, -0.68); // the mouth
     } else if (kit === 'beetle') {
@@ -1538,6 +1542,28 @@ export class ShooterMesh {
       this.turret.add(sh);
     }
 
+    // a drum-fed machine gun in the thrown right hand
+    if (handGun) {
+      this.barrel.position.set(0.6, 0.2, -0.78);
+      this.barrel.add(box(0.12, 0.15, 0.44, m.joint, 0, 0, -0.06)); // receiver
+      this.barrel.add(box(0.08, 0.14, 0.18, m.joint, 0, -0.03, 0.24)); // stock
+      this.barrel.add(box(0.125, 0.03, 0.3, m.accent, 0, 0.06, -0.08)); // top stripe
+      const drum = cyl(0.11, 0.08, m.trim);
+      drum.rotation.z = Math.PI / 2;
+      drum.position.set(-0.1, -0.02, 0.02);
+      this.barrel.add(drum);
+      ventX(this.barrel, 0.065, -0.05, -0.12, 2, 0.14, 1);
+      const tube = cyl(0.032, 0.3, m.joint);
+      tube.rotation.x = Math.PI / 2;
+      tube.position.z = -0.43;
+      this.barrel.add(tube, box(0.08, 0.08, 0.08, m.trim, 0, 0, -0.6));
+      const bore = cyl(0.025, 0.02, hole);
+      bore.rotation.x = Math.PI / 2;
+      bore.position.z = -0.645;
+      this.barrel.add(bore);
+      this.turret.add(this.barrel);
+      this.barrelZ = -0.78;
+    }
     // EVA: a pallet rifle in the right hand is the gun, pointing down the lane
     if (kit === 'eva') {
       const gunmetal = this.paint(0x5d646e);
