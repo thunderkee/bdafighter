@@ -1314,3 +1314,56 @@ body.pressing .pad-btn.fire.held {
 .hud-face.down {
   filter: grayscale(1) brightness(0.6);
 }
+
+/* unit profile under the preview bay */
+.profile {
+  width: min(420px, 100%);
+  flex: none;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--case-hi);
+  border: 1px solid var(--case-edge);
+  text-align: left;
+}
+.pf-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pf-head b {
+  font: 700 15px var(--display);
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
+  color: var(--ink);
+}
+.pf-head span {
+  font: 400 10px var(--mono);
+  color: var(--muted);
+  text-align: right;
+}
+.profile p {
+  margin: 5px 0 7px;
+  font: 400 11px/1.4 var(--mono);
+  color: var(--ink-2);
+}
+.pf-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.pf-tags em {
+  padding: 3px 7px;
+  border-radius: 99px;
+  background: var(--case-lo);
+  font: 700 9px var(--mono);
+  font-style: normal;
+  color: var(--ink-2);
+}
+.pf-tags em.v2 {
+  background: var(--char);
+  color: var(--orange);
+}
+.bay {
+  height: clamp(160px, 26dvh, 280px);
+}

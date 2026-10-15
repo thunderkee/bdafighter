@@ -5,6 +5,7 @@ import type { Shooter } from './game';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
+import { PROFILES } from './profiles';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -296,6 +297,8 @@ const V2: Record<string, V2Look> = {
   liger: { fit: [1.15, 1.15, 1.15], ball: 0xffd04a, palette: { body: 0xf0f2f6, trim: 0x3a4a6a, accent: 0xffc23d, joint: 0x2a2f3c, eye: 0x4ad8ff } },
   rex: { fit: [1.12, 1.12, 1.12], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
 };
+// each unit's stats come from its profile (the Unit Lab can still change them)
+for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
 export const BUILTINS: readonly CharacterDef[] = [
   ...ORIGINALS,
   ...ORIGINALS.filter((o) => V2[o.id]).map((o) => {

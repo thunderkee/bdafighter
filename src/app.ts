@@ -9,6 +9,7 @@ import { Fx2D } from './fx2d';
 import { BUILTINS, CHARACTERS, characterById } from './robot';
 import { fillPortraits, portrait } from './portraits';
 import { Preview } from './preview';
+import { profileOf } from './profiles';
 import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
@@ -880,6 +881,7 @@ export function boot() {
       $('pv-tag').textContent = 'ARENA';
       $('pv-name').textContent = stageById(id).name;
       $('pv-stats').innerHTML = `<p class="pv-note">${stageById(id).name} · scenery and pucks themed to match</p>`;
+      $('pv-profile').classList.add('hidden');
       return;
     }
     const unit = id === 'auto' ? enemyCharacter() : id;
@@ -887,6 +889,13 @@ export function boot() {
     $('pv-tag').textContent = step === 'fighter' ? 'PLAYER 1' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
     $('pv-name').textContent = characterById(unit).name;
     $('pv-stats').innerHTML = meters(unit);
+    const c = characterById(unit);
+    const pr = profileOf(c.id, c.from, c.base);
+    const prof = $('pv-profile');
+    prof.classList.remove('hidden');
+    prof.innerHTML = pr
+      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div><p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em>${c.from ? '<em class="v2">2.0 refit</em>' : ''}</div>`
+      : `<div class="pf-head"><b>Custom unit</b><span>Unit Lab</span></div><p>Built in the Unit Lab.</p>`;
   };
   const buildGrid = () => {
     const grid = $('pick-grid');
