@@ -124,10 +124,10 @@ body {
 #loading {
   background: var(--char);
   color: var(--lcd-ink);
-  font-family: var(--mono);
+  font-family: var(--body);
 }
 .sys-line {
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   letter-spacing: 0.16em;
   color: var(--muted);
   opacity: 1;
@@ -154,7 +154,7 @@ body {
   text-shadow: none;
 }
 .record {
-  font: 400 12px var(--mono);
+  font: 400 12px var(--body);
   color: var(--muted);
 }
 
@@ -169,7 +169,7 @@ body {
   outline: 1px solid var(--case-deep);
   box-shadow: inset 0 0 18px #050805;
   color: var(--lcd-ink);
-  font-family: var(--mono);
+  font-family: var(--body);
   text-align: left;
 }
 .lcd-row {
@@ -221,7 +221,7 @@ body {
 }
 .brand span {
   margin-top: 8px;
-  font: 400 11px var(--mono);
+  font: 400 11px var(--body);
   letter-spacing: 0.08em;
   color: var(--muted);
 }
@@ -230,7 +230,7 @@ body {
   align-items: center;
   gap: 6px;
   margin-top: 6px;
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   letter-spacing: 0.14em;
   color: var(--muted);
 }
@@ -261,7 +261,7 @@ body {
 .menu-item em {
   grid-row: 1 / span 2;
   align-self: center;
-  font: 700 12px var(--mono);
+  font: 700 12px var(--body);
   font-style: normal;
   color: var(--muted);
 }
@@ -271,7 +271,7 @@ body {
   text-transform: lowercase;
 }
 .menu-item small {
-  font: 400 11px var(--mono);
+  font: 400 11px var(--body);
   letter-spacing: 0;
   color: var(--muted);
 }
@@ -307,7 +307,7 @@ body {
 .how {
   margin: 0;
   max-width: none;
-  font: 400 10px var(--mono);
+  font: 400 10px var(--body);
   line-height: 1.4;
   color: var(--muted);
   text-align: left;
@@ -347,7 +347,7 @@ body {
   gap: 6px;
   padding: 7px 4px;
   border-radius: 99px;
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -417,7 +417,7 @@ body {
   color: var(--case-hi);
 }
 .plate span {
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   letter-spacing: 0.14em;
   color: var(--orange);
 }
@@ -444,7 +444,7 @@ body {
   gap: 8px;
 }
 .meter span {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   color: var(--ink-2);
   text-transform: lowercase;
 }
@@ -465,7 +465,7 @@ body {
 }
 .pv-note {
   margin: 0;
-  font: 400 11px var(--mono);
+  font: 400 11px var(--body);
   color: var(--muted);
 }
 .ver-tabs {
@@ -484,7 +484,7 @@ body {
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
-  font: 700 13px var(--mono);
+  font: 700 13px var(--body);
   cursor: pointer;
 }
 .ver-tabs button.on {
@@ -518,7 +518,7 @@ body {
   background: linear-gradient(180deg, var(--case-hi), var(--case));
   box-shadow: var(--key-shadow);
   color: var(--ink-2);
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -614,11 +614,11 @@ body {
   color: var(--ink);
 }
 .set-head em {
-  font: 400 10px var(--mono);
+  font: 400 10px var(--body);
   color: var(--muted);
 }
 .setting > span {
-  font: 400 11px var(--mono);
+  font: 400 11px var(--body);
   line-height: 1.45;
   color: var(--ink-2);
 }
@@ -635,7 +635,7 @@ body {
   border-radius: 7px;
   background: linear-gradient(180deg, var(--case-hi), var(--case));
   color: var(--ink-2);
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   letter-spacing: 0;
   box-shadow: 0 1px 0 #fff inset, 0 2px 0 #7f776a;
 }
@@ -667,7 +667,7 @@ body {
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   letter-spacing: 0;
   text-transform: lowercase;
   clip-path: none;
@@ -682,11 +682,11 @@ body {
   border-radius: 14px;
   background: var(--char);
   color: var(--orange);
-  font: 700 12px var(--mono);
+  font: 700 12px var(--body);
 }
 .lab-link small {
   color: var(--case-lo);
-  font-family: var(--mono);
+  font-family: var(--body);
 }
 #settings-done {
   width: min(420px, 100%);
@@ -703,10 +703,10 @@ body {
 }
 .stats div {
   padding: 6px 2px;
-  font: 700 18px var(--mono);
+  font: 700 18px var(--body);
 }
 .stats span {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   color: var(--lcd-dim);
 }
 .arcade-next {
@@ -714,15 +714,15 @@ body {
   margin: 0;
 }
 .arcade-next b {
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   color: var(--amber);
 }
 .arcade-next span {
-  font: 400 10px var(--mono);
+  font: 400 10px var(--body);
   color: var(--lcd-dim);
 }
 .arcade-next em {
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   color: var(--lcd-ink);
 }
 .arcade-next.boss {
@@ -752,7 +752,7 @@ body {
 }
 .unit-name .tag {
   border-radius: 4px;
-  font: 700 8px var(--mono);
+  font: 700 8px var(--body);
   color: var(--case-hi);
   background: var(--char);
 }
@@ -772,12 +772,12 @@ body {
   background: #24211d;
 }
 .readout {
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   color: var(--ink-2);
   text-shadow: none;
 }
 .item-tag {
-  font: 700 8px var(--mono);
+  font: 700 8px var(--body);
   color: var(--orange-lo);
 }
 .hp,
@@ -852,7 +852,7 @@ body {
   background: var(--amber);
 }
 .sm-label {
-  font: 700 8px var(--mono);
+  font: 700 8px var(--body);
   letter-spacing: 0.08em;
   color: var(--muted);
 }
@@ -888,7 +888,7 @@ body {
   background: repeating-linear-gradient(0deg, #0f170f 0 1px, var(--lcd) 1px 3px);
 }
 #clock {
-  font: 700 22px var(--mono);
+  font: 700 22px var(--body);
   color: var(--lcd-ink);
   text-shadow: none;
 }
@@ -907,7 +907,7 @@ body {
   clip-path: none;
   background: linear-gradient(180deg, var(--case-hi), var(--case));
   color: var(--ink);
-  font: 700 12px var(--mono);
+  font: 700 12px var(--body);
   box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--case-deep), 0 4px 6px rgba(0, 0, 0, 0.35);
 }
 .icon-btn:active {
@@ -936,7 +936,7 @@ body {
   border-radius: 5px;
   background: var(--lcd);
   color: var(--lcd-ink);
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
 }
 #reload {
   height: 5px;
@@ -995,7 +995,7 @@ body {
   border-radius: 3px;
   background: var(--case);
   color: var(--ink-2);
-  font: 700 7px var(--mono);
+  font: 700 7px var(--body);
 }
 
 /* item slot: a square key with an LCD window */
@@ -1036,16 +1036,16 @@ body {
 }
 .item-name {
   margin-top: 8px;
-  font: 700 8px var(--mono);
+  font: 700 8px var(--body);
 }
 .item-key {
-  font: 400 7px var(--mono);
+  font: 400 7px var(--body);
   color: var(--ink-2);
 }
 .effect {
   border-radius: 8px;
   clip-path: none;
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   color: var(--ink);
   border: 1px solid rgba(0, 0, 0, 0.25);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
@@ -1053,7 +1053,7 @@ body {
 #toast {
   border-radius: 10px;
   clip-path: none;
-  font: 700 13px var(--mono);
+  font: 700 13px var(--body);
   color: var(--ink);
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
 }
@@ -1085,7 +1085,7 @@ body {
   border-color: #a8332f;
   background: radial-gradient(circle at 40% 30%, #ff8a6a, #ef4f3a 55%, #cf3a2a);
   color: #3a0d08;
-  font: 700 14px var(--mono);
+  font: 700 14px var(--body);
   letter-spacing: 0.08em;
   box-shadow: 0 2px 0 #ffb4a0 inset, 0 -4px 0 #b8352a inset, 0 6px 0 #8a2418, 0 10px 16px rgba(0, 0, 0, 0.45);
 }
@@ -1106,7 +1106,7 @@ body.pressing .pad-btn.fire.held {
   background: linear-gradient(180deg, var(--char-2), var(--char));
 }
 .pad-btn small {
-  font: 700 7px var(--mono);
+  font: 700 7px var(--body);
   opacity: 1;
 }
 .pad-fire.triple .mini {
@@ -1136,7 +1136,7 @@ body.pressing .pad-btn.fire.held {
   background: var(--orange);
 }
 #hints .hint {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   letter-spacing: 0.04em;
   color: var(--ink);
   border: 1px solid var(--case-edge);
@@ -1156,7 +1156,7 @@ body.pressing .pad-btn.fire.held {
     0 6px 0 rgba(0, 0, 0, 0.35);
 }
 #banner .sub {
-  font: 700 14px var(--mono);
+  font: 700 14px var(--body);
   letter-spacing: 0.14em;
   color: var(--amber);
   text-transform: uppercase;
@@ -1189,14 +1189,14 @@ body.pressing .pad-btn.fire.held {
   text-shadow: none;
 }
 .ic-tag {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   color: var(--orange-lo);
 }
 .p2 .ic-tag {
   color: var(--coral);
 }
 .ic-sub {
-  font: 400 11px var(--mono);
+  font: 400 11px var(--body);
   letter-spacing: 0.02em;
   color: var(--muted);
 }
@@ -1215,11 +1215,11 @@ body.pressing .pad-btn.fire.held {
 }
 .intro-skip,
 #replay .intro-skip {
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   color: var(--case-lo);
 }
 .replay-tag {
-  font: 700 14px var(--mono);
+  font: 700 14px var(--body);
   color: var(--case-hi);
 }
 .replay-tag i {
@@ -1233,7 +1233,7 @@ body.pressing .pad-btn.fire.held {
   background: var(--case);
   border: 1px solid var(--case-edge);
   color: var(--ink);
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   text-shadow: none;
   box-shadow: 0 2px 0 var(--case-deep);
 }
@@ -1263,14 +1263,14 @@ body.pressing .pad-btn.fire.held {
   padding: 1px 5px;
   border-radius: 4px;
   background: var(--char);
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   text-shadow: none;
 }
 #fps {
   border-radius: 6px;
   background: var(--lcd);
   color: var(--lcd-ink);
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
 }
 .panels.rules .set-head em {
   display: none;
@@ -1286,7 +1286,7 @@ body.pressing .pad-btn.fire.held {
   margin-top: 16px;
 }
 #mute-btn {
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
 }
 
 /* health-bar head shots: the unit's 3/4 portrait, zoomed to the head, facing the centre */
@@ -1338,13 +1338,13 @@ body.pressing .pad-btn.fire.held {
   color: var(--ink);
 }
 .pf-head span {
-  font: 400 10px var(--mono);
+  font: 400 10px var(--body);
   color: var(--muted);
   text-align: right;
 }
 .profile p {
   margin: 5px 0 7px;
-  font: 400 11px/1.4 var(--mono);
+  font: 400 11px/1.4 var(--body);
   color: var(--ink-2);
 }
 .pf-tags {
@@ -1356,7 +1356,7 @@ body.pressing .pad-btn.fire.held {
   padding: 3px 7px;
   border-radius: 99px;
   background: var(--case-lo);
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   font-style: normal;
   color: var(--ink-2);
 }
@@ -1622,4 +1622,15 @@ body.pressing .pad-btn.fire.held {
     animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* monospace only lives inside the black screens: LCD panels, the clock, ammo and FPS readouts */
+.lcd,
+.lcd *,
+#clock,
+.ammo-count,
+#fps,
+#loading,
+#loading * {
+  font-family: var(--mono);
 }
