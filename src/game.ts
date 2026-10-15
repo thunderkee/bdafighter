@@ -700,7 +700,7 @@ export class Game {
           .setEnabled(false),
       );
       const collider = this.world.createCollider(
-        RAPIER.ColliderDesc.ball(0.22)
+        RAPIER.ColliderDesc.ball(0.33)
           .setRestitution(0.82)
           .setFriction(0)
           .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS)
@@ -717,7 +717,7 @@ export class Game {
         age: 0,
         bounces: 0,
         damage: 0,
-        radius: 0.22,
+        radius: 0.33,
         spawnOrder: 0,
         kind: 'normal',
         weave: 1,
