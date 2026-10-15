@@ -64,6 +64,10 @@ export interface CharacterDef {
   v2?: boolean;
   /** 2.0 humanoids: built on the shared 2.0 chassis, dressed in this character kit */
   kit?: 'mech' | 'eva' | 'beetle' | 'megatron' | 'lizard';
+  /** 2.0 humanoids: 'punch' throws the right arm straight out at the target, body leaning in */
+  pose?: 'punch';
+  /** 2.0 humanoids: a chest emblem in place of the core marble */
+  emblem?: 'skull';
   /** 2.0 units: the original they're made from (its shipped design carries over) */
   from?: string;
   /** 2.0 units: body scale (x wide, y tall, z deep) so the whole roster shares one proportion */
@@ -267,6 +271,8 @@ const ORIGINALS: CharacterDef[] = [
  */
 type V2Look = {
   kit?: CharacterDef['kit'];
+  pose?: CharacterDef['pose'];
+  emblem?: CharacterDef['emblem'];
   fit?: [number, number, number];
   grow?: CharacterDef['grow'];
   /** the 2.0's own colour scheme (its "2P" colours) */
@@ -277,14 +283,16 @@ const V2: Record<string, V2Look> = {
   dragon: { kit: 'mech', ball: 0x5aff9a, palette: { body: 0x1f8a5a, trim: 0x2a3a34, accent: 0xffc23d, joint: 0x16201c, eye: 0xffe14d } },
   pioneer: { kit: 'mech', ball: 0xffc27a, palette: { body: 0xd8c49a, trim: 0x5a6a3a, accent: 0xe8762a, joint: 0x4a4438, eye: 0x7ff0ff } },
   monoceros: { kit: 'mech', ball: 0xffb02e, palette: { body: 0x23242c, trim: 0x3a3c46, accent: 0xffc23d, joint: 0x121218, eye: 0xff3a3a } },
-  baron: { kit: 'mech', ball: 0x6fb4ff, palette: { body: 0x2a4fb8, trim: 0x1a2f78, accent: 0xffc23d, joint: 0x1c2030, eye: 0xffe14d } },
-  bastion: { kit: 'mech', ball: 0x6fe0ff, palette: { body: 0xe8f2f8, trim: 0x2a8ac8, accent: 0xff8a1a, joint: 0x4a5664, eye: 0xffe14d } },
+  baron: { kit: 'mech', pose: 'punch', ball: 0x6fb4ff, palette: { body: 0x2a4fb8, trim: 0x1a2f78, accent: 0xffc23d, joint: 0x1c2030, eye: 0xffe14d } },
+  // the Punisher: black armour, white skull, red accents
+  bastion: { kit: 'mech', emblem: 'skull', ball: 0xff3a3a, palette: { body: 0x1c1c20, trim: 0xeeeeea, accent: 0xd8262b, joint: 0x2c2c32, eye: 0xff2a2a } },
   nightshade: { kit: 'mech', ball: 0xff7ae0, palette: { body: 0xe6e2f0, trim: 0x7a5ad8, accent: 0xff3acd, joint: 0x3a3448, eye: 0xff3acd } },
   angel: { kit: 'mech', ball: 0xff5a6a, palette: { body: 0x2e313d, trim: 0xd8263a, accent: 0xffc23d, joint: 0x16171e, eye: 0xff4a4a } },
   liberty: { kit: 'mech', ball: 0xfff07a, palette: { body: 0x1f2028, trim: 0xd9a92a, accent: 0xffe08a, joint: 0x3a3a44, eye: 0x6dff9a } },
-  violet: { kit: 'eva', ball: 0xff8a3a, palette: { body: 0xd8262b, trim: 0x2a1a1c, accent: 0xffa21a, joint: 0x1e1416, eye: 0x7ff0ff } },
+  violet: { kit: 'eva', pose: 'punch', ball: 0xff8a3a, palette: { body: 0xd8262b, trim: 0x2a1a1c, accent: 0xffa21a, joint: 0x1e1416, eye: 0x7ff0ff } },
   kabuto: {
     kit: 'beetle',
+    pose: 'punch',
     ball: 0x7ff0ff,
     palette: { body: 0xeef2f6, trim: 0x2a3a5a, accent: 0x2ad0c8, joint: 0x2c3440, eye: 0xffb02e },
   },
@@ -307,7 +315,7 @@ export const BUILTINS: readonly CharacterDef[] = [
     // wings follow the new body and trim
     palette.wing = palette.body;
     palette.wingTip = palette.trim;
-    return { ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!v.kit, kit: v.kit, fit: v.fit, grow: v.grow, ball: v.ball, palette };
+    return { ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!v.kit, kit: v.kit, pose: v.pose, emblem: v.emblem, fit: v.fit, grow: v.grow, ball: v.ball, palette };
   }),
 ];
 
@@ -1393,19 +1401,30 @@ export class ShooterMesh {
       this.turret.add(box(0.5, 0.42, 0.06, m.trim, 0, 0.3, -0.33));
       for (const y of [0.2, 0.3, 0.4]) this.turret.add(box(0.44, 0.015, 0.02, m.joint, 0, y, -0.365));
     } else {
+      const skull = def.emblem === 'skull';
       for (const side of [-1, 1]) {
-        const pec = box(0.36, 0.2, 0.08, m.trim, side * 0.21, 0.4, -0.32);
+        const pec = box(0.36, 0.2, 0.08, skull ? m.body : m.trim, side * 0.21, 0.4, -0.32);
         pec.rotation.z = side * -0.18;
         this.turret.add(pec);
         this.turret.add(box(0.14, 0.05, 0.04, def.darkFace ? m.accent : m.gold, side * 0.26, 0.31, -0.37));
       }
-      const core = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), m.ballMat);
-      core.position.set(0, 0.36, -0.35);
-      this.turret.add(core);
+      if (skull) {
+        // the white skull across the chest: cranium, cheeks, hollow eyes, long teeth
+        const z = -0.375;
+        this.turret.add(box(0.32, 0.15, 0.03, white, 0, 0.47, z), box(0.26, 0.07, 0.03, white, 0, 0.37, z));
+        for (const side of [-1, 1]) this.turret.add(box(0.09, 0.07, 0.02, hole, side * 0.075, 0.43, z - 0.012));
+        this.turret.add(box(0.03, 0.04, 0.02, hole, 0, 0.375, z - 0.012));
+        for (let k = 0; k < 5; k++) this.turret.add(box(0.036, 0.14, 0.03, white, -0.1 + k * 0.05, 0.27, z));
+      } else {
+        const core = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), m.ballMat);
+        core.position.set(0, 0.36, -0.35);
+        this.turret.add(core);
+      }
     }
 
     // ---------- the gun: a chest cannon, unless the kit carries its own ----------
     const chestGun = kit === 'mech';
+    const punch = def.pose === 'punch';
     if (chestGun) {
       this.markBelly(this.turret, 0, 0.16, -0.66);
       this.barrel.position.set(0, 0.16, -0.32);
@@ -1423,9 +1442,11 @@ export class ShooterMesh {
     } else if (kit === 'lizard') {
       this.markBelly(this.turret, 0, 0.76, -0.68); // the mouth
     } else if (kit === 'beetle') {
-      this.markBelly(this.turret, 0.66, 0, -0.64); // the right forearm gun
+      if (punch) this.markBelly(this.turret, 0.6, 0.44, -0.99); // the twin cannon on the thrown fist
+      else this.markBelly(this.turret, 0.66, 0, -0.64); // the right forearm gun
     } else if (kit === 'eva') {
-      this.markBelly(this.turret, 0.52, 0.02, -0.98); // the rifle in the right hand
+      if (punch) this.markBelly(this.turret, 0.6, 0.16, -1.37); // the rifle in the outstretched hand
+      else this.markBelly(this.turret, 0.52, 0.02, -0.98); // the rifle in the right hand
     } else {
       this.markBelly(this.turret, 0, 0.16, -0.4);
     }
@@ -1449,7 +1470,22 @@ export class ShooterMesh {
           spike.position.set(side * 0.22, 0.14, sz);
           sh.add(spike);
         }
+      // the attack pose: the right arm thrown straight out at the target
+      const thrown = punch && side === 1;
+      if (thrown) {
+        sh.add(box(0.15, 0.16, 0.18, m.joint, 0, -0.14, -0.14));
+        piston(sh, V(0.1, -0.06, -0.06), V(0.1, -0.08, -0.46));
+        const g = new THREE.Group();
+        g.position.set(0, -0.14, -0.53);
+        g.add(box(0.25, 0.26, 0.3, def.darkFace ? m.trim : m.body));
+        ventX(g, 0.14, -0.06, 0, 3, 0.2, 1);
+        g.add(box(0.27, 0.28, 0.06, m.accent, 0, 0, 0.15));
+        sh.add(g);
+        sh.add(box(0.24, 0.24, 0.22, m.joint, 0, -0.14, -0.78)); // fist
+        sh.add(box(0.2, 0.2, 0.3, m.joint, 0, -0.14, -0.3)); // upper arm
+      }
       // arm: slim upper arm, elbow piston, chunky ribbed gauntlet, fist
+      if (!thrown) {
       sh.add(box(0.14, 0.16, 0.14, m.joint, 0, -0.22, -0.02));
       piston(sh, V(side * 0.09, -0.16, 0.04), V(side * 0.1, -0.32, -0.08));
       const gauntlet = new THREE.Group();
@@ -1460,6 +1496,7 @@ export class ShooterMesh {
       gauntlet.add(box(0.27, 0.06, 0.3, m.accent, 0, 0.1, 0));
       sh.add(gauntlet);
       sh.add(box(0.22, 0.2, 0.22, m.joint, -side * 0.08, -0.42, -0.24)); // fist
+      }
       if (kit === 'lizard') {
         for (const dx of [-0.06, 0, 0.06]) {
           const claw = cone(0.03, 0.12, white);
@@ -1476,7 +1513,7 @@ export class ShooterMesh {
         sh.add(box(0.09, 0.1, 0.31, m.accent, side * 0.18, 0.66, 0));
         sh.add(box(0.09, 0.04, 0.31, m.accent, side * 0.17, 0.4, 0));
       }
-      if (kit === 'beetle') {
+      if (kit === 'beetle' && !thrown) {
         // Metabee: a black gun barrel along each forearm
         const gun = cyl(0.05, 0.3, m.trim);
         gun.rotation.x = Math.PI / 2;
@@ -1504,7 +1541,8 @@ export class ShooterMesh {
     // EVA: a pallet rifle in the right hand is the gun, pointing down the lane
     if (kit === 'eva') {
       const gunmetal = this.paint(0x5d646e);
-      this.barrel.position.set(0.52, 0.02, -0.36);
+      if (punch) this.barrel.position.set(0.6, 0.16, -0.74);
+      else this.barrel.position.set(0.52, 0.02, -0.36);
       this.barrel.add(box(0.13, 0.15, 0.5, gunmetal, 0, 0, -0.1)); // receiver
       this.barrel.add(box(0.1, 0.16, 0.2, gunmetal, 0, -0.02, 0.24)); // stock
       this.barrel.add(box(0.06, 0.16, 0.08, black, 0, -0.14, -0.08)); // magazine
@@ -1519,10 +1557,26 @@ export class ShooterMesh {
       bore.position.z = -0.6;
       this.barrel.add(tube, bore);
       this.turret.add(this.barrel);
-      this.barrelZ = -0.36;
+      this.barrelZ = this.barrel.position.z;
     }
     // Metabee's right forearm gun is the main gun; it recoils on every shot
-    if (kit === 'beetle') {
+    if (kit === 'beetle' && punch) {
+      // Metabee's twin cannon, mounted over the thrown fist
+      this.barrel.position.set(0.6, 0.44, -0.72);
+      this.barrel.add(box(0.28, 0.15, 0.3, m.body, 0, 0, 0));
+      this.barrel.add(box(0.3, 0.03, 0.32, m.trim, 0, -0.07, 0));
+      for (const x of [-0.07, 0.07]) {
+        const tube = cyl(0.055, 0.1, m.trim);
+        tube.rotation.x = Math.PI / 2;
+        tube.position.set(x, 0, -0.19);
+        const bore = cyl(0.035, 0.02, hole);
+        bore.rotation.x = Math.PI / 2;
+        bore.position.set(x, 0, -0.245);
+        this.barrel.add(tube, bore);
+      }
+      this.turret.add(this.barrel);
+      this.barrelZ = -0.72;
+    } else if (kit === 'beetle') {
       this.barrel.position.set(0.66, 0.0, -0.34);
       const tube = cyl(0.06, 0.34, m.trim);
       tube.rotation.x = Math.PI / 2;
@@ -1788,6 +1842,8 @@ export class ShooterMesh {
     this.trigger = box(0.26, 0.16, 0.16, m.gold, 0, 0.06, 0.5);
     this.triggerZ = 0.5;
     this.turret.add(this.trigger);
+    // leaning into the punch
+    if (punch) this.turret.rotation.x = -0.12;
   }
 
   // ---------- hero builds from the reference sheets (more shapes: rounded armour, capsules, curves) ----------
