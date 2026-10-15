@@ -259,8 +259,82 @@ function rebuildPreview() {
   const d = def();
   model = new ShooterMesh(d.id, d.ball, { ...d, blueprint: draft });
   scene.add(model.root);
+  addBallExitMarker();
   updateHelper();
 }
+
+/**
+ * Show the BALL EXIT block (an empty marker) as a glowing marble with an arrow pointing the way
+ * it fires, drawn through the body so it can always be seen, clicked and dragged.
+ */
+function addBallExitMarker() {
+  const mark = model?.bellyMark;
+  if (!mark || !mark.userData.path) return;
+  const path = mark.userData.path as string;
+  const onTop = { transparent: true, depthTest: false, depthWrite: false };
+  const ballColor = def().ball;
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 18, 12), new THREE.MeshBasicMaterial({ color: ballColor, opacity: 0.85, ...onTop }));
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.17, 18, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.18, ...onTop }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.012, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffd23e, opacity: 0.95, ...onTop }));
+  // the marble flies toward the unit's front (-z)
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.32, 8), new THREE.MeshBasicMaterial({ color: 0xffd23e, ...onTop }));
+  shaft.rotation.x = Math.PI / 2;
+  shaft.position.z = -0.3;
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.11, 12), new THREE.MeshBasicMaterial({ color: 0xffd23e, ...onTop }));
+  tip.rotation.x = -Math.PI / 2;
+  tip.position.z = -0.5;
+  for (const m of [ball, halo, ring, shaft, tip]) {
+    m.userData.path = path;
+    m.userData.labHelper = true;
+    m.renderOrder = 12;
+    mark.add(m);
+  }
+}
+
+/** the BALL EXIT block's path, if the design has one */
+function ballExitPath(): string | null {
+  const find = (b: Block, path: string): string | null => {
+    if (b.role === 'belly') return path;
+    for (let i = 0; i < (b.children?.length ?? 0); i++) {
+      const hit = find(b.children![i], `${path}/${i}`);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return find(draft, 'r');
+}
+
+/** select the ball exit to drag it; a design without one gets one on the front of the chest */
+function selectBallExit() {
+  exitEditQuiet();
+  cancelDraw();
+  let path = ballExitPath();
+  if (!path) {
+    pushUndo();
+    // inside the aiming block when there is one, so it turns with the aim
+    const findTurret = (b: Block, p: string): string | null => {
+      if (b.role === 'turret') return p;
+      for (let i = 0; i < (b.children?.length ?? 0); i++) {
+        const hit = findTurret(b.children![i], `${p}/${i}`);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const parentP = findTurret(draft, 'r') ?? 'r';
+    const block: Block = { shape: 'group', name: 'Ball exit', role: 'belly', p: parentP === 'r' ? [0, 0.8, -0.45] : [0, 0.2, -0.4], r: [0, 0, 0], s: [1, 1, 1] };
+    const i = insertInto(getBlock(parentP)!, block);
+    path = `${parentP}/${i}`;
+    designChanged(true);
+  }
+  selected = path;
+  selection = [path];
+  setGizmoMode('translate');
+  showTab('blocks');
+  renderTree();
+  renderForm();
+  updateHelper();
+}
+$('ball-exit').addEventListener('click', selectBallExit);
 /** the preview object built from the block at `path` */
 function objOf(path: string): THREE.Object3D | null {
   if (!model) return null;
@@ -1804,6 +1878,13 @@ function renderForm() {
     }
   }
 
+  if (b.role === 'belly') {
+    const note = document.createElement('p');
+    note.className = 'empty';
+    note.textContent = 'Ball exit: where the marble leaves your unit (the glowing marble with the arrow). Drag it on the canvas or set its position below; the arrow shows the way it fires. Put it inside the AIMS block so it turns with the aim.';
+    form.appendChild(note);
+  }
+
   section('PLACE');
   row3('Position', b.p, 0.01, (v) => v, (v) => v, (i, v) => (b.p[i] = v), 'p');
   row3('Rotate °', b.r, 1, (v) => Math.round(v * DEG * 10) / 10, (v) => v / DEG, (i, v) => (b.r[i] = v), 'r');
@@ -1971,6 +2052,10 @@ window.addEventListener('keydown', (e) => {
     else if (k === 'w') setGizmoMode('translate');
     else if (k === 'e') setGizmoMode('rotate');
     else if (k === 'r') setGizmoMode('scale');
+    return;
+  }
+  if (!e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 'b') {
+    selectBallExit();
     return;
   }
   const modes: Record<string, GizmoMode> = { w: 'translate', e: 'rotate', r: 'scale' };
