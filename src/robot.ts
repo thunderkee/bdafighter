@@ -58,10 +58,16 @@ export interface CharacterDef {
   blueprint?: Block;
   /** custom units: the built-in they started from */
   base?: string;
+  /** 2.0 body: hero proportions (V chest, narrow waist, angled armour, V brow) */
+  v2?: boolean;
+  /** 2.0 units: the original they're made from (its shipped design carries over) */
+  from?: string;
+  /** 2.0 units: body scale (x wide, y tall, z deep) so the whole roster shares one proportion */
+  fit?: [number, number, number];
 }
 
 /** the units as shipped; the roster layers edits and custom units on top */
-export const BUILTINS: readonly CharacterDef[] = [
+const ORIGINALS: CharacterDef[] = [
   {
     id: 'angel',
     ball: 0x6fa8ff,
@@ -249,6 +255,32 @@ export const BUILTINS: readonly CharacterDef[] = [
 ];
 
 /**
+ * 2.0 versions of every unit, to try side by side with the originals: the stock mechs get the
+ * hero-proportion body, and every 2.0 shares one body size (about as wide and tall as those
+ * mechs), so thin or small units fill out to match. Beasts on four legs scale evenly.
+ */
+const V2: Record<string, { fit?: [number, number, number]; body?: boolean }> = {
+  dragon: { body: true },
+  pioneer: { body: true },
+  monoceros: { body: true },
+  baron: { body: true },
+  bastion: { body: true },
+  nightshade: { body: true },
+  angel: { fit: [1.08, 1, 1.05] },
+  liberty: { fit: [1.08, 1, 1.05] },
+  violet: { fit: [1.4, 0.92, 1.1] },
+  kabuto: { fit: [1.45, 1.02, 1.25] },
+  ember: { fit: [1.6, 1.3, 1.15] },
+  tyrant: { fit: [1.05, 1.07, 1.05] },
+  liger: { fit: [1.15, 1.15, 1.15] },
+  rex: { fit: [1.12, 1.12, 1.12] },
+};
+export const BUILTINS: readonly CharacterDef[] = [
+  ...ORIGINALS,
+  ...ORIGINALS.filter((o) => V2[o.id]).map((o) => ({ ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!V2[o.id].body, fit: V2[o.id].fit })),
+];
+
+/**
  * Unit Lab designs that ship with the game: everyone gets these as the built-ins'
  * defaults. Exported from the Unit Lab roster (src/roster-shipped.json).
  */
@@ -279,7 +311,11 @@ export function setPublished(data: RosterData) {
 /** a built-in unit as everyone gets it: shipped design, then the published one */
 export const shippedById = (id: string) => {
   const b = BUILTINS.find((c) => c.id === id);
-  return b ? applyEntry(applyEntry(b, SHIPPED.units[id]), PUBLISHED.units[id]) : undefined;
+  if (!b) return undefined;
+  // a 2.0 unit starts from its original's shipped and published design
+  const shipped = SHIPPED.units[id] ?? (b.from ? SHIPPED.units[b.from] : undefined);
+  const published = PUBLISHED.units[id] ?? (b.from ? PUBLISHED.units[b.from] : undefined);
+  return applyEntry(applyEntry(b, shipped), published);
 };
 
 /** built-ins with the shipped and published designs, then this device's edits; then shared and own custom units */
@@ -311,6 +347,8 @@ export class ShooterMesh {
   root = new THREE.Group();
   /** model scale on top of the animation (an arcade boss stands taller) */
   size = 1;
+  /** a 2.0 unit's body proportions */
+  fit = new THREE.Vector3(1, 1, 1);
   /** everything above the hips; rotates with aim */
   turret: THREE.Object3D = new THREE.Group();
   barrel: THREE.Object3D = new THREE.Group();
@@ -340,6 +378,10 @@ export class ShooterMesh {
     this.id = def.id;
     this.ball = marbleColor;
     this.build(def, marbleColor);
+    if (def.fit) {
+      this.fit.set(...def.fit);
+      this.root.scale.copy(this.fit);
+    }
     // the roster's look is boxy: code-built units swap their round parts for square-sided ones
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
@@ -393,73 +435,157 @@ export class ShooterMesh {
       return;
     }
 
-    // --- legs: short shins on big feet ---
-    for (const side of [-1, 1]) {
-      const leg = new THREE.Group();
-      leg.position.set(side * 0.27, 0.48, 0);
-      leg.add(box(0.26, 0.22, 0.26, joint, 0, -0.08, 0)); // thigh joint
-      leg.add(box(0.32, 0.22, 0.34, body, 0, -0.24, 0)); // shin
-      leg.add(box(0.3, 0.1, 0.1, trim, 0, -0.18, -0.18)); // knee guard
-      leg.add(box(0.42, 0.18, 0.66, body, 0, -0.39, -0.06)); // foot
-      if (glowMat) leg.add(box(0.04, 0.2, 0.02, glowMat, 0, -0.26, -0.18));
-      if (def.feet === 'claw') {
-        for (const cx of [-0.12, 0, 0.12]) {
-          const claw = cone(0.05, 0.16, joint);
-          claw.rotation.x = -Math.PI / 2;
-          claw.position.set(cx, -0.42, -0.46);
-          leg.add(claw);
+    if (def.v2) {
+      // --- legs: slim thighs, an angled knee pad, flared boots on long wedge-toed feet ---
+      for (const side of [-1, 1]) {
+        const leg = new THREE.Group();
+        leg.position.set(side * 0.25, 0.54, 0);
+        leg.add(box(0.2, 0.14, 0.22, joint, 0, -0.03, 0)); // hip joint
+        leg.add(box(0.24, 0.2, 0.26, body, 0, -0.15, 0)); // thigh
+        const knee = box(0.28, 0.16, 0.12, trim, 0, -0.25, -0.15);
+        knee.rotation.x = -0.35;
+        leg.add(knee);
+        leg.add(box(0.06, 0.06, 0.02, gold, 0, -0.25, -0.22)); // knee bolt
+        leg.add(box(0.32, 0.22, 0.34, body, 0, -0.35, 0.01)); // shin
+        leg.add(box(0.38, 0.07, 0.4, accent, 0, -0.45, 0.01)); // boot flare
+        for (let k = 0; k < 2; k++) leg.add(box(0.02, 0.03, 0.2, joint, side * 0.165, -0.32 - k * 0.06, 0.02)); // shin vents
+        if (glowMat) leg.add(box(0.04, 0.18, 0.02, glowMat, 0, -0.34, -0.165));
+        leg.add(box(0.42, 0.1, 0.6, body, 0, -0.49, -0.07)); // foot
+        leg.add(box(0.34, 0.1, 0.12, joint, 0, -0.49, 0.24)); // heel
+        if (def.feet === 'claw') {
+          for (const cx of [-0.12, 0, 0.12]) {
+            const claw = cone(0.05, 0.18, joint);
+            claw.rotation.x = -Math.PI / 2;
+            claw.position.set(cx, -0.5, -0.45);
+            leg.add(claw);
+          }
+        } else {
+          // a toe that slopes down to the floor
+          const toe = box(0.4, 0.08, 0.2, accent, 0, -0.47, -0.42);
+          toe.rotation.x = 0.3;
+          leg.add(toe);
         }
-      } else {
-        leg.add(box(0.42, 0.1, 0.12, accent, 0, -0.42, -0.4)); // toe cap
+        this.root.add(leg);
+        this.legs.push(leg);
       }
-      // detail: knee seam, knee bolt, calf piston, shin vents, heel block, sole rim
-      leg.add(box(0.34, 0.035, 0.36, joint, 0, -0.13, 0));
-      leg.add(box(0.06, 0.06, 0.02, gold, 0, -0.18, -0.235));
-      const piston = cyl(0.028, 0.028, 0.2, trim, 8);
-      piston.position.set(side * 0.12, -0.25, 0.18);
-      leg.add(piston);
-      for (let k = 0; k < 3; k++) leg.add(box(0.02, 0.025, 0.2, trim, side * 0.165, -0.2 - k * 0.05, 0.02));
-      leg.add(box(0.2, 0.1, 0.08, trim, 0, -0.38, 0.29));
-      leg.add(box(0.44, 0.03, 0.68, joint, 0, -0.465, -0.06));
-      this.root.add(leg);
-      this.legs.push(leg);
-    }
-    this.root.add(box(0.62, 0.16, 0.44, def.darkFace ? joint : accent, 0, 0.56, 0)); // waist
-    this.root.add(box(0.22, 0.18, 0.08, gold, 0, 0.54, -0.24)); // belt buckle
+      // a narrow waist with a buckle and a skirt of armour plates
+      this.root.add(box(0.44, 0.14, 0.34, def.darkFace ? joint : accent, 0, 0.6, 0));
+      this.root.add(box(0.2, 0.16, 0.08, gold, 0, 0.59, -0.2));
+      for (const side of [-1, 1]) {
+        const front = box(0.2, 0.2, 0.05, body, side * 0.13, 0.48, -0.21);
+        front.rotation.x = -0.18;
+        this.root.add(front);
+        const hip = box(0.05, 0.22, 0.28, trim, side * 0.27, 0.5, 0);
+        hip.rotation.z = side * 0.22;
+        this.root.add(hip);
+      }
 
-    // --- upper body ---
-    this.turret.position.y = 0.62;
-    this.root.add(this.turret);
+      // --- upper body: a broad chest over the narrow waist ---
+      this.turret.position.y = 0.64;
+      this.root.add(this.turret);
 
-    // torso (core slot)
-    this.turret.add(box(0.8, 0.5, 0.6, body, 0, 0.25, 0));
-    // the marble leaves through the belly cannon's mouth (the rex-head unit has no cannon, so its belly)
-    if (def.barrel === 'rexhead') this.markBelly(this.turret, 0, 0.06, -0.36);
-    else this.markBelly(this.turret, 0, 0.16, -0.66);
-    this.turret.add(box(0.7, 0.26, 0.1, trim, 0, 0.33, -0.3)); // chest block
-    for (const side of [-1, 1]) this.turret.add(box(0.18, 0.08, 0.04, def.darkFace ? accent : gold, side * 0.2, 0.38, -0.36)); // vents
-    if (glowMat) {
-      this.turret.add(box(0.04, 0.4, 0.02, glowMat, 0, 0.25, -0.36));
-      for (const side of [-1, 1]) this.turret.add(box(0.02, 0.36, 0.5, glowMat, side * 0.41, 0.25, 0));
+      this.turret.add(box(0.5, 0.16, 0.42, joint, 0, 0.08, 0)); // abdomen
+      this.turret.add(box(0.7, 0.16, 0.54, body, 0, 0.18, 0)); // lower chest
+      this.turret.add(box(0.94, 0.32, 0.62, body, 0, 0.38, 0)); // upper chest
+      // the marble leaves through the belly cannon's mouth (the rex-head unit has no cannon, so its belly)
+      if (def.barrel === 'rexhead') this.markBelly(this.turret, 0, 0.06, -0.36);
+      else this.markBelly(this.turret, 0, 0.16, -0.66);
+      // angled chest plates meeting in a V, the core marble between them
+      for (const side of [-1, 1]) {
+        const pec = box(0.36, 0.2, 0.08, trim, side * 0.21, 0.4, -0.32);
+        pec.rotation.z = side * -0.18;
+        this.turret.add(pec);
+        this.turret.add(box(0.14, 0.05, 0.04, def.darkFace ? accent : gold, side * 0.26, 0.31, -0.37)); // vent
+      }
+      const coreBall = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), ballMat);
+      coreBall.position.set(0, 0.36, -0.35);
+      this.turret.add(coreBall);
+      this.turret.add(box(0.52, 0.08, 0.46, joint, 0, 0.57, 0)); // collar
+      if (glowMat) {
+        this.turret.add(box(0.04, 0.36, 0.02, glowMat, 0, 0.3, -0.36));
+        for (const side of [-1, 1]) this.turret.add(box(0.02, 0.28, 0.5, glowMat, side * 0.475, 0.38, 0));
+      }
+      // backpack with twin thrusters
+      this.turret.add(box(0.56, 0.38, 0.2, trim, 0, 0.34, 0.38));
+      for (const side of [-1, 1]) {
+        const thruster = cyl(0.075, 0.095, 0.18, joint, 12);
+        thruster.rotation.x = Math.PI / 2;
+        thruster.position.set(side * 0.17, 0.2, 0.52);
+        const nozzle = cyl(0.055, 0.055, 0.02, new THREE.MeshBasicMaterial({ color: 0x08060f }), 12);
+        nozzle.rotation.x = Math.PI / 2;
+        nozzle.position.set(side * 0.17, 0.2, 0.615);
+        this.turret.add(thruster, nozzle);
+      }
+    } else {
+      // --- legs: short shins on big feet ---
+      for (const side of [-1, 1]) {
+        const leg = new THREE.Group();
+        leg.position.set(side * 0.27, 0.48, 0);
+        leg.add(box(0.26, 0.22, 0.26, joint, 0, -0.08, 0)); // thigh joint
+        leg.add(box(0.32, 0.22, 0.34, body, 0, -0.24, 0)); // shin
+        leg.add(box(0.3, 0.1, 0.1, trim, 0, -0.18, -0.18)); // knee guard
+        leg.add(box(0.42, 0.18, 0.66, body, 0, -0.39, -0.06)); // foot
+        if (glowMat) leg.add(box(0.04, 0.2, 0.02, glowMat, 0, -0.26, -0.18));
+        if (def.feet === 'claw') {
+          for (const cx of [-0.12, 0, 0.12]) {
+            const claw = cone(0.05, 0.16, joint);
+            claw.rotation.x = -Math.PI / 2;
+            claw.position.set(cx, -0.42, -0.46);
+            leg.add(claw);
+          }
+        } else {
+          leg.add(box(0.42, 0.1, 0.12, accent, 0, -0.42, -0.4)); // toe cap
+        }
+        // detail: knee seam, knee bolt, calf piston, shin vents, heel block, sole rim
+        leg.add(box(0.34, 0.035, 0.36, joint, 0, -0.13, 0));
+        leg.add(box(0.06, 0.06, 0.02, gold, 0, -0.18, -0.235));
+        const piston = cyl(0.028, 0.028, 0.2, trim, 8);
+        piston.position.set(side * 0.12, -0.25, 0.18);
+        leg.add(piston);
+        for (let k = 0; k < 3; k++) leg.add(box(0.02, 0.025, 0.2, trim, side * 0.165, -0.2 - k * 0.05, 0.02));
+        leg.add(box(0.2, 0.1, 0.08, trim, 0, -0.38, 0.29));
+        leg.add(box(0.44, 0.03, 0.68, joint, 0, -0.465, -0.06));
+        this.root.add(leg);
+        this.legs.push(leg);
+      }
+      this.root.add(box(0.62, 0.16, 0.44, def.darkFace ? joint : accent, 0, 0.56, 0)); // waist
+      this.root.add(box(0.22, 0.18, 0.08, gold, 0, 0.54, -0.24)); // belt buckle
+
+      // --- upper body ---
+      this.turret.position.y = 0.62;
+      this.root.add(this.turret);
+
+      // torso (core slot)
+      this.turret.add(box(0.8, 0.5, 0.6, body, 0, 0.25, 0));
+      // the marble leaves through the belly cannon's mouth (the rex-head unit has no cannon, so its belly)
+      if (def.barrel === 'rexhead') this.markBelly(this.turret, 0, 0.06, -0.36);
+      else this.markBelly(this.turret, 0, 0.16, -0.66);
+      this.turret.add(box(0.7, 0.26, 0.1, trim, 0, 0.33, -0.3)); // chest block
+      for (const side of [-1, 1]) this.turret.add(box(0.18, 0.08, 0.04, def.darkFace ? accent : gold, side * 0.2, 0.38, -0.36)); // vents
+      if (glowMat) {
+        this.turret.add(box(0.04, 0.4, 0.02, glowMat, 0, 0.25, -0.36));
+        for (const side of [-1, 1]) this.turret.add(box(0.02, 0.36, 0.5, glowMat, side * 0.41, 0.25, 0));
+      }
+      const coreBall = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 8), ballMat);
+      coreBall.position.set(0, 0.45, -0.32);
+      this.turret.add(coreBall);
+      // detail: collar, chest panel lines, vented side armour, back plate and twin thrusters
+      this.turret.add(box(0.5, 0.06, 0.42, joint, 0, 0.52, 0));
+      for (const side of [-1, 1]) {
+        this.turret.add(box(0.015, 0.22, 0.015, joint, side * 0.28, 0.32, -0.352));
+        this.turret.add(box(0.04, 0.3, 0.42, trim, side * 0.41, 0.24, 0.02));
+        for (let k = 0; k < 3; k++) this.turret.add(box(0.045, 0.025, 0.32, joint, side * 0.415, 0.14 + k * 0.07, 0.02));
+        const thruster = cyl(0.075, 0.095, 0.18, joint, 12);
+        thruster.rotation.x = Math.PI / 2;
+        thruster.position.set(side * 0.22, 0.2, 0.38);
+        const nozzle = cyl(0.055, 0.055, 0.02, new THREE.MeshBasicMaterial({ color: 0x08060f }), 12);
+        nozzle.rotation.x = Math.PI / 2;
+        nozzle.position.set(side * 0.22, 0.2, 0.475);
+        this.turret.add(thruster, nozzle);
+      }
+      this.turret.add(box(0.6, 0.3, 0.05, trim, 0, 0.3, 0.32));
+
     }
-    const coreBall = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 8), ballMat);
-    coreBall.position.set(0, 0.45, -0.32);
-    this.turret.add(coreBall);
-    // detail: collar, chest panel lines, vented side armour, back plate and twin thrusters
-    this.turret.add(box(0.5, 0.06, 0.42, joint, 0, 0.52, 0));
-    for (const side of [-1, 1]) {
-      this.turret.add(box(0.015, 0.22, 0.015, joint, side * 0.28, 0.32, -0.352));
-      this.turret.add(box(0.04, 0.3, 0.42, trim, side * 0.41, 0.24, 0.02));
-      for (let k = 0; k < 3; k++) this.turret.add(box(0.045, 0.025, 0.32, joint, side * 0.415, 0.14 + k * 0.07, 0.02));
-      const thruster = cyl(0.075, 0.095, 0.18, joint, 12);
-      thruster.rotation.x = Math.PI / 2;
-      thruster.position.set(side * 0.22, 0.2, 0.38);
-      const nozzle = cyl(0.055, 0.055, 0.02, new THREE.MeshBasicMaterial({ color: 0x08060f }), 12);
-      nozzle.rotation.x = Math.PI / 2;
-      nozzle.position.set(side * 0.22, 0.2, 0.475);
-      this.turret.add(thruster, nozzle);
-    }
-    this.turret.add(box(0.6, 0.3, 0.05, trim, 0, 0.3, 0.32));
 
     if (def.barrel === 'rexhead') {
       // a T-rex head blaster held in front: the marble leaves its jaws
@@ -497,76 +623,162 @@ export class ShooterMesh {
     this.turret.add(this.barrel);
     }
 
-    // shoulders + stubby arms
-    for (const side of [-1, 1]) {
-      const sh = new THREE.Group();
-      sh.position.set(side * 0.55, 0.38, 0);
-      if (def.shoulders === 'spike') {
-        sh.add(box(0.32, 0.26, 0.36, body));
-        for (const sz of [-0.1, 0.1]) {
-          const spike = cone(0.06, 0.3, joint);
-          spike.rotation.z = -side * 1.2;
-          spike.position.set(side * 0.2, 0.12, sz);
-          sh.add(spike);
-        }
-      } else if (def.shoulders === 'heavy') {
-        sh.position.x = side * 0.6;
-        sh.add(box(0.44, 0.36, 0.5, body));
-        sh.add(box(0.46, 0.08, 0.52, trim, 0, 0.2, 0));
-        sh.add(box(0.06, 0.24, 0.4, accent, side * 0.24, -0.02, 0));
-        if (glowMat) sh.add(box(0.02, 0.26, 0.04, glowMat, side * 0.23, 0, -0.22));
-      } else {
-        sh.add(box(0.34, 0.3, 0.4, body));
-        sh.add(box(0.36, 0.08, 0.42, trim, 0, 0.17, 0));
-        sh.add(box(0.06, 0.18, 0.3, accent, side * 0.18, 0, 0));
-      }
-      const arm = box(0.2, 0.26, 0.22, def.darkFace ? trim : body, 0, -0.26, -0.06);
-      arm.rotation.x = -0.5;
-      const fist = box(0.22, 0.2, 0.22, joint, -side * 0.08, -0.4, -0.24);
-      sh.add(arm, fist);
-      // detail: shoulder rivets, elbow joint, forearm plate, wrist band
-      for (const rz of [-0.1, 0.1]) sh.add(box(0.04, 0.025, 0.04, gold, side * 0.08, 0.22, rz));
-      sh.add(new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), joint).translateY(-0.17).translateZ(0.02));
-      const plate = box(0.23, 0.08, 0.2, trim, 0, -0.3, -0.12);
-      plate.rotation.x = -0.5;
-      sh.add(plate);
-      sh.add(box(0.24, 0.04, 0.24, accent, -side * 0.08, -0.31, -0.24));
-      if (side === -1) this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
-      if (side === 1 && def.offhand === 'gatling') this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
-      this.turret.add(sh);
-    }
-
-    // big SD head
-    const head = new THREE.Group();
-    head.position.set(0, 0.86, -0.02);
-    head.add(box(0.74, 0.58, 0.66, body)); // helmet
-    head.add(box(0.5, 0.3, 0.06, def.darkFace ? joint : body, 0, -0.08, -0.34)); // faceplate
-    head.add(box(0.14, 0.1, 0.06, def.darkFace ? joint : accent, 0, -0.22, -0.36)); // chin
-    if (def.eyes === 'mono') {
-      // a visor slot with a single glowing eye
-      head.add(box(0.56, 0.12, 0.03, new THREE.MeshBasicMaterial({ color: 0x0b0710 }), 0, 0.03, -0.375));
-      head.add(box(0.12, 0.1, 0.02, eyeMat, 0.06, 0.03, -0.39));
-    } else {
+    if (def.v2) {
+      // shoulders: big layered pauldrons; arms: slim upper arms into chunky gauntlets
       for (const side of [-1, 1]) {
-        const eye = box(0.15, 0.06, 0.02, eyeMat, side * 0.12, 0.02, -0.38);
-        eye.rotation.z = side * (def.darkFace ? 0.35 : 0.18);
-        head.add(eye);
+        const sh = new THREE.Group();
+        sh.position.set(side * 0.6, 0.42, 0);
+        if (def.shoulders === 'spike') {
+          sh.add(box(0.36, 0.3, 0.42, body));
+          sh.add(box(0.4, 0.07, 0.46, trim, 0, 0.17, 0));
+          for (const sz of [-0.11, 0.11]) {
+            const spike = cone(0.07, 0.34, joint);
+            spike.rotation.z = -side * 1.2;
+            spike.position.set(side * 0.22, 0.14, sz);
+            sh.add(spike);
+          }
+        } else if (def.shoulders === 'heavy') {
+          sh.position.x = side * 0.64;
+          sh.add(box(0.48, 0.4, 0.54, body));
+          sh.add(box(0.52, 0.08, 0.58, trim, 0, 0.22, 0));
+          const flank = box(0.06, 0.3, 0.46, accent, side * 0.26, -0.02, 0);
+          flank.rotation.z = side * 0.15;
+          sh.add(flank);
+          if (glowMat) sh.add(box(0.02, 0.28, 0.04, glowMat, side * 0.25, 0, -0.24));
+        } else {
+          sh.add(box(0.38, 0.32, 0.46, body));
+          sh.add(box(0.42, 0.08, 0.5, trim, 0, 0.18, 0));
+          // an outer plate angled away from the body
+          const flank = box(0.06, 0.24, 0.38, accent, side * 0.21, -0.02, 0);
+          flank.rotation.z = side * 0.2;
+          sh.add(flank);
+        }
+        for (const rz of [-0.12, 0.12]) sh.add(box(0.04, 0.025, 0.04, gold, side * 0.08, 0.23, rz)); // rivets
+        sh.add(box(0.14, 0.16, 0.14, joint, 0, -0.22, -0.02)); // upper arm
+        const gauntlet = box(0.25, 0.26, 0.28, def.darkFace ? trim : body, -side * 0.02, -0.34, -0.12);
+        gauntlet.rotation.x = -0.5;
+        sh.add(gauntlet);
+        const cuff = box(0.27, 0.06, 0.3, accent, -side * 0.02, -0.25, -0.06);
+        cuff.rotation.x = -0.5;
+        sh.add(cuff);
+        sh.add(box(0.22, 0.2, 0.22, joint, -side * 0.08, -0.42, -0.24)); // fist
+        if (side === -1) this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
+        if (side === 1 && def.offhand === 'gatling') this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
+        this.turret.add(sh);
       }
+
+      // big SD head: a capped helmet, a V brow over the eyes, angled cheek guards
+      const head = new THREE.Group();
+      head.position.set(0, 0.9, -0.02);
+      head.scale.setScalar(1.06);
+      head.add(box(0.72, 0.56, 0.64, body)); // helmet
+      head.add(box(0.62, 0.08, 0.56, trim, 0, 0.3, 0.02)); // cap
+      head.add(box(0.5, 0.3, 0.06, def.darkFace ? joint : body, 0, -0.08, -0.33)); // faceplate
+      const chin = box(0.18, 0.1, 0.1, def.darkFace ? joint : accent, 0, -0.23, -0.34);
+      chin.rotation.x = 0.35;
+      head.add(chin);
+      if (def.eyes === 'mono') {
+        // a visor slot with a single glowing eye
+        head.add(box(0.56, 0.12, 0.03, new THREE.MeshBasicMaterial({ color: 0x0b0710 }), 0, 0.03, -0.365));
+        head.add(box(0.12, 0.1, 0.02, eyeMat, 0.06, 0.03, -0.38));
+      } else {
+        for (const side of [-1, 1]) {
+          const eye = box(0.16, 0.065, 0.02, eyeMat, side * 0.12, 0.02, -0.37);
+          eye.rotation.z = side * (def.darkFace ? 0.35 : 0.2);
+          head.add(eye);
+        }
+      }
+      for (const side of [-1, 1]) {
+        // the brow dips to a point between the eyes
+        const brow = box(0.32, 0.07, 0.12, trim, side * 0.15, 0.12, -0.33);
+        brow.rotation.z = side * 0.22;
+        head.add(brow);
+        const cheek = box(0.08, 0.26, 0.24, trim, side * 0.35, -0.08, -0.16);
+        cheek.rotation.y = side * 0.25;
+        head.add(cheek);
+        head.add(box(0.1, 0.22, 0.3, trim, side * 0.4, 0, 0.06)); // ear blocks
+        for (let k = 0; k < 3; k++) head.add(box(0.02, 0.025, 0.2, joint, side * 0.455, -0.06 + k * 0.05, 0.06));
+        head.add(box(0.025, 0.18, 0.025, joint, side * 0.4, 0.2, 0.14)); // antenna
+        head.add(box(0.05, 0.03, 0.05, accent, side * 0.4, 0.3, 0.14));
+      }
+      for (let k = 0; k < 4; k++) head.add(box(0.02, 0.07, 0.01, def.darkFace ? trim : joint, -0.06 + k * 0.04, -0.15, -0.363)); // mouth grille
+      head.add(box(0.06, 0.16, 0.3, trim, 0, 0.34, 0.2)); // back fin
+      head.add(box(0.12, 0.1, 0.06, def.eyes === 'mono' ? gold : accent, 0, 0.22, -0.34)); // forehead sensor
+      this.buildCrest(head, def, { body, trim, accent, joint, gold, glowMat });
+      this.turret.add(head);
+    } else {
+      // shoulders + stubby arms
+      for (const side of [-1, 1]) {
+        const sh = new THREE.Group();
+        sh.position.set(side * 0.55, 0.38, 0);
+        if (def.shoulders === 'spike') {
+          sh.add(box(0.32, 0.26, 0.36, body));
+          for (const sz of [-0.1, 0.1]) {
+            const spike = cone(0.06, 0.3, joint);
+            spike.rotation.z = -side * 1.2;
+            spike.position.set(side * 0.2, 0.12, sz);
+            sh.add(spike);
+          }
+        } else if (def.shoulders === 'heavy') {
+          sh.position.x = side * 0.6;
+          sh.add(box(0.44, 0.36, 0.5, body));
+          sh.add(box(0.46, 0.08, 0.52, trim, 0, 0.2, 0));
+          sh.add(box(0.06, 0.24, 0.4, accent, side * 0.24, -0.02, 0));
+          if (glowMat) sh.add(box(0.02, 0.26, 0.04, glowMat, side * 0.23, 0, -0.22));
+        } else {
+          sh.add(box(0.34, 0.3, 0.4, body));
+          sh.add(box(0.36, 0.08, 0.42, trim, 0, 0.17, 0));
+          sh.add(box(0.06, 0.18, 0.3, accent, side * 0.18, 0, 0));
+        }
+        const arm = box(0.2, 0.26, 0.22, def.darkFace ? trim : body, 0, -0.26, -0.06);
+        arm.rotation.x = -0.5;
+        const fist = box(0.22, 0.2, 0.22, joint, -side * 0.08, -0.4, -0.24);
+        sh.add(arm, fist);
+        // detail: shoulder rivets, elbow joint, forearm plate, wrist band
+        for (const rz of [-0.1, 0.1]) sh.add(box(0.04, 0.025, 0.04, gold, side * 0.08, 0.22, rz));
+        sh.add(new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), joint).translateY(-0.17).translateZ(0.02));
+        const plate = box(0.23, 0.08, 0.2, trim, 0, -0.3, -0.12);
+        plate.rotation.x = -0.5;
+        sh.add(plate);
+        sh.add(box(0.24, 0.04, 0.24, accent, -side * 0.08, -0.31, -0.24));
+        if (side === -1) this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
+        if (side === 1 && def.offhand === 'gatling') this.buildOffhand(sh, def, { body, trim, accent, joint, gold, glowMat, eyeMat });
+        this.turret.add(sh);
+      }
+
+      // big SD head
+      const head = new THREE.Group();
+      head.position.set(0, 0.86, -0.02);
+      head.add(box(0.74, 0.58, 0.66, body)); // helmet
+      head.add(box(0.5, 0.3, 0.06, def.darkFace ? joint : body, 0, -0.08, -0.34)); // faceplate
+      head.add(box(0.14, 0.1, 0.06, def.darkFace ? joint : accent, 0, -0.22, -0.36)); // chin
+      if (def.eyes === 'mono') {
+        // a visor slot with a single glowing eye
+        head.add(box(0.56, 0.12, 0.03, new THREE.MeshBasicMaterial({ color: 0x0b0710 }), 0, 0.03, -0.375));
+        head.add(box(0.12, 0.1, 0.02, eyeMat, 0.06, 0.03, -0.39));
+      } else {
+        for (const side of [-1, 1]) {
+          const eye = box(0.15, 0.06, 0.02, eyeMat, side * 0.12, 0.02, -0.38);
+          eye.rotation.z = side * (def.darkFace ? 0.35 : 0.18);
+          head.add(eye);
+        }
+      }
+      for (const side of [-1, 1]) {
+        head.add(box(0.1, 0.24, 0.3, trim, side * 0.4, -0.02, 0)); // ear blocks
+        // detail: ear vents and a sensor antenna
+        for (let k = 0; k < 3; k++) head.add(box(0.02, 0.025, 0.2, joint, side * 0.455, -0.08 + k * 0.05, 0));
+        head.add(box(0.025, 0.18, 0.025, joint, side * 0.4, 0.18, 0.1));
+        head.add(box(0.05, 0.03, 0.05, accent, side * 0.4, 0.28, 0.1));
+      }
+      // detail: brow ledge over the eyes, mouth grille, a fin down the back of the helmet
+      head.add(box(0.6, 0.04, 0.08, trim, 0, 0.11, -0.35));
+      for (let k = 0; k < 4; k++) head.add(box(0.02, 0.07, 0.01, def.darkFace ? trim : joint, -0.06 + k * 0.04, -0.15, -0.373));
+      head.add(box(0.06, 0.16, 0.3, trim, 0, 0.3, 0.2));
+      head.add(box(0.12, 0.1, 0.06, def.eyes === 'mono' ? gold : accent, 0, 0.2, -0.35)); // forehead sensor
+      this.buildCrest(head, def, { body, trim, accent, joint, gold, glowMat });
+      this.turret.add(head);
+
     }
-    for (const side of [-1, 1]) {
-      head.add(box(0.1, 0.24, 0.3, trim, side * 0.4, -0.02, 0)); // ear blocks
-      // detail: ear vents and a sensor antenna
-      for (let k = 0; k < 3; k++) head.add(box(0.02, 0.025, 0.2, joint, side * 0.455, -0.08 + k * 0.05, 0));
-      head.add(box(0.025, 0.18, 0.025, joint, side * 0.4, 0.18, 0.1));
-      head.add(box(0.05, 0.03, 0.05, accent, side * 0.4, 0.28, 0.1));
-    }
-    // detail: brow ledge over the eyes, mouth grille, a fin down the back of the helmet
-    head.add(box(0.6, 0.04, 0.08, trim, 0, 0.11, -0.35));
-    for (let k = 0; k < 4; k++) head.add(box(0.02, 0.07, 0.01, def.darkFace ? trim : joint, -0.06 + k * 0.04, -0.15, -0.373));
-    head.add(box(0.06, 0.16, 0.3, trim, 0, 0.3, 0.2));
-    head.add(box(0.12, 0.1, 0.06, def.eyes === 'mono' ? gold : accent, 0, 0.2, -0.35)); // forehead sensor
-    this.buildCrest(head, def, { body, trim, accent, joint, gold, glowMat });
-    this.turret.add(head);
 
     // --- wings / backpack ---
     this.wings.position.set(0, 0.42, 0.34);
@@ -1971,7 +2183,7 @@ export class ShooterMesh {
     // tip away from the attacker / the shot (player leans toward +z, opponent toward -z)
     this.root.rotation.x = s.team === 0 ? back : -back;
     this.root.position.z += s.team === 0 ? slide : -slide;
-    this.root.scale.set((1 + squash * 0.6) * this.size, (1 - squash) * this.size, (1 + squash * 0.6) * this.size);
+    this.root.scale.set((1 + squash * 0.6) * this.size * this.fit.x, (1 - squash) * this.size * this.fit.y, (1 + squash * 0.6) * this.size * this.fit.z);
     this.root.rotation.y = (s.team === 0 ? 0 : Math.PI) + (jolt ? (Math.random() * 2 - 1) * jolt : 0);
   }
 }
