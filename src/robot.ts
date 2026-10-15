@@ -64,6 +64,8 @@ export interface CharacterDef {
   from?: string;
   /** 2.0 units: body scale (x wide, y tall, z deep) so the whole roster shares one proportion */
   fit?: [number, number, number];
+  /** 2.0 units: resize parts of the design (by block path), e.g. a head to the shared chibi size */
+  grow?: { path: string; scale: number; lift?: number }[];
 }
 
 /** the units as shipped; the roster layers edits and custom units on top */
@@ -259,7 +261,7 @@ const ORIGINALS: CharacterDef[] = [
  * hero-proportion body, and every 2.0 shares one body size (about as wide and tall as those
  * mechs), so thin or small units fill out to match. Beasts on four legs scale evenly.
  */
-const V2: Record<string, { fit?: [number, number, number]; body?: boolean }> = {
+const V2: Record<string, { fit?: [number, number, number]; body?: boolean; grow?: CharacterDef['grow'] }> = {
   dragon: { body: true },
   pioneer: { body: true },
   monoceros: { body: true },
@@ -271,13 +273,14 @@ const V2: Record<string, { fit?: [number, number, number]; body?: boolean }> = {
   violet: { fit: [1.4, 0.92, 1.1] },
   kabuto: { fit: [1.45, 1.02, 1.25] },
   ember: { fit: [1.6, 1.3, 1.15] },
-  tyrant: { fit: [1.05, 1.07, 1.05] },
+  // its head grows to the roster's chibi size, lifted to sit on the neck
+  tyrant: { fit: [1.05, 1.02, 1.05], grow: [{ path: 'r/3/25', scale: 1.75, lift: 0.11 }] },
   liger: { fit: [1.15, 1.15, 1.15] },
   rex: { fit: [1.12, 1.12, 1.12] },
 };
 export const BUILTINS: readonly CharacterDef[] = [
   ...ORIGINALS,
-  ...ORIGINALS.filter((o) => V2[o.id]).map((o) => ({ ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!V2[o.id].body, fit: V2[o.id].fit })),
+  ...ORIGINALS.filter((o) => V2[o.id]).map((o) => ({ ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!V2[o.id].body, fit: V2[o.id].fit, grow: V2[o.id].grow })),
 ];
 
 /**
@@ -381,6 +384,13 @@ export class ShooterMesh {
     if (def.fit) {
       this.fit.set(...def.fit);
       this.root.scale.copy(this.fit);
+    }
+    for (const g of def.grow ?? []) {
+      this.root.traverse((o) => {
+        if (o.userData.path !== g.path) return;
+        o.scale.multiplyScalar(g.scale);
+        o.position.y += g.lift ?? 0;
+      });
     }
     // the roster's look is boxy: code-built units swap their round parts for square-sided ones
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
