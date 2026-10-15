@@ -5,6 +5,7 @@ import type { Shooter } from './game';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
+import { applyFinish, lookFor } from './finish';
 
 /**
  * SD (super-deformed) marble-shooter robots built from primitives:
@@ -317,7 +318,8 @@ export class ShooterMesh {
   wings: THREE.Object3D = new THREE.Group();
   trigger!: THREE.Object3D;
   legs: THREE.Object3D[] = [];
-  mats: THREE.MeshLambertMaterial[] = [];
+  /** materials that flash on hits and glow on special moves */
+  mats: (THREE.MeshLambertMaterial | THREE.MeshStandardMaterial)[] = [];
   readonly id: string;
   /** the marble colour this model was built with */
   readonly ball: number;
@@ -339,6 +341,13 @@ export class ShooterMesh {
     const def = defOverride ?? characterById(characterId);
     this.id = def.id;
     this.ball = marbleColor;
+    this.build(def, marbleColor);
+    // the finish: real materials, armour edges and decals, in this unit's own style
+    const pal = def.palette;
+    this.mats = applyFinish(this.root, lookFor(def.id, def.base), { body: pal.body, trim: pal.trim, accent: pal.accent, joint: pal.joint, eye: pal.eye });
+  }
+
+  private build(def: CharacterDef, marbleColor: number) {
     const pal = def.palette;
     const lam = (color: number, side: THREE.Side = THREE.FrontSide) => {
       const m = new THREE.MeshLambertMaterial({ color, side });
@@ -1950,7 +1959,10 @@ export class ShooterMesh {
     const f = s.flash > 0 ? (s.team === 0 ? 0.45 : 0.9) : 0;
     const glow = heavy * 0.6;
     this.glowCol.setHex(this.ball);
-    for (const m of this.mats) m.emissive.setRGB(Math.min(1, f + this.glowCol.r * glow), Math.min(1, f + this.glowCol.g * glow), Math.min(1, f + this.glowCol.b * glow));
+    for (const m of this.mats) {
+      const base = (m.userData.baseEmissive as THREE.Color | undefined) ?? BLACK;
+      m.emissive.setRGB(Math.min(1, base.r + f + this.glowCol.r * glow), Math.min(1, base.g + f + this.glowCol.g * glow), Math.min(1, base.b + f + this.glowCol.b * glow));
+    }
     const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
     this.root.position.y = bob + hurt;
 
@@ -1968,6 +1980,8 @@ export class ShooterMesh {
     this.root.rotation.y = (s.team === 0 ? 0 : Math.PI) + (jolt ? (Math.random() * 2 - 1) * jolt : 0);
   }
 }
+
+const BLACK = new THREE.Color(0);
 
 const SHAPE_OF: Record<string, Block['shape']> = {
   BoxGeometry: 'box',

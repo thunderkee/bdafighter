@@ -5,6 +5,7 @@ import { CHARGE, MAX_SHOOTERS, chargeLevel, slotTeam, type Drop, type Game, type
 /** every robot slot: 0 you, 1-3 opponents, 4-5 your pack-mates */
 const SLOTS = Array.from({ length: MAX_SHOOTERS }, (_, i) => i);
 import { ShooterMesh, characterById } from './robot';
+import { studioEnv } from './finish';
 import { Stage } from './stage';
 import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
@@ -267,6 +268,8 @@ export class View {
     this.renderer = new THREE.WebGLRenderer({ antialias: dpr < 2, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(dpr);
     host.appendChild(this.renderer.domElement);
+    // a soft studio reflection for the units' metal and enamel
+    this.scene.environment = studioEnv(this.renderer);
 
     this.hemi = new THREE.HemisphereLight(0xdfe4ff, 0x2a1d4a, 1.6);
     this.sun = new THREE.DirectionalLight(0xffffff, 1.9);
