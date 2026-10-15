@@ -168,6 +168,19 @@ export function boot() {
   /** each ordinary stage is one step up from the last (bosses sit between them) */
   const tierAt = (stage: number) => TIERS[Math.min(TIERS.length - 1, Math.max(0, stage - 1 - Math.floor(stage / BOSS.every)))];
   const stageLabel = (stage: number) => (bossAt(stage) ? 'BOSS' : tierAt(stage).name);
+  /**
+   * Table clutter: most stages are a clean table; the rest add one light kind of obstacle
+   * (a couple of pucks, a few pins, or one pair of cover walls), never all of them at once.
+   */
+  const obstacles = () => {
+    const clear = { pucks: 0, pins: 0, covers: 0 };
+    if (Math.random() < 0.7) return clear;
+    return pick([
+      { ...clear, pucks: pick([1, 2]) },
+      { ...clear, pins: pick([2, 4]) },
+      { ...clear, covers: 1 },
+    ]);
+  };
   /** the big hero builds make the best bosses */
   const BOSS_UNITS = ['tyrant', 'liger', 'rex', 'violet', 'kabuto', 'baron', 'bastion'];
   /** stage `stage`: a random opponent, pack and arena, at that stage's difficulty */
@@ -196,9 +209,7 @@ export function boot() {
         allyCharge: true,
         stage: pick(arena),
         arenaWidth: 'large',
-        covers: pick([0, 1, 2]),
-        pins: pick([0, 2, 4]),
-        pucks: pick([0, 1, 2]),
+        ...obstacles(),
         items: true,
         gates: Math.random() < 0.5,
       };
@@ -231,9 +242,7 @@ export function boot() {
       allyCharge: true,
       stage: pick(stages.length ? stages : STAGES.map((st) => st.id)),
       arenaWidth: pick(['small', 'normal', 'large'] as const),
-      covers: pick([0, 0, 1, 2, 3]),
-      pins: pick([0, 0, 2, 4, 6, 8]),
-      pucks: pick([0, 1, 2, 3, 4]),
+      ...obstacles(),
       items: Math.random() < 0.8,
       gates: Math.random() < 0.6,
     };
