@@ -65,7 +65,7 @@ export interface CharacterDef {
   /** 2.0 units: body scale (x wide, y tall, z deep) so the whole roster shares one proportion */
   fit?: [number, number, number];
   /** 2.0 units: resize parts of the design (by block path), e.g. a head to the shared chibi size */
-  grow?: { path: string; scale: number; lift?: number }[];
+  grow?: { path: string; scale?: number; s?: [number, number, number]; lift?: number }[];
 }
 
 /** the units as shipped; the roster layers edits and custom units on top */
@@ -261,26 +261,65 @@ const ORIGINALS: CharacterDef[] = [
  * hero-proportion body, and every 2.0 shares one body size (about as wide and tall as those
  * mechs), so thin or small units fill out to match. Beasts on four legs scale evenly.
  */
-const V2: Record<string, { fit?: [number, number, number]; body?: boolean; grow?: CharacterDef['grow'] }> = {
-  dragon: { body: true },
-  pioneer: { body: true },
-  monoceros: { body: true },
-  baron: { body: true },
-  bastion: { body: true },
-  nightshade: { body: true },
-  angel: { fit: [1.08, 1, 1.05] },
-  liberty: { fit: [1.08, 1, 1.05] },
-  violet: { fit: [1.4, 0.92, 1.1] },
-  kabuto: { fit: [1.45, 1.02, 1.25] },
-  ember: { fit: [1.6, 1.3, 1.15] },
+type V2Look = {
+  fit?: [number, number, number];
+  body?: boolean;
+  grow?: CharacterDef['grow'];
+  /** the 2.0's own colour scheme (its "2P" colours) */
+  ball: number;
+  palette: Partial<Palette>;
+};
+const V2: Record<string, V2Look> = {
+  dragon: { body: true, ball: 0x5aff9a, palette: { body: 0x1f8a5a, trim: 0x2a3a34, accent: 0xffc23d, joint: 0x16201c, eye: 0xffe14d } },
+  pioneer: { body: true, ball: 0xffc27a, palette: { body: 0xd8c49a, trim: 0x5a6a3a, accent: 0xe8762a, joint: 0x4a4438, eye: 0x7ff0ff } },
+  monoceros: { body: true, ball: 0xffb02e, palette: { body: 0x23242c, trim: 0x3a3c46, accent: 0xffc23d, joint: 0x121218, eye: 0xff3a3a } },
+  baron: { body: true, ball: 0x6fb4ff, palette: { body: 0x2a4fb8, trim: 0x1a2f78, accent: 0xffc23d, joint: 0x1c2030, eye: 0xffe14d } },
+  bastion: { body: true, ball: 0x6fe0ff, palette: { body: 0xe8f2f8, trim: 0x2a8ac8, accent: 0xff8a1a, joint: 0x4a5664, eye: 0xffe14d } },
+  nightshade: { body: true, ball: 0xff7ae0, palette: { body: 0xe6e2f0, trim: 0x7a5ad8, accent: 0xff3acd, joint: 0x3a3448, eye: 0xff3acd } },
+  angel: { fit: [1.08, 1, 1.05], ball: 0xff5a6a, palette: { body: 0x2e313d, trim: 0xd8263a, accent: 0xffc23d, joint: 0x16171e, eye: 0xff4a4a } },
+  liberty: { fit: [1.08, 1, 1.05], ball: 0xfff07a, palette: { body: 0x1f2028, trim: 0xd9a92a, accent: 0xffe08a, joint: 0x3a3a44, eye: 0x6dff9a } },
+  violet: { fit: [1.4, 0.92, 1.1], ball: 0xff8a3a, palette: { body: 0xd8262b, trim: 0x2a1a1c, accent: 0xffa21a, joint: 0x1e1416, eye: 0x7ff0ff } },
+  // sized up evenly, then the body and limbs thickened while the head keeps its true shape
+  kabuto: {
+    fit: [1.12, 1.1, 1.12],
+    grow: [
+      { path: 'r/0', s: [1.3, 1, 1.25] },
+      { path: 'r/1', s: [1.3, 1, 1.25] },
+      { path: 'r/2', s: [1.25, 1, 1.2] },
+      { path: 'r/4', s: [1.28, 1, 1.22] },
+      { path: 'r/4/17', s: [1 / 1.28, 1, 1 / 1.22] },
+    ],
+    ball: 0x7ff0ff,
+    palette: { body: 0xeef2f6, trim: 0x2a3a5a, accent: 0x2ad0c8, joint: 0x2c3440, eye: 0xffb02e },
+  },
+  ember: {
+    fit: [1.25, 1.25, 1.25],
+    grow: [
+      { path: 'r/0', s: [1.3, 1, 1.2] },
+      { path: 'r/1', s: [1.3, 1, 1.2] },
+      { path: 'r/2', s: [1.18, 1, 1.12] },
+      { path: 'r/4', s: [1.18, 1, 1] },
+      { path: 'r/11/0', s: [1.3, 1, 1.3] },
+      { path: 'r/11/1', s: [1.3, 1, 1.3] },
+    ],
+    ball: 0x6ad0ff,
+    palette: { body: 0x30323c, trim: 0xd84a3a, accent: 0x6ad0ff, joint: 0x1a1a20, eye: 0xff4a3a },
+  },
   // its head grows to the roster's chibi size, lifted to sit on the neck
-  tyrant: { fit: [1.05, 1.02, 1.05], grow: [{ path: 'r/3/25', scale: 1.75, lift: 0.11 }] },
-  liger: { fit: [1.15, 1.15, 1.15] },
-  rex: { fit: [1.12, 1.12, 1.12] },
+  tyrant: { fit: [1.05, 1.02, 1.05], grow: [{ path: 'r/3/25', scale: 1.75, lift: 0.11 }], ball: 0xff5a3a, palette: { body: 0x9a1a24, trim: 0x2a2a30, accent: 0xffc23d, joint: 0x3a2a2a, eye: 0x7cff3a } },
+  liger: { fit: [1.15, 1.15, 1.15], ball: 0xffd04a, palette: { body: 0xf0f2f6, trim: 0x3a4a6a, accent: 0xffc23d, joint: 0x2a2f3c, eye: 0x4ad8ff } },
+  rex: { fit: [1.12, 1.12, 1.12], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
 };
 export const BUILTINS: readonly CharacterDef[] = [
   ...ORIGINALS,
-  ...ORIGINALS.filter((o) => V2[o.id]).map((o) => ({ ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!V2[o.id].body, fit: V2[o.id].fit, grow: V2[o.id].grow })),
+  ...ORIGINALS.filter((o) => V2[o.id]).map((o) => {
+    const v = V2[o.id];
+    const palette = { ...o.palette, ...v.palette };
+    // wings follow the new body and trim
+    palette.wing = palette.body;
+    palette.wingTip = palette.trim;
+    return { ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!v.body, fit: v.fit, grow: v.grow, ball: v.ball, palette };
+  }),
 ];
 
 /**
@@ -315,9 +354,10 @@ export function setPublished(data: RosterData) {
 export const shippedById = (id: string) => {
   const b = BUILTINS.find((c) => c.id === id);
   if (!b) return undefined;
-  // a 2.0 unit starts from its original's shipped and published design
-  const shipped = SHIPPED.units[id] ?? (b.from ? SHIPPED.units[b.from] : undefined);
-  const published = PUBLISHED.units[id] ?? (b.from ? PUBLISHED.units[b.from] : undefined);
+  // a 2.0 unit borrows its original's design (and traits), never its colours or name
+  const borrow = (u: UnitEntry | undefined): UnitEntry | undefined => (u ? { id, base: u.base, blueprint: u.blueprint, traits: u.traits } : undefined);
+  const shipped = SHIPPED.units[id] ?? (b.from ? borrow(SHIPPED.units[b.from]) : undefined);
+  const published = PUBLISHED.units[id] ?? (b.from ? borrow(PUBLISHED.units[b.from]) : undefined);
   return applyEntry(applyEntry(b, shipped), published);
 };
 
@@ -388,7 +428,8 @@ export class ShooterMesh {
     for (const g of def.grow ?? []) {
       this.root.traverse((o) => {
         if (o.userData.path !== g.path) return;
-        o.scale.multiplyScalar(g.scale);
+        if (g.scale) o.scale.multiplyScalar(g.scale);
+        if (g.s) o.scale.multiply(new THREE.Vector3(...g.s));
         o.position.y += g.lift ?? 0;
       });
     }
