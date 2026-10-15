@@ -339,6 +339,13 @@ export class ShooterMesh {
     const def = defOverride ?? characterById(characterId);
     this.id = def.id;
     this.ball = marbleColor;
+    this.build(def, marbleColor);
+    // the roster's look is boxy: code-built units swap their round parts for square-sided ones
+    // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
+    if (!def.blueprint) boxify(this.root);
+  }
+
+  private build(def: CharacterDef, marbleColor: number) {
     const pal = def.palette;
     const lam = (color: number, side: THREE.Side = THREE.FrontSide) => {
       const m = new THREE.MeshLambertMaterial({ color, side });
@@ -2057,6 +2064,50 @@ interface HeroMats {
 }
 
 /** a rounded (bevelled) box: armour that catches the light on its edges */
+/**
+ * Swap round parts for square-sided ones: balls and capsules become blocks, tubes and cones
+ * four-sided prisms and pyramids (turned to line up with the body), rings square. The
+ * glossy marble in a unit's chest stays round: it's the ball.
+ */
+function boxify(root: THREE.Object3D) {
+  const quarter = Math.PI / 4;
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mat = mesh.material as THREE.Material;
+    if ((mat as THREE.MeshPhongMaterial).isMeshPhongMaterial && (mat as THREE.MeshPhongMaterial).shininess >= 80) return;
+    const g = mesh.geometry as THREE.BufferGeometry & { parameters: Record<string, number> };
+    const p = g.parameters;
+    let next: THREE.BufferGeometry | null = null;
+    switch (g.type) {
+      case 'SphereGeometry': {
+        const e = p.radius * 1.75;
+        if ((p.thetaLength ?? Math.PI) < Math.PI * 0.9) {
+          // a dome: a block standing on the cut
+          next = new THREE.BoxGeometry(e, p.radius * 0.95, e).translate(0, p.radius * 0.475, 0);
+        } else next = new THREE.BoxGeometry(e, e, e);
+        break;
+      }
+      case 'CapsuleGeometry':
+        next = new THREE.BoxGeometry(p.radius * 1.8, p.height + p.radius * 1.8, p.radius * 1.8);
+        break;
+      case 'CylinderGeometry':
+        next = new THREE.CylinderGeometry(p.radiusTop * 1.25, p.radiusBottom * 1.25, p.height, 4, 1, !!p.openEnded, quarter);
+        break;
+      case 'ConeGeometry':
+        next = new THREE.ConeGeometry(p.radius * 1.25, p.height, 4, 1, !!p.openEnded, quarter);
+        break;
+      case 'TorusGeometry':
+        next = new THREE.TorusGeometry(p.radius, p.tube, 4, 4, p.arc ?? Math.PI * 2);
+        break;
+    }
+    if (next) {
+      g.dispose();
+      mesh.geometry = next;
+    }
+  });
+}
+
 /** an armour block; `r` was its corner rounding, now kept sharp (no bevel) across the roster */
 function rbox(w: number, h: number, d: number, r: number, mat: THREE.Material, x = 0, y = 0, z = 0) {
   void r;
