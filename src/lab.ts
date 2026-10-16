@@ -88,9 +88,28 @@ function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = window.setTimeout(flushSave, 300);
 }
+/** each unit as this page last read or wrote it, so a save only touches the units edited here */
+const savedAs = new Map(Object.entries(roster.units).map(([id, u]) => [id, JSON.stringify(u)]));
+/**
+ * the device roster with this page's edits merged in: units this page changed (or removed) are
+ * written, everything else is kept as storage has it now, so a Lab left open in another tab (or
+ * from before a clean-up) can't write old copies back over newer work
+ */
+function mergedRoster(): RosterData {
+  const fresh = loadRoster();
+  for (const id of new Set([...Object.keys(roster.units), ...savedAs.keys()])) {
+    const now = roster.units[id] ? JSON.stringify(roster.units[id]) : undefined;
+    if (now === savedAs.get(id)) continue;
+    if (now) fresh.units[id] = roster.units[id];
+    else delete fresh.units[id];
+    if (now) savedAs.set(id, now);
+    else savedAs.delete(id);
+  }
+  return fresh;
+}
 function flushSave() {
   clearTimeout(saveTimer);
-  const ok = STUDIO ? saveRoster(roster, STUDIO_DRAFT) : saveRoster(roster);
+  const ok = STUDIO ? saveRoster(roster, STUDIO_DRAFT) : saveRoster(mergedRoster());
   if (STUDIO) syncPublishStatus();
   status.textContent = ok ? 'Saved' : 'Storage full!';
   status.classList.toggle('dirty', !ok);
