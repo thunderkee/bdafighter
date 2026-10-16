@@ -334,9 +334,9 @@ type Look21 = {
   head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese';
   shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
   shoulderL?: Look21['shoulder'];
-  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka';
-  left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade';
-  back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters')[];
+  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka' | 'shellCannon' | 'staffGun';
+  left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade' | 'knife';
+  back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters' | 'shell')[];
   /** a menacing stance: legs wide and splayed, the head thrust low and forward */
   menace?: boolean;
   /** a gunmetal crest instead of the gold V-fin */
@@ -344,7 +344,12 @@ type Look21 = {
   /** bone-coloured skull (instead of white) for a darker emblem */
   boneSkull?: boolean;
   /** aim: the right arm straight out; twoHand: both arms forward, the gun held at the centre */
-  pose?: 'stand' | 'aim' | 'twoHand' | 'bazooka';
+  /** centerAim: the right arm straight forward, turned in so the hand is at the middle */
+  pose?: 'stand' | 'aim' | 'twoHand' | 'bazooka' | 'centerAim';
+  /** a gorilla's hunch: long arms swung forward, knuckles low */
+  gorilla?: boolean;
+  /** tank treads in place of legs */
+  treads?: boolean;
   lean?: number;
   pods?: boolean;
   antenna?: boolean;
@@ -362,22 +367,23 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'] }, ball: 0xff5040, palette: { body: 0x8e1a2a, trim: 0x34323c, accent: 0xf2b632, joint: 0x1e1c24, eye: 0xc8ff3d } },
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in green: plume helmet, Dober gun on the shoulder, huge back boosters
-  liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'] }, ball: 0x7affb0, palette: { body: 0x2e7d4f, trim: 0xeceae0, accent: 0xd9a92a, joint: 0x2a2c30, eye: 0x7ff0ff } },
-  monoceros: { look: { frame: 'hero', head: 'gundam', shoulder: 'heavy', gun: 'magnum', left: 'shield' }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
+  liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0x7affb0, palette: { body: 0x2e7d4f, trim: 0xeceae0, accent: 0xd9a92a, joint: 0x2a2c30, eye: 0x7ff0ff } },
+  // Blastoise-style: a shell on its back with one big cannon, hunched like a gorilla
+  monoceros: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // Black Tri-Stars: slate violet and black with a red flash
   baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
   // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0x8a1c1c, joint: 0x17181a, eye: 0xff2a2a } },
-  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'chest', left: 'scythe', back: ['cape'] }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
+  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim' }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
   // Unit-08 pink and mint, hunched side-on behind a huge bazooka
-  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'bazooka', back: ['pylons'], pose: 'bazooka', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
+  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'bazooka', left: 'knife', back: ['pylons'], pose: 'bazooka', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
   kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xc9a86a, joint: 0x23261e, eye: 0xffd23e } },
-  tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
+  tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim' }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   rex: { addons: ['backCannon', 'noBall'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
   // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
-  liger: { addons: ['fangs', 'legStripes', 'armyWhites'], ball: 0xff5a3a, palette: { body: 0x5f6b3c, trim: 0x34483a, accent: 0x2b3a2f, joint: 0x1c1d20, eye: 0xc8241e } },
+  liger: { addons: ['legStripes', 'armyWhites'], ball: 0xff5a3a, palette: { body: 0x5f6b3c, trim: 0x34483a, accent: 0xe0601e, joint: 0x1c1d20, eye: 0xc8241e } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -2033,7 +2039,23 @@ export class ShooterMesh {
     const hipY = 0.54 * k;
 
     // ---------- legs: tapered thigh, pointed knee, flared shin, visible ankle, wedge foot ----------
-    for (const s of [-1, 1]) {
+    if (L.treads) {
+      // a tank's lower body: two tread units on short struts, road wheels, a drive sprocket,
+      // track plates and an armour skirt with vents
+      for (const s of [-1, 1]) {
+        const t = at(new THREE.Group(), s * 0.34, 0, 0);
+        t.add(at(side([[-0.5, 0.06], [-0.42, 0], [0.42, 0], [0.5, 0.06], [0.46, 0.28], [-0.46, 0.28]], 0.24, black), 0, 0, 0));
+        for (const z of [-0.33, -0.11, 0.11, 0.33]) t.add(at(cyl(0.085, 0.26, m.joint), 0, 0.1, z, 0, 0, Math.PI / 2));
+        t.add(at(cyl(0.11, 0.27, m.trim), 0, 0.17, 0.44, 0, 0, Math.PI / 2)); // drive sprocket
+        for (let q = 0; q < 9; q++) t.add(box(0.25, 0.025, 0.07, m.joint, 0, 0.29, -0.4 + q * 0.1)); // track plates
+        t.add(at(prism(0.06, 0.92, 0.06, 0.86, 0.22, m.body, 0.02), s * 0.16, 0.2, 0)); // armour skirt
+        ventX(t, s * 0.195, 0.13, 0.05, 3, 0.36, s);
+        t.add(box(0.07, 0.03, 0.88, m.accent, s * 0.16, 0.3, 0));
+        t.add(at(prism(0.18, 0.22, 0.2, 0.24, hipY - 0.28, m.joint, 0.04), -s * 0.05, (hipY + 0.28) / 2, 0)); // strut up to the hips
+        this.root.add(t);
+      }
+    }
+    for (const s of L.treads ? [] : [-1, 1]) {
       const leg = new THREE.Group();
       leg.position.set(s * (F.legGap + (L.menace ? 0.06 : 0)), hipY, 0);
       if (L.menace) leg.rotation.z = s * 0.12;
@@ -2147,12 +2169,15 @@ export class ShooterMesh {
 
     // ---------- shoulders and arms, held off the body ----------
     const aw = F.armW;
-    const as = F.armS;
+    const as = F.armS * (L.gorilla ? 1.55 : 1);
     let rightSh: THREE.Group | null = null;
+    let rightArm: THREE.Object3D | null = null;
     let leftSh: THREE.Group | null = null;
     for (const s of [-1, 1]) {
       const sh = new THREE.Group();
       sh.position.set(s * F.shOut, 0.44, 0);
+      // the gorilla swings its long arms forward, knuckles toward the floor
+      if (L.gorilla) sh.rotation.x = -0.42;
       const style = s === -1 ? (L.shoulderL ?? L.shoulder) : L.shoulder;
       if (style === 'heavy') {
         sh.add(at(prism(0.46, 0.54, 0.5, 0.58, 0.38, m.body, 0.08), s * 0.04, 0, 0, 0, 0, s * -0.12));
@@ -2179,14 +2204,15 @@ export class ShooterMesh {
         for (const x of [-0.05, 0.05]) for (const z of [-0.07, 0.07]) sh.add(box(0.04, 0.02, 0.04, hole, s * 0.06 + x, 0.375, z));
       }
       const twoHand = L.pose === 'twoHand';
-      const bazooka = L.pose === 'bazooka';
-      const aiming = (L.pose === 'aim' && s === 1) || twoHand || bazooka;
+      const bazooka = L.pose === 'bazooka' && s === 1;
+      const centre = L.pose === 'centerAim' && s === 1;
+      const aiming = (L.pose === 'aim' && s === 1) || twoHand || bazooka || centre;
       if (aiming) {
         // straight out at the target; with both hands, each arm turns in to meet at the gun;
         // with the bazooka, each arm is aimed (and stretched) so its fist closes on a grip:
         // the right on the trigger grip, the left across the chest on the front grip
         let ag: THREE.Object3D = sh;
-        if (twoHand) ag = at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0);
+        if (twoHand || centre) ag = at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0);
         if (bazooka) {
           const t = (s === 1 ? grip.rear : grip.front).clone().sub(sh.position);
           const dist = t.length();
@@ -2205,6 +2231,7 @@ export class ShooterMesh {
         ventX(ag, s * 0.15 * aw, -0.2, -0.5, 2, 0.2, s);
         ag.add(at(prism(0.29 * aw, 0.3 * aw, 0.29 * aw, 0.3 * aw, 0.05, m.accent, 0.03), 0, -0.14, -0.36, -Math.PI / 2));
         ag.add(box(0.22 * aw, 0.22 * aw, 0.2, m.joint, 0, -0.14, -0.74)); // fist
+        if (s === 1) rightArm = ag;
       } else {
         // hanging: slim upper arm, elbow piston, a gauntlet that widens toward the fist
         sh.add(at(prism(0.13 * aw, 0.13 * aw, 0.15 * aw, 0.15 * aw, 0.16 * as, m.joint, 0.03), s * 0.02, -0.24 * as, -0.02));
@@ -2233,6 +2260,12 @@ export class ShooterMesh {
         // both fists meet on the grip at the centre of the chest
         gun.position.set(0, 0.3, -0.6);
         this.turret.add(gun);
+        return;
+      }
+      if (L.pose === 'centerAim' && rightArm) {
+        // in the fist of the arm thrust forward to the middle
+        gun.position.set(0, -0.14, -0.78);
+        rightArm.add(gun);
         return;
       }
       gun.position.copy(fist);
@@ -2307,6 +2340,33 @@ export class ShooterMesh {
         tube(0.09, 0.08, m.trim, 0, 0.0, -0.84);
         gun.add(box(0.04, 0.24, 0.06, m.joint, 0, -0.18, -0.08)); // grip down to the hand
         mark(0, 0, -0.92);
+        break;
+      }
+      case 'shellCannon': {
+        // Blastoise: one big cannon rising out of the shell over the right shoulder, kept
+        // level against the hunch
+        const holder = at(new THREE.Group(), 0.34, 0.9, cd / 2 - 0.02, -(L.lean ?? F.lean));
+        this.turret.add(holder);
+        holder.add(gun);
+        gun.add(at(prism(0.26, 0.4, 0.24, 0.36, 0.24, m.trim, 0.06), 0, 0, 0.12)); // mount
+        gun.add(at(cyl(0.11, 0.9, m.joint), 0, 0.02, -0.36, Math.PI / 2));
+        gun.add(at(cyl(0.15, 0.14, m.trim), 0, 0.02, -0.82, Math.PI / 2));
+        gun.add(at(cyl(0.1, 0.02, hole), 0, 0.02, -0.9, Math.PI / 2));
+        for (const z of [-0.1, -0.5]) gun.add(at(cyl(0.125, 0.04, m.accent), 0, 0.02, z, Math.PI / 2));
+        mark(0, 0.02, -0.93);
+        break;
+      }
+      case 'staffGun': {
+        // a long gun-staff pointed down the lane: the muzzle at its tip, a crescent blade
+        // slung under the front like a bayonet
+        inHand();
+        gun.add(at(cyl(0.028, 1.5, m.joint), 0, 0, -0.25, Math.PI / 2));
+        gun.add(at(cyl(0.05, 0.24, m.trim), 0, 0, -0.98, Math.PI / 2));
+        gun.add(at(cyl(0.065, 0.04, m.glowMat ?? m.accent), 0, 0, -0.86, Math.PI / 2));
+        gun.add(at(cyl(0.035, 0.02, hole), 0, 0, -1.105, Math.PI / 2));
+        gun.add(at(side([[-0.62, 0], [-0.98, -0.04], [-1.14, -0.24], [-0.86, -0.12], [-0.6, -0.08]], 0.03, m.glowMat ?? m.accent), 0, -0.02, 0));
+        gun.add(at(box(0.08, 0.1, 0.12, m.trim), 0, 0, 0.46)); // butt cap
+        mark(0, 0, -1.12);
         break;
       }
       case 'bazooka': {
@@ -2430,15 +2490,21 @@ export class ShooterMesh {
       case 'shield': {
         const sh = plate([[-0.16, 0.24], [0.16, 0.24], [0.16, -0.12], [0, -0.3], [-0.16, -0.12]], 0.05, m.body);
         lh.add(at(sh, -0.17, -0.4 * as, -0.04, 0, Math.PI / 2 - 0.15, 0));
-        lh.add(at(plate([[-0.03, 0.18], [0.03, 0.18], [0.03, -0.18], [-0.03, -0.18]], 0.06, m.accent), -0.2, -0.38 * as, -0.04, 0, Math.PI / 2 - 0.15));
-        lh.add(at(plate([[-0.12, 0.03], [0.12, 0.03], [0.12, -0.03], [-0.12, -0.03]], 0.06, m.accent), -0.2, -0.32 * as, -0.04, 0, Math.PI / 2 - 0.15));
+        // a plain band across the top (no emblem)
+        lh.add(at(plate([[-0.14, 0.04], [0.14, 0.04], [0.14, -0.02], [-0.14, -0.02]], 0.06, m.accent), -0.2, -0.22 * as, -0.04, 0, Math.PI / 2 - 0.15));
         break;
       }
       case 'tower': {
-        // Liberty's tall guardian shield with a gold cross
+        // a tall guardian shield with a plain rim
         lh.add(at(prism(0.06, 0.46, 0.06, 0.42, 0.74, m.body, [0.0, 0.0, 0.0, 0.0]), -0.18, -0.36, -0.06, 0, 0, 0.05));
-        lh.add(at(plate([[-0.03, 0.26], [0.03, 0.26], [0.03, -0.26], [-0.03, -0.26]], 0.4, m.trim), -0.22, -0.34, -0.06, 0, Math.PI / 2, 0.05));
-        lh.add(at(box(0.07, 0.06, 0.38, m.trim), -0.22, -0.24, -0.06));
+        lh.add(at(box(0.07, 0.06, 0.44, m.trim), -0.22, 0.0, -0.06));
+        break;
+      }
+      case 'knife': {
+        // a progressive knife held point-down in the left fist
+        lh.add(at(box(0.06, 0.16, 0.08, m.joint), lfist.x, lfist.y - 0.04, lfist.z));
+        lh.add(at(box(0.08, 0.03, 0.12, m.accent), lfist.x, lfist.y - 0.13, lfist.z));
+        lh.add(at(side([[0.04, 0], [-0.04, 0], [-0.03, -0.42], [0.04, -0.3]], 0.025, this.paint(0xd8dde4, 'metal')), lfist.x, lfist.y - 0.14, lfist.z));
         break;
       }
       case 'scythe': {
@@ -2520,6 +2586,13 @@ export class ShooterMesh {
           this.turret.add(round);
         }
       }
+      if (back === 'shell') {
+        // a big turtle shell over the back, with raised plates
+        this.turret.add(at(prism(0.96, 0.5, 0.7, 0.36, 0.62, m.trim, 0.14), 0, 0.36, cd / 2 + 0.2));
+        for (const [x, y] of [[-0.22, 0.5], [0.22, 0.5], [-0.24, 0.2], [0.24, 0.2], [0, 0.36]] as const)
+          this.turret.add(at(prism(0.2, 0.06, 0.16, 0.05, 0.18, m.joint, 0.05), x, y, cd / 2 + 0.47));
+        this.turret.add(box(1.0, 0.05, 0.54, m.accent, 0, 0.06, cd / 2 + 0.2));
+      }
       if (back === 'boosters')
         for (const sx of [-1, 1]) {
           // Tallgeese's huge twin super-vernier packs
@@ -2582,14 +2655,13 @@ export class ShooterMesh {
         head.add(at(plate([[-0.2, 0.08], [0.2, 0.08], [0.18, -0.1], [0.1, -0.2], [-0.1, -0.2], [-0.18, -0.1]], 0.06, face), 0, -0.04, -0.3));
         if (L.head === 'visor') {
           head.add(at(plate([[-0.2, 0.05], [0.2, 0.05], [0.19, -0.01], [0, -0.05], [-0.19, -0.01]], 0.02, m.eyeMat), 0, 0.0, -0.335));
-          for (const sx of [-1, 1]) head.add(at(plate(sx === 1 ? [[0, 0.04], [0.23, 0.085], [0.23, 0.13], [0, 0.09]] : mirrorX([[0, 0.04], [0.23, 0.085], [0.23, 0.13], [0, 0.09]]), 0.07, m.trim), 0, 0.0, -0.345));
           for (let q = 0; q < 4; q++) head.add(box(0.02, 0.06, 0.01, m.trim, -0.06 + q * 0.04, -0.15, -0.335));
         } else if (def.eyes === 'mono') {
           head.add(box(0.36, 0.08, 0.02, black, 0, 0.0, -0.335), box(0.09, 0.07, 0.02, m.eyeMat, 0.06, 0.0, -0.345));
         } else {
           // the eyes sit in a dark recess under the brow, a red chin block below
           head.add(at(plate([[-0.22, 0.05], [0.22, 0.05], [0.18, -0.06], [-0.18, -0.06]], 0.02, black), 0, 0.0, -0.33));
-          fierce(-0.01, -0.345);
+          fierce(-0.01, -0.345, 1, null);
           head.add(box(0.16, 0.05, 0.03, m.accent, 0, -0.22, -0.335)); // chin
         }
         for (const s of [-1, 1]) {
@@ -2598,7 +2670,8 @@ export class ShooterMesh {
           head.add(at(prism(0.1, 0.28, 0.09, 0.24, 0.24, m.trim, 0.03), s * 0.37, 0.0, 0.05));
           ventX(head, s * 0.42, -0.06, 0.06, 3, 0.18, s);
         }
-        head.add(box(0.1, 0.08, 0.05, def.eyes === 'mono' ? m.gold : m.accent, 0, 0.2, -0.3));
+        // forehead sensor (left off under the unicorn horn's glow line, where the two read as a cross)
+        if (def.crest !== 'unihorn') head.add(box(0.1, 0.08, 0.05, def.eyes === 'mono' ? m.gold : m.accent, 0, 0.2, -0.3));
         head.add(at(prism(0.05, 0.3, 0.04, 0.26, 0.14, m.trim), 0, 0.34, 0.16));
         if (L.antenna) head.add(at(cyl(0.012, 0.5, steel), -0.34, 0.36, 0.08), box(0.04, 0.04, 0.04, m.accent, -0.34, 0.6, 0.08));
         // a dark crest for the units that shouldn't shine
@@ -2611,7 +2684,7 @@ export class ShooterMesh {
         head.add(prism(0.66, 0.64, 0.56, 0.56, 0.48, m.body, [0.15, 0.15, 0.08, 0.08]));
         head.add(at(prism(0.5, 0.48, 0.38, 0.38, 0.08, m.trim, 0.12), 0, 0.28, 0.02));
         head.add(at(plate([[-0.22, 0.05], [0.22, 0.05], [0.18, -0.06], [-0.18, -0.06]], 0.02, black), 0, 0.0, -0.33));
-        fierce(-0.01, -0.345);
+        fierce(-0.01, -0.345, 1, null);
         head.add(at(plate([[-0.18, 0.04], [0.18, 0.04], [0.15, -0.12], [-0.15, -0.12]], 0.05, m.trim), 0, -0.13, -0.31));
         for (let q = 0; q < 3; q++) head.add(box(0.02, 0.09, 0.01, black, -0.05 + q * 0.05, -0.14, -0.337));
         head.add(at(side([[0.14, 0], [-0.08, 0], [-0.18, 0.34], [-0.04, 0.38], [0.16, 0.14]], 0.06, m.accent), 0, 0.26, -0.12));
@@ -2681,12 +2754,23 @@ export class ShooterMesh {
           head.add(at(prism(0.08, 0.5, 0.08, 0.44, 0.46, helmet, 0.02), s * 0.31, -0.06, 0.02, 0, 0, s * -0.08));
           ventX(head, s * 0.36, -0.2, 0.06, 4, 0.3, s);
         }
-        fierce(0.0, -0.32, 0.7, helmet);
         head.add(at(plate([[-0.17, 0.1], [0.17, 0.1], [0.17, -0.12], [0.12, -0.2], [-0.12, -0.2], [-0.17, -0.12]], 0.06, silver), 0, -0.06, -0.29));
+        // deep-set eyes in a dark recess under a heavy V brow that juts out over them
+        head.add(at(plate([[-0.18, 0.05], [0.18, 0.05], [0.15, -0.04], [-0.15, -0.04]], 0.02, black), 0, 0.0, -0.325));
+        fierce(-0.005, -0.34, 0.72, null);
+        head.add(at(plate([[-0.24, 0.13], [0.24, 0.13], [0.24, 0.07], [0, 0.015], [-0.24, 0.07]], 0.1, helmet), 0, 0.0, -0.33));
+        // swept fins rising off the sides of the helmet, edged in red
+        for (const sx of [-1, 1]) {
+          const fin: [number, number][] = [[0, 0], [0.07, 0], [0.18, 0.4], [0.06, 0.34]];
+          head.add(at(plate(sx === 1 ? fin : mirrorX(fin), 0.05, helmet), sx * 0.3, 0.16, 0.04));
+          const edge: [number, number][] = [[0.07, 0], [0.1, 0], [0.21, 0.42], [0.18, 0.4]];
+          head.add(at(plate(sx === 1 ? edge : mirrorX(edge), 0.055, m.accent), sx * 0.3, 0.16, 0.04));
+        }
         // the nose ridge down the middle of the face, and the grim mouth under it
         head.add(at(prism(0.05, 0.05, 0.03, 0.03, 0.13, silver, 0, -0.015), 0, -0.07, -0.335));
         head.add(box(0.07, 0.025, 0.03, silver, 0, -0.135, -0.335));
-        head.add(box(0.16, 0.022, 0.02, black, 0, -0.19, -0.325));
+        // a slotted mouth guard instead of a line
+        for (let q = 0; q < 4; q++) head.add(box(0.022, 0.06, 0.02, black, -0.054 + q * 0.036, -0.19, -0.325));
         head.add(at(box(0.06, 0.06, 0.03, new THREE.MeshBasicMaterial({ color: 0x4dff6a })), 0, 0.2, -0.3, 0, 0, Math.PI / 4));
         break;
       }
@@ -2806,14 +2890,16 @@ export class ShooterMesh {
       }
       if (a === 'armyWhites') {
         // the design's fixed white and steel parts (the backpack, plates) turn military:
-        // white to a light field grey, steel to gunmetal
-        const grey = this.paint(0x9aa294);
+        // white to a rust red, steel to gunmetal
+        const grey = this.paint(0xa8452a);
         const gunmetal = this.paint(0x40454a);
+        const teeth = this.paint(0xc8ccd2, 'metal');
         this.root.traverse((o) => {
           const mesh = o as THREE.Mesh;
           const c = (mesh.material as THREE.MeshLambertMaterial | undefined)?.color;
           if (!mesh.isMesh || !c || !(mesh.material as THREE.MeshLambertMaterial).isMeshLambertMaterial) return;
-          if (c.r > 0.85 && c.g > 0.85 && c.b > 0.8) mesh.material = grey;
+          // white teeth and claws (cones) stay light steel; other white plates go rust red
+          if (c.r > 0.85 && c.g > 0.85 && c.b > 0.8) mesh.material = mesh.geometry.type === 'ConeGeometry' ? teeth : grey;
           else if (Math.abs(c.r - 0.72) < 0.05 && Math.abs(c.g - 0.745) < 0.05 && Math.abs(c.b - 0.79) < 0.05) mesh.material = gunmetal;
         });
       }
