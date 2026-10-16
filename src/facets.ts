@@ -56,8 +56,16 @@ export function prismData(wb: number, db: number, wt: number, dt: number, h: num
   return { v, f };
 }
 
-/** a flat shape drawn in the x/y plane (counter-clockwise seen from the front), extruded `depth` along z */
+/** a flat outline in the x/y plane, extruded `depth` along z */
 export function extrudeData(pts: P2[], depth: number): MeshData {
+  // accept outlines drawn either way round: make them counter-clockwise so every face points out
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[i];
+    const [x2, y2] = pts[(i + 1) % pts.length];
+    area += x1 * y2 - x2 * y1;
+  }
+  if (area < 0) pts = pts.slice().reverse();
   const n = pts.length;
   const v: number[] = [];
   for (const [x, y] of pts) v.push(x, y, depth / 2); // back
@@ -87,3 +95,6 @@ export function facetMesh(data: MeshData, mat: THREE.Material) {
   geo.userData.meshData = data;
   return new THREE.Mesh(geo, mat);
 }
+
+/** the same outline mirrored left to right (a mirror made with a negative scale turns the faces inside out) */
+export const mirrorX = (pts: P2[]): P2[] => pts.map(([x, y]) => [-x, y]);

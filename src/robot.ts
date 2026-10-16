@@ -6,7 +6,7 @@ import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
-import { extrudeData, facetMesh, prismData, sideData, type Cuts } from './facets';
+import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -2028,7 +2028,6 @@ export class ShooterMesh {
         const knee = plate([[-0.13, 0.07], [0.13, 0.07], [0.13, -0.03], [0, -0.11], [-0.13, -0.03]], 0.08, m.trim);
         knee.scale.set(lw, 1, 1);
         leg.add(at(knee, 0, -0.27 * k, -0.15 * lw, -0.3));
-        leg.add(box(0.05, 0.05, 0.02, steel, 0, -0.26 * k, -0.2 * lw));
         // shin: wider at the ankle than at the knee, cut at the front corners
         leg.add(at(prism(0.36 * lw, 0.38 * lw, 0.28 * lw, 0.3 * lw, 0.2 * k, m.body, [0.07, 0.07, 0.03, 0.03]), 0, -0.37 * k, 0.01));
         ventX(leg, s * 0.165 * lw, -0.44 * k, 0.02, 3, 0.22 * lw, s);
@@ -2083,8 +2082,9 @@ export class ShooterMesh {
     const z0 = -cd / 2 - 0.005;
     if (!L.ribcage) {
       for (const s of [-1, 1]) {
-        const pec = plate([[0.02, 0.1], [0.3, 0.1], [0.27, -0.06], [0.06, -0.12]], 0.06, skull ? m.body : m.trim);
-        pec.scale.x = s * (cw / 0.94);
+        const k2 = cw / 0.94;
+        const pecPts: [number, number][] = [[0.02 * k2, 0.1], [0.3 * k2, 0.1], [0.27 * k2, -0.06], [0.06 * k2, -0.12]];
+        const pec = plate(s === 1 ? pecPts : mirrorX(pecPts), 0.06, skull ? m.body : m.trim);
         this.turret.add(at(pec, 0, 0.42, z0));
         const intake = prism(0.14, 0.05, 0.12, 0.04, 0.08, m.joint, 0.01);
         this.turret.add(at(intake, s * 0.2, 0.25, z0 - 0.01));
@@ -2143,7 +2143,6 @@ export class ShooterMesh {
         ventX(sh, s * 0.25, -0.08, 0, 3, 0.3, s);
       }
       if (style === 'spike') for (const sz of [-0.11, 0.11]) sh.add(at(cone(0.07, 0.36, m.joint), s * 0.24, 0.16, sz, 0, 0, -s * 1.15));
-      for (const rz of [-0.12, 0.12]) sh.add(box(0.05, 0.02, 0.05, steel, s * 0.08, 0.215, rz));
       if (L.pods && style !== 'shield') {
         // missile pods on top of the shoulder
         sh.add(at(prism(0.22, 0.3, 0.22, 0.3, 0.14, m.joint, 0.03), s * 0.06, 0.3, 0));
@@ -2183,6 +2182,7 @@ export class ShooterMesh {
     const tube = (r: number, len: number, mat: THREE.Material, x: number, y: number, z: number) => gun.add(at(cyl(r, len, mat), x, y, z, Math.PI / 2));
     const inHand = () => {
       gun.position.copy(fist);
+      gun.scale.setScalar(1.25);
       rightSh!.add(gun);
     };
     switch (L.gun) {
@@ -2432,8 +2432,11 @@ export class ShooterMesh {
         } else if (def.eyes === 'mono') {
           head.add(box(0.36, 0.08, 0.02, black, 0, 0.0, -0.335), box(0.09, 0.07, 0.02, m.eyeMat, 0.06, 0.0, -0.345));
         } else {
-          eyes(0.0, -0.335, def.darkFace ? 0.35 : 0.22);
-          head.add(at(plate([[-0.06, 0.03], [0.06, 0.03], [0, -0.06]], 0.03, m.accent), 0, -0.22, -0.32)); // chin point
+          // the eyes sit in a dark recess under the brow; two mouth slits and a red chin below
+          head.add(at(plate([[-0.22, 0.05], [0.22, 0.05], [0.18, -0.06], [-0.18, -0.06]], 0.02, black), 0, 0.0, -0.33));
+          eyes(0.0, -0.345, def.darkFace ? 0.35 : 0.22);
+          for (const sx of [-1, 1]) head.add(at(box(0.07, 0.02, 0.02, black), sx * 0.06, -0.12, -0.335, 0, 0, sx * 0.4));
+          head.add(at(plate([[-0.07, 0.03], [0.07, 0.03], [0, -0.07]], 0.03, m.accent), 0, -0.22, -0.335)); // chin point
         }
         for (const s of [-1, 1]) {
           // brow wedge over each eye, cheek guards swept back
@@ -2483,15 +2486,15 @@ export class ShooterMesh {
         break;
       }
       case 'beetle': {
-        head.add(at(prism(0.78, 0.72, 0.6, 0.58, 0.56, m.body, 0.17), 0, 0.08, 0.02)); // the dome
-        head.add(at(prism(0.56, 0.52, 0.4, 0.38, 0.12, m.body, 0.12), 0, 0.42, 0.02));
+        head.add(at(prism(0.78, 0.72, 0.7, 0.64, 0.46, m.body, 0.18), 0, 0.04, 0.02)); // the dome
+        head.add(at(prism(0.68, 0.62, 0.46, 0.42, 0.14, m.body, 0.16), 0, 0.34, 0.02));
         head.add(at(prism(0.82, 0.66, 0.78, 0.62, 0.22, m.body, 0.14), 0, -0.2, 0.04)); // jaw shell
         head.add(at(box(0.62, 0.2, 0.06, black), 0, -0.02, -0.33));
         for (const s of [-1, 1]) head.add(at(box(0.2, 0.1, 0.02, m.eyeMat), s * 0.13, -0.03, -0.37, 0, 0, s * 0.2));
         head.add(at(plate([[-0.22, 0.08], [0.22, 0.08], [0.18, -0.08], [0, -0.14], [-0.18, -0.08]], 0.08, white), 0, -0.2, -0.32));
-        head.add(at(box(0.08, 0.22, 0.08, m.body), 0, 0.56, 0.02)); // stalk
+        head.add(at(box(0.08, 0.2, 0.08, m.body), 0, 0.5, 0.02)); // stalk
         for (const s of [-1, 1]) {
-          const pod = at(new THREE.Group(), s * 0.24, 0.72, 0.02, 0, 0, s * 0.32);
+          const pod = at(new THREE.Group(), s * 0.24, 0.64, 0.02, 0, 0, s * 0.32);
           pod.add(at(cyl(0.09, 0.4, m.trim), 0, 0, 0, 0, 0, Math.PI / 2));
           for (const dx of [-0.1, 0, 0.1]) pod.add(box(0.05, 0.05, 0.02, hole, s * dx, 0, -0.09));
           head.add(pod);
