@@ -68,9 +68,11 @@ export interface CharacterDef {
   /** 2.1 units: the faceted chassis, frame, head, gun and signature parts */
   look21?: Look21;
   /** 2.1 beasts: signature parts added on top of their Unit Lab design */
-  addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes')[];
+  addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes' | 'armyWhites')[];
   /** a 2.1 unit */
   v21?: boolean;
+  /** matte (doff) plastic instead of the glossy finish */
+  matte?: boolean;
   /** 2.0 humanoids: 'punch' throws the right arm straight out at the target, body leaning in */
   pose?: 'punch';
   /** 2.0 humanoids: a chest emblem in place of the core marble */
@@ -335,6 +337,10 @@ type Look21 = {
   gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka';
   left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade';
   back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters')[];
+  /** a menacing stance: legs wide and splayed, the head thrust low and forward */
+  menace?: boolean;
+  /** bone-coloured skull (instead of white) for a darker emblem */
+  boneSkull?: boolean;
   /** aim: the right arm straight out; twoHand: both arms forward, the gun held at the centre */
   pose?: 'stand' | 'aim' | 'twoHand' | 'bazooka';
   lean?: number;
@@ -349,7 +355,7 @@ type Look21 = {
  * in a palette that reads at a glance. Rex and Liger keep their Unit Lab designs and gain
  * a back cannon and big fangs.
  */
-const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem'] }> = {
+const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'wedge', gun: 'beamRifle', left: 'shield', back: ['sabers'] }, ball: 0x6fa8ff, palette: { body: 0xf2f2f4, trim: 0x2a5bd8, accent: 0xe0302e, joint: 0x4a4f60, eye: 0x6dff9a } },
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'] }, ball: 0xff5040, palette: { body: 0x8e1a2a, trim: 0x34323c, accent: 0xf2b632, joint: 0x1e1c24, eye: 0xc8ff3d } },
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
@@ -358,17 +364,18 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   monoceros: { look: { frame: 'hero', head: 'gundam', shoulder: 'heavy', gun: 'magnum', left: 'shield' }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // Black Tri-Stars: slate violet and black with a red flash
   baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
-  bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'heavy', gun: 'gatling', back: ['drum'], pods: true }, emblem: 'skull', ball: 0xff3a3a, palette: { body: 0x1c1c20, trim: 0xeeeeea, accent: 0xd8262b, joint: 0x2c2c32, eye: 0xff2a2a } },
+  // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
+  bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0x8a1c1c, joint: 0x17181a, eye: 0xff2a2a } },
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'chest', left: 'scythe', back: ['cape'] }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
-  // Unit-08 pink and mint, side-on behind a huge bazooka
-  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'bazooka', back: ['pylons'], pose: 'bazooka' }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
+  // Unit-08 pink and mint, hunched side-on behind a huge bazooka
+  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'bazooka', back: ['pylons'], pose: 'bazooka', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
   kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xc9a86a, joint: 0x23261e, eye: 0xffd23e } },
   tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   rex: { addons: ['backCannon', 'noBall'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
-  // EVA-02: red with white and orange, green eyes, black joints
-  liger: { addons: ['fangs', 'legStripes'], ball: 0xff6a3a, palette: { body: 0xd8262b, trim: 0xf2f0ea, accent: 0xff8a1a, joint: 0x1e1416, eye: 0x5aff7a } },
+  // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
+  liger: { addons: ['fangs', 'legStripes', 'armyWhites'], ball: 0xff5a3a, palette: { body: 0x5f6b3c, trim: 0x34483a, accent: 0x2b3a2f, joint: 0x1c1d20, eye: 0xc8241e } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -398,6 +405,7 @@ export const BUILTINS: readonly CharacterDef[] = [
       look21: v.look,
       addons: v.addons,
       emblem: v.emblem,
+      matte: v.matte,
       glow: v.glow ?? o.glow,
       darkFace: o.id === 'dragon' ? true : v.look ? false : o.darkFace,
       fit: beast ? V2[o.id]?.fit : undefined,
@@ -522,7 +530,7 @@ export class ShooterMesh {
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
-    this.mats = plasticize(this.root);
+    this.mats = plasticize(this.root, def.matte);
   }
 
   private build(def: CharacterDef, marbleColor: number) {
@@ -2022,7 +2030,8 @@ export class ShooterMesh {
     // ---------- legs: tapered thigh, pointed knee, flared shin, visible ankle, wedge foot ----------
     for (const s of [-1, 1]) {
       const leg = new THREE.Group();
-      leg.position.set(s * F.legGap, hipY, 0);
+      leg.position.set(s * (F.legGap + (L.menace ? 0.06 : 0)), hipY, 0);
+      if (L.menace) leg.rotation.z = s * 0.12;
       leg.add(box(0.18 * lw, 0.12, 0.2 * lw, m.joint, 0, -0.02, 0)); // hip ball
       leg.add(at(prism(0.2 * lw, 0.22 * lw, 0.27 * lw, 0.27 * lw, 0.24 * k, m.body, [0.05, 0.05, 0.02, 0.02]), 0, -0.15 * k, 0));
       ventX(leg, s * 0.135 * lw, -0.22 * k, 0.01, 3, 0.16 * lw, s);
@@ -2103,10 +2112,11 @@ export class ShooterMesh {
     }
     if (skull) {
       const z = z0 - 0.035;
-      this.turret.add(box(0.32, 0.15, 0.03, white, 0, 0.47, z), box(0.26, 0.07, 0.03, white, 0, 0.37, z));
+      const bone = L.boneSkull ? this.paint(0xb5ad98) : white;
+      this.turret.add(box(0.32, 0.15, 0.03, bone, 0, 0.47, z), box(0.26, 0.07, 0.03, bone, 0, 0.37, z));
       for (const s of [-1, 1]) this.turret.add(box(0.09, 0.07, 0.02, hole, s * 0.075, 0.43, z - 0.012));
       this.turret.add(box(0.03, 0.04, 0.02, hole, 0, 0.375, z - 0.012));
-      for (let q = 0; q < 5; q++) this.turret.add(box(0.036, 0.14, 0.03, white, -0.1 + q * 0.05, 0.27, z));
+      for (let q = 0; q < 5; q++) this.turret.add(box(0.036, 0.14, 0.03, bone, -0.1 + q * 0.05, 0.27, z));
     } else if (!L.ribcage) {
       this.turret.add(at(plate([[0, 0.08], [0.07, 0], [0, -0.08], [-0.07, 0]], 0.04, m.joint), 0, 0.36, z0 - 0.02));
     }
@@ -2123,7 +2133,7 @@ export class ShooterMesh {
     const BAZ_TWIST = 0.75;
     const bazHolder = new THREE.Object3D();
     bazHolder.position.set(0.22, 0.62, -0.1);
-    bazHolder.rotation.set(0, -BAZ_TWIST, 0);
+    bazHolder.quaternion.setFromEuler(new THREE.Euler(L.lean ?? F.lean, BAZ_TWIST, 0)).invert();
     bazHolder.scale.setScalar(1.35);
     bazHolder.updateMatrix();
     const grip = { front: V(0, -0.2, -0.34).applyMatrix4(bazHolder.matrix), rear: V(0, -0.21, 0.12).applyMatrix4(bazHolder.matrix) };
@@ -2301,7 +2311,7 @@ export class ShooterMesh {
         this.turret.rotation.y = twist; // previews never sync, so set the twist now too
         const holder = new THREE.Group();
         holder.position.copy(bazHolder.position);
-        holder.rotation.copy(bazHolder.rotation);
+        holder.quaternion.copy(bazHolder.quaternion);
         holder.scale.copy(bazHolder.scale);
         this.turret.add(holder);
         holder.add(gun);
@@ -2529,6 +2539,7 @@ export class ShooterMesh {
     this.turret.add(box(0.18, 0.14, 0.18, m.joint, 0, 0.64, -0.01));
     const head = new THREE.Group();
     head.position.set(0, 0.92 + (F.headY ?? 0), -0.03);
+    if (L.menace) head.position.add(V(0, -0.07, -0.1));
     head.scale.setScalar(F.headS);
     this.turret.add(head);
     /**
@@ -2762,8 +2773,8 @@ export class ShooterMesh {
     const black = this.paint(0x16141c);
     for (const a of def.addons ?? []) {
       if (a === 'legStripes') {
-        // the legs' white plates become stripes of gunmetal and orange, top to bottom
-        const stripe = [this.paint(0x3a3f4c), this.paint(0xff8a1a)];
+        // the legs' white plates become stripes, top to bottom
+        const stripe = [this.paint(def.palette.joint), this.paint(def.palette.accent)];
         for (const leg of this.legs) {
           const whites: THREE.Mesh[] = [];
           leg.traverse((o) => {
@@ -2774,6 +2785,19 @@ export class ShooterMesh {
           whites.sort((p, q) => q.getWorldPosition(new THREE.Vector3()).y - p.getWorldPosition(new THREE.Vector3()).y);
           whites.forEach((mesh, i) => (mesh.material = stripe[i % 2]));
         }
+      }
+      if (a === 'armyWhites') {
+        // the design's fixed white and steel parts (the backpack, plates) turn military:
+        // white to a light field grey, steel to gunmetal
+        const grey = this.paint(0x9aa294);
+        const gunmetal = this.paint(0x40454a);
+        this.root.traverse((o) => {
+          const mesh = o as THREE.Mesh;
+          const c = (mesh.material as THREE.MeshLambertMaterial | undefined)?.color;
+          if (!mesh.isMesh || !c || !(mesh.material as THREE.MeshLambertMaterial).isMeshLambertMaterial) return;
+          if (c.r > 0.85 && c.g > 0.85 && c.b > 0.8) mesh.material = grey;
+          else if (Math.abs(c.r - 0.72) < 0.05 && Math.abs(c.g - 0.745) < 0.05 && Math.abs(c.b - 0.79) < 0.05) mesh.material = gunmetal;
+        });
       }
       if (a === 'noBall') {
         // take the round parts off the design: the glass marbles and the ball on the neck
@@ -3793,7 +3817,7 @@ export function studioEnv(renderer: THREE.WebGLRenderer) {
  * picks up soft highlights, like a clean toy you want to pick up. Unlit parts (eyes, glows)
  * and the glass marble keep their own materials. Returns the plastic, for the hit flash.
  */
-export function plasticize(root: THREE.Object3D) {
+export function plasticize(root: THREE.Object3D, matte = false) {
   const swap = new Map<THREE.Material, THREE.MeshPhysicalMaterial>();
   const make = (m: THREE.MeshLambertMaterial) => {
     let p = swap.get(m);
@@ -3803,11 +3827,12 @@ export function plasticize(root: THREE.Object3D) {
       p = new THREE.MeshPhysicalMaterial({
         color: m.color,
         // dark plastic a touch glossier, so black parts still show their form
-        roughness: hsl.l < 0.2 ? 0.34 : 0.42,
+        // doff plastic: rough, no top coat, barely any reflection
+        roughness: matte ? 0.88 : hsl.l < 0.2 ? 0.34 : 0.42,
         metalness: 0,
-        clearcoat: 0.55,
+        clearcoat: matte ? 0 : 0.55,
         clearcoatRoughness: 0.28,
-        envMapIntensity: 0.6,
+        envMapIntensity: matte ? 0.25 : 0.6,
         side: m.side,
         transparent: m.transparent,
         opacity: m.opacity,
