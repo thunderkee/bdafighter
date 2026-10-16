@@ -354,15 +354,19 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'sniper', left: 'shield', back: ['radio'], pose: 'aim', antenna: true }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
   liberty: { look: { frame: 'heavy', head: 'gundam', shoulder: 'stepped', gun: 'beamRifle', left: 'tower', back: ['sabers'] }, ball: 0xfff07a, palette: { body: 0xf4f2ec, trim: 0xc99a26, accent: 0x2a4fb8, joint: 0x5a5f6e, eye: 0x6dff9a } },
   monoceros: { look: { frame: 'hero', head: 'gundam', shoulder: 'heavy', gun: 'magnum', left: 'shield' }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
-  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xff5040, palette: { body: 0xd2202e, trim: 0x8e1220, accent: 0xffc23d, joint: 0x3a2a30, eye: 0xff5fd0 } },
+  // Black Tri-Stars: slate violet and black with a red flash
+  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'heavy', gun: 'gatling', back: ['drum'], pods: true }, emblem: 'skull', ball: 0xff3a3a, palette: { body: 0x1c1c20, trim: 0xeeeeea, accent: 0xd8262b, joint: 0x2c2c32, eye: 0xff2a2a } },
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'chest', left: 'scythe', back: ['cape'] }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
-  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'pallet', back: ['pylons'], pose: 'aim' }, ball: 0x9f7aff, glow: 0x7cff5a, palette: { body: 0x8a5ae0, trim: 0x1b1a22, accent: 0x3de87c, joint: 0x15101e, eye: 0xf4ea8a } },
-  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0x7ff0ff, palette: { body: 0xf2b20f, trim: 0x1d1d24, accent: 0xe8312f, joint: 0x2c2c34, eye: 0x4dff6a } },
+  // Unit-00 colours: blue with white plates and orange
+  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'pallet', back: ['pylons'], pose: 'aim' }, ball: 0x6fa8ff, glow: 0xff9a2a, palette: { body: 0x2f63e8, trim: 0xeef0f4, accent: 0xff8a2a, joint: 0x1c2340, eye: 0xff4a4a } },
+  // an emerald beetle with gold trim
+  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0x9fffb0, palette: { body: 0x1f8a5a, trim: 0x1d1d24, accent: 0xffc23d, joint: 0x2c2c34, eye: 0xffd23e } },
   tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   rex: { addons: ['backCannon'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
-  liger: { addons: ['fangs'], ball: 0xffd04a, palette: { body: 0xf0f2f6, trim: 0x3a4a6a, accent: 0xffc23d, joint: 0x2a2f3c, eye: 0x4ad8ff } },
+  // Liger Zero X: black armour with gold
+  liger: { addons: ['fangs'], ball: 0xffd04a, palette: { body: 0x26272f, trim: 0xc9a24a, accent: 0xff6a1a, joint: 0x14151a, eye: 0x5af0ff } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -2102,9 +2106,7 @@ export class ShooterMesh {
       this.turret.add(box(0.03, 0.04, 0.02, hole, 0, 0.375, z - 0.012));
       for (let q = 0; q < 5; q++) this.turret.add(box(0.036, 0.14, 0.03, white, -0.1 + q * 0.05, 0.27, z));
     } else if (!L.ribcage) {
-      const core = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 8), m.ballMat);
-      core.position.set(0, 0.36, z0 - 0.03);
-      this.turret.add(core);
+      this.turret.add(at(plate([[0, 0.08], [0.07, 0], [0, -0.08], [-0.07, 0]], 0.04, m.joint), 0, 0.36, z0 - 0.02));
     }
     // backpack with thrusters
     this.turret.add(at(prism(0.52, 0.2, 0.46, 0.18, 0.38, m.trim, [0.06, 0.06, 0.04, 0.04]), 0, 0.36, cd / 2 + 0.09));
@@ -2414,18 +2416,15 @@ export class ShooterMesh {
     head.position.set(0, 0.92 + (F.headY ?? 0), -0.03);
     head.scale.setScalar(F.headS);
     this.turret.add(head);
-    const glint = new THREE.MeshBasicMaterial({ color: 0xffffff });
     /**
-     * Fierce but likeable eyes: kite shapes whose inner corners dip toward the nose, a white
-     * glint in each (the spark that makes an SD face charming), and heavy brows overhanging
-     * them in a V. `brow` null leaves the brows to the helmet.
+     * Fierce but likeable eyes: kite shapes whose inner corners dip toward the nose, under
+     * heavy brows in a V. `brow` null leaves the brows to the helmet.
      */
     const fierce = (y: number, z: number, size = 1, brow: THREE.Material | null = m.trim, gap = 0.03) => {
       const eye: [number, number][] = [[gap, -0.035], [0.17, -0.03], [0.21, 0.045], [gap + 0.025, 0.0]].map(([x, yy]) => [x * size, yy * size]);
       const lid: [number, number][] = [[gap - 0.01, 0.012], [0.235, 0.075], [0.24, 0.125], [gap - 0.01, 0.065]].map(([x, yy]) => [x * size, yy * size]);
       for (const s of [-1, 1]) {
         head.add(at(plate(s === 1 ? eye : mirrorX(eye), 0.02, m.eyeMat), 0, y, z));
-        head.add(box(0.032 * size, 0.032 * size, 0.012, glint, s * 0.155 * size, y + 0.012 * size, z - 0.016));
         if (brow) head.add(at(plate(s === 1 ? lid : mirrorX(lid), 0.07, brow), 0, y + 0.015 * size, z - 0.012));
       }
     };
@@ -2436,21 +2435,19 @@ export class ShooterMesh {
         head.add(prism(0.68, 0.62, 0.58, 0.54, 0.5, m.body, [0.15, 0.15, 0.06, 0.06]));
         head.add(at(prism(0.56, 0.5, 0.46, 0.44, 0.07, m.trim, [0.12, 0.12, 0.05, 0.05]), 0, 0.28, 0.02));
         const face = def.darkFace ? m.joint : L.head === 'visor' ? black : m.body;
-        // a V faceplate that comes to a point at the chin
-        head.add(at(plate([[-0.2, 0.08], [0.2, 0.08], [0.18, -0.08], [0, -0.26], [-0.18, -0.08]], 0.06, face), 0, -0.04, -0.3));
+        // the faceplate narrows to a squared-off chin
+        head.add(at(plate([[-0.2, 0.08], [0.2, 0.08], [0.18, -0.1], [0.1, -0.2], [-0.1, -0.2], [-0.18, -0.1]], 0.06, face), 0, -0.04, -0.3));
         if (L.head === 'visor') {
           head.add(at(plate([[-0.2, 0.05], [0.2, 0.05], [0.19, -0.01], [0, -0.05], [-0.19, -0.01]], 0.02, m.eyeMat), 0, 0.0, -0.335));
-          for (const sx of [-1, 1]) head.add(box(0.03, 0.03, 0.012, glint, sx * 0.13, 0.025, -0.35));
           for (const sx of [-1, 1]) head.add(at(plate(sx === 1 ? [[0, 0.04], [0.23, 0.085], [0.23, 0.13], [0, 0.09]] : mirrorX([[0, 0.04], [0.23, 0.085], [0.23, 0.13], [0, 0.09]]), 0.07, m.trim), 0, 0.0, -0.345));
           for (let q = 0; q < 4; q++) head.add(box(0.02, 0.06, 0.01, m.trim, -0.06 + q * 0.04, -0.15, -0.335));
         } else if (def.eyes === 'mono') {
           head.add(box(0.36, 0.08, 0.02, black, 0, 0.0, -0.335), box(0.09, 0.07, 0.02, m.eyeMat, 0.06, 0.0, -0.345));
         } else {
-          // the eyes sit in a dark recess under the brow; two mouth slits and a red chin below
+          // the eyes sit in a dark recess under the brow, a red chin block below
           head.add(at(plate([[-0.22, 0.05], [0.22, 0.05], [0.18, -0.06], [-0.18, -0.06]], 0.02, black), 0, 0.0, -0.33));
           fierce(-0.01, -0.345);
-          for (const sx of [-1, 1]) head.add(at(box(0.07, 0.02, 0.02, black), sx * 0.06, -0.12, -0.335, 0, 0, sx * 0.4));
-          head.add(at(plate([[-0.07, 0.03], [0.07, 0.03], [0, -0.07]], 0.03, m.accent), 0, -0.22, -0.335)); // chin point
+          head.add(box(0.16, 0.05, 0.03, m.accent, 0, -0.22, -0.335)); // chin
         }
         for (const s of [-1, 1]) {
           // brow wedge over each eye, cheek guards swept back
@@ -2465,11 +2462,11 @@ export class ShooterMesh {
         break;
       }
       case 'zaku': {
+        head.position.y -= 0.1;
         head.add(at(prism(0.66, 0.66, 0.46, 0.5, 0.48, m.body, 0.17), 0, 0.03, 0));
         head.add(at(prism(0.48, 0.52, 0.32, 0.36, 0.1, m.trim, 0.12), 0, 0.31, 0));
         head.add(at(box(0.5, 0.1, 0.06, black), 0, 0.04, -0.28)); // the mono-eye rail
         head.add(at(plate([[-0.08, 0], [0, 0.055], [0.08, 0], [0, -0.055]], 0.02, m.eyeMat), 0.07, 0.04, -0.315));
-        head.add(box(0.025, 0.025, 0.012, glint, 0.09, 0.06, -0.33));
         head.add(at(plate([[-0.27, 0.09], [0.27, 0.09], [0.25, 0.14], [0, 0.11], [-0.25, 0.14]], 0.08, m.trim), 0, 0.0, -0.29));
         head.add(at(prism(0.28, 0.22, 0.2, 0.18, 0.16, m.joint, 0.06, -0.03), 0, -0.17, -0.26)); // snout
         for (const s of [-1, 1]) head.add(at(cyl(0.035, 0.42, m.joint), s * 0.17, -0.38, -0.22, 0.3, 0, s * 0.7)); // power tubes
@@ -2506,7 +2503,7 @@ export class ShooterMesh {
         head.add(at(prism(0.82, 0.66, 0.78, 0.62, 0.22, m.body, 0.14), 0, -0.2, 0.04)); // jaw shell
         head.add(at(box(0.62, 0.2, 0.06, black), 0, -0.02, -0.33));
         fierce(-0.04, -0.37, 1.3, null, 0.02);
-        head.add(at(plate([[-0.22, 0.08], [0.22, 0.08], [0.18, -0.08], [0, -0.14], [-0.18, -0.08]], 0.08, white), 0, -0.2, -0.32));
+        head.add(at(plate([[-0.22, 0.08], [0.22, 0.08], [0.2, -0.08], [0.12, -0.13], [-0.12, -0.13], [-0.2, -0.08]], 0.08, white), 0, -0.2, -0.32));
         head.add(at(box(0.08, 0.2, 0.08, m.body), 0, 0.5, 0.02)); // stalk
         for (const s of [-1, 1]) {
           const pod = at(new THREE.Group(), s * 0.24, 0.64, 0.02, 0, 0, s * 0.32);
@@ -2525,7 +2522,11 @@ export class ShooterMesh {
           ventX(head, s * 0.36, -0.2, 0.06, 4, 0.3, s);
         }
         fierce(0.0, -0.32, 0.7, helmet);
-        head.add(at(plate([[-0.17, 0.1], [0.17, 0.1], [0.15, -0.12], [0, -0.22], [-0.15, -0.12]], 0.06, silver), 0, -0.06, -0.29));
+        head.add(at(plate([[-0.17, 0.1], [0.17, 0.1], [0.17, -0.12], [0.12, -0.2], [-0.12, -0.2], [-0.17, -0.12]], 0.06, silver), 0, -0.06, -0.29));
+        // the nose ridge down the middle of the face, and the grim mouth under it
+        head.add(at(prism(0.05, 0.05, 0.03, 0.03, 0.13, silver, 0, -0.015), 0, -0.07, -0.335));
+        head.add(box(0.07, 0.025, 0.03, silver, 0, -0.135, -0.335));
+        head.add(box(0.16, 0.022, 0.02, black, 0, -0.19, -0.325));
         head.add(at(box(0.06, 0.06, 0.03, new THREE.MeshBasicMaterial({ color: 0x4dff6a })), 0, 0.2, -0.3, 0, 0, Math.PI / 4));
         break;
       }
@@ -2581,7 +2582,6 @@ export class ShooterMesh {
     for (const s of [-1, 1]) {
       head.add(at(box(0.15, 0.17, 0.03, white), s * 0.14, 0.06, -0.27));
       head.add(at(box(0.08, 0.12, 0.02, black), s * 0.15, 0.05, -0.29));
-      head.add(at(box(0.035, 0.035, 0.01, white), s * 0.18, 0.08, -0.3));
       // a half-lid over the inner top of each eye and a brow along its edge: cute, but cross
       const lid: [number, number][] = [[0.05, 0.16], [0.235, 0.16], [0.235, 0.13], [0.05, 0.06]];
       const browLine: [number, number][] = [[0.04, 0.05], [0.24, 0.125], [0.24, 0.165], [0.04, 0.09]];
