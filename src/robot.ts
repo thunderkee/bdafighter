@@ -414,8 +414,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   // desert: sand armour, dark brown, red accents, cyan eyes
   rex: { addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
   // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
-  // a Sumatran tiger: burnt orange with bold black stripes, cream where the belly and face are
-  liger: { addons: ['legStripes', 'armyWhites'], ball: 0xff8a2a, palette: { body: 0xd8641e, trim: 0x1a1a1e, accent: 0xf2ece0, joint: 0x2a2420, eye: 0xffc23d } },
+  // a white tiger: white armour, bold black stripes, ice-blue accents and eyes
+  liger: { addons: ['legStripes', 'armyWhites'], ball: 0x7fd8ff, palette: { body: 0xf0f2f6, trim: 0x1a1a22, accent: 0x4ab8ff, joint: 0x2a2f3c, eye: 0x7fe8ff } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -3050,8 +3050,10 @@ export class ShooterMesh {
           const mesh = o as THREE.Mesh;
           const c = (mesh.material as THREE.MeshLambertMaterial | undefined)?.color;
           if (!mesh.isMesh || !c || !(mesh.material as THREE.MeshLambertMaterial).isMeshLambertMaterial) return;
-          // white teeth and claws (cones) stay light steel; other white plates go rust red
-          if (c.r > 0.85 && c.g > 0.85 && c.b > 0.8) mesh.material = mesh.geometry.type === 'ConeGeometry' ? teeth : grey;
+          // white teeth and claws (cones) stay light steel; other fixed white plates take the accent
+          // (the unit's own armour colour is left alone, even when it is white itself)
+          const own = c.equals(new THREE.Color(def.palette.body)) || c.equals(new THREE.Color(def.palette.trim));
+          if (!own && c.r > 0.85 && c.g > 0.85 && c.b > 0.8) mesh.material = mesh.geometry.type === 'ConeGeometry' ? teeth : grey;
           else if (Math.abs(c.r - 0.72) < 0.05 && Math.abs(c.g - 0.745) < 0.05 && Math.abs(c.b - 0.79) < 0.05) mesh.material = gunmetal;
         });
       }
