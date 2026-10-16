@@ -6,6 +6,7 @@ import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
+import { TWIN_X } from './config';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -382,7 +383,7 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
   angel: ['ring', 'panel'],
   dragon: ['flame', 'none'],
   pioneer: ['camo', 'camo'],
-  liberty: ['checker', 'brushed'],
+  liberty: ['checker', 'mud'],
   monoceros: ['galaxy', 'circuit'],
   baron: ['eye', 'digital'],
   bastion: ['crackle', 'carbon'],
@@ -399,8 +400,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // crimson and black with gold, hunched in, claw raised
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'], dynamic: true, menace: true, lean: -0.22 }, ball: 0xff5040, palette: { body: 0xb0182a, trim: 0x1e1c24, accent: 0xf2b632, joint: 0x16141a, eye: 0xc8ff3d } },
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
-  // Tallgeese-inspired, in green: plume helmet, Dober gun on the shoulder, huge back boosters
-  liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0x7affb0, palette: { body: 0x2e9d5a, trim: 0xeceae0, accent: 0xd9a92a, joint: 0x2a2c30, eye: 0x7ff0ff } },
+  // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
+  liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
   // Blastoise-style: a shell on its back with a twin cannon (two marbles a shot), hunched like a gorilla
   monoceros: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, twin: true, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // teal and deep blue-green with gold, a pink mono-eye
@@ -2241,14 +2242,19 @@ export class ShooterMesh {
       this.turret.add(at(plate(hex(0.06), 0.04, m.joint), 0, 0.26, z0 - 0.015));
       this.turret.add(at(plate(hex(0.034), 0.03, m.glowMat ?? m.eyeMat), 0, 0.26, z0 - 0.04));
     }
-    // backpack with thrusters
-    this.turret.add(at(prism(0.52, 0.2, 0.46, 0.18, 0.38, m.trim, [0.06, 0.06, 0.04, 0.04]), 0, 0.36, cd / 2 + 0.09));
+    // backpack: a deep pack with a raised armour panel and an accent stripe, vernier pods
+    // on its sides, and twin thruster bells with a glow in their throats
+    const bz = cd / 2;
+    this.turret.add(at(prism(0.5, 0.26, 0.44, 0.22, 0.42, m.trim, [0.06, 0.06, 0.04, 0.04]), 0, 0.37, bz + 0.12));
+    this.turret.add(at(prism(0.34, 0.06, 0.3, 0.05, 0.3, m.body, 0.03), 0, 0.4, bz + 0.27));
+    this.turret.add(box(0.05, 0.3, 0.02, m.accent, 0, 0.4, bz + 0.305));
     for (const s of [-1, 1]) {
-      const thr = at(cyl(0.075, 0.16, m.joint), s * 0.15, 0.13, cd / 2 + 0.22, Math.PI / 2);
-      const noz = at(cyl(0.05, 0.02, hole), s * 0.15, 0.13, cd / 2 + 0.31, Math.PI / 2);
-      this.turret.add(thr, noz);
+      this.turret.add(at(prism(0.1, 0.2, 0.08, 0.17, 0.3, m.body, 0.03), s * 0.29, 0.4, bz + 0.12));
+      this.turret.add(box(0.03, 0.2, 0.12, m.joint, s * 0.345, 0.4, bz + 0.12));
+      this.turret.add(at(cyl(0.085, 0.16, m.joint), s * 0.14, 0.15, bz + 0.26, Math.PI / 2));
+      this.turret.add(at(cyl(0.105, 0.06, m.trim), s * 0.14, 0.15, bz + 0.36, Math.PI / 2));
+      this.turret.add(at(cyl(0.07, 0.02, m.glowMat ?? hole), s * 0.14, 0.15, bz + 0.385, Math.PI / 2));
     }
-    for (let q = 0; q < 3; q++) this.turret.add(box(0.4, 0.024, 0.03, m.body, 0, 0.26 + q * 0.07, cd / 2 + 0.2));
 
     // the bazooka's placement (in the torso's space), so both hands can reach its grips
     const BAZ_TWIST = 0.75;
@@ -2481,21 +2487,18 @@ export class ShooterMesh {
         break;
       }
       case 'shellCannon': {
-        // Blastoise: one big cannon rising out of the shell over the right shoulder, kept
-        // level against the hunch
-        const holder = at(new THREE.Group(), 0.34, 0.9, cd / 2 - 0.02, -(L.lean ?? F.lean));
+        // Blastoise: cannons rising out of the shell over the shoulders (one over each with
+        // twin barrels, each firing its own marble), kept level against the hunch
+        const holder = at(new THREE.Group(), def.twin ? 0 : 0.34, 0.9, cd / 2 - 0.02, -(L.lean ?? F.lean));
         this.turret.add(holder);
         holder.add(gun);
-        const xs = def.twin ? [-0.13, 0.13] : [0];
-        gun.add(at(prism(def.twin ? 0.5 : 0.26, 0.4, def.twin ? 0.46 : 0.24, 0.36, 0.24, m.trim, 0.06), 0, 0, 0.12)); // mount
-        for (const x of xs) {
-          gun.add(at(cyl(0.1, 0.9, m.joint), x, 0.02, -0.36, Math.PI / 2));
-          gun.add(at(cyl(0.135, 0.14, m.trim), x, 0.02, -0.82, Math.PI / 2));
-          gun.add(at(cyl(0.09, 0.02, hole), x, 0.02, -0.9, Math.PI / 2));
-          for (const z of [-0.1, -0.5]) gun.add(at(cyl(0.115, 0.04, m.accent), x, 0.02, z, Math.PI / 2));
+        for (const x of def.twin ? [-TWIN_X, TWIN_X] : [0]) {
+          gun.add(at(prism(0.26, 0.4, 0.24, 0.36, 0.24, m.trim, 0.06), x, 0, 0.12)); // mount
+          gun.add(at(cyl(0.11, 0.9, m.joint), x, 0.02, -0.36, Math.PI / 2));
+          gun.add(at(cyl(0.15, 0.14, m.trim), x, 0.02, -0.82, Math.PI / 2));
+          gun.add(at(cyl(0.1, 0.02, hole), x, 0.02, -0.9, Math.PI / 2));
+          for (const z of [-0.1, -0.5]) gun.add(at(cyl(0.125, 0.04, m.accent), x, 0.02, z, Math.PI / 2));
         }
-        // a clamp bridging the twin barrels
-        if (def.twin) gun.add(box(0.32, 0.08, 0.1, m.trim, 0, 0.02, -0.62));
         mark(0, 0.02, -0.93);
         break;
       }
@@ -2997,6 +3000,14 @@ export class ShooterMesh {
     this.turret.add(at(prism(0.66, 0.56, 0.5, 0.46, 0.5, m.body, [0.14, 0.14, 0.12, 0.12]), 0, 0.22, 0));
     this.turret.add(at(plate([[-0.18, 0.2], [0.18, 0.2], [0.24, 0.0], [0.18, -0.2], [-0.18, -0.2], [-0.24, 0.0]], 0.05, m.trim), 0, 0.2, -0.27, 0.12));
     for (let q = 0; q < 3; q++) this.turret.add(box(0.3, 0.012, 0.02, m.accent, 0, 0.12 + q * 0.09, -0.305));
+    // a little jetpack strapped on its back: twin thrusters pointing down
+    this.turret.add(at(prism(0.34, 0.16, 0.3, 0.14, 0.3, m.trim, 0.04), 0, 0.34, 0.31));
+    this.turret.add(box(0.2, 0.04, 0.03, m.accent, 0, 0.4, 0.39));
+    for (const s of [-1, 1]) {
+      this.turret.add(at(prism(0.1, 0.1, 0.08, 0.08, 0.16, m.joint, 0.02), s * 0.1, 0.13, 0.33));
+      this.turret.add(box(0.06, 0.02, 0.06, m.accent, s * 0.1, 0.045, 0.33));
+      this.turret.add(box(0.04, 0.3, 0.04, m.joint, s * 0.16, 0.36, 0.22)); // strap
+    }
     // short arms with little claws
     for (const s of [-1, 1]) {
       const arm = at(new THREE.Group(), s * 0.3, 0.34, -0.06, -0.5, 0, s * -0.3);

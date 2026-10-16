@@ -6,7 +6,7 @@ import * as THREE from 'three';
  * and the same picture as a bump map for a little relief.
  */
 
-export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger' | 'ripstop' | 'none' | 'tigerBold';
+export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger' | 'ripstop' | 'none' | 'tigerBold' | 'mud';
 export type BallTex = 'swirl' | 'ring' | 'flame' | 'camo' | 'checker' | 'galaxy' | 'eye' | 'crackle' | 'nebula' | 'candy' | 'dots' | 'lava' | 'sparks' | 'scale' | 'tiger';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -143,6 +143,28 @@ export function armourTexture(kind: ArmourTex) {
         g.beginPath();
         g.arc(x, y, r, 0, Math.PI * 2);
         g.fill();
+      }
+      break;
+    case 'mud':
+      // dried mud: dark splats with droplets flung off them, and lighter dust patches
+      for (let i = 0; i < 8; i++) {
+        g.fillStyle = grey(rand(200, 222));
+        g.beginPath();
+        g.ellipse(rand(0, S), rand(0, S), rand(10, 22), rand(6, 14), rand(0, 3), 0, Math.PI * 2);
+        g.fill();
+      }
+      for (let i = 0; i < 14; i++) {
+        const x = rand(0, S);
+        const y = rand(0, S);
+        g.fillStyle = grey(rand(150, 175));
+        g.beginPath();
+        g.ellipse(x, y, rand(4, 10), rand(3, 7), rand(0, 3), 0, Math.PI * 2);
+        g.fill();
+        for (let k = 0; k < 5; k++) {
+          g.beginPath();
+          g.arc(x + rand(-16, 16), y + rand(-16, 16), rand(0.8, 2.4), 0, Math.PI * 2);
+          g.fill();
+        }
       }
       break;
     case 'spots':

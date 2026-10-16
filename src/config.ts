@@ -155,3 +155,6 @@ export const COLORS = {
   rail: 0x5c4f93,
   bg: 0x15112a,
 };
+
+/** a twin-cannon unit's barrels sit this far either side of its centre line; its marbles leave from them */
+export const TWIN_X = 0.42;

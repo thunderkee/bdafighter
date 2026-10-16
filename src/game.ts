@@ -1,5 +1,5 @@
 import RAPIER from '@dimforge/rapier2d';
-import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, type ShooterStats } from './config';
+import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, TWIN_X, type ShooterStats } from './config';
 import {
   COVER,
   COVER_X,
@@ -403,8 +403,8 @@ type Tag =
 
 /** seconds between the balls of one trigger pull */
 const BURST_GAP = 0.07;
-/** twin barrels: each marble's offset from the centre line (in marble radii), and its share of the damage */
-const TWIN = { gap: 1.15, damage: 0.6 };
+/** twin barrels: each marble leaves from its own barrel (the mesh's TWIN_X), with a share of the damage */
+const TWIN = { gap: TWIN_X, damage: 0.6 };
 
 /** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
@@ -1579,7 +1579,7 @@ export class Game {
       kind: isSuper ? 'super' : boost ? 'boost' : 'normal',
       // nudge a big marble forward so it doesn't spawn inside the robot
       push: isSuper ? radius : 0,
-      side: twin ? radius * TWIN.gap : 0,
+      side: twin ? TWIN.gap : 0,
     });
     s.shots++;
     // twin barrels: a second marble from the other barrel, each a little lighter on damage
@@ -1593,7 +1593,7 @@ export class Game {
           mass: st.marbleMass * (boost ? BOOST_BALL.mass : 1),
           damage: st.damage * (boost ? BOOST_BALL.damage : 1) * TWIN.damage,
           kind: boost ? 'boost' : 'normal',
-          side: -radius * TWIN.gap,
+          side: -TWIN.gap,
         });
         s.shots++;
       }
