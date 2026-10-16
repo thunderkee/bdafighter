@@ -339,6 +339,8 @@ type Look21 = {
   back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters')[];
   /** a menacing stance: legs wide and splayed, the head thrust low and forward */
   menace?: boolean;
+  /** a gunmetal crest instead of the gold V-fin */
+  darkCrest?: boolean;
   /** bone-coloured skull (instead of white) for a darker emblem */
   boneSkull?: boolean;
   /** aim: the right arm straight out; twoHand: both arms forward, the gun held at the centre */
@@ -365,7 +367,7 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   // Black Tri-Stars: slate violet and black with a red flash
   baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
   // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
-  bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0x8a1c1c, joint: 0x17181a, eye: 0xff2a2a } },
+  bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0x8a1c1c, joint: 0x17181a, eye: 0xff2a2a } },
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'chest', left: 'scythe', back: ['cape'] }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
   // Unit-08 pink and mint, hunched side-on behind a huge bazooka
   violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'bazooka', back: ['pylons'], pose: 'bazooka', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
@@ -2067,7 +2069,9 @@ export class ShooterMesh {
     // ---------- waist and skirt ----------
     const tY = hipY + 0.1;
     this.root.add(at(prism(F.waistW, 0.32, F.waistW + 0.06, 0.34, 0.14, def.darkFace ? m.joint : m.accent, 0.05), 0, tY - 0.04, 0));
-    this.root.add(box(0.16, 0.14, 0.06, m.gold, 0, tY - 0.05, -0.18));
+    // gold trim, or gunmetal on the units that shouldn't shine
+    const goldTrim = L.darkCrest ? this.paint(0x45484c) : m.gold;
+    this.root.add(box(0.16, 0.14, 0.06, goldTrim, 0, tY - 0.05, -0.18));
     for (const s of [-1, 1]) {
       // front skirt: a pointed plate on each side of the buckle, angled out
       this.root.add(at(plate([[-0.1, 0.06], [0.1, 0.06], [0.1, -0.1], [0, -0.16], [-0.1, -0.08]], 0.05, m.body), s * 0.14, tY - 0.12, -0.2, -0.2, 0, s * 0.08));
@@ -2103,7 +2107,7 @@ export class ShooterMesh {
         this.turret.add(at(pec, 0, 0.42, z0));
         const intake = prism(0.14, 0.05, 0.12, 0.04, 0.08, m.joint, 0.01);
         this.turret.add(at(intake, s * 0.2, 0.25, z0 - 0.01));
-        for (let q = 0; q < 2; q++) this.turret.add(box(0.11, 0.015, 0.02, def.darkFace ? m.accent : m.gold, s * 0.2, 0.23 + q * 0.035, z0 - 0.035));
+        for (let q = 0; q < 2; q++) this.turret.add(box(0.11, 0.015, 0.02, def.darkFace ? m.accent : goldTrim, s * 0.2, 0.23 + q * 0.035, z0 - 0.035));
       }
     } else {
       // Megatron: a silver ribcage
@@ -2584,7 +2588,8 @@ export class ShooterMesh {
         head.add(box(0.1, 0.08, 0.05, def.eyes === 'mono' ? m.gold : m.accent, 0, 0.2, -0.3));
         head.add(at(prism(0.05, 0.3, 0.04, 0.26, 0.14, m.trim), 0, 0.34, 0.16));
         if (L.antenna) head.add(at(cyl(0.012, 0.5, steel), -0.34, 0.36, 0.08), box(0.04, 0.04, 0.04, m.accent, -0.34, 0.6, 0.08));
-        this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: m.gold, glowMat: m.glowMat });
+        // a dark crest for the units that shouldn't shine
+        this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: goldTrim, glowMat: m.glowMat });
         break;
       }
       case 'tallgeese': {
