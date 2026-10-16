@@ -6,7 +6,7 @@ import * as THREE from 'three';
  * and the same picture as a bump map for a little relief.
  */
 
-export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger' | 'ripstop' | 'none';
+export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger' | 'ripstop' | 'none' | 'tigerBold';
 export type BallTex = 'swirl' | 'ring' | 'flame' | 'camo' | 'checker' | 'galaxy' | 'eye' | 'crackle' | 'nebula' | 'candy' | 'dots' | 'lava' | 'sparks' | 'scale' | 'tiger';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -181,6 +181,25 @@ export function armourTexture(kind: ArmourTex) {
         g.fill();
       }
       break;
+    case 'tigerBold':
+      // a Sumatran tiger's coat: dense, bold black stripes, forked and tapering
+      for (let i = 0; i < 7; i++) {
+        const y = i * 19 + rand(-3, 3);
+        g.fillStyle = grey(25);
+        g.beginPath();
+        g.moveTo(0, y);
+        g.quadraticCurveTo(S * 0.35, y - 10, S * 0.62, y + 3);
+        g.lineTo(S * 0.7, y + 9);
+        g.quadraticCurveTo(S * 0.3, y + 4, 0, y + 10);
+        g.fill();
+        g.beginPath();
+        g.moveTo(S, y + 8);
+        g.quadraticCurveTo(S * 0.75, y + 2, S * 0.5, y + 12);
+        g.lineTo(S * 0.48, y + 15);
+        g.quadraticCurveTo(S * 0.75, y + 9, S, y + 15);
+        g.fill();
+      }
+      break;
     case 'brushed':
       for (let y = 0; y < S; y++) {
         g.fillStyle = grey(rand(215, 250));
@@ -207,9 +226,11 @@ export function armourTexture(kind: ArmourTex) {
       }
       break;
   }
-  // soften it: a pattern, not a print
-  g.fillStyle = 'rgba(255,255,255,0.35)';
-  g.fillRect(0, 0, S, S);
+  // soften it: a pattern, not a print (the tiger coat stays bold)
+  if (kind !== 'tigerBold') {
+    g.fillStyle = 'rgba(255,255,255,0.35)';
+    g.fillRect(0, 0, S, S);
+  }
   t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;

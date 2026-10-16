@@ -388,7 +388,7 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
   tyrant: ['lava', 'hammered'],
   ember: ['sparks', 'spots'],
   rex: ['scale', 'crackle'],
-  liger: ['tiger', 'tiger'],
+  liger: ['tiger', 'tigerBold'],
 };
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   // Astray Red Frame: white armour over a red frame, black trim
@@ -414,8 +414,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   // desert: sand armour, dark brown, red accents, cyan eyes
   rex: { addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
   // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
-  // hazard yellow and black like a tiger, orange accents, a cyan visor
-  liger: { addons: ['legStripes', 'armyWhites'], ball: 0xffd04a, palette: { body: 0xf2c21f, trim: 0x1e1f26, accent: 0xff6a1a, joint: 0x2a2c34, eye: 0x5af0ff } },
+  // a Sumatran tiger: burnt orange with bold black stripes, cream where the belly and face are
+  liger: { addons: ['legStripes', 'armyWhites'], ball: 0xff8a2a, palette: { body: 0xd8641e, trim: 0x1a1a1e, accent: 0xf2ece0, joint: 0x2a2420, eye: 0xffc23d } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -3043,7 +3043,7 @@ export class ShooterMesh {
       if (a === 'armyWhites') {
         // the design's fixed white and steel parts (the backpack, plates) turn military:
         // white to a rust red, steel to gunmetal
-        const grey = this.paint(0x2a2c34);
+        const grey = this.paint(def.palette.accent);
         const gunmetal = this.paint(0x40454a);
         const teeth = this.paint(0xc8ccd2, 'metal');
         this.root.traverse((o) => {
