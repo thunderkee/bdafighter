@@ -332,11 +332,11 @@ type Look21 = {
   head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese';
   shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
   shoulderL?: Look21['shoulder'];
-  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober';
+  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka';
   left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade';
   back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters')[];
   /** aim: the right arm straight out; twoHand: both arms forward, the gun held at the centre */
-  pose?: 'stand' | 'aim' | 'twoHand';
+  pose?: 'stand' | 'aim' | 'twoHand' | 'bazooka';
   lean?: number;
   pods?: boolean;
   antenna?: boolean;
@@ -360,15 +360,15 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'heavy', gun: 'gatling', back: ['drum'], pods: true }, emblem: 'skull', ball: 0xff3a3a, palette: { body: 0x1c1c20, trim: 0xeeeeea, accent: 0xd8262b, joint: 0x2c2c32, eye: 0xff2a2a } },
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'chest', left: 'scythe', back: ['cape'] }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
-  // the yellow prototype, rifle held in both hands
-  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'pallet', back: ['pylons'], pose: 'twoHand' }, ball: 0xffd04a, glow: 0xffa21a, palette: { body: 0xf2b81f, trim: 0x3a3a42, accent: 0xff7a1a, joint: 0x1e1e24, eye: 0xff3a3a } },
+  // Unit-08 pink and mint, side-on behind a huge bazooka
+  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'bazooka', back: ['pylons'], pose: 'bazooka' }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
   kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xc9a86a, joint: 0x23261e, eye: 0xffd23e } },
   tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   rex: { addons: ['backCannon', 'noBall'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
-  // crimson armour over gunmetal, gold fangs: sits with the design's own white and steel parts
-  liger: { addons: ['fangs'], ball: 0xff6a5a, palette: { body: 0xc8282e, trim: 0x3a3f4c, accent: 0xffc23d, joint: 0x23262e, eye: 0x5af0ff } },
+  // EVA-02: red with white and orange, green eyes, black joints
+  liger: { addons: ['fangs'], ball: 0xff6a3a, palette: { body: 0xd8262b, trim: 0xf2f0ea, accent: 0xff8a1a, joint: 0x1e1416, eye: 0x5aff7a } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -2153,10 +2153,12 @@ export class ShooterMesh {
         for (const x of [-0.05, 0.05]) for (const z of [-0.07, 0.07]) sh.add(box(0.04, 0.02, 0.04, hole, s * 0.06 + x, 0.375, z));
       }
       const twoHand = L.pose === 'twoHand';
-      const aiming = (L.pose === 'aim' && s === 1) || twoHand;
+      const across = L.pose === 'bazooka' && s === -1;
+      const aiming = (L.pose === 'aim' && s === 1) || twoHand || across;
       if (aiming) {
-        // straight out at the target; with both hands, each arm turns in to meet at the gun
-        const ag = twoHand ? at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0) : sh;
+        // straight out at the target; with both hands, each arm turns in to meet at the gun;
+        // with the bazooka, the left arm reaches across the chest to its front grip
+        const ag = twoHand ? at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0) : across ? at(new THREE.Group(), 0, 0.12, 0, 0, -1.3, 0) : sh;
         if (ag !== sh) sh.add(ag);
         ag.add(at(prism(0.15 * aw, 0.15 * aw, 0.15 * aw, 0.15 * aw, 0.2, m.joint, 0.03), 0, -0.14, -0.16, -Math.PI / 2));
         piston(ag, V(s * 0.1, -0.06, -0.08), V(s * 0.1, -0.08, -0.44));
@@ -2269,6 +2271,32 @@ export class ShooterMesh {
         mark(0, 0, -0.92);
         break;
       }
+      case 'bazooka': {
+        // a huge bazooka on the right shoulder, the body turned side-on behind it. The holder
+        // turns back against the body's twist so the tube points down the lane; the marble
+        // leaves the muzzle and the tube recoils along itself
+        const twist = 1.0;
+        this.rest.turretY = twist;
+        this.turret.rotation.y = twist; // previews never sync, so set the twist now too
+        const holder = at(new THREE.Group(), F.shOut * 0.7, 0.66, 0.04, 0, -twist, 0);
+        holder.scale.setScalar(1.35);
+        this.turret.add(holder);
+        holder.add(gun);
+        gun.position.set(0, 0, 0);
+        const gm = this.paint(0x4a5058);
+        gun.add(at(cyl(0.13, 1.3, m.trim), 0, 0, -0.05, Math.PI / 2));
+        gun.add(at(cyl(0.17, 0.16, gm), 0, 0, -0.74, Math.PI / 2)); // muzzle flare
+        gun.add(at(cyl(0.12, 0.02, hole), 0, 0, -0.83, Math.PI / 2));
+        gun.add(at(cyl(0.15, 0.14, gm), 0, 0, 0.64, Math.PI / 2)); // exhaust
+        for (const z of [-0.36, 0.2]) gun.add(at(cyl(0.142, 0.05, m.accent), 0, 0, z, Math.PI / 2));
+        gun.add(box(0.07, 0.1, 0.22, gm, 0.14, 0.12, -0.2)); // sight
+        gun.add(box(0.05, 0.05, 0.05, m.eyeMat, 0.14, 0.12, -0.32));
+        gun.add(box(0.06, 0.2, 0.08, gm, 0, -0.18, -0.38)); // front grip
+        gun.add(box(0.06, 0.22, 0.1, gm, 0, -0.19, 0.12)); // trigger grip
+        gun.add(box(0.18, 0.06, 0.3, m.joint, -0.1, -0.12, 0.02)); // shoulder rest
+        mark(0, 0, -0.86);
+        break;
+      }
       case 'pallet': {
         inHand();
         const gm = this.paint(0x5d646e);
@@ -2353,6 +2381,7 @@ export class ShooterMesh {
       }
     }
     this.barrelZ = gun.position.z;
+    if (L.gun === 'bazooka') this.barrelZ = 0;
 
     // ---------- the left hand: shields, scythe, claw, tail blade ----------
     const lh = leftSh!;
@@ -2710,11 +2739,12 @@ export class ShooterMesh {
     const black = this.paint(0x16141c);
     for (const a of def.addons ?? []) {
       if (a === 'noBall') {
-        // take the glass marble off the neck (the one shiny, round part of the design)
+        // take the round parts off the design: the glass marbles and the ball on the neck
         const balls: THREE.Object3D[] = [];
         this.root.traverse((o) => {
           const mat = (o as THREE.Mesh).material as THREE.MeshPhongMaterial | undefined;
-          if ((o as THREE.Mesh).isMesh && mat?.isMeshPhongMaterial && mat.shininess >= 80) balls.push(o);
+          if (!(o as THREE.Mesh).isMesh) return;
+          if ((mat?.isMeshPhongMaterial && mat.shininess >= 80) || (o as THREE.Mesh).geometry.type === 'SphereGeometry') balls.push(o);
         });
         for (const b of balls) b.removeFromParent();
       }
