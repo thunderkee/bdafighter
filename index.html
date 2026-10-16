@@ -180,16 +180,20 @@
           <h2 id="select-title">Select fighter</h2>
         </header>
         <div class="bay">
-          <div class="crt" id="preview"></div>
+          <div class="crt" id="preview">
+            <!-- the name sits on the unit's own screen -->
+            <div class="crt-name"><span id="pv-tag">PLAYER 1</span><b id="pv-name">Seraph Zero</b></div>
+          </div>
           <div class="bay-info">
-            <div class="plate"><span id="pv-tag">PLAYER 1</span><b id="pv-name">Seraph Zero</b></div>
+            <div class="info-tabs" id="info-tabs"><button data-info="stats" class="on">Stats</button><button data-info="profile">Profile</button></div>
             <div class="meters" id="pv-stats"></div>
+            <div class="profile hidden" id="pv-profile"></div>
           </div>
         </div>
-        <div class="profile" id="pv-profile"></div>
         <div class="ver-tabs" id="ver-tabs">
           <button data-ver="1">1.0</button>
           <button data-ver="2">2.0</button>
+          <button data-ver="21">2.1</button>
           <button data-ver="c">Custom</button>
         </div>
         <div class="pick-grid" id="pick-grid"></div>

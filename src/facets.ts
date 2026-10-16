@@ -1,0 +1,89 @@
+import * as THREE from 'three';
+import { meshGeometry } from './meshkit';
+import type { MeshData } from './roster';
+
+/**
+ * Faceted kit shapes for the 2.1 units: still hard-edged and zero-bevel, but cut and tapered
+ * the way model-kit armour is, instead of plain upright boxes. Each one is a polygon mesh
+ * (the Unit Lab's 'mesh' block), so a 2.1 unit opened in the Lab keeps every facet.
+ */
+
+type P2 = [number, number];
+
+/** corner cut for the four vertical edges, front-left, front-right, back-right, back-left (front = -z) */
+export type Cuts = number | [number, number, number, number];
+
+/** the outline of a w x d rectangle around the y axis, with chamfered corners, in ring order */
+function ring(w: number, d: number, cuts: Cuts): P2[] {
+  const [fl, fr, br, bl] = typeof cuts === 'number' ? [cuts, cuts, cuts, cuts] : cuts;
+  const x = w / 2;
+  const z = d / 2;
+  const pts: P2[] = [];
+  const corner = (cx: number, cz: number, c: number, inX: number, inZ: number, first: 'x' | 'z') => {
+    if (c <= 0) return pts.push([cx, cz]);
+    const a: P2 = [cx + inX * c, cz];
+    const b: P2 = [cx, cz + inZ * c];
+    if (first === 'x') pts.push(b, a);
+    else pts.push(a, b);
+  };
+  // walk: front-left -> front-right -> back-right -> back-left
+  corner(-x, -z, fl, 1, 1, 'x');
+  corner(x, -z, fr, -1, 1, 'z');
+  corner(x, z, br, -1, -1, 'x');
+  corner(-x, z, bl, 1, -1, 'z');
+  return pts;
+}
+
+/**
+ * A tapered, chamfered block standing on the y axis: `wb x db` at the bottom, `wt x dt` at the
+ * top, `h` tall, with its vertical edges cut by `cuts`. `lean` slides the top forward (-) or back (+).
+ */
+export function prismData(wb: number, db: number, wt: number, dt: number, h: number, cuts: Cuts = 0, lean = 0): MeshData {
+  const sx = wt / wb;
+  const sz = dt / db;
+  const base = ring(wb, db, cuts);
+  const n = base.length;
+  const v: number[] = [];
+  for (const [x, z] of base) v.push(x, -h / 2, z);
+  for (const [x, z] of base) v.push(x * sx, h / 2, z * sz + lean);
+  const f: number[][] = [];
+  f.push(base.map((_, i) => i)); // bottom
+  f.push(base.map((_, i) => n + (n - 1 - i))); // top
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    f.push([i, n + i, n + j, j]);
+  }
+  return { v, f };
+}
+
+/** a flat shape drawn in the x/y plane (counter-clockwise seen from the front), extruded `depth` along z */
+export function extrudeData(pts: P2[], depth: number): MeshData {
+  const n = pts.length;
+  const v: number[] = [];
+  for (const [x, y] of pts) v.push(x, y, depth / 2); // back
+  for (const [x, y] of pts) v.push(x, y, -depth / 2); // front
+  const f: number[][] = [];
+  f.push(pts.map((_, i) => i));
+  f.push(pts.map((_, i) => n + (n - 1 - i)));
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    f.push([i, n + i, n + j, j]);
+  }
+  return { v, f };
+}
+
+/** a side profile drawn in the z/y plane (z forward is -), extruded `width` across x */
+export function sideData(pts: P2[], width: number): MeshData {
+  const d = extrudeData(pts, width);
+  // swap x and z (a mirror), then flip every face so it still faces outward
+  const v: number[] = [];
+  for (let i = 0; i < d.v.length; i += 3) v.push(d.v[i + 2], d.v[i + 1], d.v[i]);
+  return { v, f: d.f.map((face) => face.slice().reverse()) };
+}
+
+/** a mesh from shape data, remembering the data so the Unit Lab can read it back */
+export function facetMesh(data: MeshData, mat: THREE.Material) {
+  const geo = meshGeometry(data);
+  geo.userData.meshData = data;
+  return new THREE.Mesh(geo, mat);
+}

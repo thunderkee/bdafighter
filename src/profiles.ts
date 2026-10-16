@@ -135,4 +135,5 @@ export const PROFILES: Record<string, Profile> = {
 };
 
 /** a unit's profile: its own, or its original's for a 2.0 refit or a custom unit */
-export const profileOf = (id: string, from?: string, base?: string) => PROFILES[id] ?? (from ? PROFILES[from] : undefined) ?? (base ? PROFILES[base.replace(/-2$/, '')] : undefined);
+const strip = (id?: string) => id?.replace(/-2?1?$/, '').replace(/-2$/, '');
+export const profileOf = (id: string, from?: string, base?: string) => PROFILES[id] ?? (from ? PROFILES[strip(from)!] : undefined) ?? (base ? PROFILES[strip(base)!] : undefined);

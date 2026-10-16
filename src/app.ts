@@ -850,11 +850,11 @@ export function boot() {
   let step: Step = 'fighter';
   let selectMode: 'versus' | 'arcade' = 'versus';
   /** which roster tab is open: the originals, the 2.0s, or custom units */
-  let ver: '1' | '2' | 'c' = '1';
-  const verOf = (id: string): '1' | '2' | 'c' => {
+  let ver: '1' | '2' | '21' | 'c' = '1';
+  const verOf = (id: string): '1' | '2' | '21' | 'c' => {
     const c = characterById(id);
     if (!BUILTIN_IDS.has(c.id)) return 'c';
-    return c.from ? '2' : '1';
+    return c.v21 ? '21' : c.from ? '2' : '1';
   };
   const BUILTIN_IDS = new Set(BUILTINS.map((c) => c.id));
   const TRAITS: [keyof NonNullable<ReturnType<typeof characterById>['traits']>, string][] = [
@@ -890,11 +890,26 @@ export function boot() {
     void (el as HTMLElement).offsetWidth;
     el.classList.add(cls);
   };
+  /** the unit card's two tabs: stats or profile */
+  let infoTab: 'stats' | 'profile' = 'stats';
+  const showInfo = () => {
+    $('info-tabs').classList.remove('hidden');
+    document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.info === infoTab));
+    $('pv-stats').classList.toggle('hidden', infoTab !== 'stats');
+    $('pv-profile').classList.toggle('hidden', infoTab !== 'profile');
+  };
+  document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) =>
+    b.addEventListener('click', () => {
+      infoTab = b.dataset.info as typeof infoTab;
+      showInfo();
+      if (infoTab === 'stats') replay($('pv-stats'), 'refill');
+    }),
+  );
   const showPreview = () => {
     const id = chosen();
     // the preview screen blinks like a CRT changing channel; the name plate and meters refresh
     replay($('preview'), 'switch');
-    replay(document.querySelector('.plate')!, 'flash');
+    replay(document.querySelector('.crt-name')!, 'flash');
     replay($('pv-stats'), 'refill');
     if (step === 'arena') {
       preview.showStage(id);
@@ -902,6 +917,8 @@ export function boot() {
       $('pv-name').textContent = stageById(id).name;
       $('pv-stats').innerHTML = `<p class="pv-note">${stageById(id).name} · scenery and pucks themed to match</p>`;
       $('pv-profile').classList.add('hidden');
+      $('pv-stats').classList.remove('hidden');
+      $('info-tabs').classList.add('hidden');
       return;
     }
     const unit = id === 'auto' ? enemyCharacter() : id;
@@ -912,9 +929,9 @@ export function boot() {
     const c = characterById(unit);
     const pr = profileOf(c.id, c.from, c.base);
     const prof = $('pv-profile');
-    prof.classList.remove('hidden');
+    showInfo();
     prof.innerHTML = pr
-      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div><p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em>${c.from ? '<em class="v2">2.0 refit</em>' : ''}</div>`
+      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div><p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em>${c.v21 ? '<em class="v2">2.1 refit</em>' : c.from ? '<em class="v2">2.0 refit</em>' : ''}</div>`
       : `<div class="pf-head"><b>Custom unit</b><span>Unit Lab</span></div><p>Built in the Unit Lab.</p>`;
   };
   const buildGrid = () => {

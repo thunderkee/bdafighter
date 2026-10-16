@@ -6,6 +6,7 @@ import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
+import { extrudeData, facetMesh, prismData, sideData, type Cuts } from './facets';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -64,6 +65,12 @@ export interface CharacterDef {
   v2?: boolean;
   /** 2.0 humanoids: built on the shared 2.0 chassis, dressed in this character kit */
   kit?: 'mech' | 'eva' | 'beetle' | 'megatron' | 'lizard';
+  /** 2.1 units: the faceted chassis, frame, head, gun and signature parts */
+  look21?: Look21;
+  /** 2.1 beasts: signature parts added on top of their Unit Lab design */
+  addons?: ('fangs' | 'backCannon')[];
+  /** a 2.1 unit */
+  v21?: boolean;
   /** 2.0 humanoids: 'punch' throws the right arm straight out at the target, body leaning in */
   pose?: 'punch';
   /** 2.0 humanoids: a chest emblem in place of the core marble */
@@ -305,6 +312,58 @@ const V2: Record<string, V2Look> = {
   liger: { fit: [1.15, 1.15, 1.15], ball: 0xffd04a, palette: { body: 0xf0f2f6, trim: 0x3a4a6a, accent: 0xffc23d, joint: 0x2a2f3c, eye: 0x4ad8ff } },
   rex: { fit: [1.12, 1.12, 1.12], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
 };
+/** a 2.1 body plan: how long the legs are, how wide the chest, how the arms and head sit */
+type Frame21 = { legS: number; legW: number; legGap: number; foot: number; chestW: number; chestB: number; chestD: number; waistW: number; armS: number; armW: number; shOut: number; headS: number; headY?: number; lean: number };
+const FRAMES21: Record<string, Frame21> = {
+  /** the standard hero: V chest, even limbs */
+  hero: { legS: 1, legW: 1, legGap: 0.25, foot: 1, chestW: 0.94, chestB: 0.62, chestD: 0.6, waistW: 0.42, armS: 1, armW: 1, shOut: 0.64, headS: 1.04, lean: 0 },
+  /** heavy armour: broad chest, thick limbs, big boots */
+  heavy: { legS: 1, legW: 1.16, legGap: 0.29, foot: 1.1, chestW: 1.06, chestB: 0.72, chestD: 0.66, waistW: 0.5, armS: 1, armW: 1.16, shOut: 0.72, headS: 0.98, lean: 0 },
+  /** slim and quick: narrow chest, long thin limbs */
+  slim: { legS: 1.1, legW: 0.84, legGap: 0.23, foot: 0.94, chestW: 0.82, chestB: 0.5, chestD: 0.54, waistW: 0.34, armS: 1.06, armW: 0.84, shOut: 0.58, headS: 1.02, lean: -0.04 },
+  /** EVA: very long legs, a narrow waist, hunched forward */
+  lanky: { legS: 1.34, legW: 0.82, legGap: 0.22, foot: 0.94, chestW: 0.8, chestB: 0.46, chestD: 0.52, waistW: 0.3, armS: 1.22, armW: 0.84, shOut: 0.56, headS: 0.96, lean: -0.14 },
+  /** Metabee: slim limbs under a huge dome head */
+  beetle: { legS: 0.96, legW: 0.84, legGap: 0.24, foot: 0.92, chestW: 0.8, chestB: 0.56, chestD: 0.54, waistW: 0.4, armS: 0.96, armW: 0.82, shOut: 0.56, headS: 1.24, headY: 0.04, lean: 0 },
+  lizard: { legS: 1, legW: 1, legGap: 0.24, foot: 1, chestW: 0.6, chestB: 0.6, chestD: 0.5, waistW: 0.4, armS: 1, armW: 1, shOut: 0.3, headS: 1, lean: 0 },
+};
+type Look21 = {
+  frame: keyof typeof FRAMES21;
+  head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard';
+  shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
+  shoulderL?: Look21['shoulder'];
+  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth';
+  left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade';
+  back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers')[];
+  pose?: 'stand' | 'aim';
+  lean?: number;
+  pods?: boolean;
+  antenna?: boolean;
+  xLegs?: boolean;
+  shellSkirt?: boolean;
+  ribcage?: boolean;
+};
+/**
+ * 2.1: every unit redesigned on the faceted chassis with its own frame and signature part,
+ * in a palette that reads at a glance. Rex and Liger keep their Unit Lab designs and gain
+ * a back cannon and big fangs.
+ */
+const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem'] }> = {
+  angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'wedge', gun: 'beamRifle', left: 'shield', back: ['sabers'] }, ball: 0x6fa8ff, palette: { body: 0xf2f2f4, trim: 0x2a5bd8, accent: 0xe0302e, joint: 0x4a4f60, eye: 0x6dff9a } },
+  dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'] }, ball: 0xff5040, palette: { body: 0x8e1a2a, trim: 0x34323c, accent: 0xf2b632, joint: 0x1e1c24, eye: 0xc8ff3d } },
+  pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'sniper', left: 'shield', back: ['radio'], pose: 'aim', antenna: true }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
+  liberty: { look: { frame: 'heavy', head: 'gundam', shoulder: 'stepped', gun: 'beamRifle', left: 'tower', back: ['sabers'] }, ball: 0xfff07a, palette: { body: 0xf4f2ec, trim: 0xc99a26, accent: 0x2a4fb8, joint: 0x5a5f6e, eye: 0x6dff9a } },
+  monoceros: { look: { frame: 'hero', head: 'gundam', shoulder: 'heavy', gun: 'magnum', left: 'shield' }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
+  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xff5040, palette: { body: 0xd2202e, trim: 0x8e1220, accent: 0xffc23d, joint: 0x3a2a30, eye: 0xff5fd0 } },
+  bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'heavy', gun: 'gatling', back: ['drum'], pods: true }, emblem: 'skull', ball: 0xff3a3a, palette: { body: 0x1c1c20, trim: 0xeeeeea, accent: 0xd8262b, joint: 0x2c2c32, eye: 0xff2a2a } },
+  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'chest', left: 'scythe', back: ['cape'] }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
+  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'pallet', back: ['pylons'], pose: 'aim' }, ball: 0x9f7aff, glow: 0x7cff5a, palette: { body: 0x8a5ae0, trim: 0x1b1a22, accent: 0x3de87c, joint: 0x15101e, eye: 0xf4ea8a } },
+  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0x7ff0ff, palette: { body: 0xf2b20f, trim: 0x1d1d24, accent: 0xe8312f, joint: 0x2c2c34, eye: 0x4dff6a } },
+  tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
+  ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
+  rex: { addons: ['backCannon'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
+  liger: { addons: ['fangs'], ball: 0xffd04a, palette: { body: 0xf0f2f6, trim: 0x3a4a6a, accent: 0xffc23d, joint: 0x2a2f3c, eye: 0x4ad8ff } },
+};
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
 export const BUILTINS: readonly CharacterDef[] = [
@@ -316,6 +375,29 @@ export const BUILTINS: readonly CharacterDef[] = [
     palette.wing = palette.body;
     palette.wingTip = palette.trim;
     return { ...o, id: `${o.id}-2`, name: `${o.name} 2.0`, from: o.id, v2: !!v.kit, kit: v.kit, pose: v.pose, emblem: v.emblem, fit: v.fit, grow: v.grow, ball: v.ball, palette };
+  }),
+  ...ORIGINALS.filter((o) => V21[o.id]).map((o): CharacterDef => {
+    const v = V21[o.id];
+    const palette = { ...o.palette, ...v.palette };
+    palette.wing = palette.body;
+    palette.wingTip = palette.trim;
+    // beasts build on their 2.0 Unit Lab design (and its size); humanoids on the 2.1 chassis
+    const beast = !v.look;
+    return {
+      ...o,
+      id: `${o.id}-21`,
+      name: `${o.name} 2.1`,
+      from: beast ? `${o.id}-2` : o.id,
+      v21: true,
+      look21: v.look,
+      addons: v.addons,
+      emblem: v.emblem,
+      glow: v.glow ?? o.glow,
+      darkFace: o.id === 'dragon' ? true : v.look ? false : o.darkFace,
+      fit: beast ? V2[o.id]?.fit : undefined,
+      ball: v.ball,
+      palette,
+    };
   }),
 ];
 
@@ -352,7 +434,7 @@ export const shippedById = (id: string) => {
   const b = BUILTINS.find((c) => c.id === id);
   if (!b) return undefined;
   // a 2.0 unit borrows its original's traits (and, if it has no 2.0 chassis, its design), never its colours or name
-  const borrow = (u: UnitEntry | undefined): UnitEntry | undefined => (u ? { id, base: u.base, blueprint: b.kit ? undefined : u.blueprint, traits: u.traits } : undefined);
+  const borrow = (u: UnitEntry | undefined): UnitEntry | undefined => (u ? { id, base: u.base, blueprint: b.kit || b.look21 ? undefined : u.blueprint, traits: u.traits } : undefined);
   const shipped = SHIPPED.units[id] ?? (b.from ? borrow(SHIPPED.units[b.from]) : undefined);
   const published = PUBLISHED.units[id] ?? (b.from ? borrow(PUBLISHED.units[b.from]) : undefined);
   return applyEntry(applyEntry(b, shipped), published);
@@ -457,6 +539,12 @@ export class ShooterMesh {
 
     if (def.blueprint) {
       this.buildBlueprint(def.blueprint, def, marbleColor);
+      this.addons21(def);
+      return;
+    }
+    if (def.look21) {
+      if (def.look21.frame === 'lizard') this.buildLizard21(def, { body, trim, accent, joint, gold, eyeMat, glowMat, ballMat });
+      else this.buildHero21(def, { body, trim, accent, joint, gold, eyeMat, glowMat, ballMat, wingMat, wingTip });
       return;
     }
     if (def.kit) {
@@ -1246,12 +1334,14 @@ export class ShooterMesh {
       const mesh = o as THREE.Mesh;
       let b: Block;
       if (mesh.isMesh) {
-        const shape = SHAPE_OF[mesh.geometry.type];
+        const meshData = mesh.geometry.userData.meshData as Block['mesh'] | undefined;
+        const shape = meshData ? 'mesh' : SHAPE_OF[mesh.geometry.type];
         if (!shape) return null;
         const mat = mesh.material as THREE.MeshLambertMaterial;
         const kind = mat.type === 'MeshBasicMaterial' ? 'basic' : mat.type === 'MeshPhongMaterial' ? 'phong' : 'lambert';
         const size: Record<string, number | boolean> = {};
-        for (const [k, val] of Object.entries((mesh.geometry as THREE.BoxGeometry).parameters)) if (typeof val === 'number' || typeof val === 'boolean') size[k] = typeof val === 'number' ? r3(val) : val;
+        if (meshData) Object.assign(size, { bevel: 0, smooth: 0 });
+        else for (const [k, val] of Object.entries((mesh.geometry as THREE.BoxGeometry).parameters ?? {})) if (typeof val === 'number' || typeof val === 'boolean') size[k] = typeof val === 'number' ? r3(val) : val;
         b = {
           shape,
           size,
@@ -1265,6 +1355,7 @@ export class ShooterMesh {
           p: v(o.position),
           r: v(o.rotation),
           s: v(o.scale),
+          ...(meshData ? { mesh: meshData } : {}),
         };
       } else {
         b = { shape: 'group', p: v(o.position), r: v(o.rotation), s: v(o.scale) };
@@ -1870,6 +1961,681 @@ export class ShooterMesh {
     this.turret.add(this.trigger);
     // leaning into the punch
     if (punch) this.turret.rotation.x = -0.12;
+  }
+
+  /**
+   * The 2.1 humanoid: the shared chassis rebuilt in faceted kit shapes (a V chest, thighs that
+   * taper to the knee, shins that flare to the ankle, wedge feet with heels, angled pauldrons,
+   * a cut and pointed face, a visible neck, arms held off the body), on one of a few frames so
+   * the silhouettes differ, plus the character's own head, gun, pose and signature parts.
+   */
+  private buildHero21(def: CharacterDef, m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; gold: THREE.Material; eyeMat: THREE.Material; glowMat: THREE.Material | null; ballMat: THREE.Material; wingMat: THREE.Material; wingTip: THREE.Material }) {
+    const L = def.look21!;
+    const F = FRAMES21[L.frame];
+    const steel = this.paint(0xb8bec9);
+    const black = this.paint(0x16141c);
+    const white = this.paint(0xf2f2ee);
+    const silver = this.paint(0xa9b0b6);
+    const hole = new THREE.MeshBasicMaterial({ color: 0x050507 });
+    const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+    const at = <T extends THREE.Object3D>(o: T, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+      o.position.set(x, y, z);
+      o.rotation.set(rx, ry, rz);
+      return o;
+    };
+    const box = (w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0) => at(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat), x, y, z);
+    /** tapered, chamfered block (bottom wb x db, top wt x dt) */
+    const prism = (wb: number, db: number, wt: number, dt: number, h: number, mat: THREE.Material, cuts: Cuts = 0, lean = 0) => facetMesh(prismData(wb, db, wt, dt, h, cuts, lean), mat);
+    /** a front-view outline extruded through z */
+    const plate = (pts: [number, number][], depth: number, mat: THREE.Material) => facetMesh(extrudeData(pts, depth), mat);
+    /** a side-view outline (z, y) extruded across x */
+    const side = (pts: [number, number][], width: number, mat: THREE.Material) => facetMesh(sideData(pts, width), mat);
+    const cyl = (r: number, h: number, mat: THREE.Material) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 4, 1, false, Math.PI / 4), mat);
+    const cone = (r: number, h: number, mat: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 4, 1, false, Math.PI / 4), mat);
+    const ventX = (parent: THREE.Object3D, x: number, y0: number, z: number, n: number, depth: number, s: number) => {
+      parent.add(box(0.02, n * 0.05, depth + 0.02, m.joint, x - s * 0.012, y0 + (n - 1) * 0.025, z));
+      for (let k = 0; k < n; k++) parent.add(box(0.03, 0.026, depth, m.body, x, y0 + k * 0.05, z));
+    };
+    const ventZ = (parent: THREE.Object3D, x: number, y0: number, z: number, n: number, width: number, slat: THREE.Material = m.body) => {
+      parent.add(box(width + 0.02, n * 0.05, 0.02, m.joint, x, y0 + (n - 1) * 0.025, z + 0.012));
+      for (let k = 0; k < n; k++) parent.add(box(width, 0.026, 0.03, slat, x, y0 + k * 0.05, z));
+    };
+    const piston = (parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3) => {
+      const p = cyl(0.024, a.distanceTo(b), steel);
+      p.position.copy(a).add(b).multiplyScalar(0.5);
+      p.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      parent.add(p);
+    };
+    const glow = (parent: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number) => {
+      if (m.glowMat) parent.add(box(w, h, d, m.glowMat, x, y, z));
+    };
+    const lw = F.legW;
+    const k = F.legS;
+    const hipY = 0.54 * k;
+
+    // ---------- legs: tapered thigh, pointed knee, flared shin, visible ankle, wedge foot ----------
+    for (const s of [-1, 1]) {
+      const leg = new THREE.Group();
+      leg.position.set(s * F.legGap, hipY, 0);
+      leg.add(box(0.18 * lw, 0.12, 0.2 * lw, m.joint, 0, -0.02, 0)); // hip ball
+      leg.add(at(prism(0.2 * lw, 0.22 * lw, 0.27 * lw, 0.27 * lw, 0.24 * k, m.body, [0.05, 0.05, 0.02, 0.02]), 0, -0.15 * k, 0));
+      ventX(leg, s * 0.135 * lw, -0.22 * k, 0.01, 3, 0.16 * lw, s);
+      if (L.xLegs) {
+        // Metabee's leg covers: square shells marked with an X
+        leg.add(at(prism(0.3 * lw, 0.32 * lw, 0.3 * lw, 0.32 * lw, 0.26 * k, m.body, 0.03), 0, -0.36 * k, 0));
+        for (const r of [0.75, -0.75]) leg.add(at(box(0.025, 0.3 * k, 0.02, m.joint), 0, -0.36 * k, -0.165 * lw, 0, 0, r));
+      } else {
+        const knee = plate([[-0.13, 0.07], [0.13, 0.07], [0.13, -0.03], [0, -0.11], [-0.13, -0.03]], 0.08, m.trim);
+        knee.scale.set(lw, 1, 1);
+        leg.add(at(knee, 0, -0.27 * k, -0.15 * lw, -0.3));
+        leg.add(box(0.05, 0.05, 0.02, steel, 0, -0.26 * k, -0.2 * lw));
+        // shin: wider at the ankle than at the knee, cut at the front corners
+        leg.add(at(prism(0.36 * lw, 0.38 * lw, 0.28 * lw, 0.3 * lw, 0.2 * k, m.body, [0.07, 0.07, 0.03, 0.03]), 0, -0.37 * k, 0.01));
+        ventX(leg, s * 0.165 * lw, -0.44 * k, 0.02, 3, 0.22 * lw, s);
+        piston(leg, V(0, -0.2 * k, 0.14 * lw), V(0, -0.42 * k, 0.18 * lw));
+        glow(leg, 0.03, 0.16 * k, 0.02, 0, -0.37 * k, -0.19 * lw);
+      }
+      leg.add(box(0.15 * lw, 0.06, 0.16 * lw, m.joint, 0, -0.475 * k, 0.02)); // ankle
+      // foot: a side-view wedge, low toe and a raised heel block, plus a toe cap and heel spur
+      const fl = F.foot;
+      const sole = -0.54 * k;
+      leg.add(at(side([[-0.4 * fl, 0], [0.2 * fl, 0], [0.24 * fl, 0.05], [0.15 * fl, 0.12], [-0.12 * fl, 0.13], [-0.4 * fl, 0.045]], 0.4 * lw, m.body), 0, sole, -0.04));
+      if (def.feet === 'claw') {
+        for (const cx of [-0.12, 0, 0.12]) leg.add(at(cone(0.05, 0.16, m.joint), cx * lw, sole + 0.04, -0.47 * fl, -Math.PI / 2));
+      } else {
+        leg.add(at(side([[-0.42 * fl, 0], [-0.2 * fl, 0], [-0.2 * fl, 0.07], [-0.42 * fl, 0.04]], 0.42 * lw, m.accent), 0, sole, -0.04));
+      }
+      leg.add(at(side([[0.18, 0], [0.3, 0], [0.24, 0.08], [0.16, 0.08]], 0.2 * lw, m.joint), 0, sole, 0.0)); // heel spur
+      this.root.add(leg);
+      this.legs.push(leg);
+    }
+
+    // ---------- waist and skirt ----------
+    const tY = hipY + 0.1;
+    this.root.add(at(prism(F.waistW, 0.32, F.waistW + 0.06, 0.34, 0.14, def.darkFace ? m.joint : m.accent, 0.05), 0, tY - 0.04, 0));
+    this.root.add(box(0.16, 0.14, 0.06, m.gold, 0, tY - 0.05, -0.18));
+    for (const s of [-1, 1]) {
+      // front skirt: a pointed plate on each side of the buckle, angled out
+      this.root.add(at(plate([[-0.1, 0.06], [0.1, 0.06], [0.1, -0.1], [0, -0.16], [-0.1, -0.08]], 0.05, m.body), s * 0.14, tY - 0.12, -0.2, -0.2, 0, s * 0.08));
+      this.root.add(at(prism(0.05, 0.3, 0.05, 0.24, 0.22, m.trim), s * (F.waistW / 2 + 0.06), tY - 0.12, 0, 0, 0, s * 0.25));
+    }
+    if (L.shellSkirt) {
+      // Metabee's round shell skirt, as a faceted ring of plates
+      for (const s of [-1, 1]) this.root.add(at(prism(0.2, 0.36, 0.26, 0.4, 0.16, m.body, 0.06), s * 0.24, tY - 0.12, 0.02, 0, 0, s * 0.35));
+    }
+
+    // ---------- torso: a V chest, cut at the front corners ----------
+    this.turret.position.y = tY;
+    this.turret.rotation.x = L.lean ?? F.lean;
+    this.root.add(this.turret);
+    const cw = F.chestW;
+    const cd = F.chestD;
+    this.turret.add(at(prism(0.36, 0.36, 0.44, 0.4, 0.16, m.joint, 0.06), 0, 0.08, 0)); // abdomen
+    ventZ(this.turret, 0, 0.03, -0.21, 2, 0.28);
+    this.turret.add(at(prism(F.chestB, cd * 0.85, cw, cd, 0.38, m.body, [0.12, 0.12, 0.06, 0.06]), 0, 0.35, 0));
+    this.turret.add(at(prism(0.48, 0.42, 0.42, 0.36, 0.08, m.joint, 0.06), 0, 0.58, 0)); // collar
+    for (const s of [-1, 1]) {
+      ventX(this.turret, s * (cw / 2 + 0.005), 0.28, 0.03, 3, cd * 0.6, s);
+      glow(this.turret, 0.02, 0.26, cd * 0.7, s * (cw / 2 + 0.01), 0.36, 0);
+    }
+    // chest: pec plates in a V (or the skull), intakes under them, and the core
+    const skull = def.emblem === 'skull';
+    const z0 = -cd / 2 - 0.005;
+    if (!L.ribcage) {
+      for (const s of [-1, 1]) {
+        const pec = plate([[0.02, 0.1], [0.3, 0.1], [0.27, -0.06], [0.06, -0.12]], 0.06, skull ? m.body : m.trim);
+        pec.scale.x = s * (cw / 0.94);
+        this.turret.add(at(pec, 0, 0.42, z0));
+        const intake = prism(0.14, 0.05, 0.12, 0.04, 0.08, m.joint, 0.01);
+        this.turret.add(at(intake, s * 0.2, 0.25, z0 - 0.01));
+        for (let q = 0; q < 2; q++) this.turret.add(box(0.11, 0.015, 0.02, def.darkFace ? m.accent : m.gold, s * 0.2, 0.23 + q * 0.035, z0 - 0.035));
+      }
+    } else {
+      // Megatron: a silver ribcage
+      this.turret.add(at(plate([[-0.22, 0.14], [0.22, 0.14], [0.18, -0.12], [0, -0.18], [-0.18, -0.12]], 0.05, silver), 0, 0.38, z0));
+      for (let q = 0; q < 4; q++) this.turret.add(box(0.3 - q * 0.04, 0.02, 0.02, m.joint, 0, 0.47 - q * 0.07, z0 - 0.03));
+    }
+    if (skull) {
+      const z = z0 - 0.035;
+      this.turret.add(box(0.32, 0.15, 0.03, white, 0, 0.47, z), box(0.26, 0.07, 0.03, white, 0, 0.37, z));
+      for (const s of [-1, 1]) this.turret.add(box(0.09, 0.07, 0.02, hole, s * 0.075, 0.43, z - 0.012));
+      this.turret.add(box(0.03, 0.04, 0.02, hole, 0, 0.375, z - 0.012));
+      for (let q = 0; q < 5; q++) this.turret.add(box(0.036, 0.14, 0.03, white, -0.1 + q * 0.05, 0.27, z));
+    } else if (!L.ribcage) {
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 8), m.ballMat);
+      core.position.set(0, 0.36, z0 - 0.03);
+      this.turret.add(core);
+    }
+    // backpack with thrusters
+    this.turret.add(at(prism(0.52, 0.2, 0.46, 0.18, 0.38, m.trim, [0.06, 0.06, 0.04, 0.04]), 0, 0.36, cd / 2 + 0.09));
+    for (const s of [-1, 1]) {
+      const thr = at(cyl(0.075, 0.16, m.joint), s * 0.15, 0.13, cd / 2 + 0.22, Math.PI / 2);
+      const noz = at(cyl(0.05, 0.02, hole), s * 0.15, 0.13, cd / 2 + 0.31, Math.PI / 2);
+      this.turret.add(thr, noz);
+    }
+    for (let q = 0; q < 3; q++) this.turret.add(box(0.4, 0.024, 0.03, m.body, 0, 0.26 + q * 0.07, cd / 2 + 0.2));
+
+    // ---------- shoulders and arms, held off the body ----------
+    const aw = F.armW;
+    const as = F.armS;
+    let rightSh: THREE.Group | null = null;
+    let leftSh: THREE.Group | null = null;
+    for (const s of [-1, 1]) {
+      const sh = new THREE.Group();
+      sh.position.set(s * F.shOut, 0.44, 0);
+      const style = s === -1 ? (L.shoulderL ?? L.shoulder) : L.shoulder;
+      if (style === 'heavy') {
+        sh.add(at(prism(0.46, 0.54, 0.5, 0.58, 0.38, m.body, 0.08), s * 0.04, 0, 0, 0, 0, s * -0.12));
+        sh.add(at(prism(0.52, 0.6, 0.46, 0.54, 0.07, m.trim, 0.08), s * 0.05, 0.22, 0, 0, 0, s * -0.12));
+        ventX(sh, s * 0.3, -0.1, 0, 3, 0.36, s);
+      } else if (style === 'stepped') {
+        sh.add(at(prism(0.4, 0.46, 0.36, 0.42, 0.2, m.body, 0.07), s * 0.03, -0.04, 0));
+        sh.add(at(prism(0.34, 0.4, 0.28, 0.34, 0.14, m.trim, 0.06), s * 0.03, 0.13, 0));
+        ventX(sh, s * 0.215, -0.1, 0, 2, 0.3, s);
+      } else if (style === 'shield') {
+        // Zaku's round right shoulder shield, faceted
+        sh.add(at(prism(0.42, 0.5, 0.36, 0.44, 0.36, m.body, 0.12), s * 0.08, -0.02, 0, 0, 0, s * -0.3));
+        sh.add(box(0.03, 0.3, 0.36, m.trim, s * 0.27, -0.04, 0));
+      } else {
+        // the wedge: wider at the top, tipped out
+        sh.add(at(prism(0.3, 0.42, 0.42, 0.48, 0.32, m.body, 0.06), s * 0.04, 0.0, 0, 0, 0, s * -0.22));
+        sh.add(at(prism(0.44, 0.5, 0.4, 0.46, 0.06, m.trim, 0.05), s * 0.08, 0.18, 0, 0, 0, s * -0.22));
+        ventX(sh, s * 0.25, -0.08, 0, 3, 0.3, s);
+      }
+      if (style === 'spike') for (const sz of [-0.11, 0.11]) sh.add(at(cone(0.07, 0.36, m.joint), s * 0.24, 0.16, sz, 0, 0, -s * 1.15));
+      for (const rz of [-0.12, 0.12]) sh.add(box(0.05, 0.02, 0.05, steel, s * 0.08, 0.215, rz));
+      if (L.pods && style !== 'shield') {
+        // missile pods on top of the shoulder
+        sh.add(at(prism(0.22, 0.3, 0.22, 0.3, 0.14, m.joint, 0.03), s * 0.06, 0.3, 0));
+        for (const x of [-0.05, 0.05]) for (const z of [-0.07, 0.07]) sh.add(box(0.04, 0.02, 0.04, hole, s * 0.06 + x, 0.375, z));
+      }
+      const aiming = L.pose === 'aim' && s === 1;
+      if (aiming) {
+        // straight out at the target
+        sh.add(at(prism(0.15 * aw, 0.15 * aw, 0.15 * aw, 0.15 * aw, 0.2, m.joint, 0.03), 0, -0.14, -0.16, -Math.PI / 2));
+        piston(sh, V(0.1, -0.06, -0.08), V(0.1, -0.08, -0.44));
+        const g = at(prism(0.22 * aw, 0.24 * aw, 0.27 * aw, 0.28 * aw, 0.3, def.darkFace ? m.trim : m.body, [0.04, 0.04, 0.04, 0.04]), 0, -0.14, -0.5, -Math.PI / 2);
+        sh.add(g);
+        ventX(sh, 0.15 * aw, -0.2, -0.5, 2, 0.2, 1);
+        sh.add(at(prism(0.29 * aw, 0.3 * aw, 0.29 * aw, 0.3 * aw, 0.05, m.accent, 0.03), 0, -0.14, -0.36, -Math.PI / 2));
+        sh.add(box(0.22 * aw, 0.22 * aw, 0.2, m.joint, 0, -0.14, -0.74)); // fist
+      } else {
+        // hanging: slim upper arm, elbow piston, a gauntlet that widens toward the fist
+        sh.add(at(prism(0.13 * aw, 0.13 * aw, 0.15 * aw, 0.15 * aw, 0.16 * as, m.joint, 0.03), s * 0.02, -0.24 * as, -0.02));
+        piston(sh, V(s * 0.09, -0.17 * as, 0.04), V(s * 0.1, -0.33 * as, -0.08));
+        const g = at(prism(0.27 * aw, 0.3 * aw, 0.22 * aw, 0.24 * aw, 0.28 * as, def.darkFace ? m.trim : m.body, [0.04, 0.04, 0.04, 0.04]), 0, -0.38 * as, -0.1, -0.45);
+        sh.add(g);
+        ventX(g, s * 0.13 * aw, -0.06, 0, 3, 0.2, s);
+        g.add(at(prism(0.24 * aw, 0.26 * aw, 0.25 * aw, 0.27 * aw, 0.05, m.accent, 0.03), 0, 0.12 * as, 0));
+        glow(g, 0.02, 0.2, 0.02, 0, 0, -0.14 * aw);
+        sh.add(box(0.2 * aw, 0.2, 0.2 * aw, m.joint, -s * 0.04, -0.52 * as, -0.22)); // fist
+      }
+      this.turret.add(sh);
+      if (s === 1) rightSh = sh;
+      else leftSh = sh;
+    }
+    // where the right fist is, in its shoulder's space
+    const fist = L.pose === 'aim' ? V(0, -0.14, -0.74) : V(-0.04, -0.52 * as, -0.22);
+
+    // ---------- the gun ----------
+    const gun = this.barrel;
+    const mark = (x: number, y: number, z: number) => this.markBelly(gun, x, y, z);
+    const tube = (r: number, len: number, mat: THREE.Material, x: number, y: number, z: number) => gun.add(at(cyl(r, len, mat), x, y, z, Math.PI / 2));
+    const inHand = () => {
+      gun.position.copy(fist);
+      rightSh!.add(gun);
+    };
+    switch (L.gun) {
+      case 'beamRifle': {
+        inHand();
+        gun.add(at(prism(0.11, 0.42, 0.11, 0.4, 0.14, m.trim, 0.03), 0, 0.02, -0.12));
+        gun.add(box(0.06, 0.1, 0.12, m.joint, 0, -0.08, 0.05)); // grip
+        gun.add(box(0.05, 0.06, 0.16, m.accent, 0, 0.11, -0.14)); // scope
+        tube(0.03, 0.26, m.joint, 0, 0.03, -0.44);
+        tube(0.045, 0.06, m.trim, 0, 0.03, -0.57);
+        mark(0, 0.03, -0.62);
+        break;
+      }
+      case 'sniper': {
+        inHand();
+        gun.add(at(prism(0.1, 0.5, 0.1, 0.48, 0.13, m.joint, 0.02), 0, 0.02, -0.14));
+        gun.add(box(0.08, 0.13, 0.22, m.joint, 0, -0.02, 0.22)); // stock
+        gun.add(box(0.07, 0.07, 0.24, m.trim, 0, 0.13, -0.12)); // long scope
+        gun.add(box(0.05, 0.05, 0.02, m.eyeMat, 0, 0.13, -0.245));
+        tube(0.026, 0.46, m.joint, 0, 0.03, -0.62);
+        gun.add(box(0.06, 0.06, 0.06, m.trim, 0, 0.03, -0.86));
+        mark(0, 0.03, -0.9);
+        break;
+      }
+      case 'magnum': {
+        inHand();
+        gun.add(at(prism(0.13, 0.5, 0.15, 0.5, 0.18, m.body, 0.04), 0, 0.03, -0.14));
+        gun.add(at(prism(0.12, 0.16, 0.12, 0.12, 0.12, m.accent, 0.02), 0, -0.08, -0.04)); // e-pac
+        gun.add(box(0.06, 0.1, 0.12, m.joint, 0, -0.12, 0.08));
+        tube(0.045, 0.3, m.joint, 0, 0.04, -0.52);
+        tube(0.06, 0.06, m.trim, 0, 0.04, -0.68);
+        mark(0, 0.04, -0.73);
+        break;
+      }
+      case 'drumMG': {
+        inHand();
+        gun.add(box(0.12, 0.15, 0.44, m.joint, 0, 0.04, -0.08));
+        gun.add(box(0.08, 0.14, 0.18, m.joint, 0, 0.02, 0.22));
+        gun.add(box(0.125, 0.03, 0.3, m.accent, 0, 0.1, -0.1));
+        gun.add(at(cyl(0.11, 0.08, m.trim), -0.1, 0.02, 0.0, 0, 0, Math.PI / 2));
+        tube(0.032, 0.3, m.joint, 0, 0.04, -0.45);
+        gun.add(box(0.08, 0.08, 0.08, m.trim, 0, 0.04, -0.62));
+        mark(0, 0.04, -0.68);
+        break;
+      }
+      case 'pallet': {
+        inHand();
+        const gm = this.paint(0x5d646e);
+        gun.add(box(0.13, 0.15, 0.5, gm, 0, -0.02, -0.12));
+        gun.add(box(0.1, 0.16, 0.2, gm, 0, -0.04, 0.22));
+        gun.add(box(0.06, 0.16, 0.08, black, 0, -0.16, -0.1));
+        gun.add(box(0.135, 0.03, 0.2, m.accent, 0, 0.0, -0.22));
+        tube(0.035, 0.3, black, 0, -0.02, -0.47);
+        mark(0, -0.02, -0.64);
+        break;
+      }
+      case 'gatling': {
+        inHand();
+        gun.add(at(prism(0.24, 0.34, 0.22, 0.3, 0.22, m.joint, 0.05), 0, 0.02, -0.04));
+        gun.add(at(cyl(0.12, 0.08, m.accent), 0, 0.02, -0.2, Math.PI / 2));
+        for (let q = 0; q < 6; q++) {
+          const a = (q / 6) * Math.PI * 2;
+          tube(0.026, 0.36, black, Math.cos(a) * 0.07, 0.02 + Math.sin(a) * 0.07, -0.38);
+        }
+        gun.add(at(cyl(0.11, 0.04, m.accent), 0, 0.02, -0.56, Math.PI / 2));
+        mark(0, 0.02, -0.6);
+        break;
+      }
+      case 'fistCannon': {
+        // Metabee's twin cannon over the thrown fist
+        gun.position.copy(fist).add(V(0, 0.16, 0.12));
+        rightSh!.add(gun);
+        gun.add(at(prism(0.28, 0.3, 0.26, 0.28, 0.15, m.body, 0.05), 0, 0, 0));
+        gun.add(box(0.3, 0.03, 0.32, m.trim, 0, -0.07, 0));
+        for (const x of [-0.07, 0.07]) {
+          tube(0.055, 0.1, m.trim, x, 0, -0.19);
+          tube(0.035, 0.02, hole, x, 0, -0.245);
+        }
+        mark(0, 0, -0.27);
+        break;
+      }
+      case 'rexFist': {
+        // Megatron: the T-rex head on the right fist is the gun, its jaw snapping on each shot
+        inHand();
+        gun.scale.setScalar(1.4);
+        const pink = this.paint(0xc8506a);
+        const red = new THREE.MeshBasicMaterial({ color: 0xff2a2a });
+        gun.add(at(prism(0.32, 0.4, 0.28, 0.36, 0.28, m.body, [0.06, 0.06, 0.03, 0.03]), 0, 0.04, -0.08));
+        gun.add(at(prism(0.28, 0.3, 0.22, 0.28, 0.16, m.body, [0.07, 0.07, 0.02, 0.02], -0.02), 0, 0, -0.32));
+        gun.add(box(0.2, 0.03, 0.28, pink, 0, -0.07, -0.3));
+        for (const s of [-1, 1]) {
+          gun.add(box(0.07, 0.05, 0.05, red, s * 0.15, 0.1, -0.16));
+          gun.add(at(prism(0.1, 0.18, 0.06, 0.14, 0.05, m.trim), s * 0.11, 0.19, -0.16, 0, 0, s * 0.35));
+          for (let q = 0; q < 4; q++) gun.add(at(cone(0.02, 0.07, white), s * 0.1, -0.09, -0.42 + q * 0.07, Math.PI));
+        }
+        const jaw = new THREE.Group();
+        jaw.position.set(0, -0.08, -0.06);
+        jaw.add(at(prism(0.24, 0.36, 0.2, 0.3, 0.07, m.body, 0.04), 0, -0.03, -0.2));
+        gun.add(jaw);
+        this.jaw = jaw;
+        mark(0, -0.04, -0.48);
+        break;
+      }
+      case 'dragonMaw': {
+        // Wyvern: a dragon's head on the chest is the gun
+        gun.position.set(0, 0.2, -cd / 2 - 0.02);
+        this.turret.add(gun);
+        gun.add(at(prism(0.3, 0.2, 0.22, 0.16, 0.16, m.trim, [0.06, 0.06, 0.02, 0.02], -0.04), 0, 0.02, -0.08, -Math.PI / 2 + 0.2));
+        gun.add(at(side([[0.04, 0.0], [-0.24, 0.02], [-0.28, -0.06], [0.04, -0.06]], 0.22, m.body), 0, 0.06, 0));
+        for (const s of [-1, 1]) {
+          gun.add(box(0.05, 0.04, 0.04, m.eyeMat, s * 0.08, 0.1, -0.12));
+          for (let q = 0; q < 3; q++) gun.add(at(cone(0.018, 0.05, white), s * 0.07, 0.0, -0.24 + q * 0.06, Math.PI));
+        }
+        mark(0, 0.03, -0.32);
+        break;
+      }
+      case 'mouth':
+        break; // the lizard's head carries it
+      default: {
+        // a compact chest cannon
+        gun.position.set(0, 0.18, -cd / 2 - 0.02);
+        this.turret.add(gun);
+        tube(0.09, 0.22, m.joint, 0, 0, -0.06);
+        tube(0.115, 0.05, def.darkFace ? m.accent : m.gold, 0, 0, -0.17);
+        tube(0.06, 0.02, hole, 0, 0, -0.2);
+        mark(0, 0, -0.22);
+      }
+    }
+    this.barrelZ = gun.position.z;
+
+    // ---------- the left hand: shields, scythe, claw, tail blade ----------
+    const lh = leftSh!;
+    const lfist = V(0.04, -0.52 * as, -0.22);
+    switch (L.left) {
+      case 'shield': {
+        const sh = plate([[-0.16, 0.24], [0.16, 0.24], [0.16, -0.12], [0, -0.3], [-0.16, -0.12]], 0.05, m.body);
+        lh.add(at(sh, -0.17, -0.4 * as, -0.04, 0, Math.PI / 2 - 0.15, 0));
+        lh.add(at(plate([[-0.03, 0.18], [0.03, 0.18], [0.03, -0.18], [-0.03, -0.18]], 0.06, m.accent), -0.2, -0.38 * as, -0.04, 0, Math.PI / 2 - 0.15));
+        lh.add(at(plate([[-0.12, 0.03], [0.12, 0.03], [0.12, -0.03], [-0.12, -0.03]], 0.06, m.accent), -0.2, -0.32 * as, -0.04, 0, Math.PI / 2 - 0.15));
+        break;
+      }
+      case 'tower': {
+        // Liberty's tall guardian shield with a gold cross
+        lh.add(at(prism(0.06, 0.46, 0.06, 0.42, 0.74, m.body, [0.0, 0.0, 0.0, 0.0]), -0.18, -0.36, -0.06, 0, 0, 0.05));
+        lh.add(at(plate([[-0.03, 0.26], [0.03, 0.26], [0.03, -0.26], [-0.03, -0.26]], 0.4, m.trim), -0.22, -0.34, -0.06, 0, Math.PI / 2, 0.05));
+        lh.add(at(box(0.07, 0.06, 0.38, m.trim), -0.22, -0.24, -0.06));
+        break;
+      }
+      case 'scythe': {
+        const pole = at(cyl(0.025, 1.6, m.joint), lfist.x, lfist.y + 0.3, lfist.z);
+        lh.add(pole);
+        // a crescent blade facing the camera, sweeping out to the side
+        const blade = plate([[0, 0.04], [-0.6, 0.16], [-0.78, -0.04], [-0.52, 0.02], [-0.04, -0.1]], 0.04, m.glowMat ?? m.accent);
+        lh.add(at(blade, lfist.x, lfist.y + 1.06, lfist.z));
+        lh.add(at(box(0.07, 0.12, 0.07, m.trim), lfist.x, lfist.y + 1.08, lfist.z));
+        break;
+      }
+      case 'claw': {
+        for (const dx of [-0.07, 0, 0.07]) lh.add(at(cone(0.035, 0.2, m.trim), lfist.x + dx, lfist.y - 0.16, lfist.z - 0.06, Math.PI - 0.3));
+        break;
+      }
+      case 'tailBlade': {
+        const segs: [number, number, number, number][] = [
+          [0.5, 0.0, 0.32, 0.3],
+          [0.22, -0.02, 0.3, 0.12],
+          [-0.08, -0.03, 0.26, 0],
+          [-0.36, -0.02, 0.2, -0.14],
+          [-0.6, 0.0, 0.13, -0.32],
+        ];
+        for (const [y, z, w, rz] of segs) {
+          const g = at(new THREE.Group(), -0.18, y, lfist.z + z, 0, 0, rz);
+          g.add(prism(w * 0.7, w * 1.2, w * 0.6, w * 1.1, 0.34, m.body, 0.03));
+          g.add(at(box(0.04, 0.32, w * 1.0, silver), -w * 0.38, 0, 0));
+          g.add(at(cone(0.04 + w * 0.1, 0.12 + w * 0.3, m.trim), w * 0.4, 0, 0, 0, 0, -Math.PI / 2));
+          lh.add(g);
+        }
+        break;
+      }
+    }
+
+    // ---------- the back: wings, sabers, cape, radio, ammo drum ----------
+    this.wings.position.set(0, 0.42, cd / 2 + 0.2);
+    this.turret.add(this.wings);
+    this.wingR.position.x = 0.12;
+    this.wingL.position.x = -0.12;
+    this.wingL.scale.x = -1;
+    this.wings.add(this.wingL, this.wingR);
+    for (const back of L.back ?? []) {
+      if (back === 'pods') for (const w of [this.wingL, this.wingR]) this.buildPods(w, m.wingMat, m.wingTip, m.joint);
+      if (back === 'sabers') for (const s of [-1, 1]) this.turret.add(at(cyl(0.03, 0.2, white), s * 0.18, 0.62, cd / 2 + 0.16, -0.5), at(cyl(0.035, 0.05, m.joint), s * 0.18, 0.54, cd / 2 + 0.2, -0.5));
+      if (back === 'wings')
+        for (const w of [this.wingL, this.wingR]) {
+          // bat-wing blades: three tapering fins fanned up and out
+          [0.9, 0.5, 0.1].forEach((rz, q) => {
+            const fin = plate([[0, 0.04], [0.62 - q * 0.12, 0.08], [0.7 - q * 0.12, -0.02], [0, -0.05]], 0.04, q === 0 ? m.trim : m.wingMat);
+            w.add(at(fin, 0.04, 0.12 - q * 0.08, 0.04 + q * 0.03, 0, -0.35, rz));
+          });
+        }
+      if (back === 'cape')
+        for (const [x, rz, len] of [[-0.2, 0.06, 0.9], [0, 0, 1.0], [0.2, -0.06, 0.86]] as const)
+          this.turret.add(at(plate([[-0.11, 0], [0.11, 0], [0.09, -len], [0, -len - 0.1], [-0.09, -len]], 0.03, m.trim), x, 0.6, cd / 2 + 0.16, 0.12, 0, rz));
+      if (back === 'radio') {
+        this.turret.add(at(prism(0.2, 0.16, 0.18, 0.14, 0.24, m.joint, 0.03), 0.2, 0.62, cd / 2 + 0.14));
+        this.turret.add(at(cyl(0.012, 0.6, steel), 0.24, 0.98, cd / 2 + 0.14));
+      }
+      if (back === 'drum') this.turret.add(at(cyl(0.18, 0.2, m.joint), 0, 0.38, cd / 2 + 0.28, 0, 0, Math.PI / 2), at(cyl(0.12, 0.21, m.accent), 0, 0.38, cd / 2 + 0.28, 0, 0, Math.PI / 2));
+      if (back === 'pylons')
+        for (const s of [-1, 1]) {
+          const sh = s === 1 ? rightSh! : leftSh!;
+          sh.add(at(prism(0.1, 0.3, 0.06, 0.26, 0.64, m.trim, 0.02), s * 0.16, 0.36, 0, 0, 0, -s * 0.08));
+          sh.add(box(0.09, 0.1, 0.27, m.accent, s * 0.19, 0.68, 0));
+        }
+      if (back === 'fins')
+        for (const s of [-1, 1]) {
+          const sh = s === 1 ? rightSh! : leftSh!;
+          sh.add(at(plate([[-0.06, 0], [0.06, 0], [0.03, 0.5], [-0.05, 0.42]], 0.26, m.body), s * 0.02, 0.18, 0.14, 0.15, 0, s * -0.3));
+        }
+      if (back === 'launchers') {
+        // Metabee: twin launchers on a stalk from the top of the head (added with the head below)
+      }
+    }
+    this.trigger = box(0.24, 0.14, 0.14, m.gold, 0, 0.06, cd / 2 + 0.36);
+    this.triggerZ = cd / 2 + 0.36;
+    this.turret.add(this.trigger);
+
+    // ---------- the neck and the head ----------
+    this.turret.add(box(0.18, 0.14, 0.18, m.joint, 0, 0.64, -0.01));
+    const head = new THREE.Group();
+    head.position.set(0, 0.92 + (F.headY ?? 0), -0.03);
+    head.scale.setScalar(F.headS);
+    this.turret.add(head);
+    const eyes = (y: number, z: number, tilt: number, w = 0.15) => {
+      for (const s of [-1, 1]) head.add(at(box(w, 0.06, 0.02, m.eyeMat), s * 0.1, y, z, 0, 0, s * tilt));
+    };
+    switch (L.head) {
+      case 'gundam':
+      case 'visor': {
+        // the helmet, cut at the front corners so the face reads as facets, narrower at the top
+        head.add(prism(0.68, 0.62, 0.58, 0.54, 0.5, m.body, [0.15, 0.15, 0.06, 0.06]));
+        head.add(at(prism(0.56, 0.5, 0.46, 0.44, 0.07, m.trim, [0.12, 0.12, 0.05, 0.05]), 0, 0.28, 0.02));
+        const face = def.darkFace ? m.joint : L.head === 'visor' ? black : m.body;
+        // a V faceplate that comes to a point at the chin
+        head.add(at(plate([[-0.2, 0.08], [0.2, 0.08], [0.18, -0.08], [0, -0.26], [-0.18, -0.08]], 0.06, face), 0, -0.04, -0.3));
+        if (L.head === 'visor') {
+          head.add(box(0.36, 0.06, 0.02, m.eyeMat, 0, 0.0, -0.335));
+          for (let q = 0; q < 4; q++) head.add(box(0.02, 0.06, 0.01, m.trim, -0.06 + q * 0.04, -0.15, -0.335));
+        } else if (def.eyes === 'mono') {
+          head.add(box(0.36, 0.08, 0.02, black, 0, 0.0, -0.335), box(0.09, 0.07, 0.02, m.eyeMat, 0.06, 0.0, -0.345));
+        } else {
+          eyes(0.0, -0.335, def.darkFace ? 0.35 : 0.22);
+          head.add(at(plate([[-0.06, 0.03], [0.06, 0.03], [0, -0.06]], 0.03, m.accent), 0, -0.22, -0.32)); // chin point
+        }
+        for (const s of [-1, 1]) {
+          // brow wedge over each eye, cheek guards swept back
+          head.add(at(prism(0.2, 0.1, 0.16, 0.08, 0.06, m.trim), s * 0.11, 0.1, -0.3, 0, 0, s * 0.24));
+          head.add(at(plate([[0, 0.12], [0.1, 0.06], [0.1, -0.12], [0, -0.16]], 0.04, m.trim), s * 0.27, -0.06, -0.18, 0, s * 0.55, 0));
+          head.add(at(prism(0.1, 0.28, 0.09, 0.24, 0.24, m.trim, 0.03), s * 0.37, 0.0, 0.05));
+          ventX(head, s * 0.42, -0.06, 0.06, 3, 0.18, s);
+        }
+        head.add(box(0.1, 0.08, 0.05, def.eyes === 'mono' ? m.gold : m.accent, 0, 0.2, -0.3));
+        head.add(at(prism(0.05, 0.3, 0.04, 0.26, 0.14, m.trim), 0, 0.34, 0.16));
+        if (L.antenna) head.add(at(cyl(0.012, 0.5, steel), -0.34, 0.36, 0.08), box(0.04, 0.04, 0.04, m.accent, -0.34, 0.6, 0.08));
+        this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: m.gold, glowMat: m.glowMat });
+        break;
+      }
+      case 'zaku': {
+        head.add(at(prism(0.66, 0.66, 0.46, 0.5, 0.48, m.body, 0.17), 0, 0.03, 0));
+        head.add(at(prism(0.48, 0.52, 0.32, 0.36, 0.1, m.trim, 0.12), 0, 0.31, 0));
+        head.add(at(box(0.5, 0.1, 0.06, black), 0, 0.04, -0.28)); // the mono-eye rail
+        head.add(box(0.1, 0.07, 0.02, m.eyeMat, 0.08, 0.04, -0.315));
+        head.add(at(prism(0.28, 0.22, 0.2, 0.18, 0.16, m.joint, 0.06, -0.03), 0, -0.17, -0.26)); // snout
+        for (const s of [-1, 1]) head.add(at(cyl(0.035, 0.42, m.joint), s * 0.17, -0.38, -0.22, 0.3, 0, s * 0.7)); // power tubes
+        this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: m.gold, glowMat: m.glowMat });
+        break;
+      }
+      case 'hood': {
+        // a pointed hood over a dark face with glowing eyes and a V mask
+        head.add(at(prism(0.66, 0.66, 0.36, 0.44, 0.58, m.body, 0.12, -0.12), 0, 0.03, 0.02));
+        head.add(at(box(0.44, 0.3, 0.06, black), 0, -0.04, -0.3));
+        eyes(0.0, -0.335, 0.3, 0.13);
+        head.add(at(plate([[-0.2, 0.0], [0.2, 0.0], [0, -0.2]], 0.05, m.joint), 0, -0.1, -0.33));
+        for (const s of [-1, 1]) head.add(at(prism(0.06, 0.4, 0.04, 0.3, 0.4, m.trim), s * 0.33, -0.04, 0.0, 0, 0, s * 0.1));
+        break;
+      }
+      case 'eva': {
+        head.add(at(prism(0.56, 0.76, 0.46, 0.68, 0.42, m.body, [0.12, 0.12, 0.05, 0.05]), 0, 0.04, 0.04));
+        head.add(at(prism(0.12, 0.6, 0.08, 0.5, 0.12, m.body), 0, 0.29, 0.06));
+        head.add(box(0.4, 0.15, 0.06, black, 0, -0.02, -0.34));
+        for (const s of [-1, 1]) {
+          head.add(at(prism(0.3, 0.14, 0.26, 0.1, 0.07, m.body), s * 0.15, 0.1, -0.34, 0, 0, s * 0.28));
+          head.add(at(box(0.12, 0.05, 0.02, m.eyeMat), s * 0.1, -0.01, -0.375, 0, 0, s * 0.35));
+          head.add(at(box(0.05, 0.2, 0.06, m.accent), s * 0.15, -0.2, -0.33, 0, 0, -s * 0.35));
+          head.add(at(prism(0.06, 0.48, 0.05, 0.4, 0.34, m.body, 0.03), s * 0.34, -0.06, 0.02, 0, 0, s * 0.2));
+        }
+        // the long beak jaw, angled down to a point
+        head.add(at(side([[-0.08, 0.04], [-0.44, -0.08], [-0.42, -0.16], [-0.06, -0.12]], 0.2, this.paint(0x6f7d96)), 0, -0.14, 0));
+        head.add(at(cone(0.07, 0.52, m.body), 0, 0.38, -0.34, -0.75));
+        break;
+      }
+      case 'beetle': {
+        head.add(at(prism(0.78, 0.72, 0.6, 0.58, 0.56, m.body, 0.17), 0, 0.08, 0.02)); // the dome
+        head.add(at(prism(0.56, 0.52, 0.4, 0.38, 0.12, m.body, 0.12), 0, 0.42, 0.02));
+        head.add(at(prism(0.82, 0.66, 0.78, 0.62, 0.22, m.body, 0.14), 0, -0.2, 0.04)); // jaw shell
+        head.add(at(box(0.62, 0.2, 0.06, black), 0, -0.02, -0.33));
+        for (const s of [-1, 1]) head.add(at(box(0.2, 0.1, 0.02, m.eyeMat), s * 0.13, -0.03, -0.37, 0, 0, s * 0.2));
+        head.add(at(plate([[-0.22, 0.08], [0.22, 0.08], [0.18, -0.08], [0, -0.14], [-0.18, -0.08]], 0.08, white), 0, -0.2, -0.32));
+        head.add(at(box(0.08, 0.22, 0.08, m.body), 0, 0.56, 0.02)); // stalk
+        for (const s of [-1, 1]) {
+          const pod = at(new THREE.Group(), s * 0.24, 0.72, 0.02, 0, 0, s * 0.32);
+          pod.add(at(cyl(0.09, 0.4, m.trim), 0, 0, 0, 0, 0, Math.PI / 2));
+          for (const dx of [-0.1, 0, 0.1]) pod.add(box(0.05, 0.05, 0.02, hole, s * dx, 0, -0.09));
+          head.add(pod);
+        }
+        break;
+      }
+      case 'bucket': {
+        const helmet = this.paint(0x3f4648);
+        head.add(at(prism(0.56, 0.56, 0.62, 0.58, 0.66, helmet, [0.1, 0.1, 0.04, 0.04]), 0, 0.06, 0.01));
+        head.add(at(prism(0.12, 0.5, 0.16, 0.52, 0.12, this.paint(0x5a6264)), 0, 0.42, 0.02));
+        for (const s of [-1, 1]) {
+          head.add(at(prism(0.08, 0.5, 0.08, 0.44, 0.46, helmet, 0.02), s * 0.31, -0.06, 0.02, 0, 0, s * -0.08));
+          ventX(head, s * 0.36, -0.2, 0.06, 4, 0.3, s);
+          head.add(at(box(0.1, 0.035, 0.02, m.eyeMat), s * 0.08, 0.02, -0.31, 0, 0, s * 0.35));
+        }
+        head.add(at(plate([[-0.17, 0.1], [0.17, 0.1], [0.15, -0.12], [0, -0.22], [-0.15, -0.12]], 0.06, silver), 0, -0.06, -0.29));
+        head.add(at(box(0.06, 0.06, 0.03, new THREE.MeshBasicMaterial({ color: 0x4dff6a })), 0, 0.2, -0.3, 0, 0, Math.PI / 4));
+        break;
+      }
+    }
+  }
+
+  /**
+   * Ember Lizard 2.1: back to the chunky, cute fire lizard of the original, now in faceted
+   * kit shapes: a pear-shaped body with a cream belly, a big head with a round snout and big
+   * eyes, short legs with claws, and a long tail with a big flame. The marble leaves its mouth.
+   */
+  private buildLizard21(_def: CharacterDef, m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; gold: THREE.Material; eyeMat: THREE.Material; glowMat: THREE.Material | null; ballMat: THREE.Material }) {
+    const white = this.paint(0xfaf7f0);
+    const black = this.paint(0x141018);
+    const at = <T extends THREE.Object3D>(o: T, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+      o.position.set(x, y, z);
+      o.rotation.set(rx, ry, rz);
+      return o;
+    };
+    const box = (w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0) => at(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat), x, y, z);
+    const prism = (wb: number, db: number, wt: number, dt: number, h: number, mat: THREE.Material, cuts: Cuts = 0, lean = 0) => facetMesh(prismData(wb, db, wt, dt, h, cuts, lean), mat);
+    const plate = (pts: [number, number][], depth: number, mat: THREE.Material) => facetMesh(extrudeData(pts, depth), mat);
+    const cone = (r: number, h: number, mat: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 4, 1, false, Math.PI / 4), mat);
+    const hipY = 0.4;
+    for (const s of [-1, 1]) {
+      const leg = new THREE.Group();
+      leg.position.set(s * 0.24, hipY, 0.04);
+      leg.add(at(prism(0.3, 0.34, 0.34, 0.38, 0.24, m.body, 0.08), 0, -0.1, 0)); // chunky thigh
+      leg.add(at(prism(0.26, 0.3, 0.24, 0.28, 0.14, m.body, 0.06), 0, -0.28, 0));
+      leg.add(at(prism(0.34, 0.5, 0.3, 0.42, 0.1, m.body, [0.1, 0.1, 0.06, 0.06]), 0, -0.36, -0.06)); // foot
+      for (const cx of [-0.1, 0, 0.1]) leg.add(at(cone(0.045, 0.12, white), cx, -0.37, -0.33, -Math.PI / 2));
+      this.root.add(leg);
+      this.legs.push(leg);
+    }
+    // the body: a pear, wider at the hips, with the cream belly
+    this.turret.position.y = hipY + 0.02;
+    this.root.add(this.turret);
+    this.turret.add(at(prism(0.66, 0.56, 0.5, 0.46, 0.5, m.body, [0.14, 0.14, 0.12, 0.12]), 0, 0.22, 0));
+    this.turret.add(at(plate([[-0.18, 0.2], [0.18, 0.2], [0.24, 0.0], [0.18, -0.2], [-0.18, -0.2], [-0.24, 0.0]], 0.05, m.trim), 0, 0.2, -0.27, 0.12));
+    for (let q = 0; q < 3; q++) this.turret.add(box(0.3, 0.012, 0.02, m.accent, 0, 0.12 + q * 0.09, -0.305));
+    // short arms with little claws
+    for (const s of [-1, 1]) {
+      const arm = at(new THREE.Group(), s * 0.3, 0.34, -0.06, -0.5, 0, s * -0.3);
+      arm.add(at(prism(0.12, 0.12, 0.14, 0.14, 0.24, m.body, 0.03), 0, -0.1, 0));
+      for (const dx of [-0.04, 0.04]) arm.add(at(cone(0.025, 0.08, white), dx, -0.25, -0.02, Math.PI));
+      this.turret.add(arm);
+    }
+    // the big head: a faceted skull, a round snout, big shiny eyes
+    const head = at(new THREE.Group(), 0, 0.68, -0.04);
+    this.turret.add(head);
+    head.add(prism(0.62, 0.58, 0.54, 0.5, 0.5, m.body, 0.15));
+    head.add(at(prism(0.5, 0.36, 0.44, 0.3, 0.24, m.body, [0.12, 0.12, 0.04, 0.04]), 0, -0.08, -0.36)); // snout
+    for (const s of [-1, 1]) {
+      head.add(at(box(0.15, 0.17, 0.03, white), s * 0.14, 0.06, -0.27));
+      head.add(at(box(0.08, 0.12, 0.02, black), s * 0.15, 0.05, -0.29));
+      head.add(at(box(0.035, 0.035, 0.01, white), s * 0.13, 0.09, -0.3));
+      head.add(at(box(0.18, 0.04, 0.05, m.joint), s * 0.14, 0.17, -0.27, 0, 0, s * 0.25)); // brow
+      head.add(box(0.035, 0.025, 0.01, black, s * 0.08, -0.02, -0.535)); // nostril
+      head.add(at(cone(0.025, 0.07, white), s * 0.14, -0.21, -0.48, Math.PI));
+    }
+    const jaw = new THREE.Group();
+    jaw.position.set(0, -0.2, -0.1);
+    jaw.add(at(prism(0.44, 0.44, 0.4, 0.4, 0.08, m.body, 0.1), 0, -0.02, -0.22));
+    jaw.add(at(box(0.32, 0.015, 0.3, this.paint(0xc8506a)), 0, 0.025, -0.24));
+    head.add(jaw);
+    this.jaw = jaw;
+    this.barrel.position.set(0, -0.12, -0.52);
+    head.add(this.barrel);
+    this.barrelZ = -0.52;
+    this.markBelly(this.barrel, 0, 0, -0.08);
+    // the long tail, curling up, with a big flame at the tip
+    const tail = at(new THREE.Group(), 0, hipY + 0.08, 0.26);
+    [0.3, 0.26, 0.21, 0.16, 0.12].forEach((w, q) => {
+      tail.add(at(prism(w, 0.3, w * 0.85, 0.28, w, q % 2 ? m.body : m.body, 0.03), 0, q * 0.08, 0.14 + q * 0.2, -0.35 - q * 0.18));
+    });
+    const flame = at(new THREE.Group(), 0, 0.55, 1.08);
+    const fire = (r: number, h: number, color: number, y: number, opacity: number) => {
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+      flame.add(at(new THREE.Mesh(new THREE.BoxGeometry(r * 1.6, r * 1.6, r * 1.6), mat), 0, y));
+      flame.add(at(new THREE.Mesh(new THREE.ConeGeometry(r * 0.95, h, 4), mat), 0, y + h / 2));
+    };
+    fire(0.22, 0.56, 0xff4a0a, -0.12, 0.85);
+    fire(0.15, 0.42, 0xffa21a, -0.1, 0.9);
+    fire(0.08, 0.26, 0xfff07a, -0.08, 1);
+    tail.add(flame);
+    this.flame = flame;
+    this.root.add(tail);
+    this.wings.position.set(0, 0.4, 0.3);
+    this.turret.add(this.wings);
+    this.wings.add(this.wingL, this.wingR);
+    this.trigger = box(0.01, 0.01, 0.01, m.joint);
+    this.turret.add(this.trigger);
+  }
+
+  /** 2.1 beasts keep their Unit Lab design; these add the new signature parts on top */
+  private addons21(def: CharacterDef) {
+    const gold = this.paint(0xe2b23a);
+    const steel = this.paint(0x8a929e);
+    const black = this.paint(0x16141c);
+    for (const a of def.addons ?? []) {
+      if (a === 'fangs' && this.jaw?.parent) {
+        // big gold sabre fangs hanging from the upper jaw: the fangs are the name
+        const head = this.jaw.parent;
+        const jz = this.jaw.position.z;
+        for (const s of [-1, 1]) {
+          const f = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.3, 4, 1, false, Math.PI / 4), gold);
+          f.rotation.x = Math.PI;
+          f.position.set(s * 0.1, this.jaw.position.y - 0.1, jz - 0.28);
+          head.add(f);
+        }
+      }
+      if (a === 'backCannon') {
+        // a twin cannon array on the back, the part every Zoid box shows off
+        const t = this.turret;
+        const g = new THREE.Group();
+        g.position.set(0, 0.42, 0.18);
+        g.add(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.3), black));
+        for (const s of [-1, 1]) {
+          const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.62, 4, 1, false, Math.PI / 4), steel);
+          tube.rotation.x = Math.PI / 2;
+          tube.position.set(s * 0.1, 0.1, -0.2);
+          const housing = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.3), black);
+          housing.position.set(s * 0.1, 0.1, 0.02);
+          g.add(tube, housing);
+        }
+        t.add(g);
+      }
+    }
   }
 
   // ---------- hero builds from the reference sheets (more shapes: rounded armour, capsules, curves) ----------
