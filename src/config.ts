@@ -57,7 +57,7 @@ export const BASE_STATS: ShooterStats = {
   muzzleSpeed: 17,
   spread: 0.035,
   fireInterval: 0.13,
-  marbleRadius: 0.33,
+  marbleRadius: 0.264,
   marbleMass: 1,
   damage: 6.5,
   capacity: 14,

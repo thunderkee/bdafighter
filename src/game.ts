@@ -702,7 +702,7 @@ export class Game {
           .setEnabled(false),
       );
       const collider = this.world.createCollider(
-        RAPIER.ColliderDesc.ball(0.33)
+        RAPIER.ColliderDesc.ball(BASE_STATS.marbleRadius)
           .setRestitution(0.82)
           .setFriction(0)
           .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS)
@@ -719,7 +719,7 @@ export class Game {
         age: 0,
         bounces: 0,
         damage: 0,
-        radius: 0.33,
+        radius: BASE_STATS.marbleRadius,
         spawnOrder: 0,
         kind: 'normal',
         weave: 1,

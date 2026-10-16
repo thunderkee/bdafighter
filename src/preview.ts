@@ -33,7 +33,7 @@ export class Preview {
   private nextShot = 0;
   private twin = false;
   private balls: { mesh: THREE.Mesh; v: THREE.Vector3; age: number }[] = [];
-  private ballGeo = new THREE.SphereGeometry(0.13, 20, 14);
+  private ballGeo = new THREE.SphereGeometry(0.104, 20, 14);
   private ballMat = new THREE.MeshPhysicalMaterial({ roughness: 0.08, clearcoat: 1, metalness: 0 });
 
   constructor(private host: HTMLElement) {
