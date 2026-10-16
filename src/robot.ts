@@ -2414,8 +2414,20 @@ export class ShooterMesh {
     head.position.set(0, 0.92 + (F.headY ?? 0), -0.03);
     head.scale.setScalar(F.headS);
     this.turret.add(head);
-    const eyes = (y: number, z: number, tilt: number, w = 0.15) => {
-      for (const s of [-1, 1]) head.add(at(box(w, 0.06, 0.02, m.eyeMat), s * 0.1, y, z, 0, 0, s * tilt));
+    const glint = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    /**
+     * Fierce but likeable eyes: kite shapes whose inner corners dip toward the nose, a white
+     * glint in each (the spark that makes an SD face charming), and heavy brows overhanging
+     * them in a V. `brow` null leaves the brows to the helmet.
+     */
+    const fierce = (y: number, z: number, size = 1, brow: THREE.Material | null = m.trim, gap = 0.03) => {
+      const eye: [number, number][] = [[gap, -0.035], [0.17, -0.03], [0.21, 0.045], [gap + 0.025, 0.0]].map(([x, yy]) => [x * size, yy * size]);
+      const lid: [number, number][] = [[gap - 0.01, 0.012], [0.235, 0.075], [0.24, 0.125], [gap - 0.01, 0.065]].map(([x, yy]) => [x * size, yy * size]);
+      for (const s of [-1, 1]) {
+        head.add(at(plate(s === 1 ? eye : mirrorX(eye), 0.02, m.eyeMat), 0, y, z));
+        head.add(box(0.032 * size, 0.032 * size, 0.012, glint, s * 0.155 * size, y + 0.012 * size, z - 0.016));
+        if (brow) head.add(at(plate(s === 1 ? lid : mirrorX(lid), 0.07, brow), 0, y + 0.015 * size, z - 0.012));
+      }
     };
     switch (L.head) {
       case 'gundam':
@@ -2427,20 +2439,21 @@ export class ShooterMesh {
         // a V faceplate that comes to a point at the chin
         head.add(at(plate([[-0.2, 0.08], [0.2, 0.08], [0.18, -0.08], [0, -0.26], [-0.18, -0.08]], 0.06, face), 0, -0.04, -0.3));
         if (L.head === 'visor') {
-          head.add(box(0.36, 0.06, 0.02, m.eyeMat, 0, 0.0, -0.335));
+          head.add(at(plate([[-0.2, 0.05], [0.2, 0.05], [0.19, -0.01], [0, -0.05], [-0.19, -0.01]], 0.02, m.eyeMat), 0, 0.0, -0.335));
+          for (const sx of [-1, 1]) head.add(box(0.03, 0.03, 0.012, glint, sx * 0.13, 0.025, -0.35));
+          for (const sx of [-1, 1]) head.add(at(plate(sx === 1 ? [[0, 0.04], [0.23, 0.085], [0.23, 0.13], [0, 0.09]] : mirrorX([[0, 0.04], [0.23, 0.085], [0.23, 0.13], [0, 0.09]]), 0.07, m.trim), 0, 0.0, -0.345));
           for (let q = 0; q < 4; q++) head.add(box(0.02, 0.06, 0.01, m.trim, -0.06 + q * 0.04, -0.15, -0.335));
         } else if (def.eyes === 'mono') {
           head.add(box(0.36, 0.08, 0.02, black, 0, 0.0, -0.335), box(0.09, 0.07, 0.02, m.eyeMat, 0.06, 0.0, -0.345));
         } else {
           // the eyes sit in a dark recess under the brow; two mouth slits and a red chin below
           head.add(at(plate([[-0.22, 0.05], [0.22, 0.05], [0.18, -0.06], [-0.18, -0.06]], 0.02, black), 0, 0.0, -0.33));
-          eyes(0.0, -0.345, def.darkFace ? 0.35 : 0.22);
+          fierce(-0.01, -0.345);
           for (const sx of [-1, 1]) head.add(at(box(0.07, 0.02, 0.02, black), sx * 0.06, -0.12, -0.335, 0, 0, sx * 0.4));
           head.add(at(plate([[-0.07, 0.03], [0.07, 0.03], [0, -0.07]], 0.03, m.accent), 0, -0.22, -0.335)); // chin point
         }
         for (const s of [-1, 1]) {
           // brow wedge over each eye, cheek guards swept back
-          head.add(at(prism(0.2, 0.1, 0.16, 0.08, 0.06, m.trim), s * 0.11, 0.1, -0.3, 0, 0, s * 0.24));
           head.add(at(plate([[0, 0.12], [0.1, 0.06], [0.1, -0.12], [0, -0.16]], 0.04, m.trim), s * 0.27, -0.06, -0.18, 0, s * 0.55, 0));
           head.add(at(prism(0.1, 0.28, 0.09, 0.24, 0.24, m.trim, 0.03), s * 0.37, 0.0, 0.05));
           ventX(head, s * 0.42, -0.06, 0.06, 3, 0.18, s);
@@ -2455,7 +2468,9 @@ export class ShooterMesh {
         head.add(at(prism(0.66, 0.66, 0.46, 0.5, 0.48, m.body, 0.17), 0, 0.03, 0));
         head.add(at(prism(0.48, 0.52, 0.32, 0.36, 0.1, m.trim, 0.12), 0, 0.31, 0));
         head.add(at(box(0.5, 0.1, 0.06, black), 0, 0.04, -0.28)); // the mono-eye rail
-        head.add(box(0.1, 0.07, 0.02, m.eyeMat, 0.08, 0.04, -0.315));
+        head.add(at(plate([[-0.08, 0], [0, 0.055], [0.08, 0], [0, -0.055]], 0.02, m.eyeMat), 0.07, 0.04, -0.315));
+        head.add(box(0.025, 0.025, 0.012, glint, 0.09, 0.06, -0.33));
+        head.add(at(plate([[-0.27, 0.09], [0.27, 0.09], [0.25, 0.14], [0, 0.11], [-0.25, 0.14]], 0.08, m.trim), 0, 0.0, -0.29));
         head.add(at(prism(0.28, 0.22, 0.2, 0.18, 0.16, m.joint, 0.06, -0.03), 0, -0.17, -0.26)); // snout
         for (const s of [-1, 1]) head.add(at(cyl(0.035, 0.42, m.joint), s * 0.17, -0.38, -0.22, 0.3, 0, s * 0.7)); // power tubes
         this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: m.gold, glowMat: m.glowMat });
@@ -2465,7 +2480,7 @@ export class ShooterMesh {
         // a pointed hood over a dark face with glowing eyes and a V mask
         head.add(at(prism(0.66, 0.66, 0.36, 0.44, 0.58, m.body, 0.12, -0.12), 0, 0.03, 0.02));
         head.add(at(box(0.44, 0.3, 0.06, black), 0, -0.04, -0.3));
-        eyes(0.0, -0.335, 0.3, 0.13);
+        fierce(0.0, -0.335, 0.85, m.joint);
         head.add(at(plate([[-0.2, 0.0], [0.2, 0.0], [0, -0.2]], 0.05, m.joint), 0, -0.1, -0.33));
         for (const s of [-1, 1]) head.add(at(prism(0.06, 0.4, 0.04, 0.3, 0.4, m.trim), s * 0.33, -0.04, 0.0, 0, 0, s * 0.1));
         break;
@@ -2473,10 +2488,10 @@ export class ShooterMesh {
       case 'eva': {
         head.add(at(prism(0.56, 0.76, 0.46, 0.68, 0.42, m.body, [0.12, 0.12, 0.05, 0.05]), 0, 0.04, 0.04));
         head.add(at(prism(0.12, 0.6, 0.08, 0.5, 0.12, m.body), 0, 0.29, 0.06));
+        fierce(-0.02, -0.375, 0.85, null);
         head.add(box(0.4, 0.15, 0.06, black, 0, -0.02, -0.34));
         for (const s of [-1, 1]) {
           head.add(at(prism(0.3, 0.14, 0.26, 0.1, 0.07, m.body), s * 0.15, 0.1, -0.34, 0, 0, s * 0.28));
-          head.add(at(box(0.12, 0.05, 0.02, m.eyeMat), s * 0.1, -0.01, -0.375, 0, 0, s * 0.35));
           head.add(at(box(0.05, 0.2, 0.06, m.accent), s * 0.15, -0.2, -0.33, 0, 0, -s * 0.35));
           head.add(at(prism(0.06, 0.48, 0.05, 0.4, 0.34, m.body, 0.03), s * 0.34, -0.06, 0.02, 0, 0, s * 0.2));
         }
@@ -2490,7 +2505,7 @@ export class ShooterMesh {
         head.add(at(prism(0.68, 0.62, 0.46, 0.42, 0.14, m.body, 0.16), 0, 0.34, 0.02));
         head.add(at(prism(0.82, 0.66, 0.78, 0.62, 0.22, m.body, 0.14), 0, -0.2, 0.04)); // jaw shell
         head.add(at(box(0.62, 0.2, 0.06, black), 0, -0.02, -0.33));
-        for (const s of [-1, 1]) head.add(at(box(0.2, 0.1, 0.02, m.eyeMat), s * 0.13, -0.03, -0.37, 0, 0, s * 0.2));
+        fierce(-0.04, -0.37, 1.3, null, 0.02);
         head.add(at(plate([[-0.22, 0.08], [0.22, 0.08], [0.18, -0.08], [0, -0.14], [-0.18, -0.08]], 0.08, white), 0, -0.2, -0.32));
         head.add(at(box(0.08, 0.2, 0.08, m.body), 0, 0.5, 0.02)); // stalk
         for (const s of [-1, 1]) {
@@ -2508,8 +2523,8 @@ export class ShooterMesh {
         for (const s of [-1, 1]) {
           head.add(at(prism(0.08, 0.5, 0.08, 0.44, 0.46, helmet, 0.02), s * 0.31, -0.06, 0.02, 0, 0, s * -0.08));
           ventX(head, s * 0.36, -0.2, 0.06, 4, 0.3, s);
-          head.add(at(box(0.1, 0.035, 0.02, m.eyeMat), s * 0.08, 0.02, -0.31, 0, 0, s * 0.35));
         }
+        fierce(0.0, -0.32, 0.7, helmet);
         head.add(at(plate([[-0.17, 0.1], [0.17, 0.1], [0.15, -0.12], [0, -0.22], [-0.15, -0.12]], 0.06, silver), 0, -0.06, -0.29));
         head.add(at(box(0.06, 0.06, 0.03, new THREE.MeshBasicMaterial({ color: 0x4dff6a })), 0, 0.2, -0.3, 0, 0, Math.PI / 4));
         break;
@@ -2566,8 +2581,12 @@ export class ShooterMesh {
     for (const s of [-1, 1]) {
       head.add(at(box(0.15, 0.17, 0.03, white), s * 0.14, 0.06, -0.27));
       head.add(at(box(0.08, 0.12, 0.02, black), s * 0.15, 0.05, -0.29));
-      head.add(at(box(0.035, 0.035, 0.01, white), s * 0.13, 0.09, -0.3));
-      head.add(at(box(0.18, 0.04, 0.05, m.joint), s * 0.14, 0.17, -0.27, 0, 0, s * 0.25)); // brow
+      head.add(at(box(0.035, 0.035, 0.01, white), s * 0.18, 0.08, -0.3));
+      // a half-lid over the inner top of each eye and a brow along its edge: cute, but cross
+      const lid: [number, number][] = [[0.05, 0.16], [0.235, 0.16], [0.235, 0.13], [0.05, 0.06]];
+      const browLine: [number, number][] = [[0.04, 0.05], [0.24, 0.125], [0.24, 0.165], [0.04, 0.09]];
+      head.add(at(plate(s === 1 ? lid : mirrorX(lid), 0.02, m.body), 0, 0, -0.3));
+      head.add(at(plate(s === 1 ? browLine : mirrorX(browLine), 0.04, m.joint), 0, 0, -0.305));
       head.add(box(0.035, 0.025, 0.01, black, s * 0.08, -0.02, -0.535)); // nostril
       head.add(at(cone(0.025, 0.07, white), s * 0.14, -0.21, -0.48, Math.PI));
     }
