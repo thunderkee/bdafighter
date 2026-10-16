@@ -2235,3 +2235,81 @@ body.pressing #pad .pad-btn.fire.held {
 .tile.on i {
   transform: none;
 }
+
+/* phones: a smaller pad, so the arena gets the room */
+@media (max-width: 480px) {
+  body.buttons #pad {
+    padding: 20px 8px 22px;
+  }
+  .pad-dir,
+  .pad-right {
+    padding: 7px;
+    border-radius: 18px;
+  }
+  .pad-dir {
+    gap: 7px;
+  }
+  .pad-dir .pad-btn {
+    width: 54px;
+    height: 48px;
+    font-size: 17px;
+    border-radius: 13px;
+  }
+  .pad-right {
+    gap: 9px;
+    grid-template-columns: 70px;
+  }
+  .pad-right .pad-top {
+    padding-bottom: 8px;
+  }
+  .pad-actions {
+    gap: 6px;
+    padding: 6px;
+    border-radius: 14px;
+  }
+  .pad-right #view-btn {
+    width: 70px;
+    height: 24px;
+    font-size: 9px;
+  }
+  body.buttons .pad-right .item-slot {
+    width: 70px;
+    height: 50px;
+  }
+  body.buttons .pad-right .item-slot::before {
+    inset: 4px 8px 16px;
+  }
+  body.buttons .pad-right .item-slot .item-icon {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+  }
+  body.buttons .pad-right .item-slot .item-name {
+    margin-top: 6px;
+    font-size: 7px;
+  }
+  .pad-right .pad-btn.shield {
+    width: 70px;
+    height: 42px;
+    border-radius: 13px;
+  }
+  .pad-right .pad-btn.shield small {
+    font-size: 6px;
+  }
+  .pad-right .pad-fire.single .fire {
+    width: 70px;
+    height: 70px;
+    font-size: 12px;
+  }
+  .pad-right .pad-fire.triple .mini {
+    width: 33px;
+    height: 33px;
+    font-size: 11px;
+  }
+  .pad-slider {
+    width: min(44vw, 190px);
+  }
+  .pad-slider .track {
+    height: 40px;
+  }
+}

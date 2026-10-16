@@ -544,6 +544,10 @@ export class ShooterMesh {
   jaw: THREE.Object3D | null = null;
   /** lizard: tail flame that flickers */
   flame: THREE.Object3D | null = null;
+  /** tank units: the track plates and road wheels, scrolled and spun as the tank drives */
+  private treadPlates: THREE.Object3D[] = [];
+  private treadWheels: THREE.Object3D[] = [];
+  private treadTravel = 0;
 
   /** defOverride lets the Unit Lab preview an unsaved design */
   constructor(characterId: string, marbleColor: number, defOverride?: CharacterDef) {
@@ -2075,9 +2079,21 @@ export class ShooterMesh {
         const t = at(new THREE.Group(), s * 0.42, 0, 0);
         t.scale.setScalar(1.4);
         t.add(at(side([[-0.5, 0.06], [-0.42, 0], [0.42, 0], [0.5, 0.06], [0.46, 0.28], [-0.46, 0.28]], 0.24, black), 0, 0, 0));
-        for (const z of [-0.33, -0.11, 0.11, 0.33]) t.add(at(cyl(0.085, 0.26, m.joint), 0, 0.1, z, 0, 0, Math.PI / 2));
+        for (const z of [-0.33, -0.11, 0.11, 0.33]) {
+          const wheel = at(cyl(0.085, 0.26, m.joint), 0, 0.1, z, 0, 0, Math.PI / 2);
+          t.add(wheel);
+          this.treadWheels.push(wheel);
+        }
         t.add(at(cyl(0.11, 0.27, m.trim), 0, 0.17, 0.44, 0, 0, Math.PI / 2)); // drive sprocket
-        for (let q = 0; q < 9; q++) t.add(box(0.25, 0.025, 0.07, m.joint, 0, 0.29, -0.4 + q * 0.1)); // track plates
+        // track plates top and bottom; they scroll round as the tank drives
+        for (const y of [0.29, 0.012])
+          for (let q = 0; q < 9; q++) {
+            const plate = box(0.25, 0.025, 0.07, m.joint, 0, y, -0.4 + q * 0.1);
+            plate.userData.z0 = plate.position.z;
+            plate.userData.dir = y > 0.1 ? 1 : -1;
+            t.add(plate);
+            this.treadPlates.push(plate);
+          }
         t.add(at(prism(0.06, 0.92, 0.06, 0.86, 0.22, m.body, 0.02), s * 0.16, 0.2, 0)); // armour skirt
         ventX(t, s * 0.195, 0.13, 0.05, 3, 0.36, s);
         t.add(box(0.07, 0.03, 0.88, m.accent, s * 0.16, 0.3, 0));
@@ -3768,7 +3784,21 @@ export class ShooterMesh {
     // alternate legs (diagonal pairs on four-legged beasts)
     this.legs.forEach((l, i) => (l.rotation.x = (this.rest.legs[i] ?? 0) + Math.sin(this.stride + (i % 2) * Math.PI) * 0.5 * moving));
     this.turret.rotation.z = this.rest.turretZ + (s.team === 0 ? -1 : 1) * Math.sign(s.vx) * moving * 0.06;
-    const bob = Math.abs(Math.sin(this.stride)) * 0.05 * moving;
+    if (this.treadPlates.length) {
+      // the tracks roll with the ground speed: plates slide along (wrapping every plate pitch),
+      // the top run one way and the bottom run the other, and the wheels turn
+      this.treadTravel += s.vx * dt * (s.team === 0 ? 1 : -1);
+      const pitch = 0.1;
+      const off = ((this.treadTravel % pitch) + pitch) % pitch;
+      for (const p of this.treadPlates) {
+        const z0 = p.userData.z0 as number;
+        const z = z0 + off * (p.userData.dir as number);
+        p.position.z = z > 0.45 ? z - 0.9 : z < -0.45 ? z + 0.9 : z;
+      }
+      for (const w of this.treadWheels) w.rotation.x = -this.treadTravel / 0.085;
+    }
+    // tanks glide, they don't bob
+    const bob = this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * 0.05 * moving;
 
     // wings breathe at idle, flare open while firing
     const flare = s.firing ? 0.18 : 0;
