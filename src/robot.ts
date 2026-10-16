@@ -371,7 +371,7 @@ type Look21 = {
  */
 /** each 2.1 unit's own marble and armour pattern */
 const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
-  angel: ['ring', 'hex'],
+  angel: ['ring', 'panel'],
   dragon: ['flame', 'scales'],
   pioneer: ['camo', 'camo'],
   liberty: ['checker', 'brushed'],
@@ -380,14 +380,15 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
   bastion: ['crackle', 'carbon'],
   nightshade: ['nebula', 'weave'],
   violet: ['candy', 'stripe'],
-  kabuto: ['dots', 'panel'],
+  kabuto: ['dots', 'ripstop'],
   tyrant: ['lava', 'hammered'],
   ember: ['sparks', 'spots'],
   rex: ['scale', 'crackle'],
   liger: ['tiger', 'tiger'],
 };
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
-  angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'wedge', gun: 'beamRifle', left: 'shield', back: ['sabers'] }, ball: 0x6fa8ff, palette: { body: 0xf2f2f4, trim: 0x2a5bd8, accent: 0xe0302e, joint: 0x4a4f60, eye: 0x6dff9a } },
+  // Astray Red Frame: white armour over a red frame, black trim
+  angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'wedge', gun: 'beamRifle', left: 'shield', back: ['sabers'] }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'] }, ball: 0xff5040, palette: { body: 0x8e1a2a, trim: 0x34323c, accent: 0xf2b632, joint: 0x1e1c24, eye: 0xc8ff3d } },
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in green: plume helmet, Dober gun on the shoulder, huge back boosters
@@ -405,9 +406,11 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xc9a86a, joint: 0x23261e, eye: 0xffd23e } },
   tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim', dynamic: true, lean: -0.18 }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
-  rex: { addons: ['backCannon', 'noBall'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
+  // desert: sand armour, dark brown, red accents, cyan eyes
+  rex: { addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
   // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
-  liger: { addons: ['legStripes', 'armyWhites'], ball: 0xff5a3a, palette: { body: 0x5f6b3c, trim: 0x34483a, accent: 0xe0601e, joint: 0x1c1d20, eye: 0xc8241e } },
+  // army olive with red trim, orange accents and an orange visor
+  liger: { addons: ['legStripes', 'armyWhites'], ball: 0xff5a3a, palette: { body: 0x5f6b3c, trim: 0xb8261e, accent: 0xe0601e, joint: 0x1c1d20, eye: 0xff8a1a } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -2519,16 +2522,25 @@ export class ShooterMesh {
         break;
       }
       case 'dragonMaw': {
-        // Wyvern: a dragon's head on the chest is the gun
-        gun.position.set(0, 0.2, -cd / 2 - 0.02);
+        // Wyvern: a dragon's head on the chest is the gun: a horned skull, a long snout, an
+        // open jaw full of teeth, and the marble roaring out of its mouth
+        gun.position.set(0, 0.24, -cd / 2 - 0.02);
+        gun.scale.setScalar(1.3);
         this.turret.add(gun);
-        gun.add(at(prism(0.3, 0.2, 0.22, 0.16, 0.16, m.trim, [0.06, 0.06, 0.02, 0.02], -0.04), 0, 0.02, -0.08, -Math.PI / 2 + 0.2));
-        gun.add(at(side([[0.04, 0.0], [-0.24, 0.02], [-0.28, -0.06], [0.04, -0.06]], 0.22, m.body), 0, 0.06, 0));
+        // a gold head, so it stands out on the dark red chest
+        gun.add(at(prism(0.32, 0.3, 0.26, 0.24, 0.2, m.accent, [0.06, 0.06, 0.03, 0.03]), 0, 0.06, -0.08));
+        gun.add(at(side([[0.0, 0.02], [-0.34, 0.0], [-0.4, -0.04], [-0.36, -0.08], [0.0, -0.1]], 0.24, m.accent), 0, 0.04, -0.1));
+        gun.add(at(side([[0.0, 0.0], [-0.3, -0.02], [-0.32, -0.06], [0.0, -0.07]], 0.2, m.body), 0, -0.08, -0.12, 0.28)); // the open lower jaw
+        gun.add(at(box(0.16, 0.04, 0.24, hole), 0, -0.05, -0.32)); // the throat
         for (const s of [-1, 1]) {
-          gun.add(box(0.05, 0.04, 0.04, m.eyeMat, s * 0.08, 0.1, -0.12));
-          for (let q = 0; q < 3; q++) gun.add(at(cone(0.018, 0.05, white), s * 0.07, 0.0, -0.24 + q * 0.06, Math.PI));
+          gun.add(at(box(0.07, 0.035, 0.03, m.eyeMat), s * 0.09, 0.13, -0.2, 0, 0, s * 0.3));
+          gun.add(at(prism(0.1, 0.12, 0.06, 0.1, 0.04, m.trim), s * 0.09, 0.165, -0.18, 0, 0, s * 0.3)); // brow ridge
+          gun.add(at(cone(0.04, 0.32, m.trim), s * 0.12, 0.2, 0.06, 1.05, 0, -s * 0.25)); // horn swept back
+          gun.add(box(0.03, 0.02, 0.02, hole, s * 0.05, 0.06, -0.5)); // nostril
+          for (let q = 0; q < 4; q++) gun.add(at(cone(0.016, 0.05, white), s * 0.08, -0.03, -0.44 + q * 0.07, Math.PI)); // upper teeth
+          for (let q = 0; q < 3; q++) gun.add(at(cone(0.014, 0.04, white), s * 0.07, -0.1, -0.36 + q * 0.07)); // lower teeth
         }
-        mark(0, 0.03, -0.32);
+        mark(0, -0.04, -0.56);
         break;
       }
       case 'mouth':
@@ -2835,8 +2847,6 @@ export class ShooterMesh {
         // the nose ridge down the middle of the face, and the grim mouth under it
         head.add(at(prism(0.05, 0.05, 0.03, 0.03, 0.13, silver, 0, -0.015), 0, -0.07, -0.335));
         head.add(box(0.07, 0.025, 0.03, silver, 0, -0.135, -0.335));
-        // a slotted mouth guard instead of a line
-        for (let q = 0; q < 4; q++) head.add(box(0.022, 0.06, 0.02, black, -0.054 + q * 0.036, -0.19, -0.325));
         head.add(at(box(0.06, 0.06, 0.03, new THREE.MeshBasicMaterial({ color: 0x4dff6a })), 0, 0.2, -0.3, 0, 0, Math.PI / 4));
         break;
       }

@@ -6,7 +6,7 @@ import * as THREE from 'three';
  * and the same picture as a bump map for a little relief.
  */
 
-export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger';
+export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger' | 'ripstop';
 export type BallTex = 'swirl' | 'ring' | 'flame' | 'camo' | 'checker' | 'galaxy' | 'eye' | 'crackle' | 'nebula' | 'candy' | 'dots' | 'lava' | 'sparks' | 'scale' | 'tiger';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -119,10 +119,17 @@ export function armourTexture(kind: ArmourTex) {
       }
       break;
     case 'panel':
-      for (let x = 0; x <= S; x += 32) line(x, 0, x, S, 170, 2);
-      for (let y = 0; y <= S; y += 32) line(0, y, S, y, 170, 2);
-      g.fillStyle = grey(180);
-      for (let x = 6; x < S; x += 32) for (let y = 6; y < S; y += 32) for (const [dx, dy] of [[0, 0], [20, 0], [0, 20], [20, 20]]) g.fillRect(x + dx, y + dy, 2, 2);
+      // light panel lines, large plates, just a few of them
+      for (let x = 0; x <= S; x += 64) line(x, 0, x, S, 205, 1.5);
+      for (let y = 0; y <= S; y += 64) line(0, y, S, y, 205, 1.5);
+      line(64, 32, S, 32, 215, 1);
+      break;
+    case 'ripstop':
+      // military ripstop: a fine fabric weave with a heavier thread every few millimetres
+      for (let x = 0; x < S; x += 4) line(x, 0, x, S, 228, 1);
+      for (let y = 0; y < S; y += 4) line(0, y, S, y, 228, 1);
+      for (let x = 0; x < S; x += 16) line(x, 0, x, S, 200, 1.5);
+      for (let y = 0; y < S; y += 16) line(0, y, S, y, 200, 1.5);
       break;
     case 'hammered':
       for (let i = 0; i < 90; i++) {
