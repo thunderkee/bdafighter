@@ -350,6 +350,8 @@ type Look21 = {
   gorilla?: boolean;
   /** tank treads in place of legs */
   treads?: boolean;
+  /** an attacking stance: a lunge (left leg forward, right back), a forward lean, the off hand raised on guard */
+  dynamic?: boolean;
   lean?: number;
   pods?: boolean;
   antenna?: boolean;
@@ -365,21 +367,21 @@ type Look21 = {
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'wedge', gun: 'beamRifle', left: 'shield', back: ['sabers'] }, ball: 0x6fa8ff, palette: { body: 0xf2f2f4, trim: 0x2a5bd8, accent: 0xe0302e, joint: 0x4a4f60, eye: 0x6dff9a } },
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'] }, ball: 0xff5040, palette: { body: 0x8e1a2a, trim: 0x34323c, accent: 0xf2b632, joint: 0x1e1c24, eye: 0xc8ff3d } },
-  pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
+  pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in green: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0x7affb0, palette: { body: 0x2e7d4f, trim: 0xeceae0, accent: 0xd9a92a, joint: 0x2a2c30, eye: 0x7ff0ff } },
   // Blastoise-style: a shell on its back with one big cannon, hunched like a gorilla
   monoceros: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // Black Tri-Stars: slate violet and black with a red flash
-  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
+  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
   // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
-  bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0x8a1c1c, joint: 0x17181a, eye: 0xff2a2a } },
-  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim' }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
+  bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true, pose: 'aim', dynamic: true, lean: -0.18 }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0x8a1c1c, joint: 0x17181a, eye: 0xff2a2a } },
+  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2 }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
   // Unit-08 pink and mint, hunched side-on behind a huge bazooka
   violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'bazooka', left: 'knife', back: ['pylons'], pose: 'bazooka', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
-  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xc9a86a, joint: 0x23261e, eye: 0xffd23e } },
-  tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim' }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
+  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xc9a86a, joint: 0x23261e, eye: 0xffd23e } },
+  tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim', dynamic: true, lean: -0.18 }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   rex: { addons: ['backCannon', 'noBall'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
   // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
@@ -2043,7 +2045,8 @@ export class ShooterMesh {
       // a tank's lower body: two tread units on short struts, road wheels, a drive sprocket,
       // track plates and an armour skirt with vents
       for (const s of [-1, 1]) {
-        const t = at(new THREE.Group(), s * 0.34, 0, 0);
+        const t = at(new THREE.Group(), s * 0.42, 0, 0);
+        t.scale.setScalar(1.4);
         t.add(at(side([[-0.5, 0.06], [-0.42, 0], [0.42, 0], [0.5, 0.06], [0.46, 0.28], [-0.46, 0.28]], 0.24, black), 0, 0, 0));
         for (const z of [-0.33, -0.11, 0.11, 0.33]) t.add(at(cyl(0.085, 0.26, m.joint), 0, 0.1, z, 0, 0, Math.PI / 2));
         t.add(at(cyl(0.11, 0.27, m.trim), 0, 0.17, 0.44, 0, 0, Math.PI / 2)); // drive sprocket
@@ -2051,8 +2054,9 @@ export class ShooterMesh {
         t.add(at(prism(0.06, 0.92, 0.06, 0.86, 0.22, m.body, 0.02), s * 0.16, 0.2, 0)); // armour skirt
         ventX(t, s * 0.195, 0.13, 0.05, 3, 0.36, s);
         t.add(box(0.07, 0.03, 0.88, m.accent, s * 0.16, 0.3, 0));
-        t.add(at(prism(0.18, 0.22, 0.2, 0.24, hipY - 0.28, m.joint, 0.04), -s * 0.05, (hipY + 0.28) / 2, 0)); // strut up to the hips
         this.root.add(t);
+        // strut from the top of the tread up to the hips
+        this.root.add(at(prism(0.2, 0.24, 0.22, 0.26, Math.max(0.06, hipY - 0.4), m.joint, 0.04), s * 0.3, (hipY + 0.4) / 2, 0));
       }
     }
     for (const s of L.treads ? [] : [-1, 1]) {
@@ -2088,8 +2092,13 @@ export class ShooterMesh {
       }
       leg.add(at(side([[0.18, 0], [0.3, 0], [0.24, 0.08], [0.16, 0.08]], 0.2 * lw, m.joint), 0, sole, 0.0)); // heel spur
       this.root.add(leg);
+      if (L.dynamic) {
+        leg.rotation.x = s === -1 ? 0.34 : -0.3;
+        leg.position.z = s === -1 ? -0.08 : 0.08;
+      }
       this.legs.push(leg);
     }
+    if (L.dynamic) this.rest.legs = this.legs.map((l) => l.rotation.x);
 
     // ---------- waist and skirt ----------
     const tY = hipY + 0.1;
@@ -2172,12 +2181,14 @@ export class ShooterMesh {
     const as = F.armS * (L.gorilla ? 1.55 : 1);
     let rightSh: THREE.Group | null = null;
     let rightArm: THREE.Object3D | null = null;
+    let leftArm: THREE.Object3D | null = null;
     let leftSh: THREE.Group | null = null;
     for (const s of [-1, 1]) {
       const sh = new THREE.Group();
       sh.position.set(s * F.shOut, 0.44, 0);
       // the gorilla swings its long arms forward, knuckles toward the floor
-      if (L.gorilla) sh.rotation.x = -0.42;
+      // the tail blade is swung back behind the attacking stance
+      if (L.dynamic && L.left === 'tailBlade' && s === -1) sh.rotation.x = 0.5;
       const style = s === -1 ? (L.shoulderL ?? L.shoulder) : L.shoulder;
       if (style === 'heavy') {
         sh.add(at(prism(0.46, 0.54, 0.5, 0.58, 0.38, m.body, 0.08), s * 0.04, 0, 0, 0, 0, s * -0.12));
@@ -2206,13 +2217,39 @@ export class ShooterMesh {
       const twoHand = L.pose === 'twoHand';
       const bazooka = L.pose === 'bazooka' && s === 1;
       const centre = L.pose === 'centerAim' && s === 1;
-      const aiming = (L.pose === 'aim' && s === 1) || twoHand || bazooka || centre;
+      // the off hand raised on guard (or with the knife ready), and the gorilla's planted arms
+      const guard = s === -1 && ((L.dynamic && !L.left) || L.left === 'knife');
+      const knuckle = !!L.gorilla;
+      const aiming = (L.pose === 'aim' && s === 1) || twoHand || bazooka || centre || guard || knuckle;
       if (aiming) {
         // straight out at the target; with both hands, each arm turns in to meet at the gun;
         // with the bazooka, each arm is aimed (and stretched) so its fist closes on a grip:
         // the right on the trigger grip, the left across the chest on the front grip
         let ag: THREE.Object3D = sh;
         if (twoHand || centre) ag = at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0);
+        if (guard) {
+          // forearm up and in, the fist in front of the chest
+          ag = new THREE.Group();
+          ag.rotation.order = 'YXZ';
+          ag.rotation.set(0.5, -0.45, 0);
+          ag.scale.z = 0.78;
+        }
+        if (knuckle) {
+          // reach down and forward until the knuckles rest on the floor ahead
+          const torso = new THREE.Object3D();
+          torso.position.set(0, tY, 0);
+          torso.rotation.set(L.lean ?? F.lean, 0, 0);
+          torso.updateMatrix();
+          const floor = V(s * (F.shOut + 0.08), 0.13, -0.78).applyMatrix4(torso.matrix.clone().invert());
+          const t = floor.sub(sh.position);
+          const dist = t.length();
+          const len = Math.sqrt(Math.max(0.01, dist * dist - 0.14 * 0.14));
+          ag = new THREE.Group();
+          ag.rotation.order = 'YXZ';
+          ag.rotation.y = Math.atan2(-t.x, -t.z);
+          ag.rotation.x = Math.atan2(t.y, Math.hypot(t.x, t.z)) + Math.atan2(0.14, len);
+          ag.scale.z = len / 0.74;
+        }
         if (bazooka) {
           const t = (s === 1 ? grip.rear : grip.front).clone().sub(sh.position);
           const dist = t.length();
@@ -2232,6 +2269,8 @@ export class ShooterMesh {
         ag.add(at(prism(0.29 * aw, 0.3 * aw, 0.29 * aw, 0.3 * aw, 0.05, m.accent, 0.03), 0, -0.14, -0.36, -Math.PI / 2));
         ag.add(box(0.22 * aw, 0.22 * aw, 0.2, m.joint, 0, -0.14, -0.74)); // fist
         if (s === 1) rightArm = ag;
+        else leftArm = ag;
+        if (knuckle) ag.add(box(0.3 * aw, 0.24 * aw, 0.26, m.joint, 0, -0.14, -0.78)); // big knuckles
       } else {
         // hanging: slim upper arm, elbow piston, a gauntlet that widens toward the fist
         sh.add(at(prism(0.13 * aw, 0.13 * aw, 0.15 * aw, 0.15 * aw, 0.16 * as, m.joint, 0.03), s * 0.02, -0.24 * as, -0.02));
@@ -2501,10 +2540,13 @@ export class ShooterMesh {
         break;
       }
       case 'knife': {
-        // a progressive knife held point-down in the left fist
-        lh.add(at(box(0.06, 0.16, 0.08, m.joint), lfist.x, lfist.y - 0.04, lfist.z));
-        lh.add(at(box(0.08, 0.03, 0.12, m.accent), lfist.x, lfist.y - 0.13, lfist.z));
-        lh.add(at(side([[0.04, 0], [-0.04, 0], [-0.03, -0.42], [0.04, -0.3]], 0.025, this.paint(0xd8dde4, 'metal')), lfist.x, lfist.y - 0.14, lfist.z));
+        // a progressive knife in the raised left fist, the blade thrust forward
+        const hand = leftArm ?? lh;
+        const k = at(new THREE.Group(), 0, -0.14, -0.8);
+        k.add(box(0.06, 0.08, 0.14, m.joint, 0, 0, 0.02));
+        k.add(box(0.12, 0.1, 0.03, m.accent, 0, 0, -0.06));
+        k.add(at(side([[-0.07, 0.035], [-0.5, 0.0], [-0.4, -0.04], [-0.07, -0.035]], 0.024, this.paint(0xd8dde4, 'metal')), 0, 0, 0));
+        hand.add(k);
         break;
       }
       case 'scythe': {
