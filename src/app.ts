@@ -6,7 +6,7 @@ import { View } from './view';
 import { Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
-import { BUILTINS, CHARACTERS, characterById } from './robot';
+import { BUILTINS, CHARACTERS, characterById, playable, playableId } from './robot';
 import { fillPortraits, portrait } from './portraits';
 import { Preview } from './preview';
 import { profileOf } from './profiles';
@@ -55,12 +55,19 @@ const ITEM_ICONS: Record<ItemType, string> = {
   wiper: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="5" width="9" height="5" rx="1"/><rect x="13" y="5" width="9" height="5" rx="1"/><rect x="7" y="12" width="10" height="5" rx="1"/><rect x="2" y="12" width="3" height="5" rx="1"/><rect x="19" y="12" width="3" height="5" rx="1"/></svg>',
   heal: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
   dragon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 22c-5-3 5-5 0-8s5-5 0-8"/><circle cx="12" cy="3" r="2" fill="currentColor"/></svg>',
-  missile: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1c3 2.5 4 6 4 10v6H8v-6c0-4 1-7.5 4-10z"/><path d="M8 13l-4 4v3l4-2zM16 13l4 4v3l-4-2z"/><path d="M10 19h4l-2 4z" opacity=".7"/></svg>',
+  missile: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3.5 13.5c5 2 12 2 17 0" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="2"/><circle cx="9" cy="8.5" r="2.2" fill="#fff" fill-opacity=".7"/></svg>',
   lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>',
 };
 
 export function boot() {
   let saveData = store.load();
+  {
+    // the 2.1 set is the roster now: old 1.0 / 2.0 picks move to their 2.1s
+    const st = saveData.settings;
+    const character = playableId(st.character);
+    const enemyCharacter = st.enemyCharacter && st.enemyCharacter !== 'auto' ? playableId(st.enemyCharacter) : st.enemyCharacter;
+    if (character !== st.character || enemyCharacter !== st.enemyCharacter) saveData = store.save({ settings: { ...st, character, enemyCharacter } });
+  }
   /** an arcade run: the stage number, how many were cleared, and this stage's match setup */
   let arcade: { stage: number; cleared: number; cfg: Partial<store.Settings>; next?: Partial<store.Settings> } | null = null;
   /** every fifth arcade stage is a boss: one giant opponent with extra armour */
@@ -154,7 +161,7 @@ export function boot() {
   const enemyCharacter = () => {
     const st = S();
     if (st.enemyCharacter && st.enemyCharacter !== 'auto') return st.enemyCharacter;
-    return st.character === 'dragon' ? 'angel' : 'dragon';
+    return st.character === 'dragon-21' ? 'angel-21' : 'dragon-21';
   };
 
   // ---------- arcade: a ladder of matches, each with its own opponent, rules and arena ----------
@@ -185,17 +192,17 @@ export function boot() {
     ]);
   };
   /** the big hero builds make the best bosses */
-  const BOSS_UNITS = ['tyrant', 'liger', 'rex', 'violet', 'kabuto', 'baron', 'bastion'];
+  const BOSS_UNITS = ['tyrant-21', 'liger-21', 'rex-21', 'violet-21', 'kabuto-21', 'baron-21', 'bastion-21'];
   /** stage `stage`: a random opponent, pack and arena, at that stage's difficulty */
   const rollStage = (stage: number, prev?: Partial<store.Settings>): Partial<store.Settings> => {
     const me = saveData.settings.character;
     if (bossAt(stage)) {
       // each boss is a little tougher than the one before
       const k = stage / BOSS.every - 1;
-      const pool = BOSS_UNITS.filter((id) => id !== me && id !== prev?.enemyCharacter && CHARACTERS.some((c) => c.id === id));
+      const pool = BOSS_UNITS.filter((id) => id !== me && id !== prev?.enemyCharacter && playable().some((c) => c.id === id));
       const arena = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
       return {
-        enemyCharacter: pick(pool.length ? pool : CHARACTERS.map((c) => c.id).filter((id) => id !== me)),
+        enemyCharacter: pick(pool.length ? pool : playable().map((c) => c.id).filter((id) => id !== me)),
         enemyIQ: 'ace',
         enemyHealth: Math.min(5, 3 + k),
         enemySpeed: Math.min(5, 4 + Math.floor(k / 2)),
@@ -218,7 +225,7 @@ export function boot() {
       };
     }
     const tier = tierAt(stage);
-    const units = CHARACTERS.map((c) => c.id).filter((id) => id !== me && id !== prev?.enemyCharacter);
+    const units = playable().map((c) => c.id).filter((id) => id !== me && id !== prev?.enemyCharacter);
     const stages = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
     // about half the stages are pack fights, on one side or both
     let pack = 1;
@@ -229,7 +236,7 @@ export function boot() {
       if (pack === 1 && playerPack === 1) pack = 2;
     }
     return {
-      enemyCharacter: pick(units.length ? units : CHARACTERS.map((c) => c.id)),
+      enemyCharacter: pick(units.length ? units : playable().map((c) => c.id)),
       enemyIQ: tier.iq,
       enemyHealth: tier.lv,
       enemySpeed: tier.lv,
@@ -473,7 +480,7 @@ export function boot() {
       a.chargeEager = foe && isBoss() ? 0.45 : 1;
     });
     // extra pack members on both sides: random units, all different where the roster allows
-    const pool = CHARACTERS.map((c) => c.id).filter((id) => id !== st.character && id !== enemyCharacter());
+    const pool = playable().map((c) => c.id).filter((id) => id !== st.character && id !== enemyCharacter());
     const draw = (fallback: string) => pool.splice(Math.floor(Math.random() * pool.length), 1)[0] ?? fallback;
     packIds = [0, 1].map(() => draw(enemyCharacter()));
     allyIds = [0, 1].map(() => draw(st.character));
@@ -820,18 +827,8 @@ export function boot() {
     });
   };
   const saveSetting = (patch: Partial<store.Settings>) => {
-    const widthChanged = patch.arenaWidth !== undefined && patch.arenaWidth !== saveData.settings.arenaWidth;
+    // (a new table width is built when the next match starts)
     saveData = store.save({ settings: { ...saveData.settings, ...patch } });
-    if (widthChanged) {
-      // a new table needs new walls and scenery: reload straight back into these settings
-      try {
-        sessionStorage.setItem('mf-reopen-settings', 'rules');
-      } catch {
-        // fine without it
-      }
-      location.reload();
-      return;
-    }
     input.release();
     applySettings();
   };
@@ -850,13 +847,9 @@ export function boot() {
   type Step = 'fighter' | 'rival' | 'arena' | 'rules';
   let step: Step = 'fighter';
   let selectMode: 'versus' | 'arcade' = 'versus';
-  /** which roster tab is open: the originals, the 2.0s, or custom units */
-  let ver: '1' | '2' | '21' | 'c' = '1';
-  const verOf = (id: string): '1' | '2' | '21' | 'c' => {
-    const c = characterById(id);
-    if (!BUILTIN_IDS.has(c.id)) return 'c';
-    return c.v21 ? '21' : c.from ? '2' : '1';
-  };
+  /** which roster tab is open: the roster (the 2.1 set) or custom units */
+  let ver: '21' | 'c' = '21';
+  const verOf = (id: string): '21' | 'c' => (BUILTIN_IDS.has(characterById(id).id) ? '21' : 'c');
   const BUILTIN_IDS = new Set(BUILTINS.map((c) => c.id));
   const TRAITS: [keyof NonNullable<ReturnType<typeof characterById>['traits']>, string][] = [
     ['health', 'Armour'],
@@ -932,14 +925,14 @@ export function boot() {
     const prof = $('pv-profile');
     showInfo();
     prof.innerHTML = pr
-      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div><p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em>${c.v21 ? '<em class="v2">2.1 refit</em>' : c.from ? '<em class="v2">2.0 refit</em>' : ''}</div>`
+      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div><p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em></div>`
       : `<div class="pf-head"><b>Custom unit</b><span>Unit Lab</span></div><p>Built in the Unit Lab.</p>`;
   };
   const buildGrid = () => {
     const grid = $('pick-grid');
     grid.innerHTML = '';
     const arena = step === 'arena';
-    $('ver-tabs').classList.toggle('hidden', arena);
+    $('arena-width').classList.toggle('hidden', !arena);
     grid.classList.toggle('arenas', arena);
     const pick = (id: string) => {
       saveSetting(step === 'fighter' ? { character: id } : step === 'rival' ? { enemyCharacter: id } : { stage: id });
@@ -971,11 +964,12 @@ export function boot() {
       return;
     }
     const hasCustom = CHARACTERS.some((c) => verOf(c.id) === 'c');
-    document.querySelector<HTMLElement>('#ver-tabs [data-ver="c"]')!.classList.toggle('hidden', !hasCustom);
-    if (ver === 'c' && !hasCustom) ver = '1';
+    // the tabs only show when there are custom units to switch to
+    $('ver-tabs').classList.toggle('hidden', !hasCustom);
+    if (ver === 'c' && !hasCustom) ver = '21';
     document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.ver === ver));
     if (step === 'rival') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
-    for (const c of CHARACTERS) {
+    for (const c of playable()) {
       if (verOf(c.id) !== ver) continue;
       tile(c.id, `<i data-portrait="${c.id}" style="background:${hexc(c.palette.body)}"></i><span>${c.name}</span>`);
     }

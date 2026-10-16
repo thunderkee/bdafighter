@@ -37,6 +37,25 @@ export class Preview {
   private ballMat = new THREE.MeshPhysicalMaterial({ roughness: 0.08, clearcoat: 1, metalness: 0 });
 
   constructor(private host: HTMLElement) {
+    // drag left and right to turn the unit (vertical drags still scroll the page)
+    host.addEventListener('pointerdown', (e) => {
+      if (this.mode !== 'unit') return;
+      this.dragX = e.clientX;
+      host.setPointerCapture(e.pointerId);
+      host.classList.add('turning');
+    });
+    host.addEventListener('pointermove', (e) => {
+      if (this.dragX === null) return;
+      this.spin += (e.clientX - this.dragX) * 0.012;
+      this.dragX = e.clientX;
+      this.handT = 2.5;
+    });
+    const end = () => {
+      this.dragX = null;
+      host.classList.remove('turning');
+    };
+    host.addEventListener('pointerup', end);
+    host.addEventListener('pointercancel', end);
     this.sun.position.set(-3, 6, -5);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(1024, 1024);
@@ -59,7 +78,9 @@ export class Preview {
 
   private ensure() {
     if (this.renderer) return this.renderer;
-    const r = new THREE.WebGLRenderer({ antialias: true });
+    // see-through, so the unit's name can sit behind it on the screen
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    r.setClearColor(0x000000, 0);
     r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     r.toneMapping = THREE.NeutralToneMapping;
     r.toneMappingExposure = 0.92;
@@ -80,36 +101,52 @@ export class Preview {
     this.unit = new ShooterMesh(def.id, def.ball, def);
     this.pivot.add(this.unit.root);
     this.scene.add(this.plinth, this.pivot);
+    this.host.classList.remove('stage');
+    this.spin = 0;
+    this.handT = 0;
+    this.swingT = 0;
     this.twin = !!def.twin;
     this.ballMat.color.setHex(def.ball);
     // it powers up as it's picked: the special-move spring and glow, then its routine
     this.act = { ...this.act, x: 0, aim: 0, vx: 0, recoil: 0, kickT: 9, heavyT: 0, flash: 0 };
     this.at = 0;
     this.nextShot = 1.4;
-    this.scene.background = new THREE.Color(0x1d1b18);
+    this.scene.background = null;
     this.scene.fog = null;
     this.hemi.color.set(0xfff6e8);
     this.hemi.groundColor.set(0x6a6458);
     this.hemi.intensity = 1.5;
     this.sun.intensity = 2.2;
     this.rim.intensity = 1.2;
-    // frame the unit's height
+    // frame the whole unit however it turns: its height, and its reach round the plinth's axis
     this.unit.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(this.unit.root);
-    const h = Math.max(1.4, box.max.y);
-    const w = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
-    const dist = Math.max(h, w * 0.9) * 2.1 + 0.9;
-    this.camera.position.set(0, h * 0.62, -dist);
-    this.camera.lookAt(0, h * 0.45, 0);
+    this.frameH = Math.max(1.2, box.max.y);
+    this.frameR = Math.max(0.9, Math.hypot(Math.max(-box.min.x, box.max.x), Math.max(-box.min.z, box.max.z)) * 0.7);
     this.camera.fov = 30;
-    this.camera.updateProjectionMatrix();
+    this.fitCamera();
     this.start();
+  }
+
+  /** place the camera so the unit (and some of the plinth) fills the screen at its current shape */
+  private fitCamera() {
+    const aspect = this.camera.aspect || 1;
+    const tan = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const lo = -0.2;
+    const hi = this.frameH + 0.12;
+    const cy = (lo + hi) / 2;
+    const r = this.frameR;
+    const dist = Math.max((hi - lo) / 2 / tan, r / (tan * aspect)) + r * 0.15;
+    this.camera.position.set(0, cy + dist * 0.12, -dist);
+    this.camera.lookAt(0, cy, 0);
+    this.camera.updateProjectionMatrix();
   }
 
   showStage(id: string) {
     this.ensure();
     this.clear();
     this.mode = 'stage';
+    this.host.classList.add('stage');
     this.stage = new Stage(id);
     const d = this.stage.def;
     this.scene.add(this.stage.group);
@@ -218,11 +255,15 @@ export class Preview {
       r.domElement.style.height = '100%';
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
+      if (this.mode === 'unit') this.fitCamera();
     }
     this.t += dt;
     if (this.mode === 'unit' && this.unit) {
-      // mostly the 3/4 front, swinging round to show the sides
-      const a = -0.55 + Math.sin(this.t * 0.45) * 0.75;
+      // mostly the 3/4 front, swinging round to show the sides; a drag turns it by hand,
+      // and the swing waits a moment after you let go
+      this.handT = Math.max(0, this.handT - dt);
+      if (this.handT === 0 && this.dragX === null) this.swingT += dt;
+      const a = -0.55 + Math.sin(this.swingT * 0.45) * 0.75 + this.spin;
       this.pivot.rotation.y = a;
       this.plinth.rotation.y = a;
       this.animate(dt);
@@ -280,6 +321,14 @@ export class Preview {
     }
   }
   private burstLeft = 0;
+  /** drag to turn the unit by hand: the extra turn, and how long the auto swing waits after a drag */
+  private spin = 0;
+  private handT = 0;
+  private swingT = 0;
+  private dragX: number | null = null;
+  /** the framing for this unit: what the camera looks at, and from how far */
+  private frameH = 1.4;
+  private frameR = 1;
 
   /** a marble out of the muzzle (two from twin barrels), flying down the unit's facing */
   private fire() {

@@ -396,9 +396,23 @@ body {
   box-shadow: inset 0 0 0 1px #000;
 }
 .crt canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
+}
+/* the unit screen turns by drag: horizontal drags turn it, vertical ones still scroll */
+#preview {
+  touch-action: pan-y;
+  cursor: grab;
+}
+#preview.turning {
+  cursor: grabbing;
+}
+#preview.stage {
+  cursor: default;
 }
 .bay-info {
   display: flex;
@@ -2158,27 +2172,44 @@ body.pressing #pad .pad-btn.fire.held {
   grid-template-columns: 1.1fr 1fr;
   height: clamp(168px, 27dvh, 260px);
 }
+/* the unit's name is printed big on the screen behind it, so the whole unit stays in view */
 .crt-name {
   position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+.crt-name span {
+  font: 700 9px var(--body);
+  letter-spacing: 0.16em;
+  color: var(--orange);
+}
+.crt-name b {
+  font: 800 clamp(26px, 9vw, 42px) var(--display);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: #3b3731;
+  overflow-wrap: anywhere;
+}
+/* on the arena screen the picture is opaque: the name goes back on a plate in front */
+.crt.stage .crt-name {
+  top: auto;
   left: 6px;
   right: 6px;
   bottom: 6px;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+  z-index: 2;
   padding: 5px 8px 6px;
   border-radius: 9px;
   background: var(--char);
   box-shadow: 0 0 0 1px #000;
-  pointer-events: none;
 }
-.crt-name span {
-  font: 700 8px var(--body);
-  letter-spacing: 0.14em;
-  color: var(--orange);
-}
-.crt-name b {
+.crt.stage .crt-name b {
   font: 700 15px var(--display);
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -2187,6 +2218,24 @@ body.pressing #pad .pad-btn.fire.held {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* the arena step's width switch sits where the roster tabs are */
+.arena-width {
+  width: min(420px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.arena-width > b {
+  flex: none;
+  font: 700 13px var(--body);
+  color: var(--ink);
+}
+.arena-width .seg {
+  flex: 1;
+}
+.arena-width.hidden {
+  display: none;
 }
 .crt-name.flash b {
   animation: flash 0.5s steps(2);

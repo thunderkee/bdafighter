@@ -9,6 +9,9 @@ import { Post } from './post';
 import { ballTexture } from './patterns';
 import { Stage } from './stage';
 import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
+
+/** the homing steel ball's radius */
+const STEEL_R = 0.32;
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
 import * as sfx from './audio';
 
@@ -237,7 +240,7 @@ export class View {
   private sun: THREE.DirectionalLight;
   private dropMeshes = new Map<number, DropMesh>();
   private gateMeshes = new Map<number, GateMesh>();
-  private missileMeshes = new Map<number, { root: THREE.Group; flame: THREE.Mesh }>();
+  private missileMeshes = new Map<number, { root: THREE.Group; ball: THREE.Object3D }>();
   private missileTrails = new Map<number, { x: number; y: number }[]>();
   private ko: KoState | null = null;
   /** opponents knocked out mid-round, blowing apart while the rest fight on */
@@ -1492,7 +1495,7 @@ export class View {
     });
   }
 
-  /** Homing missiles: body, fins, flickering flame, smoke and a glow trail. */
+  /** Homing steel balls: a polished ball with a glowing seam, rolling and spinning as it hunts, throwing sparks. */
   private updateMissiles(dt: number) {
     const live = new Set<number>();
     for (const m of this.game.missiles) {
@@ -1502,12 +1505,13 @@ export class View {
         mm = this.makeMissile(m.team);
         this.missileMeshes.set(m.id, mm);
       }
-      mm.root.position.set(m.x, 0.9 + Math.sin(this.time * 6 + m.id) * 0.08, -m.y);
-      // model points along -z; face the heading
+      mm.root.position.set(m.x, STEEL_R, -m.y);
+      // rolls along its heading (-z in its own frame), and spins like a top on top of that
       mm.root.rotation.y = Math.atan2(-Math.cos(m.heading), Math.sin(m.heading));
-      mm.flame.scale.set(1, 0.7 + Math.random() * 0.7, 1);
-      if (Math.random() < 0.7) this.burst(m.x - Math.cos(m.heading) * 0.5, m.y - Math.sin(m.heading) * 0.5, 0x9a9aa6, 1, 0.5, { h: 0.9, float: true, size: 0.1 });
-      const sp = this.project(m.x, m.y, 0.9);
+      mm.ball.rotation.x -= (MISSILE.speed / STEEL_R) * dt;
+      mm.ball.rotation.y += 14 * dt;
+      if (Math.random() < 0.35) this.burst(m.x - Math.cos(m.heading) * 0.3, m.y - Math.sin(m.heading) * 0.3, 0xffd9a0, 1, 1.2, { h: 0.05, size: 0.05 });
+      const sp = this.project(m.x, m.y, STEEL_R);
       const trail = this.missileTrails.get(m.id) ?? [];
       trail.unshift(sp);
       if (trail.length > 12) trail.length = 12;
@@ -1520,38 +1524,22 @@ export class View {
       this.missileMeshes.delete(id);
       this.missileTrails.delete(id);
     }
-    void dt;
-    void MISSILE;
   }
 
   private makeMissile(team: Team) {
     const root = new THREE.Group();
-    const bodyMat = new THREE.MeshLambertMaterial({ color: team === 0 ? 0xe8f4ff : 0x3a2a30 });
-    const stripe = new THREE.MeshBasicMaterial({ color: ITEMS.missile.color });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.75, 10), bodyMat);
-    body.rotation.x = Math.PI / 2;
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.3, 10), new THREE.MeshLambertMaterial({ color: team === 0 ? COLORS.player : COLORS.enemy }));
-    nose.rotation.x = -Math.PI / 2;
-    nose.position.z = -0.52;
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 10), stripe);
-    band.rotation.x = Math.PI / 2;
-    band.position.z = -0.2;
-    root.add(body, nose, band);
-    for (let k = 0; k < 4; k++) {
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 0.2), bodyMat);
-      fin.position.z = 0.3;
-      fin.rotation.z = (k * Math.PI) / 2;
-      fin.translateY(0.15);
-      root.add(fin);
-    }
-    const flameGeo = new THREE.ConeGeometry(0.11, 0.5, 8);
-    flameGeo.rotateX(-Math.PI / 2);
-    flameGeo.translate(0, 0, 0.25);
-    const flame = new THREE.Mesh(flameGeo, new THREE.MeshBasicMaterial({ color: 0xffb04a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
-    flame.position.z = 0.4;
-    root.add(flame);
+    const ball = new THREE.Group();
+    const steel = new THREE.MeshPhysicalMaterial({ color: 0xd4d8de, metalness: 1, roughness: 0.16, clearcoat: 0.6, clearcoatRoughness: 0.1 });
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(STEEL_R, 32, 20), steel);
+    sphere.castShadow = true;
+    // a glowing seam round its equator and a dark band across it, so the spin reads
+    const seam = new THREE.Mesh(new THREE.TorusGeometry(STEEL_R * 1.005, 0.025, 8, 40), new THREE.MeshBasicMaterial({ color: team === 0 ? COLORS.player : COLORS.enemy }));
+    const band = new THREE.Mesh(new THREE.TorusGeometry(STEEL_R * 1.003, 0.035, 8, 40), new THREE.MeshPhysicalMaterial({ color: 0x2a2d33, metalness: 0.8, roughness: 0.35 }));
+    band.rotation.y = Math.PI / 2;
+    ball.add(sphere, seam, band);
+    root.add(ball);
     this.scene.add(root);
-    return { root, flame };
+    return { root, ball };
   }
 
   /** Holographic gates: two posts, a top bar, a label panel and charge pips. */

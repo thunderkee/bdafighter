@@ -18,7 +18,7 @@ export const ITEMS: Record<ItemType, ItemDef> = {
   slowmo: { name: 'Slow-Mo', short: 'SLOW-MO', color: 0xffd23e, duration: 5, weight: 1 },
   heal: { name: 'Repair Kit', short: 'REPAIR', color: 0x4dff88, duration: 0, weight: 0.8 },
   dragon: { name: 'Dragon Shot', short: 'DRAGON', color: 0xff3e8e, duration: 0, weight: 0.8 },
-  missile: { name: 'Homing Missile', short: 'MISSILE', color: 0xff7a2a, duration: 0, weight: 0.8 },
+  missile: { name: 'Homing Steel Ball', short: 'STEEL BALL', color: 0xff7a2a, duration: 0, weight: 0.8 },
   wiper: { name: 'Wiper', short: 'WIPER', color: 0xc8925a, duration: 6, weight: 0.9 },
   lock: { name: 'Smart Lock', short: 'LOCK', color: 0xff3b3b, duration: 7, weight: 0.9 },
 };
@@ -54,7 +54,7 @@ export const WIPER = { halfWidth: 1.0, ahead: 1.2, sweep: 0.9, sweepSpeed: 3.2, 
 /** repair kit: fraction of max health restored */
 export const HEAL = { fraction: 0.25 };
 /**
- * homing missile: chases the opponent with a limited turn rate (so a sharp
+ * homing steel ball (the missile item): chases the opponent with a limited turn rate (so a sharp
  * sidestep can slip it), hits up to 3 times, then is destroyed
  */
 export const MISSILE = { speed: 9, turnRate: 2.6, hits: 3, damage: 6, hitRadius: 0.85, recover: 0.75, life: 14 };

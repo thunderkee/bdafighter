@@ -2,7 +2,7 @@ import './lab.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { BUILTINS, CHARACTERS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, reloadRoster, resolveColor, setPublished, studioEnv, type CharacterDef } from './robot';
+import { BUILTINS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, playable, playableId, reloadRoster, resolveColor, setPublished, studioEnv, type CharacterDef } from './robot';
 import { API, cachedPublished, fetchPublished, type PublishedRoster } from './published';
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
@@ -50,7 +50,7 @@ async function openStudio(): Promise<StudioDraft> {
   if (saved.baseVersion === published.version) return clone(saved);
   return confirm(`You have unpublished studio changes based on version ${saved.baseVersion ?? 0}, but version ${published.version} has been published since.\n\nOK keeps your changes (publishing them replaces version ${published.version}); Cancel starts from version ${published.version}.`) ? clone(saved) : live;
 }
-let currentId = characterById(store.load().settings.character).id;
+let currentId = playableId(characterById(store.load().settings.character).id);
 /** working design for the current unit; linked into the roster on the first edit */
 let draft: Block = { shape: 'group', p: [0, 0, 0], r: [0, 0, 0], s: [1, 1, 1] };
 /** the block the form shows (the last one picked) */
@@ -1063,7 +1063,8 @@ $('draw-undo').addEventListener('click', () => {
 function renderRoster() {
   const list = $('unit-list');
   list.innerHTML = '';
-  for (const c of CHARACTERS) {
+  // the same roster the game picks from: the 2.1 set and custom units
+  for (const c of playable()) {
     const b = document.createElement('button');
     b.className = 'unit' + (c.id === currentId ? ' on' : '');
     const tag = !isBuiltin(c.id) ? 'CUSTOM' : roster.units[c.id] ? 'EDITED' : '';

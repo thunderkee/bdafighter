@@ -442,7 +442,7 @@ export const BUILTINS: readonly CharacterDef[] = [
     return {
       ...o,
       id: `${o.id}-21`,
-      name: `${o.name} 2.1`,
+      name: o.name,
       from: beast ? `${o.id}-2` : o.id,
       v21: true,
       look21: v.look,
@@ -524,6 +524,15 @@ export function reloadRoster(data?: RosterData) {
 }
 
 export const characterById = (id: string) => CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
+/** the roster you pick from: the 2.1 set and any custom units (the 1.0s and 2.0s stay only as the 2.1s' bases) */
+export const playable = () => CHARACTERS.filter((c) => c.v21 || !BUILTINS.some((b) => b.id === c.id));
+/** an old 1.0 / 2.0 pick moves to its 2.1 */
+export function playableId(id: string) {
+  const all = playable();
+  if (all.some((c) => c.id === id)) return id;
+  const v21 = `${id.replace(/-2$/, '')}-21`;
+  return all.some((c) => c.id === v21) ? v21 : all[0].id;
+}
 
 export class ShooterMesh {
   root = new THREE.Group();
@@ -559,6 +568,10 @@ export class ShooterMesh {
   private treadTravel = 0;
   /** hovering units float this high and drift up and down */
   private hoverLift = 0;
+  /** a floating unit's legs, swaying (they don't walk) */
+  private dangle: THREE.Object3D[] = [];
+  /** the jaw's swing when firing (signed); 0 uses the beasts' default snap */
+  private jawOpen = 0;
 
   /** defOverride lets the Unit Lab preview an unsaved design */
   constructor(characterId: string, marbleColor: number, defOverride?: CharacterDef) {
@@ -581,6 +594,7 @@ export class ShooterMesh {
     // the roster's look is boxy: code-built units swap their round parts for square-sided ones
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
+    if (def.look21?.gun === 'dragonMaw') this.jawOpen = -0.95;
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
     this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
   }
@@ -2109,18 +2123,10 @@ export class ShooterMesh {
         this.root.add(at(prism(0.2, 0.24, 0.22, 0.26, Math.max(0.06, hipY - 0.4), m.joint, 0.04), s * 0.3, (hipY + 0.4) / 2, 0));
       }
     }
-    if (L.hover) {
-      // floats: a tapering thruster core under the skirt, with a glowing ring and vanes
-      this.hoverLift = 0.2;
-      this.root.add(at(prism(0.14, 0.14, 0.34, 0.32, hipY * 0.7, m.joint, 0.04), 0, hipY * 0.55, 0));
-      this.root.add(at(cyl(0.11, 0.05, m.trim), 0, hipY * 0.18, 0));
-      this.root.add(at(cyl(0.075, 0.02, m.glowMat ?? m.eyeMat), 0, hipY * 0.15, 0));
-      for (let q = 0; q < 4; q++) {
-        const a = (q / 4) * Math.PI * 2 + Math.PI / 4;
-        this.root.add(at(plate([[0, 0.08], [0.1, 0.02], [0.08, -0.08], [0, -0.04]], 0.02, m.trim), Math.cos(a) * 0.16, hipY * 0.35, Math.sin(a) * 0.16, 0, -a, 0));
-      }
-    }
-    for (const s of L.treads || L.hover ? [] : [-1, 1]) {
+    // floating units hang long legs, toes down, high enough to clear the floor
+    const HOVER_LEG = 1.35;
+    if (L.hover) this.hoverLift = 0.54 * k * (HOVER_LEG - 1) + 0.26;
+    for (const s of L.treads ? [] : [-1, 1]) {
       const leg = new THREE.Group();
       leg.position.set(s * (F.legGap + (L.menace ? 0.06 : 0)), hipY, 0);
       if (L.menace) leg.rotation.z = s * 0.12;
@@ -2153,6 +2159,14 @@ export class ShooterMesh {
       }
       leg.add(at(side([[0.18, 0], [0.3, 0], [0.24, 0.08], [0.16, 0.08]], 0.2 * lw, m.joint), 0, sole, 0.0)); // heel spur
       this.root.add(leg);
+      if (L.hover) {
+        // long dangling legs that sway as it drifts, with a jet glowing under each sole
+        leg.scale.set(1, HOVER_LEG, 1);
+        leg.rotation.x = s === -1 ? -0.14 : 0.2;
+        leg.add(box(0.16 * lw, 0.02 / HOVER_LEG, 0.22 * lw, m.glowMat ?? m.eyeMat, 0, sole - 0.012, -0.08));
+        this.dangle.push(leg);
+        continue;
+      }
       if (L.dynamic) {
         leg.rotation.x = s === -1 ? 0.34 : -0.3;
         leg.position.z = s === -1 ? -0.08 : 0.08;
@@ -2174,7 +2188,8 @@ export class ShooterMesh {
     }
     if (L.longSkirt) {
       // long skirt armour: split front plates, side plates and a back plate down to the shins
-      const len = hipY * 0.85;
+      // (shorter on a floating unit, so its long legs show beneath)
+      const len = hipY * (L.hover ? 0.55 : 0.85);
       const y = tY - 0.1 - len / 2;
       for (const sx of [-1, 1]) {
         const front = plate([[-0.13, len / 2], [0.13, len / 2], [0.12, -len / 2 + 0.06], [0, -len / 2], [-0.12, -len / 2 + 0.06]], 0.05, m.body);
@@ -2615,7 +2630,11 @@ export class ShooterMesh {
         gun.add(at(side([[0.0, 0.02], [-0.34, 0.0], [-0.4, -0.04], [-0.36, -0.08], [0.0, -0.1]], 0.24, skin), 0, 0.04, -0.1));
         // a ridge of gold spikes down the skull
         for (let q = 0; q < 3; q++) gun.add(at(cone(0.03, 0.12 - q * 0.02, m.accent), 0, 0.17 - q * 0.01, -0.12 + q * 0.1, -0.5));
-        gun.add(at(side([[0.0, 0.0], [-0.3, -0.02], [-0.32, -0.06], [0.0, -0.07]], 0.2, m.body), 0, -0.08, -0.12, 0.28)); // the open lower jaw
+        // the lower jaw on a hinge at the back of the mouth: it gapes wide on every shot
+        const jaw = at(new THREE.Group(), 0, -0.06, -0.02);
+        gun.add(jaw);
+        this.jaw = jaw;
+        jaw.add(at(side([[0.0, 0.0], [-0.3, -0.02], [-0.32, -0.06], [0.0, -0.07]], 0.2, m.body), 0, -0.02, -0.1, 0.28));
         gun.add(at(box(0.16, 0.04, 0.24, hole), 0, -0.05, -0.32)); // the throat
         gun.add(at(box(0.1, 0.03, 0.14, new THREE.MeshBasicMaterial({ color: 0xff7a1a })), 0, -0.05, -0.36)); // fire glowing deep in it
         for (const s of [-1, 1]) {
@@ -2623,7 +2642,7 @@ export class ShooterMesh {
           gun.add(at(cone(0.045, 0.36, m.accent), s * 0.12, 0.2, 0.06, 1.05, 0, -s * 0.25)); // horn swept back
           gun.add(at(cone(0.03, 0.18, m.accent), s * 0.15, 0.02, 0.0, 1.3, 0, -s * 0.9)); // cheek spike
           for (let q = 0; q < 4; q++) gun.add(at(cone(0.018, 0.06, fang), s * 0.08, -0.03, -0.44 + q * 0.07, Math.PI)); // upper teeth
-          for (let q = 0; q < 3; q++) gun.add(at(cone(0.016, 0.05, fang), s * 0.07, -0.1, -0.36 + q * 0.07)); // lower teeth
+          for (let q = 0; q < 3; q++) jaw.add(at(cone(0.016, 0.05, fang), s * 0.07, -0.04, -0.34 + q * 0.07)); // lower teeth
         }
         mark(0, -0.04, -0.56);
         break;
@@ -3878,7 +3897,11 @@ export class ShooterMesh {
     this.barrel.position.z = this.barrelZ + s.recoil * (this.jaw ? 0.04 : 0.12);
     this.trigger.position.z = this.triggerZ - s.recoil * 0.1;
     // beasts: the jaw snaps open as the marble leaves the mouth
-    if (this.jaw) this.jaw.rotation.x = this.rest.jaw + s.recoil * 0.55;
+    if (this.jaw) {
+      // a dragon's maw gapes wide as it blasts and holds open a beat before it shuts
+      const gape = Math.max(s.recoil, Math.max(0, 1 - (s.kickT ?? 9) / 0.45));
+      this.jaw.rotation.x = this.rest.jaw + (this.jawOpen ? this.jawOpen * gape : s.recoil * 0.55);
+    }
     if (this.flame) {
       const f = 0.85 + Math.random() * 0.35;
       const fs = this.rest.flame;
@@ -3905,6 +3928,7 @@ export class ShooterMesh {
       for (const w of this.treadWheels) w.rotation.x = -this.treadTravel / 0.085;
     }
     // tanks glide, they don't bob
+    this.dangle.forEach((l, i) => (l.rotation.x = (i ? 0.2 : -0.14) + Math.sin(time * 1.6 + i * 1.3) * 0.08 - s.vx * 0.03 * (s.team === 0 ? 1 : -1)));
     const bob = this.hoverLift ? Math.sin(time * 2.2) * 0.04 : this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * 0.05 * moving;
 
     // wings breathe at idle, flare open while firing
