@@ -2081,3 +2081,59 @@ body.buttons .pad-right .item-slot .item-name {
 body.buttons .pad-right .item-slot .item-key {
   display: none;
 }
+
+/* one extrusion for every key on the pad, the shield's: a 1px top highlight, a solid 5px
+   ledge in the key's own darker shade and the same soft drop; pressed, all sink 3px */
+#pad .pad-btn,
+#pad .icon-btn,
+#pad .item-slot {
+  --ledge: var(--case-deep);
+  --hi: #fff;
+  box-shadow:
+    0 1px 0 var(--hi) inset,
+    0 5px 0 var(--ledge),
+    0 9px 14px rgba(0, 0, 0, 0.45);
+  transition:
+    transform 0.06s,
+    box-shadow 0.06s;
+}
+#pad .pad-btn.held,
+#pad .icon-btn:active,
+#pad .item-slot:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 var(--hi) inset,
+    0 2px 0 var(--ledge),
+    0 4px 6px rgba(0, 0, 0, 0.45);
+}
+/* cream keys: arrows and the special weapon */
+#pad .pad-dir .pad-btn,
+#pad .item-slot,
+#pad .item-slot.full {
+  background: linear-gradient(180deg, var(--case-hi), var(--case));
+  border: 1px solid var(--case-edge);
+}
+/* shield: the reference */
+#pad .pad-btn.shield {
+  --ledge: #0d0c0a;
+  --hi: #55504a;
+  background: linear-gradient(180deg, var(--char-3), var(--char-2));
+  border: 1px solid #0d0c0a;
+}
+/* the view key, orange */
+#pad .icon-btn.view {
+  --ledge: #a9471f;
+  --hi: #ffc2a6;
+  background: linear-gradient(180deg, #f6946a, var(--orange));
+  border: 1px solid var(--orange-lo);
+}
+/* fire, red, with the same flat face as the others (no dome) */
+#pad .pad-btn.fire {
+  --ledge: #8a2418;
+  --hi: #ffb4a0;
+  background: linear-gradient(180deg, #f6705a, #e2462f);
+  border: 1px solid #a8332f;
+}
+body.pressing #pad .pad-btn.fire.held {
+  transform: translateY(3px) scale(calc(1.04 + var(--charge, 0) * 0.3));
+}
