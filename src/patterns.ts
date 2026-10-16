@@ -6,7 +6,7 @@ import * as THREE from 'three';
  * and the same picture as a bump map for a little relief.
  */
 
-export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger' | 'ripstop';
+export type ArmourTex = 'hex' | 'scales' | 'camo' | 'brushed' | 'circuit' | 'digital' | 'carbon' | 'weave' | 'stripe' | 'panel' | 'hammered' | 'spots' | 'crackle' | 'tiger' | 'ripstop' | 'none';
 export type BallTex = 'swirl' | 'ring' | 'flame' | 'camo' | 'checker' | 'galaxy' | 'eye' | 'crackle' | 'nebula' | 'candy' | 'dots' | 'lava' | 'sparks' | 'scale' | 'tiger';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
