@@ -32,10 +32,12 @@
             <div class="side-info">
               <div class="portrait"><canvas id="face-player"></canvas></div>
               <div class="meta">
-                <div class="unit-name"><span class="tag">P1</span><span id="player-name">SERAPH ZERO</span><span class="rounds" id="player-rounds"><i></i><i></i></span></div>
+                <div class="unit-name"><span class="tag">P1</span><span id="player-name">SERAPH ZERO</span></div>
+                <!-- win points, under the name -->
                 <div class="meta-row">
+                  <span class="rounds" id="player-rounds"><i></i><i></i></span>
                   <span class="readout" id="player-hp-num">100%</span>
-                  <span class="super-meter" id="player-super"><span class="super-pips"><i></i><i></i><i></i></span><span class="sm-label">SUPER</span></span>
+                  <span class="super-meter" id="player-super" hidden><span class="super-pips"><i></i><i></i><i></i></span><span class="sm-label">SUPER</span></span>
                 </div>
               </div>
             </div>
@@ -47,10 +49,11 @@
             <div class="side-info">
               <div class="portrait"><canvas id="face-enemy"></canvas></div>
               <div class="meta">
-                <div class="unit-name"><span class="rounds" id="enemy-rounds"><i></i><i></i></span><span id="enemy-name">WYVERN</span><span class="tag">CPU</span></div>
+                <div class="unit-name"><span id="enemy-name">WYVERN</span><span class="tag">CPU</span></div>
                 <div class="meta-row">
+                  <span class="rounds" id="enemy-rounds"><i></i><i></i></span>
                   <span class="readout" id="enemy-hp-num">100%</span>
-                  <span class="super-meter" id="enemy-super"><span class="sm-label">SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></span>
+                  <span class="super-meter" id="enemy-super" hidden><span class="sm-label">SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></span>
                 </div>
                 <span id="enemy-item" class="item-tag"></span>
               </div>
@@ -63,7 +66,6 @@
         <div id="lock-marks"></div>
         <div class="hud-btns">
           <button id="view-btn" class="icon-btn view" aria-label="Switch view">NEAR</button>
-          <button id="hud-settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
           <button id="pause-btn" class="icon-btn" aria-label="Pause">❚❚</button>
         </div>
 
@@ -98,7 +100,9 @@
               <div class="track"><i class="ticks"></i><b class="thumb" id="slider-thumb"></b><i class="target" id="slider-target"></i></div>
             </div>
           </div>
-          <div class="pad-right">
+          <!-- right thumb, one group: view, the special weapon (only once it's picked up), shield and fire -->
+          <div class="pad-right" id="pad-right">
+          <div class="pad-top" id="pad-top"></div>
           <button class="pad-btn shield" data-btn="down" aria-label="Shield">▼<small>SHIELD</small></button>
           <div class="pad-fire single">
             <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>

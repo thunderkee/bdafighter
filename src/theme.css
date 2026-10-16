@@ -1729,3 +1729,99 @@ body.pressing .pad-btn.fire.held {
     height: clamp(116px, 18dvh, 150px);
   }
 }
+
+/* ================= HUD layout (2026-10) =================
+   top: one block of information (both fighters and the clock), the two head
+   shots facing each other across it, win points under each name, no SUPER
+   meter. Bottom: no ammo strip (the MAG tube shows the marbles); the right
+   thumb gets one group: view, special weapon (only once picked up), shield, fire */
+.vs-bar {
+  gap: 6px;
+  padding: 7px;
+  border-radius: 16px;
+  background: var(--case);
+  border: 1px solid var(--case-edge);
+  box-shadow: 0 1px 0 #fff inset, 0 3px 0 var(--case-deep), 0 6px 12px rgba(0, 0, 0, 0.35);
+  align-items: center;
+}
+.vs-bar .side {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.vs-bar .meta {
+  gap: 4px;
+}
+.vs-bar .super-meter {
+  display: none;
+}
+.rounds i {
+  width: 9px;
+  height: 9px;
+}
+/* face to face: the player's head shot looks right, toward the opponent; the opponent's looks left */
+.hud-face {
+  transform: scale(-1.35, 1.35);
+}
+.side.enemy .hud-face {
+  transform: scale(1.35);
+}
+/* the gear lives in the pause menu (OPTIONS) now */
+.hud-btns {
+  top: calc(max(8px, env(safe-area-inset-top)) + 72px);
+}
+.ammo-strip {
+  display: none;
+}
+/* the special weapon shows only once it's been picked up */
+.item-slot.empty {
+  display: none;
+}
+
+/* the right-thumb group: one panel holding view + item, shield and fire */
+.pad-right {
+  pointer-events: auto;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 22px;
+  background: rgba(20, 18, 15, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.pad-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pad-top:empty {
+  display: none;
+}
+.pad-top .icon-btn.view {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 10px;
+}
+body.buttons .pad-top .item-slot {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  width: 64px;
+  height: 64px;
+  padding-top: 8px;
+  border-radius: 14px;
+}
+body.buttons .pad-top .item-slot::before {
+  inset: 6px 6px 20px;
+  border-radius: 8px;
+}
+body.buttons .pad-top .item-slot .item-name {
+  margin-top: 6px;
+  font-size: 7px;
+}
+body.buttons .pad-top .item-slot .item-key {
+  display: none;
+}

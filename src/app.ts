@@ -796,6 +796,13 @@ export function boot() {
     document.body.classList.toggle('hud-tags', st.hudMode === 'tags');
     document.body.classList.toggle('slider', st.layout === 'buttons' && st.moveControl === 'slider');
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
+    // with the on-screen pad, the view switch and the special weapon join the
+    // right-thumb group (view, item, shield, fire); otherwise they keep their own spots
+    if (st.layout === 'buttons') $('pad-top').append($('view-btn'), $('item-btn'));
+    else {
+      document.querySelector('.hud-btns')?.prepend($('view-btn'));
+      $('effects').before($('item-btn'));
+    }
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
     padDir[1].textContent = st.arrows === 'aim' ? '↷' : '▶';
     document.querySelectorAll<HTMLElement>('.seg').forEach((seg) => {
@@ -1040,11 +1047,6 @@ export function boot() {
   }
   $('pause-settings-btn').addEventListener('click', () => openSettings('paused'));
   $('result-settings-btn').addEventListener('click', () => openSettings('result'));
-  // in-match gear: pause, then jump straight to settings
-  $('hud-settings-btn').addEventListener('click', () => {
-    setPaused(true);
-    openSettings('paused');
-  });
   $('settings-done').addEventListener('click', () => {
     $('settings').classList.add('hidden');
     $(settingsFrom).classList.remove('hidden');
