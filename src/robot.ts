@@ -68,7 +68,7 @@ export interface CharacterDef {
   /** 2.1 units: the faceted chassis, frame, head, gun and signature parts */
   look21?: Look21;
   /** 2.1 beasts: signature parts added on top of their Unit Lab design */
-  addons?: ('fangs' | 'backCannon' | 'noBall')[];
+  addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes')[];
   /** a 2.1 unit */
   v21?: boolean;
   /** 2.0 humanoids: 'punch' throws the right arm straight out at the target, body leaning in */
@@ -368,7 +368,7 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   rex: { addons: ['backCannon', 'noBall'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
   // EVA-02: red with white and orange, green eyes, black joints
-  liger: { addons: ['fangs'], ball: 0xff6a3a, palette: { body: 0xd8262b, trim: 0xf2f0ea, accent: 0xff8a1a, joint: 0x1e1416, eye: 0x5aff7a } },
+  liger: { addons: ['fangs', 'legStripes'], ball: 0xff6a3a, palette: { body: 0xd8262b, trim: 0xf2f0ea, accent: 0xff8a1a, joint: 0x1e1416, eye: 0x5aff7a } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -2119,6 +2119,15 @@ export class ShooterMesh {
     }
     for (let q = 0; q < 3; q++) this.turret.add(box(0.4, 0.024, 0.03, m.body, 0, 0.26 + q * 0.07, cd / 2 + 0.2));
 
+    // the bazooka's placement (in the torso's space), so both hands can reach its grips
+    const BAZ_TWIST = 0.75;
+    const bazHolder = new THREE.Object3D();
+    bazHolder.position.set(0.22, 0.62, -0.1);
+    bazHolder.rotation.set(0, -BAZ_TWIST, 0);
+    bazHolder.scale.setScalar(1.35);
+    bazHolder.updateMatrix();
+    const grip = { front: V(0, -0.2, -0.34).applyMatrix4(bazHolder.matrix), rear: V(0, -0.21, 0.12).applyMatrix4(bazHolder.matrix) };
+
     // ---------- shoulders and arms, held off the body ----------
     const aw = F.armW;
     const as = F.armS;
@@ -2153,12 +2162,24 @@ export class ShooterMesh {
         for (const x of [-0.05, 0.05]) for (const z of [-0.07, 0.07]) sh.add(box(0.04, 0.02, 0.04, hole, s * 0.06 + x, 0.375, z));
       }
       const twoHand = L.pose === 'twoHand';
-      const across = L.pose === 'bazooka' && s === -1;
-      const aiming = (L.pose === 'aim' && s === 1) || twoHand || across;
+      const bazooka = L.pose === 'bazooka';
+      const aiming = (L.pose === 'aim' && s === 1) || twoHand || bazooka;
       if (aiming) {
         // straight out at the target; with both hands, each arm turns in to meet at the gun;
-        // with the bazooka, the left arm reaches across the chest to its front grip
-        const ag = twoHand ? at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0) : across ? at(new THREE.Group(), 0, 0.12, 0, 0, -1.3, 0) : sh;
+        // with the bazooka, each arm is aimed (and stretched) so its fist closes on a grip:
+        // the right on the trigger grip, the left across the chest on the front grip
+        let ag: THREE.Object3D = sh;
+        if (twoHand) ag = at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0);
+        if (bazooka) {
+          const t = (s === 1 ? grip.rear : grip.front).clone().sub(sh.position);
+          const dist = t.length();
+          const len = Math.sqrt(Math.max(0.01, dist * dist - 0.14 * 0.14));
+          ag = new THREE.Group();
+          ag.rotation.order = 'YXZ';
+          ag.rotation.y = Math.atan2(-t.x, -t.z);
+          ag.rotation.x = Math.atan2(t.y, Math.hypot(t.x, t.z)) + Math.atan2(0.14, len);
+          ag.scale.z = len / 0.74;
+        }
         if (ag !== sh) sh.add(ag);
         ag.add(at(prism(0.15 * aw, 0.15 * aw, 0.15 * aw, 0.15 * aw, 0.2, m.joint, 0.03), 0, -0.14, -0.16, -Math.PI / 2));
         piston(ag, V(s * 0.1, -0.06, -0.08), V(s * 0.1, -0.08, -0.44));
@@ -2275,11 +2296,13 @@ export class ShooterMesh {
         // a huge bazooka on the right shoulder, the body turned side-on behind it. The holder
         // turns back against the body's twist so the tube points down the lane; the marble
         // leaves the muzzle and the tube recoils along itself
-        const twist = 1.0;
+        const twist = BAZ_TWIST;
         this.rest.turretY = twist;
         this.turret.rotation.y = twist; // previews never sync, so set the twist now too
-        const holder = at(new THREE.Group(), F.shOut * 0.7, 0.66, 0.04, 0, -twist, 0);
-        holder.scale.setScalar(1.35);
+        const holder = new THREE.Group();
+        holder.position.copy(bazHolder.position);
+        holder.rotation.copy(bazHolder.rotation);
+        holder.scale.copy(bazHolder.scale);
         this.turret.add(holder);
         holder.add(gun);
         gun.position.set(0, 0, 0);
@@ -2738,6 +2761,20 @@ export class ShooterMesh {
     const steel = this.paint(0x8a929e);
     const black = this.paint(0x16141c);
     for (const a of def.addons ?? []) {
+      if (a === 'legStripes') {
+        // the legs' white plates become stripes of gunmetal and orange, top to bottom
+        const stripe = [this.paint(0x3a3f4c), this.paint(0xff8a1a)];
+        for (const leg of this.legs) {
+          const whites: THREE.Mesh[] = [];
+          leg.traverse((o) => {
+            const mesh = o as THREE.Mesh;
+            const c = (mesh.material as THREE.MeshLambertMaterial | undefined)?.color;
+            if (mesh.isMesh && c && c.r > 0.85 && c.g > 0.85 && c.b > 0.8) whites.push(mesh);
+          });
+          whites.sort((p, q) => q.getWorldPosition(new THREE.Vector3()).y - p.getWorldPosition(new THREE.Vector3()).y);
+          whites.forEach((mesh, i) => (mesh.material = stripe[i % 2]));
+        }
+      }
       if (a === 'noBall') {
         // take the round parts off the design: the glass marbles and the ball on the neck
         const balls: THREE.Object3D[] = [];
