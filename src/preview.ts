@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { ShooterMesh, characterById, studioEnv } from './robot';
 import { Stage } from './stage';
+import { TWIN_X } from './config';
+import type { Shooter } from './game';
+
+/** the preview unit's pretend fight state, fed to the same animation code the match uses */
+type Act = Pick<Shooter, 'x' | 'y' | 'team' | 'aim' | 'recoil' | 'vx' | 'firing' | 'kickT' | 'heavyT' | 'flash' | 'stagger' | 'health'>;
 
 /**
  * The select screens' preview window: the chosen fighter on a slowly turning plinth, or a
@@ -20,6 +25,16 @@ export class Preview {
   private last = 0;
   private t = 0;
   private mode: 'unit' | 'stage' = 'unit';
+  /** turns the unit on the plinth (the unit's own root is driven by its animation) */
+  private pivot = new THREE.Group();
+  private act: Act = { x: 0, y: 0, team: 0, aim: 0, recoil: 0, vx: 0, firing: false, kickT: 9, heavyT: 9, flash: 0, stagger: 0, health: 100 };
+  /** seconds into the unit's routine, and when its next shot goes */
+  private at = 0;
+  private nextShot = 0;
+  private twin = false;
+  private balls: { mesh: THREE.Mesh; v: THREE.Vector3; age: number }[] = [];
+  private ballGeo = new THREE.SphereGeometry(0.13, 20, 14);
+  private ballMat = new THREE.MeshPhysicalMaterial({ roughness: 0.08, clearcoat: 1, metalness: 0 });
 
   constructor(private host: HTMLElement) {
     this.sun.position.set(-3, 6, -5);
@@ -63,7 +78,14 @@ export class Preview {
     this.mode = 'unit';
     const def = characterById(id);
     this.unit = new ShooterMesh(def.id, def.ball, def);
-    this.scene.add(this.plinth, this.unit.root);
+    this.pivot.add(this.unit.root);
+    this.scene.add(this.plinth, this.pivot);
+    this.twin = !!def.twin;
+    this.ballMat.color.setHex(def.ball);
+    // it powers up as it's picked: the special-move spring and glow, then its routine
+    this.act = { ...this.act, x: 0, aim: 0, vx: 0, recoil: 0, kickT: 9, heavyT: 0, flash: 0 };
+    this.at = 0;
+    this.nextShot = 1.4;
     this.scene.background = new THREE.Color(0x1d1b18);
     this.scene.fog = null;
     this.hemi.color.set(0xfff6e8);
@@ -109,10 +131,13 @@ export class Preview {
 
   private clear() {
     if (this.unit) {
-      this.scene.remove(this.unit.root, this.plinth);
+      this.pivot.remove(this.unit.root);
+      this.scene.remove(this.pivot, this.plinth);
       this.unit.dispose();
       this.unit = null;
     }
+    for (const b of this.balls) this.scene.remove(b.mesh);
+    this.balls.length = 0;
     if (this.stage) {
       this.scene.remove(this.stage.group);
       this.stage.dispose();
@@ -198,8 +223,9 @@ export class Preview {
     if (this.mode === 'unit' && this.unit) {
       // mostly the 3/4 front, swinging round to show the sides
       const a = -0.55 + Math.sin(this.t * 0.45) * 0.75;
-      this.unit.root.rotation.y = a;
+      this.pivot.rotation.y = a;
       this.plinth.rotation.y = a;
+      this.animate(dt);
     } else if (this.stage) {
       // a slow sweep over the table from behind the player's rail
       const a = Math.sin(this.t * 0.25) * 0.5;
@@ -208,5 +234,68 @@ export class Preview {
       this.stage.update(dt, this.t);
     }
     r.render(this.scene, this.camera);
+  }
+
+  /**
+   * The selected unit's routine on the plinth: it shuffles side to side on the spot, sweeps
+   * its aim, and every couple of seconds fires (a recoil punch and a marble flying out at you),
+   * sometimes a quick string of shots.
+   */
+  private animate(dt: number) {
+    const unit = this.unit!;
+    const s = this.act;
+    this.at += dt;
+    const t = this.at;
+    // a side-step every few seconds: walk cycle on the spot, the body swaying with it
+    const step = Math.sin(t * 0.9);
+    s.vx = Math.abs(step) > 0.55 ? Math.sign(step) * 4 : 0;
+    s.aim = Math.sin(t * 0.7) * 0.28;
+    s.kickT += dt;
+    s.heavyT += dt;
+    s.recoil = Math.max(0, s.recoil - dt * 8);
+    s.firing = false;
+    if (t >= this.nextShot) {
+      s.firing = true;
+      s.recoil = 1;
+      s.kickT = 0;
+      this.fire();
+      // now and then a quick string of three
+      if (this.burstLeft === 0 && Math.random() < 0.35) this.burstLeft = 3;
+      if (this.burstLeft > 0) this.burstLeft--;
+      this.nextShot = t + (this.burstLeft > 0 ? 0.16 : 1.6 + Math.random() * 1.2);
+    }
+    unit.sync(s as Shooter, this.t, dt);
+    // keep it planted on the plinth: no sliding along a rail here
+    unit.root.position.x = 0;
+    unit.root.position.z = 0;
+    for (let i = this.balls.length - 1; i >= 0; i--) {
+      const b = this.balls[i];
+      b.age += dt;
+      b.mesh.position.addScaledVector(b.v, dt);
+      b.mesh.rotation.x -= dt * 12;
+      if (b.age > 0.9) {
+        this.scene.remove(b.mesh);
+        this.balls.splice(i, 1);
+      }
+    }
+  }
+  private burstLeft = 0;
+
+  /** a marble out of the muzzle (two from twin barrels), flying down the unit's facing */
+  private fire() {
+    const unit = this.unit!;
+    this.scene.updateMatrixWorld(true);
+    const from = unit.muzzleWorld(new THREE.Vector3());
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(unit.turret.getWorldQuaternion(new THREE.Quaternion()));
+    fwd.y = 0;
+    fwd.normalize();
+    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+    for (const side of this.twin ? [-TWIN_X, TWIN_X] : [0]) {
+      const mesh = new THREE.Mesh(this.ballGeo, this.ballMat);
+      mesh.castShadow = true;
+      mesh.position.copy(from).addScaledVector(right, side);
+      this.scene.add(mesh);
+      this.balls.push({ mesh, v: fwd.clone().multiplyScalar(7), age: 0 });
+    }
   }
 }

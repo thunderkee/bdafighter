@@ -560,6 +560,21 @@ body {
 .tile.on i {
   box-shadow: inset 0 2px 4px #000, 0 0 0 2px var(--orange);
 }
+/* the picked fighter's card comes alive: its portrait bobs in its window, the ring pulses */
+.tile.on img.portrait {
+  animation: tile-idle 1.8s ease-in-out infinite;
+}
+@keyframes tile-idle {
+  0%,
+  100% {
+    object-position: 50% calc(50% + 2px);
+    box-shadow: inset 0 2px 4px #000, 0 0 0 2px var(--orange);
+  }
+  50% {
+    object-position: 50% calc(50% - 5px);
+    box-shadow: inset 0 2px 4px #000, 0 0 0 3px var(--orange), 0 0 10px var(--orange);
+  }
+}
 .dev-actions {
   width: min(420px, 100%);
   display: grid;
