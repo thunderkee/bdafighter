@@ -40,7 +40,7 @@ export interface CharacterDef {
   /** this unit's marble colour */
   ball: number;
   palette: Palette;
-  crest: 'vfin' | 'vfin-short' | 'horns' | 'unihorn' | 'fin' | 'eva' | 'beetle' | 'tyrant';
+  crest: 'vfin' | 'vfin-short' | 'horns' | 'twinHorns' | 'unihorn' | 'fin' | 'eva' | 'beetle' | 'tyrant';
   /** body plan: humanoid mech (default) or a beast that fires from its mouth */
   body?: 'mech' | 'rex' | 'cat' | 'lizard' | 'beetle' | 'eva' | 'megatron';
   /** mech gun: chest cannon (default) or a T-rex head blaster */
@@ -342,7 +342,7 @@ type Look21 = {
   head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese' | 'megazord';
   shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
   shoulderL?: Look21['shoulder'];
-  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka' | 'shellCannon' | 'staffGun' | 'palm';
+  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka' | 'shellCannon' | 'staffGun' | 'palm' | 'chestMaw';
   left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade' | 'knife' | 'katana' | 'powerSword';
   back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters' | 'shell' | 'rexTail' | 'tuskShield')[];
   /** a dino combiner: each limb in its own zord's colour (black arms, a blue right leg, a yellow left) and a pink breastplate */
@@ -401,8 +401,9 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'beamRifle', left: 'katana', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
   // a dino combiner (after the Mighty Morphin Megazord): red core, silver crested helmet, pink
   // breastplate, black arms with a tusked shield on the back, blue and yellow legs, a T-rex tail;
-  // it fires from its right fist and holds a power sword ready in its left
-  dragon: { look: { frame: 'heavy', head: 'megazord', shoulder: 'heavy', gun: 'fistCannon', left: 'powerSword', back: ['tuskShield', 'rexTail'], pose: 'aim', dynamic: true, megazord: true, lean: -0.12 }, ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
+  // the old Wyvern head with twin gold horns; it fires from a toothed maw in its chest, and holds
+  // a power sword ready in its left hand
+  dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
@@ -452,6 +453,7 @@ export const BUILTINS: readonly CharacterDef[] = [
       look21: v.look,
       addons: v.addons,
       twin: v.twin,
+      crest: v.crest ?? o.crest,
       emblem: v.emblem,
       matte: v.matte,
       ballTex: PATTERNS21[o.id]?.[0],
@@ -598,7 +600,7 @@ export class ShooterMesh {
     // the roster's look is boxy: code-built units swap their round parts for square-sided ones
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
-    if (def.look21?.gun === 'dragonMaw') this.jawOpen = -0.95;
+    if (def.look21?.gun === 'dragonMaw' || def.look21?.gun === 'chestMaw') this.jawOpen = -0.95;
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
     this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
   }
@@ -2232,14 +2234,15 @@ export class ShooterMesh {
       const k2 = cw / 0.94;
       this.turret.add(at(plate([[-0.4 * k2, 0.13], [0.4 * k2, 0.13], [0.34 * k2, -0.06], [0.12, -0.16], [-0.12, -0.16], [-0.34 * k2, -0.06]], 0.06, pink), 0, 0.42, z0));
       this.turret.add(at(plate([[-0.42 * k2, 0.16], [0.42 * k2, 0.16], [0.4 * k2, 0.12], [-0.4 * k2, 0.12]], 0.07, m.gold), 0, 0.42, z0 - 0.005));
-      this.turret.add(at(plate([[-0.09, 0.1], [0.09, 0.1], [0, -0.17]], 0.05, m.gold), 0, 0.4, z0 - 0.035));
+      const maw = L.gun === 'chestMaw';
+      if (!maw) this.turret.add(at(plate([[-0.09, 0.1], [0.09, 0.1], [0, -0.17]], 0.05, m.gold), 0, 0.4, z0 - 0.035));
       for (const sx of [-1, 1]) {
         const wing: [number, number][] = [[0.1, 0.0], [0.36 * k2, 0.08], [0.33 * k2, -0.04], [0.14, -0.1]];
         this.turret.add(at(plate(sx === 1 ? wing : mirrorX(wing), 0.04, m.gold), 0, 0.34, z0 - 0.04));
         this.turret.add(box(0.07, 0.05, 0.02, m.eyeMat, sx * 0.05, 0.47, z0 - 0.065)); // the beak's eyes
       }
-      // the red core below, with a gold buckle
-      this.turret.add(at(prism(0.42, 0.06, 0.4, 0.06, 0.12, m.body, 0.02), 0, 0.22, z0 + 0.01));
+      // the red core below (the chest maw takes its place)
+      if (!maw) this.turret.add(at(prism(0.42, 0.06, 0.4, 0.06, 0.12, m.body, 0.02), 0, 0.22, z0 + 0.01));
     } else if (!L.ribcage && L.gun !== 'dragonMaw') {
       // layered chest armour, built up like a kit: a frame plate on each side, a raised panel
       // stepped on top of it with an accent edge, a pointed keel down the middle, angled
@@ -2664,6 +2667,24 @@ export class ShooterMesh {
           for (let q = 0; q < 3; q++) jaw.add(at(cone(0.016, 0.05, fang), s * 0.07, -0.04, -0.34 + q * 0.07)); // lower teeth
         }
         mark(0, -0.04, -0.56);
+        break;
+      }
+      case 'chestMaw': {
+        // a toothed maw in the breastplate: fangs along the top, a hinged lower jaw that snaps
+        // open on each shot, and fire glowing in the throat
+        gun.position.set(0, 0.27, -cd / 2 - 0.05);
+        this.turret.add(gun);
+        const fang = this.paint(0xeef0f2, 'trim');
+        gun.add(box(0.36, 0.13, 0.06, hole, 0, -0.03, 0.02)); // the mouth
+        gun.add(box(0.2, 0.05, 0.02, new THREE.MeshBasicMaterial({ color: 0xff7a1a }), 0, -0.04, 0.03)); // fire in the throat
+        gun.add(at(plate([[-0.22, 0.05], [0.22, 0.05], [0.2, 0.0], [-0.2, 0.0]], 0.07, m.gold), 0, 0.03, -0.01)); // upper lip
+        for (let q = 0; q < 5; q++) gun.add(at(cone(0.022, 0.07, fang), -0.14 + q * 0.07, -0.005, -0.03, Math.PI));
+        const jaw = at(new THREE.Group(), 0, -0.09, 0.03);
+        gun.add(jaw);
+        this.jaw = jaw;
+        jaw.add(at(plate([[-0.2, 0.0], [0.2, 0.0], [0.16, -0.06], [-0.16, -0.06]], 0.07, m.gold), 0, 0, -0.04));
+        for (let q = 0; q < 4; q++) jaw.add(at(cone(0.02, 0.06, fang), -0.105 + q * 0.07, 0.03, -0.06));
+        mark(0, -0.03, -0.08);
         break;
       }
       case 'mouth':
@@ -3785,7 +3806,8 @@ export class ShooterMesh {
         }
         break;
       }
-      case 'horns': {
+      case 'horns':
+      case 'twinHorns': {
         for (const side of [-1, 1]) {
           const horn = cone(0.06, 0.62, m.joint);
           horn.position.set(side * 0.2, 0.42, 0.12);
@@ -3796,10 +3818,13 @@ export class ShooterMesh {
           sideHorn.rotation.set(-0.5, 0, -side * 1.1);
           head.add(sideHorn);
         }
-        const blade = cone(0.06, 0.42, m.gold);
-        blade.position.set(0, 0.48, -0.26);
-        blade.rotation.x = -0.25;
-        head.add(blade);
+        // one gold blade at the front, or two side by side
+        for (const x of def.crest === 'twinHorns' ? [-0.1, 0.1] : [0]) {
+          const blade = cone(0.06, 0.42, m.gold);
+          blade.position.set(x, 0.48, -0.26);
+          blade.rotation.set(-0.25, 0, -x * 1.2);
+          head.add(blade);
+        }
         break;
       }
       case 'unihorn': {
