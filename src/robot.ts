@@ -7,6 +7,7 @@ import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
+import { armourTexture, type ArmourTex, type BallTex } from './patterns';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -73,6 +74,10 @@ export interface CharacterDef {
   v21?: boolean;
   /** matte (doff) plastic instead of the glossy finish */
   matte?: boolean;
+  /** 2.1: the pattern on this unit's marbles */
+  ballTex?: BallTex;
+  /** 2.1: the texture on this unit's armour */
+  armourTex?: ArmourTex;
   /** 2.0 humanoids: 'punch' throws the right arm straight out at the target, body leaning in */
   pose?: 'punch';
   /** 2.0 humanoids: a chest emblem in place of the core marble */
@@ -364,6 +369,23 @@ type Look21 = {
  * in a palette that reads at a glance. Rex and Liger keep their Unit Lab designs and gain
  * a back cannon and big fangs.
  */
+/** each 2.1 unit's own marble and armour pattern */
+const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
+  angel: ['ring', 'hex'],
+  dragon: ['flame', 'scales'],
+  pioneer: ['camo', 'camo'],
+  liberty: ['checker', 'brushed'],
+  monoceros: ['galaxy', 'circuit'],
+  baron: ['eye', 'digital'],
+  bastion: ['crackle', 'carbon'],
+  nightshade: ['nebula', 'weave'],
+  violet: ['candy', 'stripe'],
+  kabuto: ['dots', 'panel'],
+  tyrant: ['lava', 'hammered'],
+  ember: ['sparks', 'spots'],
+  rex: ['scale', 'crackle'],
+  liger: ['tiger', 'tiger'],
+};
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'wedge', gun: 'beamRifle', left: 'shield', back: ['sabers'] }, ball: 0x6fa8ff, palette: { body: 0xf2f2f4, trim: 0x2a5bd8, accent: 0xe0302e, joint: 0x4a4f60, eye: 0x6dff9a } },
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'] }, ball: 0xff5040, palette: { body: 0x8e1a2a, trim: 0x34323c, accent: 0xf2b632, joint: 0x1e1c24, eye: 0xc8ff3d } },
@@ -416,6 +438,8 @@ export const BUILTINS: readonly CharacterDef[] = [
       addons: v.addons,
       emblem: v.emblem,
       matte: v.matte,
+      ballTex: PATTERNS21[o.id]?.[0],
+      armourTex: PATTERNS21[o.id]?.[1],
       glow: v.glow ?? o.glow,
       darkFace: o.id === 'dragon' ? true : v.look ? false : o.darkFace,
       fit: beast ? V2[o.id]?.fit : undefined,
@@ -540,7 +564,7 @@ export class ShooterMesh {
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
-    this.mats = plasticize(this.root, def.matte, !!def.v21);
+    this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
   }
 
   private build(def: CharacterDef, marbleColor: number) {
@@ -3964,7 +3988,7 @@ export function studioEnv(renderer: THREE.WebGLRenderer) {
  * picks up soft highlights, like a clean toy you want to pick up. Unlit parts (eyes, glows)
  * and the glass marble keep their own materials. Returns the plastic, for the hit flash.
  */
-export function plasticize(root: THREE.Object3D, matte = false, mixed = false) {
+export function plasticize(root: THREE.Object3D, matte = false, mixed = false, armour?: ArmourTex) {
   const swap = new Map<THREE.Material, THREE.MeshPhysicalMaterial>();
   const make = (m: THREE.MeshLambertMaterial) => {
     let p = swap.get(m);
@@ -3986,7 +4010,7 @@ export function plasticize(root: THREE.Object3D, matte = false, mixed = false) {
         depthWrite: m.depthWrite,
         blending: m.blending,
       });
-      if (mixed) finish(p, (m.userData.slot as string | undefined) ?? 'body', matte);
+      if (mixed) finish(p, (m.userData.slot as string | undefined) ?? 'body', matte, armour);
       p.userData = { ...m.userData };
       swap.set(m, p);
       m.dispose();
@@ -4064,7 +4088,7 @@ function surface(kind: 'grain' | 'knurl' | 'brushed') {
  * grain, gloss enamel trim and accents, a matte knurled inner frame, real metal for gold and
  * steel. A matte unit keeps everything dull but still gets the textures.
  */
-function finish(p: THREE.MeshPhysicalMaterial, slot: string, matte: boolean) {
+function finish(p: THREE.MeshPhysicalMaterial, slot: string, matte: boolean, armour?: ArmourTex) {
   switch (slot) {
     case 'trim':
     case 'accent':
@@ -4107,7 +4131,15 @@ function finish(p: THREE.MeshPhysicalMaterial, slot: string, matte: boolean) {
       p.clearcoat = matte ? 0 : 0.3;
       p.clearcoatRoughness = 0.35;
       p.envMapIntensity = matte ? 0.25 : 0.55;
-      p.bumpMap = surface('grain');
-      p.bumpScale = 0.8;
+      if (armour) {
+        // the unit's own armour pattern, as a tone on the paint and as relief
+        const t = armourTexture(armour);
+        p.map = t;
+        p.bumpMap = t;
+        p.bumpScale = 1.2;
+      } else {
+        p.bumpMap = surface('grain');
+        p.bumpScale = 0.8;
+      }
   }
 }

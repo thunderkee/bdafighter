@@ -6,6 +6,7 @@ import { CHARGE, MAX_SHOOTERS, chargeLevel, slotTeam, type Drop, type Game, type
 const SLOTS = Array.from({ length: MAX_SHOOTERS }, (_, i) => i);
 import { ShooterMesh, characterById, studioEnv } from './robot';
 import { Post } from './post';
+import { ballTexture } from './patterns';
 import { Stage } from './stage';
 import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
@@ -213,6 +214,8 @@ export class View {
   private tmpMuzzle = new THREE.Vector3();
   private axis = new THREE.Vector3();
   private time = 0;
+  /** the default cat's-eye marble pattern */
+  private swirlTex!: THREE.Texture;
   /** bloom, colour grade, vignette and grain (realism on) */
   private post: Post;
   /** game-time clock for world animation (slows with slow-mo) */
@@ -346,6 +349,7 @@ export class View {
     // marbles: one instanced mesh per team, hidden instances scaled to 0
     const marbleGeo = new THREE.SphereGeometry(1, 24, 16);
     const swirl = marbleSwirl();
+    this.swirlTex = swirl;
     this.marbleMesh = this.teamBall.map((c) => {
       // glass marbles with a cat's-eye swirl inside, under a mirror-smooth clear coat
       const mat = new THREE.MeshPhysicalMaterial({ color: c, map: swirl, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1.3, sheen: 0.4, sheenColor: new THREE.Color(0xffffff) });
@@ -472,7 +476,14 @@ export class View {
     this.teamBall = [characterById(all[0]).ball, characterById(all[1]).ball];
     // a mirror match keeps the opponent's marbles distinguishable
     if (all[0] === all[1]) this.teamBall[1] = 0xff5a4a;
-    this.teamBall.forEach((c, i) => (this.marbleMesh[i].material as THREE.MeshPhysicalMaterial).color.set(c));
+    this.teamBall.forEach((c, i) => {
+      const mat = this.marbleMesh[i].material as THREE.MeshPhysicalMaterial;
+      mat.color.set(c);
+      // each 2.1 unit fires its own marble pattern; the rest keep the cat's-eye swirl
+      const pattern = characterById(all[i === 0 ? 0 : 1]).ballTex;
+      mat.map = pattern ? ballTexture(pattern) : this.swirlTex;
+      mat.needsUpdate = true;
+    });
     this.shooters.forEach((old, i) => {
       const ball = this.teamBall[slotTeam(i)];
       (this.shields[i].material as THREE.MeshBasicMaterial).color.set(ball);
