@@ -72,6 +72,8 @@ export interface CharacterDef {
   addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes' | 'armyWhites')[];
   /** a 2.1 unit */
   v21?: boolean;
+  /** twin barrels: every shot is a pair of marbles side by side */
+  twin?: boolean;
   /** matte (doff) plastic instead of the glossy finish */
   matte?: boolean;
   /** 2.1: the pattern on this unit's marbles */
@@ -357,6 +359,8 @@ type Look21 = {
   treads?: boolean;
   /** long skirt armour down to the shins */
   longSkirt?: boolean;
+  /** no legs: the unit floats on a hover thruster under its skirt */
+  hover?: boolean;
   /** a sleeker main-character Gundam head, the crown and ears in the accent colour */
   heroHead?: boolean;
   /** an attacking stance: a lunge (left leg forward, right back), a forward lean, the off hand raised on guard */
@@ -388,9 +392,8 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
   tyrant: ['lava', 'hammered'],
   ember: ['sparks', 'spots'],
   rex: ['scale', 'crackle'],
-  liger: ['tiger', 'tigerBold'],
 };
-const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
+const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   // Astray Red Frame: white armour over a red frame, black trim
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'beamRifle', left: 'katana', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
   // crimson and black with gold, hunched in, claw raised
@@ -398,13 +401,13 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in green: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0x7affb0, palette: { body: 0x2e9d5a, trim: 0xeceae0, accent: 0xd9a92a, joint: 0x2a2c30, eye: 0x7ff0ff } },
-  // Blastoise-style: a shell on its back with one big cannon, hunched like a gorilla
-  monoceros: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
+  // Blastoise-style: a shell on its back with a twin cannon (two marbles a shot), hunched like a gorilla
+  monoceros: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, twin: true, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // teal and deep blue-green with gold, a pink mono-eye
   baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0x6af0e0, palette: { body: 0x1f8a8a, trim: 0x173a44, accent: 0xffc23d, joint: 0x14202a, eye: 0xff5fd0 } },
   // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true, pose: 'aim', dynamic: true, lean: -0.18 }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0xb82020, joint: 0x17181a, eye: 0xff2a2a } },
-  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, longSkirt: true }, ball: 0xd08aff, glow: 0xc86aff, palette: { body: 0x3a2a5c, trim: 0x241c36, accent: 0xc86aff, joint: 0x15111f, eye: 0xd08aff } },
+  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, longSkirt: true, hover: true }, ball: 0xd08aff, glow: 0xc86aff, palette: { body: 0x3a2a5c, trim: 0x241c36, accent: 0xc86aff, joint: 0x15111f, eye: 0xd08aff } },
   // Unit-08 pink and mint, hunched, an open palm thrust out
   violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'palm', left: 'knife', back: ['pylons'], pose: 'aim', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
@@ -413,9 +416,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   // desert: sand armour, dark brown, red accents, cyan eyes
   rex: { addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
-  // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
-  // a white tiger: white armour, bold black stripes, ice-blue accents and eyes
-  liger: { addons: ['legStripes', 'armyWhites'], ball: 0x7fd8ff, palette: { body: 0xf0f2f6, trim: 0x1a1a22, accent: 0x4ab8ff, joint: 0x2a2f3c, eye: 0x7fe8ff } },
+  // Char's red Zaku: salmon red armour, deep maroon plates, dark grey frame, a pink-red eye; no patterns
+  liger: { addons: ['armyWhites'], ball: 0xff5a6a, palette: { body: 0xd9525e, trim: 0x7c1c28, accent: 0x7c1c28, joint: 0x34343c, eye: 0xff3a7a } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -444,10 +446,11 @@ export const BUILTINS: readonly CharacterDef[] = [
       v21: true,
       look21: v.look,
       addons: v.addons,
+      twin: v.twin,
       emblem: v.emblem,
       matte: v.matte,
       ballTex: PATTERNS21[o.id]?.[0],
-      armourTex: PATTERNS21[o.id]?.[1],
+      armourTex: PATTERNS21[o.id]?.[1] ?? 'none',
       glow: v.glow ?? o.glow,
       darkFace: o.id === 'dragon' ? true : v.look ? false : o.darkFace,
       fit: beast ? V2[o.id]?.fit : undefined,
@@ -553,6 +556,8 @@ export class ShooterMesh {
   private treadPlates: THREE.Object3D[] = [];
   private treadWheels: THREE.Object3D[] = [];
   private treadTravel = 0;
+  /** hovering units float this high and drift up and down */
+  private hoverLift = 0;
 
   /** defOverride lets the Unit Lab preview an unsaved design */
   constructor(characterId: string, marbleColor: number, defOverride?: CharacterDef) {
@@ -2059,10 +2064,6 @@ export class ShooterMesh {
       parent.add(box(0.02, n * 0.05, depth + 0.02, m.joint, x - s * 0.012, y0 + (n - 1) * 0.025, z));
       for (let k = 0; k < n; k++) parent.add(box(0.03, 0.026, depth, m.body, x, y0 + k * 0.05, z));
     };
-    const ventZ = (parent: THREE.Object3D, x: number, y0: number, z: number, n: number, width: number, slat: THREE.Material = m.body) => {
-      parent.add(box(width + 0.02, n * 0.05, 0.02, m.joint, x, y0 + (n - 1) * 0.025, z + 0.012));
-      for (let k = 0; k < n; k++) parent.add(box(width, 0.026, 0.03, slat, x, y0 + k * 0.05, z));
-    };
     const piston = (parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3) => {
       const p = cyl(0.024, a.distanceTo(b), steel);
       p.position.copy(a).add(b).multiplyScalar(0.5);
@@ -2107,7 +2108,18 @@ export class ShooterMesh {
         this.root.add(at(prism(0.2, 0.24, 0.22, 0.26, Math.max(0.06, hipY - 0.4), m.joint, 0.04), s * 0.3, (hipY + 0.4) / 2, 0));
       }
     }
-    for (const s of L.treads ? [] : [-1, 1]) {
+    if (L.hover) {
+      // floats: a tapering thruster core under the skirt, with a glowing ring and vanes
+      this.hoverLift = 0.2;
+      this.root.add(at(prism(0.14, 0.14, 0.34, 0.32, hipY * 0.7, m.joint, 0.04), 0, hipY * 0.55, 0));
+      this.root.add(at(cyl(0.11, 0.05, m.trim), 0, hipY * 0.18, 0));
+      this.root.add(at(cyl(0.075, 0.02, m.glowMat ?? m.eyeMat), 0, hipY * 0.15, 0));
+      for (let q = 0; q < 4; q++) {
+        const a = (q / 4) * Math.PI * 2 + Math.PI / 4;
+        this.root.add(at(plate([[0, 0.08], [0.1, 0.02], [0.08, -0.08], [0, -0.04]], 0.02, m.trim), Math.cos(a) * 0.16, hipY * 0.35, Math.sin(a) * 0.16, 0, -a, 0));
+      }
+    }
+    for (const s of L.treads || L.hover ? [] : [-1, 1]) {
       const leg = new THREE.Group();
       leg.position.set(s * (F.legGap + (L.menace ? 0.06 : 0)), hipY, 0);
       if (L.menace) leg.rotation.z = s * 0.12;
@@ -2182,8 +2194,8 @@ export class ShooterMesh {
     this.root.add(this.turret);
     const cw = F.chestW;
     const cd = F.chestD;
-    this.turret.add(at(prism(0.36, 0.36, 0.44, 0.4, 0.16, m.joint, 0.06), 0, 0.08, 0)); // abdomen
-    ventZ(this.turret, 0, 0.03, -0.21, 2, 0.28);
+    // abdomen: three stacked segments, widening up into the chest, the middle one in trim
+    for (let q = 0; q < 3; q++) this.turret.add(at(prism(0.34 + q * 0.04, 0.34 + q * 0.03, 0.38 + q * 0.04, 0.37 + q * 0.03, 0.05, q === 1 ? m.trim : m.joint, 0.04), 0, 0.03 + q * 0.055, 0));
     this.turret.add(at(prism(F.chestB, cd * 0.85, cw, cd, 0.38, m.body, [0.12, 0.12, 0.06, 0.06]), 0, 0.35, 0));
     this.turret.add(at(prism(0.48, 0.42, 0.42, 0.36, 0.08, m.joint, 0.06), 0, 0.58, 0)); // collar
     for (const s of [-1, 1]) {
@@ -2194,15 +2206,23 @@ export class ShooterMesh {
     const skull = def.emblem === 'skull';
     const z0 = -cd / 2 - 0.005;
     if (!L.ribcage && L.gun !== 'dragonMaw') {
+      // layered chest armour, built up like a kit: a frame plate on each side, a raised panel
+      // stepped on top of it with an accent edge, a pointed keel down the middle, angled
+      // louvred intakes underneath and a glowing core between them
+      const k2 = cw / 0.94;
       for (const s of [-1, 1]) {
-        const k2 = cw / 0.94;
-        const pecPts: [number, number][] = [[0.02 * k2, 0.1], [0.3 * k2, 0.1], [0.27 * k2, -0.06], [0.06 * k2, -0.12]];
-        const pec = plate(s === 1 ? pecPts : mirrorX(pecPts), 0.06, skull ? m.body : m.trim);
-        this.turret.add(at(pec, 0, 0.42, z0));
-        const intake = prism(0.14, 0.05, 0.12, 0.04, 0.08, m.joint, 0.01);
-        this.turret.add(at(intake, s * 0.2, 0.25, z0 - 0.01));
-        for (let q = 0; q < 2; q++) this.turret.add(box(0.11, 0.015, 0.02, def.darkFace ? m.accent : goldTrim, s * 0.2, 0.23 + q * 0.035, z0 - 0.035));
+        const mir = (pts: [number, number][]) => (s === 1 ? pts : mirrorX(pts));
+        this.turret.add(at(plate(mir([[0.02 * k2, 0.11], [0.31 * k2, 0.11], [0.28 * k2, -0.05], [0.07 * k2, -0.13]]), 0.05, skull ? m.body : m.trim), 0, 0.42, z0));
+        if (!skull) {
+          this.turret.add(at(plate(mir([[0.06 * k2, 0.08], [0.27 * k2, 0.08], [0.25 * k2, -0.03], [0.09 * k2, -0.09]]), 0.04, m.body), 0, 0.42, z0 - 0.035));
+          this.turret.add(at(plate(mir([[0.09 * k2, -0.1], [0.25 * k2, -0.045], [0.25 * k2, -0.065], [0.09 * k2, -0.12]]), 0.03, m.accent), 0, 0.42, z0 - 0.03));
+        }
+        const intake = at(new THREE.Group(), s * 0.21, 0.25, z0 - 0.01, 0, 0, s * 0.14);
+        intake.add(prism(0.15, 0.05, 0.13, 0.04, 0.11, m.joint, 0.01));
+        for (let q = 0; q < 3; q++) intake.add(box(0.12, 0.014, 0.02, def.darkFace ? m.accent : goldTrim, 0, -0.035 + q * 0.033, -0.025));
+        this.turret.add(intake);
       }
+      if (!skull) this.turret.add(at(plate([[-0.035, 0.12], [0.035, 0.12], [0.03, -0.06], [0, -0.12], [-0.03, -0.06]], 0.05, m.accent), 0, 0.44, z0 - 0.025));
     } else {
       // Megatron: a silver ribcage
       this.turret.add(at(plate([[-0.22, 0.14], [0.22, 0.14], [0.18, -0.12], [0, -0.18], [-0.18, -0.12]], 0.05, silver), 0, 0.38, z0));
@@ -2216,7 +2236,10 @@ export class ShooterMesh {
       this.turret.add(box(0.03, 0.04, 0.02, hole, 0, 0.375, z - 0.012));
       for (let q = 0; q < 5; q++) this.turret.add(box(0.036, 0.14, 0.03, bone, -0.1 + q * 0.05, 0.27, z));
     } else if (!L.ribcage && L.gun !== 'dragonMaw') {
-      this.turret.add(at(plate([[0, 0.08], [0.07, 0], [0, -0.08], [-0.07, 0]], 0.04, m.joint), 0, 0.36, z0 - 0.02));
+      // the core: a hex housing with a glowing gem, under the keel
+      const hex = (r: number): [number, number][] => [0, 1, 2, 3, 4, 5].map((i) => [Math.cos((i / 6) * Math.PI * 2) * r, Math.sin((i / 6) * Math.PI * 2) * r]);
+      this.turret.add(at(plate(hex(0.06), 0.04, m.joint), 0, 0.26, z0 - 0.015));
+      this.turret.add(at(plate(hex(0.034), 0.03, m.glowMat ?? m.eyeMat), 0, 0.26, z0 - 0.04));
     }
     // backpack with thrusters
     this.turret.add(at(prism(0.52, 0.2, 0.46, 0.18, 0.38, m.trim, [0.06, 0.06, 0.04, 0.04]), 0, 0.36, cd / 2 + 0.09));
@@ -2463,11 +2486,16 @@ export class ShooterMesh {
         const holder = at(new THREE.Group(), 0.34, 0.9, cd / 2 - 0.02, -(L.lean ?? F.lean));
         this.turret.add(holder);
         holder.add(gun);
-        gun.add(at(prism(0.26, 0.4, 0.24, 0.36, 0.24, m.trim, 0.06), 0, 0, 0.12)); // mount
-        gun.add(at(cyl(0.11, 0.9, m.joint), 0, 0.02, -0.36, Math.PI / 2));
-        gun.add(at(cyl(0.15, 0.14, m.trim), 0, 0.02, -0.82, Math.PI / 2));
-        gun.add(at(cyl(0.1, 0.02, hole), 0, 0.02, -0.9, Math.PI / 2));
-        for (const z of [-0.1, -0.5]) gun.add(at(cyl(0.125, 0.04, m.accent), 0, 0.02, z, Math.PI / 2));
+        const xs = def.twin ? [-0.13, 0.13] : [0];
+        gun.add(at(prism(def.twin ? 0.5 : 0.26, 0.4, def.twin ? 0.46 : 0.24, 0.36, 0.24, m.trim, 0.06), 0, 0, 0.12)); // mount
+        for (const x of xs) {
+          gun.add(at(cyl(0.1, 0.9, m.joint), x, 0.02, -0.36, Math.PI / 2));
+          gun.add(at(cyl(0.135, 0.14, m.trim), x, 0.02, -0.82, Math.PI / 2));
+          gun.add(at(cyl(0.09, 0.02, hole), x, 0.02, -0.9, Math.PI / 2));
+          for (const z of [-0.1, -0.5]) gun.add(at(cyl(0.115, 0.04, m.accent), x, 0.02, z, Math.PI / 2));
+        }
+        // a clamp bridging the twin barrels
+        if (def.twin) gun.add(box(0.32, 0.08, 0.1, m.trim, 0, 0.02, -0.62));
         mark(0, 0.02, -0.93);
         break;
       }
@@ -2576,19 +2604,23 @@ export class ShooterMesh {
         gun.position.set(0, 0.38, -cd / 2 - 0.02);
         gun.scale.setScalar(1.8);
         this.turret.add(gun);
-        // a gold head, so it stands out on the dark red chest
-        gun.add(at(prism(0.32, 0.3, 0.26, 0.24, 0.2, m.accent, [0.06, 0.06, 0.03, 0.03]), 0, 0.06, -0.08));
-        gun.add(at(side([[0.0, 0.02], [-0.34, 0.0], [-0.4, -0.04], [-0.36, -0.08], [0.0, -0.1]], 0.24, m.accent), 0, 0.04, -0.1));
+        // a gunmetal-black head with gold horns and slit red eyes: no brows, no nostrils
+        const skin = this.paint(0x2a2c33, 'metal');
+        const fang = this.paint(0xc8ccd2, 'metal');
+        const ember = new THREE.MeshBasicMaterial({ color: 0xff3018 });
+        gun.add(at(prism(0.32, 0.3, 0.26, 0.24, 0.2, skin, [0.06, 0.06, 0.03, 0.03]), 0, 0.06, -0.08));
+        gun.add(at(side([[0.0, 0.02], [-0.34, 0.0], [-0.4, -0.04], [-0.36, -0.08], [0.0, -0.1]], 0.24, skin), 0, 0.04, -0.1));
+        // a ridge of gold spikes down the skull
+        for (let q = 0; q < 3; q++) gun.add(at(cone(0.03, 0.12 - q * 0.02, m.accent), 0, 0.17 - q * 0.01, -0.12 + q * 0.1, -0.5));
         gun.add(at(side([[0.0, 0.0], [-0.3, -0.02], [-0.32, -0.06], [0.0, -0.07]], 0.2, m.body), 0, -0.08, -0.12, 0.28)); // the open lower jaw
         gun.add(at(box(0.16, 0.04, 0.24, hole), 0, -0.05, -0.32)); // the throat
         gun.add(at(box(0.1, 0.03, 0.14, new THREE.MeshBasicMaterial({ color: 0xff7a1a })), 0, -0.05, -0.36)); // fire glowing deep in it
         for (const s of [-1, 1]) {
-          gun.add(at(box(0.07, 0.035, 0.03, m.eyeMat), s * 0.09, 0.13, -0.2, 0, 0, s * 0.3));
-          gun.add(at(prism(0.1, 0.12, 0.06, 0.1, 0.04, m.trim), s * 0.09, 0.165, -0.18, 0, 0, s * 0.3)); // brow ridge
-          gun.add(at(cone(0.04, 0.32, m.trim), s * 0.12, 0.2, 0.06, 1.05, 0, -s * 0.25)); // horn swept back
-          gun.add(box(0.03, 0.02, 0.02, hole, s * 0.05, 0.06, -0.5)); // nostril
-          for (let q = 0; q < 4; q++) gun.add(at(cone(0.016, 0.05, white), s * 0.08, -0.03, -0.44 + q * 0.07, Math.PI)); // upper teeth
-          for (let q = 0; q < 3; q++) gun.add(at(cone(0.014, 0.04, white), s * 0.07, -0.1, -0.36 + q * 0.07)); // lower teeth
+          gun.add(at(box(0.1, 0.028, 0.03, ember), s * 0.09, 0.12, -0.2, 0, 0, s * 0.45)); // slit eye, slanted down to the snout
+          gun.add(at(cone(0.045, 0.36, m.accent), s * 0.12, 0.2, 0.06, 1.05, 0, -s * 0.25)); // horn swept back
+          gun.add(at(cone(0.03, 0.18, m.accent), s * 0.15, 0.02, 0.0, 1.3, 0, -s * 0.9)); // cheek spike
+          for (let q = 0; q < 4; q++) gun.add(at(cone(0.018, 0.06, fang), s * 0.08, -0.03, -0.44 + q * 0.07, Math.PI)); // upper teeth
+          for (let q = 0; q < 3; q++) gun.add(at(cone(0.016, 0.05, fang), s * 0.07, -0.1, -0.36 + q * 0.07)); // lower teeth
         }
         mark(0, -0.04, -0.56);
         break;
@@ -2927,6 +2959,8 @@ export class ShooterMesh {
         break;
       }
     }
+    // a hovering unit is built floating above its shadow (sync adds the drift)
+    if (this.hoverLift) for (const o of this.root.children) o.position.y += this.hoverLift;
   }
 
   /**
@@ -3860,7 +3894,7 @@ export class ShooterMesh {
       for (const w of this.treadWheels) w.rotation.x = -this.treadTravel / 0.085;
     }
     // tanks glide, they don't bob
-    const bob = this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * 0.05 * moving;
+    const bob = this.hoverLift ? Math.sin(time * 2.2) * 0.04 : this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * 0.05 * moving;
 
     // wings breathe at idle, flare open while firing
     const flare = s.firing ? 0.18 : 0;

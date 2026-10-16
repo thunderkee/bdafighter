@@ -403,6 +403,8 @@ type Tag =
 
 /** seconds between the balls of one trigger pull */
 const BURST_GAP = 0.07;
+/** twin barrels: each marble's offset from the centre line (in marble radii), and its share of the damage */
+const TWIN = { gap: 1.15, damage: 0.6 };
 
 /** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
@@ -1527,9 +1529,14 @@ export class Game {
     return this.marbles.find((mm) => !mm.active) ?? null;
   }
 
-  private launch(m: Marble, s: Shooter, o: { angle: number; radius: number; speed: number; mass: number; damage: number; kind: MarbleKind; push?: number; weave?: number }) {
+  private launch(m: Marble, s: Shooter, o: { angle: number; radius: number; speed: number; mass: number; damage: number; kind: MarbleKind; push?: number; weave?: number; side?: number }) {
     const d = s.dir(o.angle);
     const p = s.muzzle();
+    // a twin barrel's marble leaves beside the centre line
+    if (o.side) {
+      p.x += d.y * o.side;
+      p.y -= d.x * o.side;
+    }
     const push = o.push ?? 0;
     m.active = true;
     m.team = s.team;
@@ -1561,18 +1568,36 @@ export class Game {
     // in your own slow-mo every shot is a boost ball
     const boost = !isSuper && this.slowT > 0 && this.slowOwner === s.slot;
     const radius = st.marbleRadius * (isSuper ? SUPER.radius : boost ? BOOST_BALL.radius : 1);
+    const twin = !!st.twin && !isSuper;
     this.launch(m, s, {
       // a super shot flies dead straight
       angle: s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread),
       radius,
       speed: st.muzzleSpeed * (isSuper ? SUPER.speed : boost ? BOOST_BALL.speed : 1),
       mass: st.marbleMass * (isSuper ? SUPER.mass : boost ? BOOST_BALL.mass : 1),
-      damage: st.damage * (isSuper ? SUPER.damage : boost ? BOOST_BALL.damage : 1),
+      damage: st.damage * (isSuper ? SUPER.damage : boost ? BOOST_BALL.damage : 1) * (twin ? TWIN.damage : 1),
       kind: isSuper ? 'super' : boost ? 'boost' : 'normal',
       // nudge a big marble forward so it doesn't spawn inside the robot
       push: isSuper ? radius : 0,
+      side: twin ? radius * TWIN.gap : 0,
     });
     s.shots++;
+    // twin barrels: a second marble from the other barrel, each a little lighter on damage
+    if (twin) {
+      const m2 = this.takeMarble();
+      if (m2) {
+        this.launch(m2, s, {
+          angle: s.aim + (Math.random() * 2 - 1) * st.spread,
+          radius,
+          speed: st.muzzleSpeed * (boost ? BOOST_BALL.speed : 1),
+          mass: st.marbleMass * (boost ? BOOST_BALL.mass : 1),
+          damage: st.damage * (boost ? BOOST_BALL.damage : 1) * TWIN.damage,
+          kind: boost ? 'boost' : 'normal',
+          side: -radius * TWIN.gap,
+        });
+        s.shots++;
+      }
+    }
     s.recoil = 1;
     s.kickT = 0;
     if (isSuper) s.heavyT = 0;

@@ -49,6 +49,8 @@ export interface ShooterStats {
   moveSpeed: number; // m/s along the rail
   /** agility trait: shield recharge multiplier (CPU units also dodge better) */
   agility?: number;
+  /** twin barrels: each regular shot is two marbles side by side */
+  twin?: boolean;
 }
 
 export const BASE_STATS: ShooterStats = {
