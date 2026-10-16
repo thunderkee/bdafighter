@@ -93,8 +93,33 @@ export function sideData(pts: P2[], width: number): MeshData {
 export function facetMesh(data: MeshData, mat: THREE.Material) {
   const geo = meshGeometry(data);
   geo.userData.meshData = data;
+  boxUV(geo);
   return new THREE.Mesh(geo, mat);
 }
 
 /** the same outline mirrored left to right (a mirror made with a negative scale turns the faces inside out) */
 export const mirrorX = (pts: P2[]): P2[] => pts.map(([x, y]) => [-x, y]);
+
+/**
+ * Texture coordinates by box projection: each triangle takes the plane its face points
+ * along, at 3 tiles per unit, so surface textures (grain, knurling) sit at one scale everywhere.
+ */
+export function boxUV(geo: THREE.BufferGeometry) {
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  if (!geo.attributes.normal) geo.computeVertexNormals();
+  const nrm = geo.attributes.normal as THREE.BufferAttribute;
+  const uv = new Float32Array(pos.count * 2);
+  const k = 3;
+  for (let i = 0; i < pos.count; i++) {
+    const ax = Math.abs(nrm.getX(i));
+    const ay = Math.abs(nrm.getY(i));
+    const az = Math.abs(nrm.getZ(i));
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const [u, v] = ax >= ay && ax >= az ? [z, y] : ay >= az ? [x, z] : [x, y];
+    uv[i * 2] = u * k;
+    uv[i * 2 + 1] = v * k;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}

@@ -532,21 +532,23 @@ export class ShooterMesh {
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
-    this.mats = plasticize(this.root, def.matte);
+    this.mats = plasticize(this.root, def.matte, !!def.v21);
   }
 
   private build(def: CharacterDef, marbleColor: number) {
     const pal = def.palette;
-    const lam = (color: number, side: THREE.Side = THREE.FrontSide) => {
+    const lam = (color: number, side: THREE.Side = THREE.FrontSide, slot?: string) => {
       const m = new THREE.MeshLambertMaterial({ color, side });
+      // which part of the kit this paint is, for the 2.1 finishes (armour, trim, frame, ...)
+      if (slot) m.userData.slot = slot;
       this.mats.push(m);
       return m;
     };
-    const body = lam(pal.body);
-    const trim = lam(pal.trim);
-    const accent = lam(pal.accent);
-    const joint = lam(pal.joint);
-    const gold = lam(0xffc23d);
+    const body = lam(pal.body, THREE.FrontSide, 'body');
+    const trim = lam(pal.trim, THREE.FrontSide, 'trim');
+    const accent = lam(pal.accent, THREE.FrontSide, 'accent');
+    const joint = lam(pal.joint, THREE.FrontSide, 'joint');
+    const gold = lam(0xffc23d, THREE.FrontSide, 'gold');
     const wingMat = lam(pal.wing, THREE.DoubleSide);
     const wingTip = lam(pal.wingTip, THREE.DoubleSide);
     const eyeMat = new THREE.MeshBasicMaterial({ color: pal.eye });
@@ -1259,6 +1261,7 @@ export class ShooterMesh {
         else if (spec.kind === 'phong') mat = new THREE.MeshPhongMaterial({ ...common, shininess: 90, specular: 0xffffff });
         else {
           const lam = new THREE.MeshLambertMaterial(common);
+          lam.userData.slot = typeof spec.color === 'string' ? spec.color : slotOfColor(color);
           this.mats.push(lam);
           mat = lam;
         }
@@ -1988,8 +1991,8 @@ export class ShooterMesh {
   private buildHero21(def: CharacterDef, m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; gold: THREE.Material; eyeMat: THREE.Material; glowMat: THREE.Material | null; ballMat: THREE.Material; wingMat: THREE.Material; wingTip: THREE.Material }) {
     const L = def.look21!;
     const F = FRAMES21[L.frame];
-    const steel = this.paint(0xb8bec9);
-    const black = this.paint(0x16141c);
+    const steel = this.paint(0xb8bec9, 'metal');
+    const black = this.paint(0x16141c, 'rubber');
     const white = this.paint(0xf2f2ee);
     const silver = this.paint(0xa9b0b6);
     const hole = new THREE.MeshBasicMaterial({ color: 0x050507 });
@@ -2497,14 +2500,24 @@ export class ShooterMesh {
         this.turret.add(box(0.66, 0.05, 0.38, m.accent, 0, 0.5, cd / 2 + 0.3));
         for (const sx of [-1, 1]) this.turret.add(at(cyl(0.13, 0.16, m.joint), sx * 0.38, 0.2, cd / 2 + 0.32, 0, 0, Math.PI / 2));
         const a0 = V(F.shOut - 0.24, 0.22, -0.72);
-        const a1 = V(F.shOut + 0.2, 0.1, -0.1);
+        const a1 = V(F.shOut + 0.5, 0.16, -0.05);
         const a2 = V(0.3, 0.3, cd / 2 + 0.16);
         const curve = new THREE.QuadraticBezierCurve3(a0, a1, a2);
-        for (let q = 0; q <= 12; q++) {
-          const p = curve.getPoint(q / 12);
-          const seg = box(0.08, 0.045, 0.06, m.gold, p.x, p.y, p.z);
-          seg.lookAt(this.turret.localToWorld(curve.getPoint(Math.min(1, q / 12 + 0.02)).clone()));
-          this.turret.add(seg);
+        // a bold belt: chunky brass cartridges with copper tips on dark links
+        const brass = this.paint(0xc9a03a, 'gold');
+        const copper = this.paint(0xb8643a, 'gold');
+        const link = this.paint(0x2a2a2e, 'metal');
+        const n = 16;
+        for (let q = 0; q <= n; q++) {
+          const p = curve.getPoint(q / n);
+          const ahead = curve.getPoint(Math.min(1, q / n + 0.01));
+          const round = new THREE.Group();
+          round.position.copy(p);
+          round.lookAt(ahead);
+          round.add(box(0.19, 0.06, 0.07, link));
+          round.add(at(cyl(0.045, 0.16, brass), 0, 0.055, 0, 0, 0, Math.PI / 2));
+          round.add(at(cone(0.045, 0.08, copper), 0.12, 0.055, 0, 0, 0, -Math.PI / 2));
+          this.turret.add(round);
         }
       }
       if (back === 'boosters')
@@ -2847,8 +2860,9 @@ export class ShooterMesh {
   // ---------- hero builds from the reference sheets (more shapes: rounded armour, capsules, curves) ----------
 
   /** a lambert material that joins the hit-flash list */
-  private paint(color: number) {
+  private paint(color: number, slot?: string) {
     const m = new THREE.MeshLambertMaterial({ color });
+    m.userData.slot = slot ?? slotOfColor(color);
     this.mats.push(m);
     return m;
   }
@@ -3822,7 +3836,7 @@ export function studioEnv(renderer: THREE.WebGLRenderer) {
  * picks up soft highlights, like a clean toy you want to pick up. Unlit parts (eyes, glows)
  * and the glass marble keep their own materials. Returns the plastic, for the hit flash.
  */
-export function plasticize(root: THREE.Object3D, matte = false) {
+export function plasticize(root: THREE.Object3D, matte = false, mixed = false) {
   const swap = new Map<THREE.Material, THREE.MeshPhysicalMaterial>();
   const make = (m: THREE.MeshLambertMaterial) => {
     let p = swap.get(m);
@@ -3844,6 +3858,7 @@ export function plasticize(root: THREE.Object3D, matte = false) {
         depthWrite: m.depthWrite,
         blending: m.blending,
       });
+      if (mixed) finish(p, (m.userData.slot as string | undefined) ?? 'body', matte);
       p.userData = { ...m.userData };
       swap.set(m, p);
       m.dispose();
@@ -3858,4 +3873,113 @@ export function plasticize(root: THREE.Object3D, matte = false) {
     mesh.castShadow = true;
   });
   return [...swap.values()];
+}
+
+/** the paint a fixed colour stands for: gold and steel read as metal */
+function slotOfColor(c: number) {
+  const r = (c >> 16) & 255;
+  const g = (c >> 8) & 255;
+  const b = c & 255;
+  if (r > 200 && g > 150 && b < 110 && r - b > 120) return 'gold';
+  if (Math.abs(r - g) < 20 && Math.abs(g - b) < 26 && r > 120 && r < 215) return 'metal';
+  return 'body';
+}
+
+/** small tiling surface textures for the 2.1 finishes, made once */
+const surfaceTex: Partial<Record<'grain' | 'knurl' | 'brushed', THREE.Texture>> = {};
+function surface(kind: 'grain' | 'knurl' | 'brushed') {
+  let t = surfaceTex[kind];
+  if (t) return t;
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#808080';
+  g.fillRect(0, 0, S, S);
+  if (kind === 'grain') {
+    // sandblasted: fine random speckle
+    for (let i = 0; i < 2600; i++) {
+      const v = 100 + Math.floor(Math.random() * 60);
+      g.fillStyle = `rgb(${v},${v},${v})`;
+      g.fillRect(Math.random() * S, Math.random() * S, 1.5, 1.5);
+    }
+  } else if (kind === 'knurl') {
+    // diamond knurling, like the grip on a hand tool
+    g.strokeStyle = '#3a3a3a';
+    g.lineWidth = 3;
+    for (let x = -S; x < S * 2; x += 16) {
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x + S, S);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(x + S, 0);
+      g.lineTo(x, S);
+      g.stroke();
+    }
+  } else {
+    // brushed metal: fine horizontal streaks
+    for (let y = 0; y < S; y++) {
+      const v = 110 + Math.floor(Math.random() * 40);
+      g.fillStyle = `rgb(${v},${v},${v})`;
+      g.fillRect(0, y, S, 1);
+    }
+  }
+  t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  surfaceTex[kind] = t;
+  return t;
+}
+
+/**
+ * The 2.1 finishes, by what each paint is on the kit: satin armour with a fine sandblasted
+ * grain, gloss enamel trim and accents, a matte knurled inner frame, real metal for gold and
+ * steel. A matte unit keeps everything dull but still gets the textures.
+ */
+function finish(p: THREE.MeshPhysicalMaterial, slot: string, matte: boolean) {
+  switch (slot) {
+    case 'trim':
+    case 'accent':
+      p.roughness = matte ? 0.6 : 0.2;
+      p.clearcoat = matte ? 0.1 : 0.9;
+      p.clearcoatRoughness = 0.08;
+      p.envMapIntensity = matte ? 0.35 : 0.85;
+      break;
+    case 'joint':
+      p.roughness = 0.92;
+      p.clearcoat = 0;
+      p.envMapIntensity = 0.2;
+      p.bumpMap = surface('knurl');
+      p.bumpScale = 1.4;
+      break;
+    case 'gold':
+      // bright plated gold: part metal, glossy, so it stays golden under the studio light
+      p.metalness = 0.4;
+      p.roughness = 0.26;
+      p.clearcoat = 0.7;
+      p.clearcoatRoughness = 0.1;
+      p.envMapIntensity = 1.1;
+      break;
+    case 'metal':
+      p.metalness = 0.75;
+      p.roughness = 0.38;
+      p.clearcoat = 0;
+      p.envMapIntensity = 0.9;
+      p.bumpMap = surface('brushed');
+      p.bumpScale = 0.6;
+      break;
+    case 'rubber':
+      p.roughness = 0.95;
+      p.clearcoat = 0;
+      p.envMapIntensity = 0.15;
+      break;
+    default:
+      // armour: satin with a fine grain
+      p.roughness = matte ? 0.85 : 0.48;
+      p.clearcoat = matte ? 0 : 0.3;
+      p.clearcoatRoughness = 0.35;
+      p.envMapIntensity = matte ? 0.25 : 0.55;
+      p.bumpMap = surface('grain');
+      p.bumpScale = 0.8;
+  }
 }
