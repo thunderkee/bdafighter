@@ -69,7 +69,7 @@ export interface CharacterDef {
   /** 2.1 units: the faceted chassis, frame, head, gun and signature parts */
   look21?: Look21;
   /** 2.1 beasts: signature parts added on top of their Unit Lab design */
-  addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes' | 'armyWhites')[];
+  addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes' | 'armyWhites' | 'tigerHead' | 'tigerCoat')[];
   /** a 2.1 unit */
   v21?: boolean;
   /** matte (doff) plastic instead of the glossy finish */
@@ -414,8 +414,9 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball
   // desert: sand armour, dark brown, red accents, cyan eyes
   rex: { addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
   // the army refit (after EVA-02 alpha): olive and dark green, black joints, red accents
-  // a Sumatran tiger: burnt orange with bold black stripes, cream where the belly and face are
-  liger: { addons: ['legStripes', 'armyWhites'], ball: 0xff8a2a, palette: { body: 0xd8641e, trim: 0x1a1a1e, accent: 0xf2ece0, joint: 0x2a2420, eye: 0xffc23d } },
+  // a Sumatran tiger: burnt orange with bold black stripes, cream paws, belly and face marks,
+  // a smoked canopy so the glowing eyes show through
+  liger: { addons: ['armyWhites', 'tigerCoat', 'tigerHead'], ball: 0xff8a2a, palette: { body: 0xd8641e, trim: 0x1a1a1e, accent: 0xf2ece0, joint: 0x2a2420, eye: 0x3a2412 } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -3054,6 +3055,56 @@ export class ShooterMesh {
           if (c.r > 0.85 && c.g > 0.85 && c.b > 0.8) mesh.material = mesh.geometry.type === 'ConeGeometry' ? teeth : grey;
           else if (Math.abs(c.r - 0.72) < 0.05 && Math.abs(c.g - 0.745) < 0.05 && Math.abs(c.b - 0.79) < 0.05) mesh.material = gunmetal;
         });
+      }
+      if (a === 'tigerCoat') {
+        // a real tiger's coat: striped orange on top, cream underneath. The lower legs and
+        // paws (anything near the ground) go cream; joints, metal and dark parts stay as they are
+        const cream = this.paint(0xf2ece0, 'accent');
+        const body = new THREE.Color(def.palette.body);
+        this.root.updateMatrixWorld(true);
+        const at = new THREE.Vector3();
+        for (const leg of this.legs)
+          leg.traverse((o) => {
+            const mesh = o as THREE.Mesh;
+            const mat = mesh.material as THREE.MeshLambertMaterial | undefined;
+            if (!mesh.isMesh || !mat?.isMeshLambertMaterial) return;
+            mesh.getWorldPosition(at);
+            if (at.y < 0.34 && mat.color.equals(body)) mesh.material = cream;
+          });
+      }
+      if (a === 'tigerHead' && this.jaw?.parent) {
+        // a tiger's face on the Zoid's head (placed for its skull: front face at z -0.24,
+        // snout to -0.5, crown at 0.3): heavy brows over narrow glowing eyes, white markings,
+        // pointed ears, a cream muzzle with a black nose, cheek ruffs and forehead stripes
+        const head = this.jaw.parent;
+        const orange = this.paint(def.palette.body, 'body');
+        const black = this.paint(0x141416, 'rubber');
+        const cream = this.paint(0xf2ece0, 'accent');
+        const glowEye = new THREE.MeshBasicMaterial({ color: 0xffc23d });
+        const box = (bw: number, bh: number, bd: number, mat: THREE.Material, x: number, y: number, z: number, rz = 0, ry = 0) => {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), mat);
+          m.position.set(x, y, z);
+          m.rotation.set(0, ry, rz);
+          head.add(m);
+        };
+        const cone = (r: number, ch: number, mat: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0) => {
+          const m = new THREE.Mesh(new THREE.ConeGeometry(r, ch, 4, 1, false, Math.PI / 4), mat);
+          m.position.set(x, y, z);
+          m.rotation.set(rx, 0, rz);
+          head.add(m);
+        };
+        for (const s of [-1, 1]) {
+          cone(0.075, 0.17, orange, s * 0.17, 0.37, 0.0, -0.2, -s * 0.2); // ear
+          cone(0.04, 0.1, cream, s * 0.17, 0.35, -0.03, -0.2, -s * 0.2); // inside the ear
+          box(0.21, 0.05, 0.09, black, s * 0.11, 0.17, -0.27, s * 0.42); // brow, angled down to the nose
+          box(0.13, 0.035, 0.02, glowEye, s * 0.11, 0.115, -0.26, s * 0.32); // narrow glowing eye
+          box(0.1, 0.035, 0.02, cream, s * 0.14, 0.215, -0.26, s * 0.22); // white mark over the eye
+          box(0.04, 0.22, 0.3, cream, s * 0.255, -0.03, -0.12, -s * 0.18); // cheek ruff
+          for (let q = 0; q < 3; q++) cone(0.035, 0.12, cream, s * 0.29, -0.11 + q * 0.07, -0.16, 0, -s * Math.PI / 2);
+        }
+        box(0.3, 0.09, 0.06, cream, 0, 0.04, -0.5); // muzzle
+        box(0.1, 0.05, 0.05, black, 0, 0.08, -0.53); // nose
+        for (const x of [-0.06, 0, 0.06]) box(0.025, 0.1, 0.02, black, x, 0.25, -0.25); // forehead stripes
       }
       if (a === 'noBall') {
         // take the round parts off the design: the glass marbles and the ball on the neck
