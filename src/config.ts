@@ -51,6 +51,8 @@ export interface ShooterStats {
   agility?: number;
   /** twin barrels: each regular shot is two marbles side by side */
   twin?: boolean;
+  /** spread fire: marbles per regular shot, fanned around the aim (an arcade boss) */
+  fan?: number;
 }
 
 export const BASE_STATS: ShooterStats = {

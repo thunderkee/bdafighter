@@ -69,22 +69,27 @@ export function boot() {
     if (character !== st.character || enemyCharacter !== st.enemyCharacter) saveData = store.save({ settings: { ...st, character, enemyCharacter } });
   }
   /** an arcade run: the stage number, how many were cleared, and this stage's match setup */
-  let arcade: { stage: number; cleared: number; cfg: Partial<store.Settings>; next?: Partial<store.Settings> } | null = null;
-  /** every fifth arcade stage is a boss: one giant opponent with extra armour */
-  const BOSS = {
-    every: 5,
-    size: 1.45,
-    /** boss armour by the size of your side: solo, with one pack-mate, with two */
-    health: [1.45, 1.7, 2.0],
-    /** your side against a boss: stronger than in an ordinary pack fight, not full strength */
-    side: [
-      { health: 1, damage: 1 },
-      { health: 0.8, damage: 0.65 },
-      { health: 0.65, damage: 0.5 },
-    ],
-  };
-  const bossAt = (stage: number) => stage % BOSS.every === 0;
-  const isBoss = () => !!arcade && bossAt(arcade.stage);
+  let arcade: { stage: number; cleared: number; cfg: Partial<store.Settings>; next?: Partial<store.Settings>; done?: boolean } | null = null;
+  /**
+   * The arcade ladder: you fight alone, one on one. Two stages, then a boss, four times over;
+   * beating the last boss clears the run. Each boss sets its own armour (per unit), punch,
+   * size and skill; a boss with company is lighter per unit so the group stays beatable.
+   */
+  const BOSS_EVERY = 3;
+  const BOSSES: { title: string; units: string[]; health: number; damage: number; size: number; iq: 'normal' | 'hard' | 'ace'; lv: number; fan?: number; time: number }[] = [
+    { title: 'BASTION', units: ['bastion-21'], health: 1.75, damage: 0.85, size: 1.45, iq: 'hard', lv: 3, time: 90 },
+    { title: 'VIOLET TRIO', units: ['violet-21', 'violet-21', 'violet-21'], health: 0.8, damage: 0.48, size: 1.12, iq: 'hard', lv: 3, time: 90 },
+    { title: 'DINO KINGS', units: ['rex-21', 'tyrant-21'], health: 1.05, damage: 0.56, size: 1.3, iq: 'hard', lv: 4, time: 90 },
+    // the last boss: triple armour and three-way spread fire, fought to the finish (no clock)
+    { title: 'NIGHTSHADE', units: ['nightshade-21'], health: 3, damage: 0.4, size: 1.6, iq: 'ace', lv: 4, fan: 3, time: 0 },
+  ];
+  const FINAL_STAGE = BOSSES.length * BOSS_EVERY;
+  /** the bosses never turn up as ordinary opponents, and can't be picked in arcade */
+  const BOSS_IDS = new Set(BOSSES.flatMap((b) => b.units));
+  const bossAt = (stage: number) => stage % BOSS_EVERY === 0;
+  const bossOf = (stage: number) => (bossAt(stage) ? BOSSES[Math.min(BOSSES.length, stage / BOSS_EVERY) - 1] : null);
+  const boss = () => (arcade ? bossOf(arcade.stage) : null);
+  const isBoss = () => !!boss();
   /** the settings a match plays by: yours, with the arcade stage's layered on top */
   const S = (): store.Settings => (arcade ? { ...saveData.settings, ...arcade.cfg } : saveData.settings);
   // the table width is fixed for the session: walls and scenery are built for it
@@ -108,7 +113,7 @@ export function boot() {
   const playerStats = () => {
     const base = computeStats(STARTER_BUILD);
     // a bigger pack hits softer each, like the opponent's
-    const sc = (isBoss() ? BOSS.side : PACK_SCALE)[allySize() - 1];
+    const sc = PACK_SCALE[allySize() - 1];
     return withTraits({ ...base, capacity: magazine(), damage: base.damage * sc.damage }, S().character);
   };
   const enemyStats = () => {
@@ -125,7 +130,7 @@ export function boot() {
       muzzleSpeed: base.muzzleSpeed * (0.85 + 0.15 * power),
     };
   };
-  const enemyMaxHealth = () => MATCH.maxHealth * HEALTH[Math.max(1, Math.min(5, S().enemyHealth)) - 1] * (isBoss() ? BOSS.health[allySize() - 1] : 1);
+  const enemyMaxHealth = () => MATCH.maxHealth * (boss()?.health ?? HEALTH[Math.max(1, Math.min(5, S().enemyHealth)) - 1]);
   const packSize = () => Math.max(1, Math.min(3, Math.round(S().pack || 1)));
   /** bigger packs get less armour and punch each, so two or three stay beatable */
   const PACK_SCALE = [
@@ -136,7 +141,7 @@ export function boot() {
   const allySize = () => Math.max(1, Math.min(3, Math.round(S().playerPack || 1)));
   /** your CPU pack-mates: standard stats with the same pack scaling as the other side */
   const packAllies = () => {
-    const sc = (isBoss() ? BOSS.side : PACK_SCALE)[allySize() - 1];
+    const sc = PACK_SCALE[allySize() - 1];
     const ids = unitIds();
     const base = { ...computeStats(STARTER_BUILD), capacity: magazine() };
     return Array.from({ length: allySize() - 1 }, (_, k) => ({
@@ -145,12 +150,15 @@ export function boot() {
     }));
   };
   const packEnemies = () => {
-    const sc = PACK_SCALE[packSize() - 1];
+    // a boss sets its own armour and punch per unit (no pack scaling on top)
+    const b = boss();
+    const sc = b ? { health: 1, damage: b.damage } : PACK_SCALE[packSize() - 1];
     const base = enemyStats();
     const ids = unitIds();
     return Array.from({ length: packSize() }, (_, k) => ({
-      stats: withTraits({ ...base, damage: base.damage * sc.damage }, ids[k + 1]),
-      maxHealth: enemyMaxHealth() * sc.health * healthTrait(ids[k + 1]),
+      stats: withTraits({ ...base, damage: base.damage * sc.damage, fan: b?.fan }, ids[k + 1]),
+      // (a boss's armour is its own: the unit's armour trait doesn't apply)
+      maxHealth: enemyMaxHealth() * sc.health * (b ? 1 : healthTrait(ids[k + 1])),
     }));
   };
   /** pack members after the first get random units (fixed for the match) */
@@ -170,14 +178,16 @@ export function boot() {
   const TIERS = [
     { name: 'VERY EASY', iq: 'easy', lv: 1 },
     { name: 'EASY', iq: 'easy', lv: 2 },
+    { name: 'MEDIUM', iq: 'normal', lv: 2 },
     { name: 'MEDIUM', iq: 'normal', lv: 3 },
+    { name: 'HARD', iq: 'hard', lv: 3 },
     { name: 'HARD', iq: 'hard', lv: 4 },
-    { name: 'VERY HARD', iq: 'ace', lv: 4 },
-    { name: 'EXPERT', iq: 'ace', lv: 5 },
+    { name: 'VERY HARD', iq: 'hard', lv: 4 },
+    { name: 'EXPERT', iq: 'ace', lv: 4 },
   ] as const;
   /** each ordinary stage is one step up from the last (bosses sit between them) */
-  const tierAt = (stage: number) => TIERS[Math.min(TIERS.length - 1, Math.max(0, stage - 1 - Math.floor(stage / BOSS.every)))];
-  const stageLabel = (stage: number) => (bossAt(stage) ? 'BOSS' : tierAt(stage).name);
+  const tierAt = (stage: number) => TIERS[Math.min(TIERS.length - 1, Math.max(0, stage - 1 - Math.floor(stage / BOSS_EVERY)))];
+  const stageLabel = (stage: number) => (bossAt(stage) ? (stage >= FINAL_STAGE ? 'FINAL BOSS' : `BOSS ${stage / BOSS_EVERY}`) : tierAt(stage).name);
   /**
    * Table clutter: most stages are a clean table; the rest add one light kind of obstacle
    * (a couple of pucks, a few pins, or one pair of cover walls), never all of them at once.
@@ -191,66 +201,50 @@ export function boot() {
       { ...clear, covers: 1 },
     ]);
   };
-  /** the big hero builds make the best bosses */
-  const BOSS_UNITS = ['tyrant-21', 'liger-21', 'rex-21', 'violet-21', 'kabuto-21', 'baron-21', 'bastion-21'];
-  /** stage `stage`: a random opponent, pack and arena, at that stage's difficulty */
+  /** stage `stage`: a one-on-one at that stage's difficulty (or the boss), in a fresh arena */
   const rollStage = (stage: number, prev?: Partial<store.Settings>): Partial<store.Settings> => {
     const me = saveData.settings.character;
-    if (bossAt(stage)) {
-      // each boss is a little tougher than the one before
-      const k = stage / BOSS.every - 1;
-      const pool = BOSS_UNITS.filter((id) => id !== me && id !== prev?.enemyCharacter && playable().some((c) => c.id === id));
-      const arena = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
+    const arenas = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
+    const b = bossOf(stage);
+    if (b) {
       return {
-        enemyCharacter: pick(pool.length ? pool : playable().map((c) => c.id).filter((id) => id !== me)),
-        enemyIQ: 'ace',
-        enemyHealth: Math.min(5, 3 + k),
-        enemySpeed: Math.min(5, 4 + Math.floor(k / 2)),
-        enemyAgility: Math.min(5, 4 + Math.floor(k / 2)),
-        enemyPower: Math.min(5, 4 + Math.min(1, k)),
+        enemyCharacter: b.units[0],
+        enemyIQ: b.iq,
+        enemyHealth: 3,
+        enemySpeed: b.lv,
+        enemyAgility: b.lv,
+        enemyPower: b.lv,
         enemyAim: 'flexible',
         enemyTactic: 'hunt',
         cpuCharge: true,
-        pack: 1,
-        // you may get help against it
-        playerPack: pick([1, 1, 2, 3]),
-        allyIQ: 'hard',
-        allyTactic: 'weakest',
-        allyCharge: true,
-        stage: pick(arena),
-        arenaWidth: 'large',
-        ...obstacles(),
+        pack: b.units.length,
+        playerPack: 1,
+        roundTime: b.time,
+        stage: pick(arenas),
+        arenaWidth: b.units.length > 1 || b.size > 1.5 ? 'large' : 'normal',
+        pucks: 0,
+        pins: 0,
+        covers: 0,
         items: true,
-        gates: Math.random() < 0.5,
+        gates: false,
       };
     }
     const tier = tierAt(stage);
-    const units = playable().map((c) => c.id).filter((id) => id !== me && id !== prev?.enemyCharacter);
-    const stages = STAGES.map((st) => st.id).filter((id) => id !== prev?.stage);
-    // about half the stages are pack fights, on one side or both
-    let pack = 1;
-    let playerPack = 1;
-    if (Math.random() < 0.5) {
-      pack = pick([1, 2, 3]);
-      playerPack = pick([1, 2, 3]);
-      if (pack === 1 && playerPack === 1) pack = 2;
-    }
+    const units = playable().map((c) => c.id).filter((id) => id !== me && id !== prev?.enemyCharacter && !BOSS_IDS.has(id));
     return {
-      enemyCharacter: pick(units.length ? units : playable().map((c) => c.id)),
+      enemyCharacter: pick(units.length ? units : playable().map((c) => c.id).filter((id) => !BOSS_IDS.has(id))),
       enemyIQ: tier.iq,
       enemyHealth: tier.lv,
       enemySpeed: tier.lv,
       enemyAgility: tier.lv,
       enemyPower: tier.lv,
       enemyAim: Math.random() < 0.15 ? 'straight' : 'flexible',
-      enemyTactic: pick(['nearest', 'weakest', 'hunt'] as const),
+      enemyTactic: 'hunt',
       cpuCharge: Math.random() < 0.75,
-      pack,
-      playerPack,
-      allyIQ: pick(['normal', 'hard'] as const),
-      allyTactic: pick(['nearest', 'weakest', 'assist'] as const),
-      allyCharge: true,
-      stage: pick(stages.length ? stages : STAGES.map((st) => st.id)),
+      pack: 1,
+      playerPack: 1,
+      roundTime: 60,
+      stage: pick(arenas.length ? arenas : STAGES.map((st) => st.id)),
       arenaWidth: pick(['small', 'normal', 'large'] as const),
       ...obstacles(),
       items: Math.random() < 0.8,
@@ -423,7 +417,7 @@ export function boot() {
       enemies: packEnemies(),
       allies: packAllies(),
       tactics: [st.allyTactic ?? 'nearest', st.enemyTactic ?? 'nearest'],
-      playerHealth: MATCH.maxHealth * healthTrait(st.character) * (isBoss() ? BOSS.side : PACK_SCALE)[allySize() - 1].health,
+      playerHealth: MATCH.maxHealth * healthTrait(st.character) * PACK_SCALE[allySize() - 1].health,
       pucks: st.pucks,
       covers: st.covers,
       pins: st.pins,
@@ -433,7 +427,7 @@ export function boot() {
       burst: st.burst ?? 1,
       cpuCharge: st.cpuCharge ?? true,
       allyCharge: st.allyCharge ?? true,
-      boss: isBoss() ? { slot: 1, size: BOSS.size } : undefined,
+      boss: boss() ? { slots: boss()!.units.map((_, k) => 1 + k), size: boss()!.size } : undefined,
     });
     for (const a of ais) a.reset();
     recorder.clear();
@@ -482,7 +476,8 @@ export function boot() {
     // extra pack members on both sides: random units, all different where the roster allows
     const pool = playable().map((c) => c.id).filter((id) => id !== st.character && id !== enemyCharacter());
     const draw = (fallback: string) => pool.splice(Math.floor(Math.random() * pool.length), 1)[0] ?? fallback;
-    packIds = [0, 1].map(() => draw(enemyCharacter()));
+    // a boss group brings its own units
+    packIds = boss() ? boss()!.units.slice(1) : [0, 1].map(() => draw(enemyCharacter()));
     allyIds = [0, 1].map(() => draw(st.character));
     // each CPU unit's agility trait sharpens (or dulls) its dodging on top of the setting
     const ids = unitIds();
@@ -511,8 +506,8 @@ export function boot() {
     if (isBoss()) sfx.play('gong');
     introEl.querySelector('.p2 .ic-tag')!.textContent = isBoss() ? '⚠ BOSS' : 'CHALLENGER';
     if (isBoss()) {
-      $('intro-p2').textContent = `BOSS ${eName}`;
-      $('enemy-name').textContent = `BOSS ${eName}`;
+      $('intro-p2').textContent = boss()!.title;
+      $('enemy-name').textContent = boss()!.title;
     }
     if (arcade) {
       $('intro-p1-sub').textContent = `ARCADE STAGE ${arcade.stage} // ${$('intro-p1-sub').textContent}`;
@@ -650,6 +645,19 @@ export function boot() {
     const title = $('result-title');
     let head = '';
     let stageCfg = arcade.cfg;
+    if (w === 0 && arcade.stage >= FINAL_STAGE) {
+      // the last boss is down: the run is cleared
+      arcade.cleared = arcade.stage;
+      if (arcade.cleared > best) saveData = store.save({ arcadeBest: arcade.cleared });
+      title.textContent = 'ARCADE CLEAR';
+      $('result-sub').textContent = `ARCADE // ALL ${FINAL_STAGE} STAGES CLEARED`;
+      arcade.next = undefined;
+      arcade.done = true;
+      $('again-btn').textContent = 'NEW RUN ▶';
+      panel.classList.remove('boss');
+      panel.innerHTML = `<b>CHAMPION</b><div><span>FINAL BOSS</span><em>${BOSSES[BOSSES.length - 1].title} DEFEATED</em></div>`;
+      return;
+    }
     if (w === 0) {
       arcade.cleared = arcade.stage;
       const record = arcade.cleared > best;
@@ -668,9 +676,9 @@ export function boot() {
       $('again-btn').textContent = 'RETRY STAGE';
     }
     const d = describeStage(stageCfg, w === 0 ? arcade.stage + 1 : arcade.stage);
-    const nextIsBoss = bossAt(w === 0 ? arcade.stage + 1 : arcade.stage);
-    panel.classList.toggle('boss', nextIsBoss);
-    if (nextIsBoss) d.foe = `BOSS ${d.foe}`;
+    const nextBoss = bossOf(w === 0 ? arcade.stage + 1 : arcade.stage);
+    panel.classList.toggle('boss', !!nextBoss);
+    if (nextBoss) d.foe = nextBoss.title;
     panel.innerHTML = `<b>${head}</b><div><span>OPPONENT</span><em>${d.foe}</em></div><div><span>DIFFICULTY</span><em>${d.diff}</em></div><div><span>ARENA</span><em>${d.arena}</em></div><div><span>RULES</span><em>${d.rules}</em></div><div><span>YOUR SIDE</span><em>${d.you}</em></div>`;
   };
 
@@ -681,6 +689,11 @@ export function boot() {
   };
   /** rematch, or in arcade the next stage (after a win) or the same stage again */
   const playAgain = () => {
+    // after the final boss, a new run from stage 1
+    if (arcade?.done) {
+      startArcade();
+      return;
+    }
     if (arcade?.next) {
       arcade.stage++;
       arcade.cfg = arcade.next;
@@ -971,6 +984,8 @@ export function boot() {
     if (step === 'rival') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
     for (const c of playable()) {
       if (verOf(c.id) !== ver) continue;
+      // the arcade's bosses stay a surprise: they can't be picked for a run
+      if (selectMode === 'arcade' && BOSS_IDS.has(c.id)) continue;
       tile(c.id, `<i data-portrait="${c.id}" style="background:${hexc(c.palette.body)}"></i><span>${c.name}</span>`);
     }
     fillPortraits(grid);
@@ -1002,6 +1017,11 @@ export function boot() {
   const openSelect = (mode: 'versus' | 'arcade') => {
     sfx.unlock();
     selectMode = mode;
+    // a boss can't start an arcade run: move the pick to the first fighter that can
+    if (mode === 'arcade' && BOSS_IDS.has(saveData.settings.character)) {
+      const first = playable().find((c) => !BOSS_IDS.has(c.id));
+      if (first) saveData = store.save({ settings: { ...saveData.settings, character: first.id } });
+    }
     goStep('fighter');
   };
   const toTitle = () => {

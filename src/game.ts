@@ -404,7 +404,9 @@ type Tag =
 /** seconds between the balls of one trigger pull */
 const BURST_GAP = 0.07;
 /** twin barrels: each marble leaves from its own barrel (the mesh's TWIN_X), with a share of the damage */
-const TWIN = { gap: TWIN_X, damage: 0.6 };
+const TWIN = { gap: TWIN_X, damage: 0.45 };
+/** spread fire (an arcade boss): the angle between the marbles of a fan, and each one's share of the damage */
+const FAN = { angle: 0.16, damage: 0.5 };
 
 /** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
@@ -429,8 +431,8 @@ export interface MatchOptions {
   duration: number;
   /** CPU opponents charge shots too */
   cpuCharge?: boolean;
-  /** an arcade boss: this slot is bigger (hit box and model) */
-  boss?: { slot: number; size: number };
+  /** an arcade boss: these slots are bigger (hit box and model) */
+  boss?: { slots: number[]; size: number };
   /** and your CPU pack-mates */
   allyCharge?: boolean;
   /** balls fired per trigger pull, both robots (1-5) */
@@ -783,7 +785,7 @@ export class Game {
     this.clock = opts.duration > 0 ? opts.duration : Infinity;
     this.burst = Math.max(1, Math.min(5, Math.round(opts.burst)));
     this.cpuCharge = opts.cpuCharge ?? true;
-    if (opts.boss) this.shooters[opts.boss.slot]?.setSize(opts.boss.size);
+    for (const slot of opts.boss?.slots ?? []) this.shooters[slot]?.setSize(opts.boss!.size);
     this.allyCharge = opts.allyCharge ?? true;
     this.tactics = opts.tactics ?? ['nearest', 'nearest'];
     this.koSource = null;
@@ -1569,13 +1571,14 @@ export class Game {
     const boost = !isSuper && this.slowT > 0 && this.slowOwner === s.slot;
     const radius = st.marbleRadius * (isSuper ? SUPER.radius : boost ? BOOST_BALL.radius : 1);
     const twin = !!st.twin && !isSuper;
+    const fan = !isSuper && (st.fan ?? 1) > 1 ? st.fan! : 1;
     this.launch(m, s, {
       // a super shot flies dead straight
       angle: s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread),
       radius,
       speed: st.muzzleSpeed * (isSuper ? SUPER.speed : boost ? BOOST_BALL.speed : 1),
       mass: st.marbleMass * (isSuper ? SUPER.mass : boost ? BOOST_BALL.mass : 1),
-      damage: st.damage * (isSuper ? SUPER.damage : boost ? BOOST_BALL.damage : 1) * (twin ? TWIN.damage : 1),
+      damage: st.damage * (isSuper ? SUPER.damage : boost ? BOOST_BALL.damage : 1) * (twin ? TWIN.damage : 1) * (fan > 1 ? FAN.damage : 1),
       kind: isSuper ? 'super' : boost ? 'boost' : 'normal',
       // nudge a big marble forward so it doesn't spawn inside the robot
       push: isSuper ? radius : 0,
@@ -1583,6 +1586,20 @@ export class Game {
     });
     s.shots++;
     // twin barrels: a second marble from the other barrel, each a little lighter on damage
+    // spread fire: the rest of the fan, alternating either side of the aim
+    for (let k = 1; k < fan; k++) {
+      const mk = this.takeMarble();
+      if (!mk) break;
+      this.launch(mk, s, {
+        angle: s.aim + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * FAN.angle,
+        radius,
+        speed: st.muzzleSpeed * (boost ? BOOST_BALL.speed : 1),
+        mass: st.marbleMass * (boost ? BOOST_BALL.mass : 1),
+        damage: st.damage * (boost ? BOOST_BALL.damage : 1) * FAN.damage,
+        kind: boost ? 'boost' : 'normal',
+      });
+      s.shots++;
+    }
     if (twin) {
       const m2 = this.takeMarble();
       if (m2) {

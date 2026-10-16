@@ -34,7 +34,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Close in, keep firing',
     specialty: 'Fast trigger',
     bio: 'Five dino machines locked into one. Wyvern blasts from its fist, keeps its power sword ready and never lets the trigger rest.',
-    traits: { health: 3, speed: 3, fireRate: 4, agility: 2 },
+    traits: { health: 3, speed: 3, fireRate: 4, agility: 3 },
   },
   pioneer: {
     role: 'Scout',
@@ -42,7 +42,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Hit and reposition',
     specialty: 'Quick on the rail',
     bio: 'A survey frame that learned to fight. Light plating, but it slides along the rail and out of a shot before the marble lands.',
-    traits: { health: 2, speed: 4, fireRate: 2, agility: 4 },
+    traits: { health: 3, speed: 3, fireRate: 3, agility: 4 },
   },
   liberty: {
     role: 'Guardian',
@@ -58,7 +58,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Pressure from range',
     specialty: 'Sustained fire',
     bio: 'A one-horned prototype whose frame glows red when it runs hot. Monoceros keeps up a heavy stream of shots from behind its big shoulders.',
-    traits: { health: 3, speed: 2, fireRate: 4, agility: 3 },
+    traits: { health: 3, speed: 3, fireRate: 2, agility: 3 },
   },
   baron: {
     role: 'Ace',
@@ -66,7 +66,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Outrun every shot',
     specialty: 'Top speed',
     bio: 'The red mono-eye ace who wins on speed alone. Crimson Baron covers the rail three times faster than anyone, but it can’t take many hits.',
-    traits: { health: 2, speed: 5, fireRate: 2, agility: 3 },
+    traits: { health: 3, speed: 3, fireRate: 4, agility: 3 },
   },
   bastion: {
     role: 'Heavy gunner',
@@ -74,7 +74,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Plant and unload',
     specialty: 'Highest fire rate',
     bio: 'A walking gun emplacement with a gatling on its arm. Bastion barely moves, and it doesn’t have to.',
-    traits: { health: 4, speed: 1, fireRate: 5, agility: 2 },
+    traits: { health: 3, speed: 2, fireRate: 4, agility: 2 },
   },
   nightshade: {
     role: 'Assassin',
@@ -82,7 +82,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Dodge, then strike',
     specialty: 'Best dodger',
     bio: 'A black frame with a scythe and green eyes that you only see once it has slipped your shot. Fragile, but very hard to hit.',
-    traits: { health: 1, speed: 4, fireRate: 2, agility: 5 },
+    traits: { health: 4, speed: 3, fireRate: 3, agility: 3 },
   },
   violet: {
     role: 'Berserker',
@@ -90,7 +90,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Soak it up, hit back',
     specialty: 'Tough and relentless',
     bio: 'A bio-frame that fights like it has a mind of its own. Unit Violet shrugs off hits and answers with a rifle that doesn’t stop.',
-    traits: { health: 4, speed: 2, fireRate: 4, agility: 2 },
+    traits: { health: 3, speed: 3, fireRate: 3, agility: 3 },
   },
   kabuto: {
     role: 'Gunslinger',
@@ -98,7 +98,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Fast draw, quick feet',
     specialty: 'Quick arm gun',
     bio: 'A beetle-type street fighter with launchers on its head and a gun on each arm. Kabuto Bee lives for the quick draw.',
-    traits: { health: 2, speed: 3, fireRate: 4, agility: 3 },
+    traits: { health: 3, speed: 3, fireRate: 4, agility: 3 },
   },
   tyrant: {
     role: 'Warlord',
@@ -106,7 +106,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Walk through fire',
     specialty: 'Most armour',
     bio: 'The would-be king with a T-rex head on his fist and a tail he swings like a blade. Tyrant King is the hardest unit to bring down.',
-    traits: { health: 5, speed: 2, fireRate: 3, agility: 2 },
+    traits: { health: 4, speed: 2, fireRate: 3, agility: 3 },
   },
   rex: {
     role: 'Juggernaut',
@@ -122,7 +122,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Circle and pounce',
     specialty: 'Fastest beast',
     bio: 'A great blue cat frame with golden fangs. Fang Liger never stops moving and picks the moment to fire.',
-    traits: { health: 2, speed: 5, fireRate: 1, agility: 4 },
+    traits: { health: 3, speed: 3, fireRate: 3, agility: 4 },
   },
   ember: {
     role: 'Hothead',
@@ -130,7 +130,7 @@ export const PROFILES: Record<string, Profile> = {
     style: 'Spray and pray',
     specialty: 'Highest fire rate',
     bio: 'A little fire lizard with a flame on its tail and a temper to match. Ember Lizard spits marbles faster than anything its size.',
-    traits: { health: 2, speed: 2, fireRate: 5, agility: 3 },
+    traits: { health: 3, speed: 2, fireRate: 4, agility: 3 },
   },
 };
 
