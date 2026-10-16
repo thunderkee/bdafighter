@@ -68,7 +68,7 @@ export interface CharacterDef {
   /** 2.1 units: the faceted chassis, frame, head, gun and signature parts */
   look21?: Look21;
   /** 2.1 beasts: signature parts added on top of their Unit Lab design */
-  addons?: ('fangs' | 'backCannon')[];
+  addons?: ('fangs' | 'backCannon' | 'noBall')[];
   /** a 2.1 unit */
   v21?: boolean;
   /** 2.0 humanoids: 'punch' throws the right arm straight out at the target, body leaning in */
@@ -329,13 +329,14 @@ const FRAMES21: Record<string, Frame21> = {
 };
 type Look21 = {
   frame: keyof typeof FRAMES21;
-  head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard';
+  head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese';
   shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
   shoulderL?: Look21['shoulder'];
-  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth';
+  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober';
   left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade';
-  back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers')[];
-  pose?: 'stand' | 'aim';
+  back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters')[];
+  /** aim: the right arm straight out; twoHand: both arms forward, the gun held at the centre */
+  pose?: 'stand' | 'aim' | 'twoHand';
   lean?: number;
   pods?: boolean;
   antenna?: boolean;
@@ -351,22 +352,23 @@ type Look21 = {
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem'] }> = {
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'wedge', gun: 'beamRifle', left: 'shield', back: ['sabers'] }, ball: 0x6fa8ff, palette: { body: 0xf2f2f4, trim: 0x2a5bd8, accent: 0xe0302e, joint: 0x4a4f60, eye: 0x6dff9a } },
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'] }, ball: 0xff5040, palette: { body: 0x8e1a2a, trim: 0x34323c, accent: 0xf2b632, joint: 0x1e1c24, eye: 0xc8ff3d } },
-  pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'sniper', left: 'shield', back: ['radio'], pose: 'aim', antenna: true }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
-  liberty: { look: { frame: 'heavy', head: 'gundam', shoulder: 'stepped', gun: 'beamRifle', left: 'tower', back: ['sabers'] }, ball: 0xfff07a, palette: { body: 0xf4f2ec, trim: 0xc99a26, accent: 0x2a4fb8, joint: 0x5a5f6e, eye: 0x6dff9a } },
+  pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true }, ball: 0xffc27a, palette: { body: 0xcfc19a, trim: 0x55663a, accent: 0xe8762a, joint: 0x3e3a30, eye: 0x7ff0ff } },
+  // Tallgeese-inspired, in green: plume helmet, Dober gun on the shoulder, huge back boosters
+  liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'] }, ball: 0x7affb0, palette: { body: 0x2e7d4f, trim: 0xeceae0, accent: 0xd9a92a, joint: 0x2a2c30, eye: 0x7ff0ff } },
   monoceros: { look: { frame: 'hero', head: 'gundam', shoulder: 'heavy', gun: 'magnum', left: 'shield' }, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // Black Tri-Stars: slate violet and black with a red flash
   baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim' }, ball: 0xb07aff, palette: { body: 0x47425f, trim: 0x23202e, accent: 0xff3a5a, joint: 0x1a1824, eye: 0xff5fd0 } },
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'heavy', gun: 'gatling', back: ['drum'], pods: true }, emblem: 'skull', ball: 0xff3a3a, palette: { body: 0x1c1c20, trim: 0xeeeeea, accent: 0xd8262b, joint: 0x2c2c32, eye: 0xff2a2a } },
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'chest', left: 'scythe', back: ['cape'] }, ball: 0xd08aff, glow: 0xb04aff, palette: { body: 0x26242e, trim: 0x3c3946, accent: 0xb04aff, joint: 0x15141b, eye: 0xb04aff } },
-  // Unit-00 colours: blue with white plates and orange
-  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'pallet', back: ['pylons'], pose: 'aim' }, ball: 0x6fa8ff, glow: 0xff9a2a, palette: { body: 0x2f63e8, trim: 0xeef0f4, accent: 0xff8a2a, joint: 0x1c2340, eye: 0xff4a4a } },
-  // an emerald beetle with gold trim
-  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0x9fffb0, palette: { body: 0x1f8a5a, trim: 0x1d1d24, accent: 0xffc23d, joint: 0x2c2c34, eye: 0xffd23e } },
+  // the yellow prototype, rifle held in both hands
+  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'pallet', back: ['pylons'], pose: 'twoHand' }, ball: 0xffd04a, glow: 0xffa21a, palette: { body: 0xf2b81f, trim: 0x3a3a42, accent: 0xff7a1a, joint: 0x1e1e24, eye: 0xff3a3a } },
+  // army green
+  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xc9a86a, joint: 0x23261e, eye: 0xffd23e } },
   tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true }, ball: 0xb06aff, palette: { body: 0x4a4f58, trim: 0x7a3fd8, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
-  rex: { addons: ['backCannon'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
-  // Liger Zero X: black armour with gold
-  liger: { addons: ['fangs'], ball: 0xffd04a, palette: { body: 0x26272f, trim: 0xc9a24a, accent: 0xff6a1a, joint: 0x14151a, eye: 0x5af0ff } },
+  rex: { addons: ['backCannon', 'noBall'], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
+  // crimson armour over gunmetal, gold fangs: sits with the design's own white and steel parts
+  liger: { addons: ['fangs'], ball: 0xff6a5a, palette: { body: 0xc8282e, trim: 0x3a3f4c, accent: 0xffc23d, joint: 0x23262e, eye: 0x5af0ff } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -2150,16 +2152,19 @@ export class ShooterMesh {
         sh.add(at(prism(0.22, 0.3, 0.22, 0.3, 0.14, m.joint, 0.03), s * 0.06, 0.3, 0));
         for (const x of [-0.05, 0.05]) for (const z of [-0.07, 0.07]) sh.add(box(0.04, 0.02, 0.04, hole, s * 0.06 + x, 0.375, z));
       }
-      const aiming = L.pose === 'aim' && s === 1;
+      const twoHand = L.pose === 'twoHand';
+      const aiming = (L.pose === 'aim' && s === 1) || twoHand;
       if (aiming) {
-        // straight out at the target
-        sh.add(at(prism(0.15 * aw, 0.15 * aw, 0.15 * aw, 0.15 * aw, 0.2, m.joint, 0.03), 0, -0.14, -0.16, -Math.PI / 2));
-        piston(sh, V(0.1, -0.06, -0.08), V(0.1, -0.08, -0.44));
+        // straight out at the target; with both hands, each arm turns in to meet at the gun
+        const ag = twoHand ? at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0) : sh;
+        if (ag !== sh) sh.add(ag);
+        ag.add(at(prism(0.15 * aw, 0.15 * aw, 0.15 * aw, 0.15 * aw, 0.2, m.joint, 0.03), 0, -0.14, -0.16, -Math.PI / 2));
+        piston(ag, V(s * 0.1, -0.06, -0.08), V(s * 0.1, -0.08, -0.44));
         const g = at(prism(0.22 * aw, 0.24 * aw, 0.27 * aw, 0.28 * aw, 0.3, def.darkFace ? m.trim : m.body, [0.04, 0.04, 0.04, 0.04]), 0, -0.14, -0.5, -Math.PI / 2);
-        sh.add(g);
-        ventX(sh, 0.15 * aw, -0.2, -0.5, 2, 0.2, 1);
-        sh.add(at(prism(0.29 * aw, 0.3 * aw, 0.29 * aw, 0.3 * aw, 0.05, m.accent, 0.03), 0, -0.14, -0.36, -Math.PI / 2));
-        sh.add(box(0.22 * aw, 0.22 * aw, 0.2, m.joint, 0, -0.14, -0.74)); // fist
+        ag.add(g);
+        ventX(ag, s * 0.15 * aw, -0.2, -0.5, 2, 0.2, s);
+        ag.add(at(prism(0.29 * aw, 0.3 * aw, 0.29 * aw, 0.3 * aw, 0.05, m.accent, 0.03), 0, -0.14, -0.36, -Math.PI / 2));
+        ag.add(box(0.22 * aw, 0.22 * aw, 0.2, m.joint, 0, -0.14, -0.74)); // fist
       } else {
         // hanging: slim upper arm, elbow piston, a gauntlet that widens toward the fist
         sh.add(at(prism(0.13 * aw, 0.13 * aw, 0.15 * aw, 0.15 * aw, 0.16 * as, m.joint, 0.03), s * 0.02, -0.24 * as, -0.02));
@@ -2183,8 +2188,14 @@ export class ShooterMesh {
     const mark = (x: number, y: number, z: number) => this.markBelly(gun, x, y, z);
     const tube = (r: number, len: number, mat: THREE.Material, x: number, y: number, z: number) => gun.add(at(cyl(r, len, mat), x, y, z, Math.PI / 2));
     const inHand = () => {
-      gun.position.copy(fist);
       gun.scale.setScalar(1.25);
+      if (L.pose === 'twoHand') {
+        // both fists meet on the grip at the centre of the chest
+        gun.position.set(0, 0.3, -0.6);
+        this.turret.add(gun);
+        return;
+      }
+      gun.position.copy(fist);
       rightSh!.add(gun);
     };
     switch (L.gun) {
@@ -2228,6 +2239,34 @@ export class ShooterMesh {
         tube(0.032, 0.3, m.joint, 0, 0.04, -0.45);
         gun.add(box(0.08, 0.08, 0.08, m.trim, 0, 0.04, -0.62));
         mark(0, 0.04, -0.68);
+        break;
+      }
+      case 'hmg': {
+        // a huge heavy machine gun: boxy receiver, carry handle, side ammo box, a perforated
+        // barrel shroud and a muzzle brake, belt-fed from the pack on the back
+        inHand();
+        gun.add(at(prism(0.2, 0.62, 0.2, 0.58, 0.22, m.joint, 0.04), 0, 0.02, -0.16));
+        gun.add(box(0.04, 0.05, 0.26, m.trim, 0, 0.17, -0.12), box(0.04, 0.06, 0.04, m.trim, 0, 0.14, -0.22), box(0.04, 0.06, 0.04, m.trim, 0, 0.14, -0.02));
+        gun.add(at(prism(0.16, 0.22, 0.16, 0.2, 0.2, m.accent, 0.03), -0.17, -0.04, -0.1));
+        gun.add(box(0.1, 0.16, 0.14, m.joint, 0, -0.14, 0.04)); // grip
+        tube(0.075, 0.42, m.trim, 0, 0.02, -0.66);
+        for (let q = 0; q < 4; q++) gun.add(box(0.05, 0.02, 0.05, hole, 0, 0.1, -0.52 - q * 0.08));
+        tube(0.036, 0.22, m.joint, 0, 0.02, -0.96);
+        gun.add(at(prism(0.1, 0.1, 0.09, 0.09, 0.1, m.joint, 0.02), 0, 0.02, -1.08, Math.PI / 2));
+        mark(0, 0.02, -1.14);
+        break;
+      }
+      case 'dober': {
+        // Tallgeese's Dober gun: a long cannon riding on the right shoulder, gripped below
+        gun.position.set(0.02, 0.32, -0.04);
+        gun.scale.setScalar(1.15);
+        rightSh!.add(gun);
+        gun.add(at(prism(0.2, 0.56, 0.18, 0.52, 0.2, m.trim, 0.05), 0, 0, 0.0));
+        gun.add(at(prism(0.16, 0.24, 0.14, 0.22, 0.16, m.accent, 0.03), 0, 0.02, 0.32)); // energy pack
+        tube(0.07, 0.62, m.joint, 0, 0.0, -0.56);
+        tube(0.09, 0.08, m.trim, 0, 0.0, -0.84);
+        gun.add(box(0.04, 0.24, 0.06, m.joint, 0, -0.18, -0.08)); // grip down to the hand
+        mark(0, 0, -0.92);
         break;
       }
       case 'pallet': {
@@ -2386,6 +2425,30 @@ export class ShooterMesh {
       if (back === 'cape')
         for (const [x, rz, len] of [[-0.2, 0.06, 0.9], [0, 0, 1.0], [0.2, -0.06, 0.86]] as const)
           this.turret.add(at(plate([[-0.11, 0], [0.11, 0], [0.09, -len], [0, -len - 0.1], [-0.09, -len]], 0.03, m.trim), x, 0.6, cd / 2 + 0.16, 0.12, 0, rz));
+      if (back === 'ammoPack') {
+        // a big ammo container with spare drums, and the belt running to the gun
+        this.turret.add(at(prism(0.64, 0.36, 0.6, 0.34, 0.52, m.trim, 0.06), 0, 0.36, cd / 2 + 0.3));
+        this.turret.add(box(0.66, 0.05, 0.38, m.accent, 0, 0.5, cd / 2 + 0.3));
+        for (const sx of [-1, 1]) this.turret.add(at(cyl(0.13, 0.16, m.joint), sx * 0.38, 0.2, cd / 2 + 0.32, 0, 0, Math.PI / 2));
+        const a0 = V(F.shOut - 0.24, 0.22, -0.72);
+        const a1 = V(F.shOut + 0.2, 0.1, -0.1);
+        const a2 = V(0.3, 0.3, cd / 2 + 0.16);
+        const curve = new THREE.QuadraticBezierCurve3(a0, a1, a2);
+        for (let q = 0; q <= 12; q++) {
+          const p = curve.getPoint(q / 12);
+          const seg = box(0.08, 0.045, 0.06, m.gold, p.x, p.y, p.z);
+          seg.lookAt(this.turret.localToWorld(curve.getPoint(Math.min(1, q / 12 + 0.02)).clone()));
+          this.turret.add(seg);
+        }
+      }
+      if (back === 'boosters')
+        for (const sx of [-1, 1]) {
+          // Tallgeese's huge twin super-vernier packs
+          this.turret.add(at(prism(0.24, 0.42, 0.2, 0.36, 0.7, m.body, 0.06), sx * 0.22, 0.32, cd / 2 + 0.3, 0.12));
+          this.turret.add(at(box(0.26, 0.06, 0.4, m.accent), sx * 0.22, 0.52, cd / 2 + 0.33, 0.12));
+          this.turret.add(at(cyl(0.1, 0.12, m.joint), sx * 0.22, -0.06, cd / 2 + 0.26));
+          this.turret.add(at(cyl(0.07, 0.02, hole), sx * 0.22, -0.125, cd / 2 + 0.26));
+        }
       if (back === 'radio') {
         this.turret.add(at(prism(0.2, 0.16, 0.18, 0.14, 0.24, m.joint, 0.03), 0.2, 0.62, cd / 2 + 0.14));
         this.turret.add(at(cyl(0.012, 0.6, steel), 0.24, 0.98, cd / 2 + 0.14));
@@ -2459,6 +2522,22 @@ export class ShooterMesh {
         head.add(at(prism(0.05, 0.3, 0.04, 0.26, 0.14, m.trim), 0, 0.34, 0.16));
         if (L.antenna) head.add(at(cyl(0.012, 0.5, steel), -0.34, 0.36, 0.08), box(0.04, 0.04, 0.04, m.accent, -0.34, 0.6, 0.08));
         this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: m.gold, glowMat: m.glowMat });
+        break;
+      }
+      case 'tallgeese': {
+        // a rounded knight's helmet with a plume rising at the front, eyes under the brow,
+        // vents on the faceplate and big round ear pieces
+        head.add(prism(0.66, 0.64, 0.56, 0.56, 0.48, m.body, [0.15, 0.15, 0.08, 0.08]));
+        head.add(at(prism(0.5, 0.48, 0.38, 0.38, 0.08, m.trim, 0.12), 0, 0.28, 0.02));
+        head.add(at(plate([[-0.22, 0.05], [0.22, 0.05], [0.18, -0.06], [-0.18, -0.06]], 0.02, black), 0, 0.0, -0.33));
+        fierce(-0.01, -0.345);
+        head.add(at(plate([[-0.18, 0.04], [0.18, 0.04], [0.15, -0.12], [-0.15, -0.12]], 0.05, m.trim), 0, -0.13, -0.31));
+        for (let q = 0; q < 3; q++) head.add(box(0.02, 0.09, 0.01, black, -0.05 + q * 0.05, -0.14, -0.337));
+        head.add(at(side([[0.14, 0], [-0.08, 0], [-0.18, 0.34], [-0.04, 0.38], [0.16, 0.14]], 0.06, m.accent), 0, 0.26, -0.12));
+        for (const sx of [-1, 1]) {
+          head.add(at(prism(0.12, 0.3, 0.12, 0.3, 0.3, m.trim, 0.08), sx * 0.37, -0.02, 0.04));
+          ventX(head, sx * 0.435, -0.08, 0.04, 3, 0.2, sx);
+        }
         break;
       }
       case 'zaku': {
@@ -2630,6 +2709,15 @@ export class ShooterMesh {
     const steel = this.paint(0x8a929e);
     const black = this.paint(0x16141c);
     for (const a of def.addons ?? []) {
+      if (a === 'noBall') {
+        // take the glass marble off the neck (the one shiny, round part of the design)
+        const balls: THREE.Object3D[] = [];
+        this.root.traverse((o) => {
+          const mat = (o as THREE.Mesh).material as THREE.MeshPhongMaterial | undefined;
+          if ((o as THREE.Mesh).isMesh && mat?.isMeshPhongMaterial && mat.shininess >= 80) balls.push(o);
+        });
+        for (const b of balls) b.removeFromParent();
+      }
       if (a === 'fangs' && this.jaw?.parent) {
         // big gold sabre fangs hanging from the upper jaw: the fangs are the name
         const head = this.jaw.parent;
