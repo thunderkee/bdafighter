@@ -2026,3 +2026,58 @@ body.buttons .pad-right .item-slot::before {
     width: 80px;
   }
 }
+
+/* two groups inside the action tray: the view switch on top, then a gap, then the fighting
+   keys (special weapon, shield, fire) in their own inner well */
+.pad-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.pad-right .pad-top {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #0d0c0a;
+  box-shadow: 0 1px 0 #3a3631;
+}
+.pad-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 18px;
+  background: var(--char);
+  box-shadow: inset 0 2px 4px #000;
+}
+/* the special weapon is a cream key, not orange, even once it's loaded */
+.item-slot.full {
+  border-color: var(--case-edge);
+  background: linear-gradient(180deg, var(--case-hi), var(--case));
+  box-shadow: 0 1px 0 #fff inset, 0 4px 0 var(--case-deep), 0 8px 12px rgba(0, 0, 0, 0.35);
+}
+.item-slot.full .item-name {
+  color: var(--ink);
+}
+body.buttons .pad-right .item-slot {
+  height: 62px;
+  padding-top: 5px;
+}
+body.buttons .pad-right .item-slot::before {
+  inset: 5px 10px 21px;
+}
+body.buttons .pad-right .item-slot .item-icon {
+  width: 22px;
+  height: 22px;
+  margin-top: 4px;
+}
+body.buttons .pad-right .item-slot .item-name {
+  margin-top: 10px;
+  font-size: 8px;
+}
+body.buttons .pad-right .item-slot .item-key {
+  display: none;
+}

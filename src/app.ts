@@ -798,7 +798,10 @@ export function boot() {
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
     // with the on-screen pad, the view switch and the special weapon join the
     // right-thumb group (view, item, shield, fire); otherwise they keep their own spots
-    if (st.layout === 'buttons') $('pad-top').append($('view-btn'), $('item-btn'));
+    if (st.layout === 'buttons') {
+      $('pad-top').append($('view-btn'));
+      $('pad-actions').prepend($('item-btn'));
+    }
     else {
       document.querySelector('.hud-btns')?.prepend($('view-btn'));
       $('effects').before($('item-btn'));
