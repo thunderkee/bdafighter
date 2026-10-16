@@ -339,12 +339,14 @@ const FRAMES21: Record<string, Frame21> = {
 };
 type Look21 = {
   frame: keyof typeof FRAMES21;
-  head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese';
+  head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese' | 'megazord';
   shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
   shoulderL?: Look21['shoulder'];
   gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka' | 'shellCannon' | 'staffGun' | 'palm';
-  left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade' | 'knife' | 'katana';
-  back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters' | 'shell')[];
+  left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade' | 'knife' | 'katana' | 'powerSword';
+  back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters' | 'shell' | 'rexTail' | 'tuskShield')[];
+  /** a dino combiner: each limb in its own zord's colour (black arms, a blue right leg, a yellow left) and a pink breastplate */
+  megazord?: boolean;
   /** a menacing stance: legs wide and splayed, the head thrust low and forward */
   menace?: boolean;
   /** a gunmetal crest instead of the gold V-fin */
@@ -381,7 +383,7 @@ type Look21 = {
 /** each 2.1 unit's own marble and armour pattern */
 const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
   angel: ['ring', 'panel'],
-  dragon: ['flame', 'none'],
+  dragon: ['flame', 'panel'],
   pioneer: ['camo', 'camo'],
   liberty: ['checker', 'mud'],
   monoceros: ['galaxy', 'circuit'],
@@ -397,8 +399,10 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   // Astray Red Frame: white armour over a red frame, black trim
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'beamRifle', left: 'katana', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
-  // crimson and black with gold, hunched in, claw raised
-  dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'spike', gun: 'dragonMaw', left: 'claw', back: ['wings'], dynamic: true, menace: true, lean: -0.22 }, ball: 0xff5040, palette: { body: 0xb0182a, trim: 0x1e1c24, accent: 0xf2b632, joint: 0x16141a, eye: 0xc8ff3d } },
+  // a dino combiner (after the Mighty Morphin Megazord): red core, silver crested helmet, pink
+  // breastplate, black arms with a tusked shield on the back, blue and yellow legs, a T-rex tail;
+  // it fires from its right fist and holds a power sword ready in its left
+  dragon: { look: { frame: 'heavy', head: 'megazord', shoulder: 'heavy', gun: 'fistCannon', left: 'powerSword', back: ['tuskShield', 'rexTail'], pose: 'aim', dynamic: true, megazord: true, lean: -0.12 }, ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
   pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
@@ -2152,7 +2156,7 @@ export class ShooterMesh {
       const fl = F.foot;
       const sole = -0.54 * k;
       leg.add(at(side([[-0.4 * fl, 0], [0.2 * fl, 0], [0.24 * fl, 0.05], [0.15 * fl, 0.12], [-0.12 * fl, 0.13], [-0.4 * fl, 0.045]], 0.4 * lw, m.body), 0, sole, -0.04));
-      if (def.feet === 'claw') {
+      if (def.feet === 'claw' && !L.megazord) {
         for (const cx of [-0.12, 0, 0.12]) leg.add(at(cone(0.05, 0.16, m.joint), cx * lw, sole + 0.04, -0.47 * fl, -Math.PI / 2));
       } else {
         leg.add(at(side([[-0.42 * fl, 0], [-0.2 * fl, 0], [-0.2 * fl, 0.07], [-0.42 * fl, 0.04]], 0.42 * lw, m.accent), 0, sole, -0.04));
@@ -2221,7 +2225,22 @@ export class ShooterMesh {
     // chest: pec plates in a V (or the skull), intakes under them, and the core
     const skull = def.emblem === 'skull';
     const z0 = -cd / 2 - 0.005;
-    if (!L.ribcage && L.gun !== 'dragonMaw') {
+    if (L.megazord) {
+      // the pterodactyl breastplate: a broad pink plate edged in gold, its gold beak pointing
+      // down the middle and its wings folded up into the collar
+      const pink = this.paint(0xf06aa0, 'body');
+      const k2 = cw / 0.94;
+      this.turret.add(at(plate([[-0.4 * k2, 0.13], [0.4 * k2, 0.13], [0.34 * k2, -0.06], [0.12, -0.16], [-0.12, -0.16], [-0.34 * k2, -0.06]], 0.06, pink), 0, 0.42, z0));
+      this.turret.add(at(plate([[-0.42 * k2, 0.16], [0.42 * k2, 0.16], [0.4 * k2, 0.12], [-0.4 * k2, 0.12]], 0.07, m.gold), 0, 0.42, z0 - 0.005));
+      this.turret.add(at(plate([[-0.09, 0.1], [0.09, 0.1], [0, -0.17]], 0.05, m.gold), 0, 0.4, z0 - 0.035));
+      for (const sx of [-1, 1]) {
+        const wing: [number, number][] = [[0.1, 0.0], [0.36 * k2, 0.08], [0.33 * k2, -0.04], [0.14, -0.1]];
+        this.turret.add(at(plate(sx === 1 ? wing : mirrorX(wing), 0.04, m.gold), 0, 0.34, z0 - 0.04));
+        this.turret.add(box(0.07, 0.05, 0.02, m.eyeMat, sx * 0.05, 0.47, z0 - 0.065)); // the beak's eyes
+      }
+      // the red core below, with a gold buckle
+      this.turret.add(at(prism(0.42, 0.06, 0.4, 0.06, 0.12, m.body, 0.02), 0, 0.22, z0 + 0.01));
+    } else if (!L.ribcage && L.gun !== 'dragonMaw') {
       // layered chest armour, built up like a kit: a frame plate on each side, a raised panel
       // stepped on top of it with an accent edge, a pointed keel down the middle, angled
       // louvred intakes underneath and a glowing core between them
@@ -2251,7 +2270,7 @@ export class ShooterMesh {
       for (const s of [-1, 1]) this.turret.add(box(0.09, 0.07, 0.02, hole, s * 0.075, 0.43, z - 0.012));
       this.turret.add(box(0.03, 0.04, 0.02, hole, 0, 0.375, z - 0.012));
       for (let q = 0; q < 5; q++) this.turret.add(box(0.036, 0.14, 0.03, bone, -0.1 + q * 0.05, 0.27, z));
-    } else if (!L.ribcage && L.gun !== 'dragonMaw') {
+    } else if (!L.ribcage && L.gun !== 'dragonMaw' && !L.megazord) {
       // the core: a hex housing with a glowing gem, under the keel
       const hex = (r: number): [number, number][] => [0, 1, 2, 3, 4, 5].map((i) => [Math.cos((i / 6) * Math.PI * 2) * r, Math.sin((i / 6) * Math.PI * 2) * r]);
       this.turret.add(at(plate(hex(0.06), 0.04, m.joint), 0, 0.26, z0 - 0.015));
@@ -2666,6 +2685,18 @@ export class ShooterMesh {
     const lh = leftSh!;
     const lfist = V(0.04, -0.52 * as, -0.22);
     switch (L.left) {
+      case 'powerSword': {
+        // the power sword held ready in the hanging left fist, the blade angled up and forward
+        const sw = at(new THREE.Group(), lfist.x, lfist.y, lfist.z, -(L.lean ?? F.lean) - 0.75);
+        const blade = this.paint(0xeef1f4, 'trim');
+        sw.add(box(0.07, 0.2, 0.07, black, 0, -0.06, 0)); // grip
+        sw.add(box(0.07, 0.06, 0.07, m.gold, 0, -0.18, 0)); // pommel
+        sw.add(at(plate([[-0.16, 0.03], [0.16, 0.03], [0.12, -0.03], [-0.12, -0.03]], 0.09, m.gold), 0, 0.06, 0)); // guard
+        sw.add(at(plate([[-0.07, 0], [0.07, 0], [0.06, 0.9], [0, 1.04], [-0.06, 0.9]], 0.03, blade), 0, 0.09, 0));
+        sw.add(at(plate([[-0.012, 0], [0.012, 0], [0.012, 0.86], [-0.012, 0.86]], 0.03, m.gold), 0, 0.1, 0)); // fuller
+        lh.add(sw);
+        break;
+      }
       case 'shield': {
         const sh = plate([[-0.16, 0.24], [0.16, 0.24], [0.16, -0.12], [0, -0.3], [-0.16, -0.12]], 0.05, m.body);
         lh.add(at(sh, -0.17, -0.4 * as, -0.04, 0, Math.PI / 2 - 0.15, 0));
@@ -2810,6 +2841,22 @@ export class ShooterMesh {
           const sh = s === 1 ? rightSh! : leftSh!;
           sh.add(at(plate([[-0.06, 0], [0.06, 0], [0.03, 0.5], [-0.05, 0.42]], 0.26, m.body), s * 0.02, 0.18, 0.14, 0.15, 0, s * -0.3));
         }
+      if (back === 'rexTail') {
+        // the T-rex's tail hanging down behind the hips, in tapering segments
+        [0.3, 0.26, 0.21, 0.16, 0.11].forEach((w, q) =>
+          this.turret.add(at(prism(w, 0.24, w * 0.85, 0.22, 0.2, m.body, 0.03), 0, -0.02 - q * 0.13, cd / 2 + 0.2 + q * 0.12, 0.7 + q * 0.12)),
+        );
+        for (let q = 0; q < 4; q++) this.turret.add(at(cone(0.04, 0.1, m.gold), 0, 0.06 - q * 0.13, cd / 2 + 0.27 + q * 0.12, -0.4));
+      }
+      if (back === 'tuskShield') {
+        // the mastodon's head as a shield on the back, its tusks curling out at the sides
+        const ivory = this.paint(0xece4d0);
+        this.turret.add(at(prism(0.66, 0.16, 0.56, 0.14, 0.5, m.trim, 0.08), 0, 0.42, cd / 2 + 0.36));
+        for (const sx of [-1, 1]) {
+          this.turret.add(at(cone(0.05, 0.36, ivory), sx * 0.36, 0.18, cd / 2 + 0.36, 0, 0, -sx * 2.4));
+          this.turret.add(box(0.08, 0.08, 0.06, m.eyeMat, sx * 0.14, 0.52, cd / 2 + 0.44));
+        }
+      }
       if (back === 'launchers') {
         // Metabee: twin launchers on a stalk from the top of the head (added with the head below)
       }
@@ -2878,6 +2925,24 @@ export class ShooterMesh {
         if (L.antenna) head.add(at(cyl(0.012, 0.5, steel), -0.34, 0.36, 0.08), box(0.04, 0.04, 0.04, m.accent, -0.34, 0.6, 0.08));
         // a dark crest for the units that shouldn't shine
         this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: goldTrim, glowMat: m.glowMat });
+        break;
+      }
+      case 'megazord': {
+        // a silver helmet with a gold crest and fins, a black face with yellow eyes, a silver
+        // mouthguard, and red ear pieces
+        const silverH = this.paint(0xc4c9d0, 'metal');
+        head.add(prism(0.64, 0.6, 0.54, 0.52, 0.48, silverH, [0.14, 0.14, 0.06, 0.06]));
+        head.add(at(plate([[-0.22, 0.12], [0.22, 0.12], [0.2, -0.08], [0.12, -0.2], [-0.12, -0.2], [-0.2, -0.08]], 0.05, black), 0, -0.02, -0.3));
+        head.add(at(plate([[-0.2, 0.04], [0.2, 0.04], [0.18, -0.03], [-0.18, -0.03]], 0.02, m.eyeMat), 0, 0.03, -0.33));
+        head.add(at(plate([[-0.12, 0.05], [0.12, 0.05], [0.09, -0.08], [-0.09, -0.08]], 0.04, silverH), 0, -0.14, -0.33)); // mouthguard
+        for (let q = 0; q < 3; q++) head.add(box(0.015, 0.08, 0.01, black, -0.04 + q * 0.04, -0.15, -0.355));
+        // the gold crest: a forehead plate, a raised centre fin, and two swept side fins
+        head.add(at(plate([[-0.24, 0.04], [0.24, 0.04], [0.22, 0.1], [0, 0.17], [-0.22, 0.1]], 0.06, m.gold), 0, 0.1, -0.31));
+        head.add(at(side([[0.2, 0], [-0.14, 0], [-0.2, 0.2], [0.06, 0.26]], 0.05, m.gold), 0, 0.26, -0.04));
+        for (const sx of [-1, 1]) {
+          head.add(at(plate(sx === 1 ? [[0, 0], [0.08, 0], [0.16, 0.24], [0.06, 0.2]] : mirrorX([[0, 0], [0.08, 0], [0.16, 0.24], [0.06, 0.2]]), 0.04, m.gold), sx * 0.24, 0.16, -0.18));
+          head.add(at(prism(0.1, 0.26, 0.09, 0.22, 0.22, m.body, 0.03), sx * 0.34, -0.02, 0.04));
+        }
         break;
       }
       case 'tallgeese': {
@@ -2980,6 +3045,19 @@ export class ShooterMesh {
         head.add(at(box(0.06, 0.06, 0.03, new THREE.MeshBasicMaterial({ color: 0x4dff6a })), 0, 0.2, -0.3, 0, 0, Math.PI / 4));
         break;
       }
+    }
+    if (L.megazord) {
+      // each limb in its own zord's colour: black (mastodon) arms, a blue (triceratops) right
+      // leg and a yellow (sabertooth) left leg
+      const swap = (o: THREE.Object3D, to: Record<string, THREE.Material>) =>
+        o.traverse((c) => {
+          const mesh = c as THREE.Mesh;
+          const to2 = mesh.isMesh ? to[(mesh.material as THREE.Material).userData?.slot as string] : undefined;
+          if (to2 && mesh.material === m[(mesh.material as THREE.Material).userData.slot as 'body']) mesh.material = to2;
+        });
+      const armBlack = this.paint(0x24242a, 'body');
+      for (const sh of [rightSh, leftSh]) if (sh) swap(sh, { body: armBlack });
+      for (const leg of this.legs) swap(leg, { body: this.paint(leg.position.x > 0 ? 0x2a5cc8 : 0xf2c21a, 'body') });
     }
     // a hovering unit is built floating above its shadow (sync adds the drift)
     if (this.hoverLift) for (const o of this.root.children) o.position.y += this.hoverLift;

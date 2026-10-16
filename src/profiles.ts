@@ -33,7 +33,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Lava Forge pit circuit',
     style: 'Close in, keep firing',
     specialty: 'Fast trigger',
-    bio: 'Built in the forge rings, where the loudest machine wins. Wyvern trades a little footwork for a trigger that never lets up.',
+    bio: 'Five dino machines locked into one. Wyvern blasts from its fist, keeps its power sword ready and never lets the trigger rest.',
     traits: { health: 3, speed: 3, fireRate: 4, agility: 2 },
   },
   pioneer: {
