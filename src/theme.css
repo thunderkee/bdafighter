@@ -1982,3 +1982,47 @@ body.buttons .pad-right .item-slot {
     height: 80px;
   }
 }
+
+/* the action group as one vertical column: view, special weapon, shield, then FIRE at the thumb */
+.pad-right {
+  grid-template-columns: 88px;
+  grid-template-areas:
+    'view'
+    'item'
+    'shield'
+    'fire';
+  justify-items: center;
+  align-items: center;
+  gap: 8px;
+}
+.pad-right #view-btn {
+  width: 88px;
+  height: 28px;
+}
+body.buttons .pad-right .item-slot {
+  width: 88px;
+  height: 56px;
+  padding-top: 6px;
+}
+body.buttons .pad-right .item-slot::before {
+  inset: 5px 10px 18px;
+}
+.pad-right .pad-btn.shield {
+  width: 88px;
+  height: 52px;
+  border-radius: 16px;
+}
+.pad-right .pad-fire.single .fire {
+  width: 88px;
+  height: 88px;
+}
+@media (max-width: 360px) {
+  .pad-right {
+    grid-template-columns: 80px;
+  }
+  .pad-right #view-btn,
+  .pad-right .pad-btn.shield,
+  body.buttons .pad-right .item-slot {
+    width: 80px;
+  }
+}
