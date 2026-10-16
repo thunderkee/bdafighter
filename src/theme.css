@@ -1825,3 +1825,160 @@ body.buttons .pad-top .item-slot .item-name {
 body.buttons .pad-top .item-slot .item-key {
   display: none;
 }
+
+/* ================= HUD: tags by the win points, solid control trays ================= */
+/* P1 / CPU sit right beside each side's win points */
+.meta-row .tag {
+  flex: none;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font: 700 8px var(--body);
+  letter-spacing: 0.08em;
+  color: var(--case-hi);
+  background: var(--char);
+}
+.side.enemy .meta-row .tag {
+  background: var(--coral);
+  color: var(--ink);
+}
+.meta-row {
+  gap: 5px;
+}
+
+/* both thumbs get a solid dark tray, recessed into a cream bezel like the slider track */
+.pad-dir,
+.pad-right {
+  pointer-events: auto;
+  padding: 10px;
+  border-radius: 24px;
+  background: var(--char-2);
+  border: 1px solid #0d0c0a;
+  box-shadow:
+    inset 0 3px 6px #000,
+    0 0 0 3px var(--case),
+    0 0 0 4px var(--case-edge),
+    0 7px 14px rgba(0, 0, 0, 0.45);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.pad-dir {
+  gap: 10px;
+}
+body.slider .pad-dir {
+  padding: 6px;
+}
+body.slider .pad-slider {
+  padding: 0;
+}
+
+/* the right thumb: a gamepad face cluster. FIRE sits under the thumb, SHIELD beside it,
+   the special weapon above SHIELD (only once picked up) and the view switch above FIRE */
+.pad-right {
+  display: grid;
+  grid-template-columns: 72px 96px;
+  grid-template-areas:
+    'item view'
+    'shield fire';
+  align-items: end;
+  justify-items: center;
+  gap: 10px;
+}
+.pad-right .pad-top {
+  display: contents;
+}
+.pad-right #view-btn {
+  grid-area: view;
+  width: 96px;
+  height: 30px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 10px;
+}
+.pad-right #item-btn {
+  grid-area: item;
+}
+body.buttons .pad-right .item-slot {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  width: 72px;
+  height: 64px;
+}
+.pad-right .pad-btn.shield {
+  grid-area: shield;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+}
+.pad-right .pad-fire {
+  grid-area: fire;
+}
+.pad-right .pad-fire.single .fire {
+  width: 96px;
+  height: 96px;
+}
+/* three fire buttons: front on top, left and right under it, still in the fire spot */
+.pad-right .pad-fire.triple {
+  gap: 6px;
+}
+.pad-right .pad-fire.triple .mini {
+  width: 45px;
+  height: 45px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+.pad-right .pad-fire.triple .mini small {
+  display: none;
+}
+
+/* fit both trays side by side on a narrow phone */
+body.buttons #pad {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.pad-dir .pad-btn {
+  width: 66px;
+  height: 60px;
+}
+.pad-right {
+  grid-template-columns: 64px 88px;
+  gap: 9px;
+}
+.pad-right #view-btn {
+  width: 88px;
+}
+body.buttons .pad-right .item-slot {
+  width: 64px;
+  height: 60px;
+}
+.pad-right .pad-btn.shield {
+  width: 64px;
+  height: 64px;
+}
+.pad-right .pad-fire.single .fire {
+  width: 88px;
+  height: 88px;
+}
+.pad-right .pad-fire.triple .mini {
+  width: 41px;
+  height: 41px;
+}
+@media (max-width: 360px) {
+  .pad-dir .pad-btn {
+    width: 58px;
+  }
+  .pad-right {
+    grid-template-columns: 58px 80px;
+  }
+  .pad-right #view-btn {
+    width: 80px;
+  }
+  .pad-right .pad-btn.shield,
+  body.buttons .pad-right .item-slot {
+    width: 58px;
+  }
+  .pad-right .pad-fire.single .fire {
+    width: 80px;
+    height: 80px;
+  }
+}
