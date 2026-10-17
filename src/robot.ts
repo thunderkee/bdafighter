@@ -592,7 +592,7 @@ export class ShooterMesh {
   private fistL: THREE.Object3D | null = null;
   private raise = { r: 1, l: 0 };
   private tossGun: THREE.Object3D | null = null;
-  private toss = { from: 1, to: 1, t: 9 };
+  private toss = { from: 1, to: 1, t: 0 };
   /** a belt that follows a tossed gun: its rounds and the curve's fixed end and bend */
   private belt: { rounds: THREE.Object3D[]; a1: THREE.Vector3; a2: THREE.Vector3 } | null = null;
   /** an open-palm blaster's fingers (they curl into a fist at rest, spread to fire) and each one's hand */
@@ -4258,6 +4258,10 @@ export class ShooterMesh {
     // the turret faces -z for the player and +z for the opponent
     this.root.rotation.y = s.team === 0 ? 0 : Math.PI;
     this.turret.rotation.y = this.rest.turretY + (s.team === 0 ? -s.aim : s.aim);
+    // defence: braced behind the shield (crouched, hunched forward, both guards up)
+    this.guard += ((s.shieldUp ? 1 : 0) - this.guard) * Math.min(1, dt * 12);
+    const guard = this.guard;
+    this.turret.rotation.x = this.rest.turretX - guard * 0.2;
     // (with a gun in each hand, only the one that fired kicks back)
     this.lastHand = s.lastHand ?? 1;
     const kicked = this.barrel2 && this.lastHand === -1 ? this.barrel2 : this.barrel;
@@ -4271,10 +4275,6 @@ export class ShooterMesh {
       const p = w < 0.1 ? 1 - (1 - w / 0.1) ** 3 : w < hold ? 1 : w < hold + 0.3 ? 1 - (w - hold) / 0.3 : 0;
       this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) + Math.max(p, guard * 0.9) * 1.45));
     }
-    // defence: braced behind the shield (crouched, hunched forward, both guards up)
-    this.guard += ((s.shieldUp ? 1 : 0) - this.guard) * Math.min(1, dt * 12);
-    const guard = this.guard;
-    this.turret.rotation.x = this.rest.turretX - guard * 0.2;
     if (this.armR && this.armL) {
       // the hand that's up aims straight out; the other arm rests, lowered at the side
       // (behind the shield both come up)
@@ -4298,13 +4298,18 @@ export class ShooterMesh {
       const hand = s.hand ?? 1;
       if (hand !== this.toss.to) this.toss = { from: this.toss.to, to: hand, t: 0 };
       this.toss.t += dt;
+    }
+    // (once the gun has landed and the arms have settled, the gun and belt stay put on the
+    // torso: there's nothing to recompute until the next toss)
+    if (this.tossGun && this.fistR && this.fistL && this.toss.t < TOSS_TIME + 0.5) {
       const p = Math.min(1, this.toss.t / TOSS_TIME);
       this.turret.updateWorldMatrix(true, true);
       const at = (h: number) => this.turret.worldToLocal((h === 1 ? this.fistR! : this.fistL!).getWorldPosition(new THREE.Vector3()));
       const a = at(this.toss.from);
       const b = at(this.toss.to);
-      this.tossGun.position.copy(a.lerp(b, p)).add(new THREE.Vector3(0, Math.sin(p * Math.PI) * 0.5, 0));
-      this.tossGun.rotation.set(p < 1 ? -p * Math.PI * 2 : 0, 0, 0);
+      const flying = this.toss.from !== this.toss.to && p < 1;
+      this.tossGun.position.copy(a.lerp(b, p)).add(new THREE.Vector3(0, flying ? Math.sin(p * Math.PI) * 0.5 : 0, 0));
+      this.tossGun.rotation.set(flying ? -p * Math.PI * 2 : 0, 0, 0);
       if (this.belt) {
         // the belt runs from the pack to the gun's feed, wherever the gun is
         const feed = this.tossGun.localToWorld(new THREE.Vector3(-0.2, 0.0, -0.1));
