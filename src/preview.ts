@@ -306,6 +306,8 @@ export class Preview {
     s.recoil = Math.max(0, s.recoil - dt * 8);
     s.firing = false;
     const sp = this.special;
+    // a head that keeps turning (Ember): the shots follow it
+    if (sp.wobble) s.wobble = Math.sin((this.wobbleN += dt * 2.5)) * sp.wobble;
     if (sp.swap && (this.swapT += dt) >= sp.swap) {
       this.swapT = 0;
       s.hand = -s.hand;
@@ -360,8 +362,6 @@ export class Preview {
     s.recoil = 1;
     s.lastHand = s.hand;
     if (sp.alternate) s.hand = -s.hand;
-    this.wobbleN = s.kickT < 0.6 ? this.wobbleN + 1 : 0;
-    s.wobble = sp.wobble ? Math.sin(this.wobbleN * 1.35) * sp.wobble * Math.min(1, this.wobbleN / 2) : 0;
     s.kickT = 0;
     this.ballDue = true;
   }

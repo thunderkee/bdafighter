@@ -63,7 +63,8 @@ export interface ShooterStats {
  * - hand: how far the gun sits off the centre line; the shot leaves from that side
  * - swap: seconds between switching the gun to the other hand (Pioneer)
  * - alternate: fire from alternate hands, shot by shot (Kabuto's twin fist cannons)
- * - wobble: rapid fire sprays this far (radians) either side, the head tilting (Ember)
+ * - wobble: the head keeps turning this far (radians) left and right, and each shot leaves the way
+ *   it's facing, so rapid fire sweeps across the table (Ember)
  * - antiAir: fires straight up at an enemy air drop falling straight ahead (Rex, Liger)
  */
 export interface Special {

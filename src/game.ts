@@ -245,7 +245,7 @@ export class Shooter {
   heavyT = 9;
   /** signature tricks: which hand the gun is in (1 right, -1 left) and the hand the last shot
    *  left from, the hand-swap timer, a wind-up in progress (seconds left, and since it began),
-   *  and rapid fire's running spray offset */
+   *  and a turning head's angle off the aim (and its sweep phase) */
   hand = 1;
   lastHand = 1;
   swapT = 0;
@@ -422,6 +422,8 @@ const BURST_GAP = 0.07;
 const TWIN = { gap: TWIN_X, damage: 0.45 };
 /** spread fire (an arcade boss): the angle between the marbles of a fan, and each one's share of the damage */
 const FAN = { angle: 0.16, damage: 0.5 };
+/** how fast a sweeping head turns (radians of sweep phase per second: one left-right pass in about 2.5s) */
+const HEAD_SWEEP = 2.5;
 
 /** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
@@ -996,6 +998,8 @@ export class Game {
   private updateMissiles(dt: number) {
     for (let i = this.missiles.length - 1; i >= 0; i--) {
       const m = this.missiles[i];
+      // (a hit that ends the round clears the list mid-loop)
+      if (!m) continue;
       const attacker = this.shooters[m.owner];
       const target = this.targetFor(attacker);
       m.age += dt;
@@ -1317,7 +1321,8 @@ export class Game {
       s.windLeft = 0;
       if (s.alive) this.fire(s, true);
     }
-    if (s.kickT > 0.6) s.wobbleN = 0;
+    // Ember's head turns left and right all the time; its shots follow it
+    if (sp?.wobble) s.wobble = Math.sin((s.wobbleN += adt * HEAD_SWEEP)) * sp.wobble;
     s.cooldown -= adt;
     s.sinceHit += dt;
     s.sinceHurt += dt;
@@ -1620,13 +1625,8 @@ export class Game {
     // the hand this shot leaves from (it may change for the next one)
     s.lastHand = s.hand;
     if (sp?.alternate) s.hand = -s.hand;
-    // rapid fire sprays: each quick follow-up swings further out, side to side
-    let wob = 0;
-    if (sp?.wobble) {
-      s.wobbleN = s.kickT < 0.6 ? s.wobbleN + 1 : 0;
-      wob = Math.sin(s.wobbleN * 1.35) * sp.wobble * Math.min(1, s.wobbleN / 2);
-      s.wobble = wob;
-    }
+    // the shot leaves the way the head is facing right now
+    const wob = sp?.wobble ? s.wobble : 0;
     const isSuper = s.superReady;
     s.superReady = false;
     // in your own slow-mo every shot is a boost ball

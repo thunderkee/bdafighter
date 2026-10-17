@@ -118,7 +118,8 @@ export class AIController {
     }
     if (this.burstLeft > 0) {
       this.burstLeft -= dt;
-      me.firing = Math.abs(desired - me.aim) < 0.25;
+      // (a unit whose head sweeps side to side waits for it to face the target)
+      me.firing = Math.abs(desired - me.aim) < 0.25 && (!me.stats.special?.wobble || Math.abs(me.wobble) < 0.2);
       if (this.burstLeft <= 0) {
         this.pauseLeft = rand(pr.pause[0], pr.pause[1]);
         me.firing = false;

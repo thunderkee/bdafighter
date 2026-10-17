@@ -425,8 +425,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // a fist cannon on each arm, firing left and right in turn
   kabuto: { special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'dualAim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xffb02e, joint: 0x23261e, eye: 0xffd23e } },
   tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim', dynamic: true, lean: -0.18 }, ball: 0xb06aff, palette: { body: 0x5a606a, trim: 0x8a4aff, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
-  // the head always cocked to one side: rapid fire sprays
-  ember: { special: { wobble: 0.2 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
+  // the head keeps turning 45 degrees left and right; shots follow it, so rapid fire sweeps
+  ember: { special: { wobble: Math.PI / 4 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   // desert: sand armour, dark brown, red accents, cyan eyes
   // rex and liger shoot an enemy air drop out of the sky when it falls straight ahead
   rex: { special: { antiAir: true }, addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
@@ -3268,8 +3268,7 @@ export class ShooterMesh {
     }
     // the big head: a faceted skull, a round snout, big shiny eyes
     const head = at(new THREE.Group(), 0, 0.68, -0.04);
-    // the head is always cocked to one side (rapid fire sprays as it sways)
-    head.rotation.z = 0.28;
+    // the head keeps turning left and right (the shots follow where it faces)
     this.tiltHead = head;
     this.turret.add(head);
     head.add(prism(0.62, 0.58, 0.54, 0.5, 0.5, m.body, 0.15));
@@ -4152,10 +4151,8 @@ export class ShooterMesh {
       const want = s.hand ?? 1;
       this.turret.scale.x += (want - this.turret.scale.x) * Math.min(1, dt * 12);
     }
-    if (this.tiltHead) {
-      this.tiltHead.rotation.z = 0.28 + (s.wobble ?? 0) * 1.4;
-      this.tiltHead.rotation.y = (s.wobble ?? 0) * 0.9;
-    }
+    // (a positive offset aims to the unit's right, which is a negative turn of the head)
+    if (this.tiltHead) this.tiltHead.rotation.y = -(s.wobble ?? 0);
     this.trigger.position.z = this.triggerZ - s.recoil * 0.1;
     // beasts: the jaw snaps open as the marble leaves the mouth
     if (this.jaw) {
