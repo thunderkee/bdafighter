@@ -602,6 +602,17 @@ export class View {
         case 'spark':
           this.burst(f.x, f.y, 0xfff2b0, Math.round(3 + f.intensity * 6), 4);
           break;
+        case 'parry': {
+          // a perfect block: a bright ring off the shield, sparks, and the shield flaring
+          const sp = this.project(f.x, f.y, 0.9);
+          this.burst(f.x, f.y, 0x6af0ff, 30, 10, { h: 0.9 });
+          this.burst(f.x, f.y, 0xffffff, 16, 7, { h: 0.9 });
+          this.fx2d?.ring(sp.x, sp.y, [106, 240, 255], true);
+          this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
+          this.shieldFlash[f.slot] = 1.5;
+          this.shake(f.slot === 0 ? 0.35 : 0.25);
+          break;
+        }
         case 'muzzle':
           if (f.slot === 0) this.shake(0.015);
           // the opening volley of a multi-shot run is a special move too
@@ -657,7 +668,6 @@ export class View {
           const sp = this.project(f.x, f.y, h);
           this.burst(f.x, f.y, c, 24, 7, { h });
           this.burst(f.x, f.y, 0x8a90a8, 14, 5, { h });
-          if (f.h) for (let k = 1; k < 6; k++) this.burst(f.x, f.y, 0xfff0c0, 2, 1.5, { h: (h * k) / 6, size: 0.06 }); // the tracer up to it
           this.fx2d?.ring(sp.x, sp.y, hex(c), true);
           this.fx2d?.star(sp.x, sp.y, hex(c));
           this.shake(0.2);

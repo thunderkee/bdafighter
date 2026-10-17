@@ -76,6 +76,12 @@
           <div class="mag-label">MAG</div>
         </div>
 
+        <!-- the charge meter: appears while fire is held (arming, then a segment per stored ball) -->
+        <div class="charge-meter" id="charge-meter" aria-hidden="true">
+          <b id="charge-label">HOLD TO CHARGE</b>
+          <div class="charge-segs" id="charge-segs"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+
         <!-- player's weapon status, bottom left -->
         <div class="ammo-strip">
           <span class="sm-label">AMMO</span>
@@ -119,13 +125,17 @@
           </div>
         </div>
         <div id="hints">
-          <div class="hint left">◀ DRAG TO MOVE ▶<br />DRAG DOWN: SHIELD</div>
+          <div class="hint left">◀ DRAG TO MOVE ▶<br />DRAG DOWN: SHIELD · JUST IN TIME: PARRY</div>
           <div class="hint right">TAP TO FIRE · HOLD TO CHARGE<br />DRAG TO AIM</div>
         </div>
         <div id="toast"></div>
       </div>
 
       <div id="banner"></div>
+      <!-- hit feedback: floating damage numbers, the combo counter and short callouts -->
+      <div id="dmg-layer" aria-hidden="true"></div>
+      <div id="combo" aria-hidden="true"><b>0</b><span>HITS</span></div>
+      <div id="callout" aria-hidden="true"></div>
 
       <!-- VS intro -->
       <div id="intro" class="hidden">
@@ -220,16 +230,6 @@
         <div class="panels rules">
           <section class="on">
             <div class="setting">
-              <div class="set-head"><b>Your pack</b><em>you + CPU pack-mates</em></div>
-              <span>Bring up to two allies; they share your rail in their own lanes. Bigger packs get less armour and damage each, like the opponent's.</span>
-              <div class="seg" data-setting="playerPack"><button data-value="1">Solo</button><button data-value="2">2</button><button data-value="3">3</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Pack</b><em>opponents at once</em></div>
-              <span>Fight up to three. Bigger packs get less armour and damage each.</span>
-              <div class="seg" data-setting="pack"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
-            </div>
-            <div class="setting">
               <div class="set-head"><b>Intelligence</b></div>
               <span>How well the opponent aims, leads, dodges and reacts.</span>
               <div class="seg" data-setting="enemyIQ"><button data-value="easy">Rookie</button><button data-value="normal">Regular</button><button data-value="hard">Veteran</button><button data-value="ace">Ace</button></div>
@@ -245,52 +245,11 @@
               <div class="seg" data-setting="arenaWidth"><button data-value="small">Narrow</button><button data-value="normal">Normal</button><button data-value="large">Wide</button></div>
             </div>
             <div class="setting">
-              <div class="set-head"><b>Pucks</b></div>
-              <span>Pushable cover for trick shots. Applies next match.</span>
-              <div class="seg" data-setting="pucks">
-                <button data-value="0">Off</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Walls</b><em>cover per side</em></div>
-              <span>Crates in front of each rail that block shots. Break after 5 hits.</span>
-              <div class="seg" data-setting="covers"><button data-value="0">Off</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Pins</b><em>pinball posts</em></div>
-              <span>Bouncy posts that redirect balls. Placed so both sides get the same angles.</span>
-              <div class="seg" data-setting="pins"><button data-value="0">Off</button><button data-value="2">2</button><button data-value="4">4</button><button data-value="6">6</button><button data-value="8">8</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Magazine</b><em>marbles per load</em></div>
-              <span>How many marbles each robot fires before it must reload. Applies to both.</span>
-              <div class="seg level" data-setting="magazine">
-                <button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button><button data-value="6">6</button><button data-value="7">7</button><button data-value="8">8</button><button data-value="9">9</button><button data-value="10">10</button>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Fire rate</b><em>balls per press</em></div>
-              <span>How many marbles leave the barrel on each trigger pull, in a quick string. Applies to both.</span>
-              <div class="seg level" data-setting="burst">
-                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
-              </div>
-            </div>
-            <div class="setting">
               <div class="set-head"><b>Air drops</b></div>
               <span>Item crates parachute onto each rail. Walk over one to grab it.</span>
               <div class="seg" data-setting="items"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
-            <div class="setting">
-              <div class="set-head"><b>Power gates</b></div>
-              <span>Sliding gates mid-table: 5× multiplies a ball's power, POW makes a power ball, DRG splits it into a dragon shot, HOM turns it into a homing steel ball, WALL blocks until shot 5 times.</span>
-              <div class="seg" data-setting="gates"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Charge shots</b></div>
-              <span>Opponents hold fire to charge a big shot now and then: watch for the glow at their muzzle, and dodge or shield.</span>
-              <div class="seg" data-setting="cpuCharge"><button data-value="true">On</button><button data-value="false">Off</button></div>
-            </div>
-          </section>
+            </section>
         </div>
         <footer class="dev-actions">
           <button id="setup-back" class="key">◀ Back</button>
@@ -333,6 +292,7 @@
             <button role="tab" data-tab="display">Display</button>
             <button role="tab" data-tab="opponent">Opponent</button>
             <button role="tab" data-tab="pack">Pack-mates</button>
+            <button role="tab" data-tab="advanced">Advanced</button>
           </div>
         </div>
 
@@ -454,6 +414,60 @@
               <div class="seg" data-setting="allyCharge"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
             <a class="lab-link" href="./editor.html">UNIT LAB ▸ <small>edit names, traits and block designs, or build new units</small></a>
+          </section>
+          <section data-panel="advanced">
+            <p class="pv-note adv-note">Extra rules for versus. Arcade always plays a clean table.</p>
+            <div class="setting">
+              <div class="set-head"><b>Your pack</b><em>you + CPU pack-mates</em></div>
+              <span>Bring up to two allies; they share your rail in their own lanes. Bigger packs get less armour and damage each, like the opponent's.</span>
+              <div class="seg" data-setting="playerPack"><button data-value="1">Solo</button><button data-value="2">2</button><button data-value="3">3</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Pack</b><em>opponents at once</em></div>
+              <span>Fight up to three. Bigger packs get less armour and damage each.</span>
+              <div class="seg" data-setting="pack"><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Pucks</b></div>
+              <span>Pushable cover for trick shots. Applies next match.</span>
+              <div class="seg" data-setting="pucks">
+                <button data-value="0">Off</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Walls</b><em>cover per side</em></div>
+              <span>Crates in front of each rail that block shots. Break after 5 hits.</span>
+              <div class="seg" data-setting="covers"><button data-value="0">Off</button><button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Pins</b><em>pinball posts</em></div>
+              <span>Bouncy posts that redirect balls. Placed so both sides get the same angles.</span>
+              <div class="seg" data-setting="pins"><button data-value="0">Off</button><button data-value="2">2</button><button data-value="4">4</button><button data-value="6">6</button><button data-value="8">8</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Magazine</b><em>marbles per load</em></div>
+              <span>How many marbles each robot fires before it must reload. Applies to both.</span>
+              <div class="seg level" data-setting="magazine">
+                <button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button><button data-value="6">6</button><button data-value="7">7</button><button data-value="8">8</button><button data-value="9">9</button><button data-value="10">10</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Fire rate</b><em>balls per press</em></div>
+              <span>How many marbles leave the barrel on each trigger pull, in a quick string. Applies to both.</span>
+              <div class="seg level" data-setting="burst">
+                <button data-value="1">1</button><button data-value="2">2</button><button data-value="3">3</button><button data-value="4">4</button><button data-value="5">5</button>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Power gates</b></div>
+              <span>Sliding gates mid-table: 5× multiplies a ball's power, POW makes a power ball, DRG splits it into a dragon shot, HOM turns it into a homing steel ball, WALL blocks until shot 5 times.</span>
+              <div class="seg" data-setting="gates"><button data-value="true">Show</button><button data-value="false">Hide</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Charge shots</b></div>
+              <span>Opponents hold fire to charge a big shot now and then: watch for the glow at their muzzle, and dodge or shield.</span>
+              <div class="seg" data-setting="cpuCharge"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
           </section>
         </div>
 

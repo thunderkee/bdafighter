@@ -103,6 +103,11 @@ export const X5 = { damage: 5, radius: 1.45, mass: 4 };
 
 // ---------- shield ----------
 
+/**
+ * parry: a shield raised just before a marble arrives (within `window` seconds) sends it straight
+ * back at the shooter as your own boosted marble, costs no shield energy, and stuns briefly
+ */
+export const PARRY = { window: 0.2, speed: 1.3, damage: 1.4 };
 export const SHIELD = {
   max: 100,
   /** energy drained per second while raised */

@@ -189,19 +189,6 @@ export function boot() {
   /** each ordinary stage is one step up from the last (bosses sit between them) */
   const tierAt = (stage: number) => TIERS[Math.min(TIERS.length - 1, Math.max(0, stage - 1 - Math.floor(stage / BOSS_EVERY)))];
   const stageLabel = (stage: number) => (bossAt(stage) ? (stage >= FINAL_STAGE ? 'FINAL BOSS' : `BOSS ${stage / BOSS_EVERY}`) : tierAt(stage).name);
-  /**
-   * Table clutter: most stages are a clean table; the rest add one light kind of obstacle
-   * (a couple of pucks, a few pins, or one pair of cover walls), never all of them at once.
-   */
-  const obstacles = () => {
-    const clear = { pucks: 0, pins: 0, covers: 0 };
-    if (Math.random() < 0.7) return clear;
-    return pick([
-      { ...clear, pucks: pick([1, 2]) },
-      { ...clear, pins: pick([2, 4]) },
-      { ...clear, covers: 1 },
-    ]);
-  };
   /** stage `stage`: a one-on-one at that stage's difficulty (or the boss), in a fresh arena */
   const rollStage = (stage: number, prev?: Partial<store.Settings>): Partial<store.Settings> => {
     const me = saveData.settings.character;
@@ -228,6 +215,8 @@ export function boot() {
         covers: 0,
         items: true,
         gates: false,
+        magazine: 10,
+        burst: 1,
       };
     }
     const tier = tierAt(stage);
@@ -247,9 +236,14 @@ export function boot() {
       roundTime: 60,
       stage: pick(arenas.length ? arenas : STAGES.map((st) => st.id)),
       arenaWidth: pick(['small', 'normal', 'large'] as const),
-      ...obstacles(),
-      items: Math.random() < 0.8,
-      gates: Math.random() < 0.6,
+      // a clean table: no pucks, pins, walls or gates, just you, them and the air drops
+      pucks: 0,
+      pins: 0,
+      covers: 0,
+      items: true,
+      gates: false,
+      magazine: 10,
+      burst: 1,
     };
   };
   const WIDTH_NAME = { small: 'NARROW', normal: 'STANDARD', large: 'WIDE' } as const;
@@ -356,6 +350,36 @@ export function boot() {
   const setTouchClass = () => document.body.classList.toggle('touch', input.mode === 'touch');
   setTouchClass();
 
+  // ---------- hit feedback: damage numbers, the combo counter, callouts ----------
+  const dmgLayer = $('dmg-layer');
+  const comboEl = $('combo');
+  const calloutEl = $('callout');
+  /** a number that pops up where a hit landed: gold for damage you deal, red for damage you take */
+  const damageNumber = (x: number, y: number, amount: number, yours: boolean, big: boolean) => {
+    const sp = view.project(x, y, 1.0);
+    const el = document.createElement('b');
+    el.className = 'dmg' + (yours ? ' taken' : '') + (big ? ' big' : '');
+    el.textContent = String(Math.max(1, Math.round(amount)));
+    el.style.left = sp.x + 'px';
+    el.style.top = sp.y + 'px';
+    el.style.setProperty('--dx', (Math.random() * 40 - 20).toFixed(0) + 'px');
+    dmgLayer.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  };
+  /** a short callout under the clock (FIRST HIT, COMBO, LAST STAND, PARRY...) */
+  const callout = (text: string, tone: 'gold' | 'red' | 'cyan' = 'gold') => {
+    calloutEl.textContent = text;
+    calloutEl.className = tone;
+    void calloutEl.offsetWidth;
+    calloutEl.classList.add('pop');
+  };
+  /** this round: hits in the current string, when the last one landed, the first hit, the lows */
+  const roundFeel = { combo: 0, lastHit: -9, firstHit: false, lastStand: false, low: [1, 1] };
+  const resetFeel = () => {
+    Object.assign(roundFeel, { combo: 0, lastHit: -9, firstHit: false, lastStand: false, low: [1, 1] });
+    comboEl.classList.remove('on');
+  };
+  const COMBO_GAP = 1.6;
   const showBanner = (text: string, big = false, sub?: string) => {
     banner.innerHTML = sub ? `${text}<span class="sub">${sub}</span>` : text;
     banner.classList.toggle('big', big);
@@ -412,6 +436,7 @@ export function boot() {
 
   /** fresh table for the next round: health, ammo, marbles, items, gates */
   const setupRound = () => {
+    resetFeel();
     const st = S();
     view.resetMatch();
     game.reset(playerStats(), {
@@ -573,6 +598,7 @@ export function boot() {
   };
 
   const startReplay = (final: boolean, loser: number) => {
+    comboEl.classList.remove('on');
     input.enabled = false;
     input.release();
     if (!recorder.frames.length) return endReplay(final, loser);
@@ -1264,6 +1290,27 @@ export function boot() {
           else showToast(`ALLY DOWN // ${game.alive(0).length} LEFT`, 0xff3e5e);
         }
         if (f.type === 'hit') {
+          // a number where it landed; the string of hits your side lands; the first hit of the round
+          damageNumber(f.x, f.y, f.amount, f.team === 0, f.power !== 'normal');
+          if (!roundFeel.firstHit) {
+            roundFeel.firstHit = true;
+            callout('FIRST HIT', f.team === 0 ? 'red' : 'gold');
+          }
+          if (f.team === 1) {
+            roundFeel.combo = game.time - roundFeel.lastHit < COMBO_GAP ? roundFeel.combo + 1 : 1;
+            roundFeel.lastHit = game.time;
+            if (roundFeel.combo >= 3) {
+              comboEl.querySelector('b')!.textContent = String(roundFeel.combo);
+              comboEl.classList.remove('bump');
+              void comboEl.offsetWidth;
+              comboEl.classList.add('on', 'bump');
+            }
+            if (roundFeel.combo === 5 || roundFeel.combo === 10) callout(roundFeel.combo === 10 ? 'UNSTOPPABLE!' : 'COMBO!', 'gold');
+          } else {
+            // taking a hit breaks your string
+            roundFeel.combo = 0;
+            comboEl.classList.remove('on');
+          }
           chipDelay[f.team] = 0.45;
           hpBox[f.team].classList.remove('shake');
           void hpBox[f.team].offsetWidth;
@@ -1279,6 +1326,11 @@ export function boot() {
           }
         }
         if (f.type === 'super-ready' && f.slot === 0 && S().vibrate) buzz([20, 40, 20]);
+        if (f.type === 'parry') {
+          if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'PARRY!' : 'ALLY PARRY', 'cyan');
+          else callout('PARRIED', 'red');
+          if (f.slot === 0 && S().vibrate) buzz([15, 25, 40]);
+        }
         if (f.type === 'pickup') {
           const def = ITEMS[f.item];
           if (f.slot === 0) showToast(`${def.name.toUpperCase()} ACQUIRED`, def.color);
@@ -1432,9 +1484,25 @@ export function boot() {
       lastCount = -2;
       const w = game.winner;
       const perfect = (w === 0 || w === 1) && game.shooters[w].health >= game.shooters[w].maxHealth;
-      showBanner(game.clock <= 0 ? 'TIME UP' : 'K.O.', true, perfect ? 'PERFECT' : w === -1 ? 'DRAW' : undefined);
+      // won from the brink: a comeback (or just hanging on)
+      const comeback = (w === 0 || w === 1) && roundFeel.low[w] < 0.25;
+      const close = (w === 0 || w === 1) && game.teamFrac(w) < 0.15;
+      comboEl.classList.remove('on');
+      showBanner(game.clock <= 0 ? 'TIME UP' : 'K.O.', true, perfect ? 'PERFECT' : comeback ? 'COMEBACK' : close ? 'CLOSE ONE' : w === -1 ? 'DRAW' : undefined);
     }
 
+    // the string lapses when no hit lands for a moment; your health dropping low gets a callout
+    if (roundFeel.combo && game.time - roundFeel.lastHit > COMBO_GAP) {
+      roundFeel.combo = 0;
+      comboEl.classList.remove('on');
+    }
+    if (game.phase === 'fight') {
+      for (const t of [0, 1] as const) roundFeel.low[t] = Math.min(roundFeel.low[t], game.teamFrac(t));
+      if (!roundFeel.lastStand && game.teamFrac(0) < 0.2 && game.teamFrac(0) > 0) {
+        roundFeel.lastStand = true;
+        callout('LAST STAND', 'red');
+      }
+    }
     clock.textContent = Number.isFinite(game.clock) ? Math.ceil(game.clock).toString() : '∞';
     clock.classList.toggle('low', game.clock < 10);
 
@@ -1504,6 +1572,25 @@ export function boot() {
     (rg.firstElementChild as HTMLElement).style.left = 50 + (player.x / ARENA.railHalfWidth) * 50 + '%';
     rg.classList.toggle('end', !!player.railPush);
 
+    // the charge meter: an arming bar for the first half second, then one segment per stored
+    // ball (the next one filling), so holding fire is never a hidden mechanic
+    const meter = $('charge-meter');
+    const holding = player.alive && player.chargeHold > 0.12;
+    meter.classList.toggle('on', holding || player.stored > 0);
+    if (holding || player.stored > 0) {
+      const armed = player.chargeHold >= CHARGE.hold;
+      const next = armed ? ((player.chargeHold - CHARGE.hold) % CHARGE.per) / CHARGE.per : player.chargeHold / CHARGE.hold;
+      const segs = $('charge-segs').children;
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i] as HTMLElement;
+        const fill = i < player.stored ? 1 : i === player.stored && player.stored < CHARGE.max ? (armed ? next : 0) : 0;
+        seg.style.setProperty('--fill', String(fill));
+        seg.classList.toggle('lit', i < player.stored);
+      }
+      meter.classList.toggle('arming', !armed);
+      $('charge-label').textContent = !armed ? 'HOLD TO CHARGE' : player.stored ? `CHARGE ×${player.stored}` : 'CHARGING';
+      meter.style.setProperty('--arm', String(armed ? 1 : next));
+    }
     // during a reload the tube refills from the bottom as the bar fills
     const full = player.reload > 0 ? Math.floor((1 - player.reload / player.stats.reloadTime) * player.stats.capacity) : Math.floor(player.ammo);
     const kids = pips.children;

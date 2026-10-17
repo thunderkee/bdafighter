@@ -88,6 +88,10 @@ export interface SaveData {
   nearCam?: boolean;
   /** a clear table (no pucks, walls or pins) became the default once */
   clearTable?: boolean;
+  /** the simple rules (clear table, no power gates) and the mid camera became the default once */
+  simpleRules?: boolean;
+  /** units unlocked through the arcade (beyond the starters) */
+  unlocked?: string[];
   muted: boolean;
   settings: Settings;
 }
@@ -107,10 +111,10 @@ export const DEFAULT_SETTINGS: Settings = {
   vibrate: true,
   stage: 'space',
   items: true,
-  gates: true,
+  gates: false,
   fireButtons: 'single',
   enemyCharacter: 'auto',
-  camera: 'near',
+  camera: 'mid',
   effects: true,
   realism: true,
   showFps: false,
@@ -159,7 +163,9 @@ export function load(): SaveData {
       delete (settings as Record<string, unknown>).bumps;
       if (!parsed.nearCam) settings.camera = 'near';
       if (!parsed.clearTable) Object.assign(settings, { pucks: 0, covers: 0, pins: 0 });
-      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true, clearTable: true };
+      // simple rules: a clear table without power gates, seen from the mid camera
+      if (!parsed.simpleRules) Object.assign(settings, { pucks: 0, covers: 0, pins: 0, gates: false, camera: 'mid' });
+      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true, clearTable: true, simpleRules: true };
     }
   } catch {
     // keep the in-memory copy

@@ -435,10 +435,11 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // the head keeps turning 45 degrees left and right; shots follow it, so rapid fire sweeps
   ember: { special: { wobble: Math.PI / 4 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   // desert: sand armour, dark brown, red accents, cyan eyes
-  // rex and liger shoot an enemy air drop out of the sky when it falls straight ahead
-  rex: { special: { antiAir: true }, addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
+  // every fourth shot is a giant bite of a marble
+  rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
   // Char's red Zaku: salmon red armour, deep maroon plates, dark grey frame, a pink-red eye; no patterns
-  liger: { special: { antiAir: true }, addons: ['armyWhites'], ball: 0xff5a6a, palette: { body: 0xd9525e, trim: 0x7c1c28, accent: 0x7c1c28, joint: 0x34343c, eye: 0xff3a7a } },
+  // bank shots: its marbles keep their speed off the walls and hit harder for every bounce
+  liger: { special: { ricochet: 0.35 }, addons: ['armyWhites'], ball: 0xff5a6a, palette: { body: 0xd9525e, trim: 0x7c1c28, accent: 0x7c1c28, joint: 0x34343c, eye: 0xff3a7a } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;

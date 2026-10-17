@@ -16,6 +16,7 @@ import {
   PIN,
   PIN_SPOTS,
   SHIELD,
+  PARRY,
   SLOWMO,
   WIPER,
   X5,
@@ -190,6 +191,7 @@ export type Fx =
   | { type: 'shield-break'; slot: number }
   | { type: 'clack'; x: number; y: number; intensity: number }
   | { type: 'drop-destroyed'; x: number; y: number; team: Team; item: ItemType; h?: number }
+  | { type: 'parry'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
   | { type: 'super-fire'; slot: number }
@@ -250,6 +252,7 @@ export class Shooter {
   lastHand = 1;
   swapT = 0;
   swapN = 0;
+  biteN = 0;
   windLeft = 0;
   windT = 9;
   wobble = 0;
@@ -291,6 +294,9 @@ export class Shooter {
   railPush = 0;
   /** shield: wanted (input/AI), energy, lockout after a break, regen delay */
   shielding = false;
+  /** seconds since the shield went up (a parry needs it raised just in time), and whether it was up last step */
+  shieldT = 9;
+  wasShielding = false;
   shield: number = SHIELD.max;
   shieldLock = 0;
   shieldIdle = 0;
@@ -364,7 +370,7 @@ export class Shooter {
     this.out = false;
     this.kickT = this.heavyT = 9;
     this.hand = this.lastHand = 1;
-    this.swapT = this.swapN = 0;
+    this.swapT = this.swapN = this.biteN = 0;
     this.windLeft = 0;
     this.windT = 9;
     this.wobble = this.wobbleN = 0;
@@ -423,8 +429,12 @@ const BURST_GAP = 0.07;
 const TWIN = { gap: TWIN_X, damage: 0.45 };
 /** spread fire (an arcade boss): the angle between the marbles of a fan, and each one's share of the damage */
 const FAN = { angle: 0.16, damage: 0.5 };
-/** how fast a sweeping head turns (radians of sweep phase per second: one left-right pass in about 2.5s) */
-const HEAD_SWEEP = 2.5;
+/** how fast a sweeping head turns (radians of sweep phase per second: a left-right pass in about 4s) */
+const HEAD_SWEEP = 1.5;
+/** Wyvern's wound-up shot: damage, speed and weight against a regular one */
+const WINDUP = { damage: 1.4, speed: 1.1, mass: 1.8 };
+/** Rex's bite: the giant marble's size, weight and damage */
+const BITE = { radius: 1.6, mass: 3, damage: 1.8 };
 
 /** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
@@ -910,6 +920,8 @@ export class Game {
     this.events.drainCollisionEvents((h1, h2, started) => {
       if (started) this.onContact(h1, h2);
     });
+    // parries send their marbles back once the physics events are done
+    for (const pr of this.parries.splice(0)) this.parry(pr);
 
     const limitY = ARENA.length / 2 + 1;
     for (const m of this.marbles) {
@@ -941,6 +953,34 @@ export class Game {
   }
 
   /** Soak a hit on the shield. Returns true if it was blocked. */
+  /** perfect blocks waiting to return their marbles (handled after the physics events) */
+  private parries: { s: Shooter; attacker: Shooter; damage: number; kind: MarbleKind; x: number; y: number }[] = [];
+
+  /** a parry: the marble flies straight back at its shooter, faster and harder, as the parrier's own */
+  private parry(pr: { s: Shooter; attacker: Shooter; damage: number; kind: MarbleKind; x: number; y: number }) {
+    const { s, attacker } = pr;
+    this.fx.push({ type: 'parry', x: pr.x, y: pr.y, slot: s.slot });
+    sfx.play('superhit', s.slot === 0 ? 1 : 0.6);
+    this.hitstop = Math.max(this.hitstop, 0.12);
+    s.shieldIdle = 0;
+    const m = this.takeMarble();
+    if (!m) return;
+    const t = attacker.alive ? attacker : this.targetFor(s);
+    const angle = Math.atan2(t.x - s.x, (t.y - s.y) * s.forward);
+    const st = s.stats;
+    this.launch(m, s, {
+      angle: Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, angle)),
+      radius: st.marbleRadius * (pr.kind === 'super' ? 1.4 : 1.15),
+      speed: st.muzzleSpeed * PARRY.speed,
+      mass: st.marbleMass * 1.6,
+      damage: pr.damage * PARRY.damage,
+      kind: 'boost',
+      push: st.marbleRadius,
+    });
+    s.recoil = 1;
+    s.kickT = 0;
+  }
+
   private block(s: Shooter, amount: number, x: number, y: number, heavy: boolean) {
     if (!s.shieldUp) return false;
     s.shield = Math.max(0, s.shield - amount * SHIELD.blockCost);
@@ -1319,8 +1359,9 @@ export class Game {
       s.windLeft = 0;
       if (s.alive) this.fire(s, true);
     }
-    // Ember's head turns left and right all the time; its shots follow it
-    if (sp?.wobble) s.wobble = Math.sin((s.wobbleN += adt * HEAD_SWEEP)) * sp.wobble;
+    // Ember's head turns left and right all the time; its shots follow it (holding fire slows
+    // the sweep, so a steady hand can line a shot up)
+    if (sp?.wobble) s.wobble = Math.sin((s.wobbleN += adt * HEAD_SWEEP * (s.firing ? 0.35 : 1))) * sp.wobble;
     s.cooldown -= adt;
     s.sinceHit += dt;
     s.sinceHurt += dt;
@@ -1357,6 +1398,9 @@ export class Game {
 
     // shield energy: drains while raised, regenerates after a pause
     s.shieldLock = Math.max(0, s.shieldLock - dt);
+    if (s.shieldUp && !s.wasShielding) s.shieldT = 0;
+    s.shieldT += dt;
+    s.wasShielding = s.shieldUp;
     if (canAct && s.shieldUp) {
       s.shield = Math.max(0, s.shield - SHIELD.drain * dt);
       s.shieldIdle = 0;
@@ -1604,20 +1648,6 @@ export class Game {
       }
       return;
     }
-    // anti-air: an enemy air drop falling straight ahead is shot out of the sky instead
-    if (sp?.antiAir && Math.abs(s.aim) < 0.3) {
-      const d = this.drops.find((dr) => dr.team !== s.team && dr.h > 1.0 && Math.abs(dr.x - s.x) < 0.9);
-      if (d) {
-        this.drops.splice(this.drops.indexOf(d), 1);
-        const y = d.team === 0 ? -ARENA.railY : ARENA.railY;
-        this.fx.push({ type: 'drop-destroyed', x: d.x, y, team: d.team, item: d.type, h: d.h });
-        this.fx.push({ type: 'muzzle', slot: s.slot });
-        sfx.play('fire', s.slot === 0 ? 1 : 0.45);
-        s.recoil = 1;
-        s.kickT = 0;
-        return;
-      }
-    }
     const m = this.takeMarble();
     if (!m) return;
     // the hand this shot leaves from (it may change for the next one)
@@ -1630,23 +1660,26 @@ export class Game {
     }
     // the shot leaves the way the head is facing right now
     const wob = sp?.wobble ? s.wobble : 0;
+    // Rex: every few shots is a bite, a giant heavy marble; Wyvern's wound-up shot hits harder
+    const bite = !!sp?.bite && (s.biteN = (s.biteN + 1) % sp.bite) === 0;
+    const wind = sp?.windup ? WINDUP : { damage: 1, speed: 1, mass: 1 };
     const isSuper = s.superReady;
     s.superReady = false;
     // in your own slow-mo every shot is a boost ball
     const boost = !isSuper && this.slowT > 0 && this.slowOwner === s.slot;
-    const radius = st.marbleRadius * (isSuper ? SUPER.radius : boost ? BOOST_BALL.radius : 1);
+    const radius = st.marbleRadius * (isSuper ? SUPER.radius : boost ? BOOST_BALL.radius : bite ? BITE.radius : 1);
     const twin = !!st.twin && !isSuper;
     const fan = !isSuper && (st.fan ?? 1) > 1 ? st.fan! : 1;
     this.launch(m, s, {
       // a super shot flies dead straight
       angle: s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread + wob),
       radius,
-      speed: st.muzzleSpeed * (isSuper ? SUPER.speed : boost ? BOOST_BALL.speed : 1),
-      mass: st.marbleMass * (isSuper ? SUPER.mass : boost ? BOOST_BALL.mass : 1),
-      damage: st.damage * (isSuper ? SUPER.damage : boost ? BOOST_BALL.damage : 1) * (twin ? TWIN.damage : 1) * (fan > 1 ? FAN.damage : 1),
-      kind: isSuper ? 'super' : boost ? 'boost' : 'normal',
+      speed: st.muzzleSpeed * (isSuper ? SUPER.speed : boost ? BOOST_BALL.speed : 1) * wind.speed,
+      mass: st.marbleMass * (isSuper ? SUPER.mass : boost ? BOOST_BALL.mass : bite ? BITE.mass : 1) * wind.mass,
+      damage: st.damage * (isSuper ? SUPER.damage : boost ? BOOST_BALL.damage : bite ? BITE.damage : 1) * (twin ? TWIN.damage : 1) * (fan > 1 ? FAN.damage : 1) * wind.damage,
+      kind: isSuper ? 'super' : boost || bite ? 'boost' : 'normal',
       // nudge a big marble forward so it doesn't spawn inside the robot
-      push: isSuper ? radius : 0,
+      push: isSuper || bite ? radius : 0,
       side: twin ? TWIN.gap : 0,
     });
     s.shots++;
@@ -1798,6 +1831,11 @@ export class Game {
         // power balls always land at full power
         const factor = heavy ? 1 : Math.max(0.45, Math.min(1.25, speed / 15));
         const amount = m.damage * factor;
+        // a perfect block: the marble goes straight back at whoever fired it
+        if (s.shieldUp && s.shieldT < PARRY.window) {
+          this.parries.push({ s, attacker: this.shooters[m.owner], damage: m.damage, kind: m.kind, x: p.x, y: p.y });
+          return;
+        }
         if (this.block(s, amount, p.x, p.y, heavy)) return;
         s.flash = heavy ? 0.3 : 0.12;
         if (m.kind === 'super') s.stagger = 0.45;
@@ -1812,7 +1850,8 @@ export class Game {
             if (attacker.slot === 0) sfx.play('charge');
           }
         }
-        this.hitstop = Math.max(this.hitstop, m.kind === 'super' ? 0.16 : m.kind === 'dragon' || m.kind === 'x5' ? 0.09 : s.team === 0 ? 0.06 : 0.04);
+        // a beat of hit-stop on every hit (a touch more when you're the one hit), longer for big ones
+        this.hitstop = Math.max(this.hitstop, m.kind === 'super' ? 0.18 : m.kind === 'dragon' || m.kind === 'x5' ? 0.1 : s.team === 0 ? 0.075 : 0.06);
         this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, slot: s.slot, amount, power: m.kind });
         sfx.play(m.kind === 'super' ? 'superhit' : s.team === 0 ? 'hurt' : 'hit', factor);
         this.damage(s, attacker, amount, { marble: m.idx });
@@ -1834,12 +1873,20 @@ export class Game {
         }
         break;
       }
-      case 'wall':
+      case 'wall': {
         m.hop = Math.max(m.hop, Math.min(0.35, speed * 0.015));
         m.bounces++;
+        // Liger's marbles come off the wall at full speed, and harder for every bounce
+        const ric = this.shooters[m.owner]?.stats.special?.ricochet;
+        if (ric) {
+          m.damage *= 1 + ric;
+          m.body.setLinvel({ x: v.x / 0.82, y: v.y / 0.82 }, true);
+          this.fx.push({ type: 'spark', x: p.x, y: p.y, intensity: 1 });
+        }
         sfx.play('wall', speed / 20);
         if (m.bounces > MATCH.marbleMaxBounces) this.toDespawn.add(m);
         break;
+      }
       case 'bump':
         m.hop = Math.max(m.hop, Math.min(0.45, speed * 0.02));
         m.bounces++;

@@ -59,13 +59,15 @@ export interface ShooterStats {
 
 /**
  * Signature tricks some units have:
- * - windup: seconds of wind-up before each shot leaves (Wyvern punches, then its maw blasts)
+ * - windup: seconds of wind-up before each shot leaves (Wyvern punches, then its maw blasts);
+ *   the wound-up shot hits harder and knocks back more
  * - hand: how far the gun sits off the centre line; the shot leaves from that side
  * - swap: shots before the gun is tossed to the other hand (Pioneer)
  * - alternate: fire from alternate hands, shot by shot (Kabuto's twin fist cannons)
  * - wobble: the head keeps turning this far (radians) left and right, and each shot leaves the way
  *   it's facing, so rapid fire sweeps across the table (Ember)
- * - antiAir: fires straight up at an enemy air drop falling straight ahead (Rex, Liger)
+ * - bite: every this-many shots is a giant, heavy marble (Rex)
+ * - ricochet: its marbles keep their speed off the walls and gain this share of damage per bounce (Liger)
  */
 /** seconds a swapped gun takes to jump from one hand to the other (it fires once it lands) */
 export const TOSS_TIME = 0.3;
@@ -76,7 +78,8 @@ export interface Special {
   swap?: number;
   alternate?: boolean;
   wobble?: number;
-  antiAir?: boolean;
+  bite?: number;
+  ricochet?: number;
 }
 
 export const BASE_STATS: ShooterStats = {
