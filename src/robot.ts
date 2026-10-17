@@ -71,8 +71,6 @@ export interface CharacterDef {
   look21?: Look21;
   /** 2.1 beasts: signature parts added on top of their Unit Lab design */
   addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes' | 'armyWhites' | 'spines' | 'blades')[];
-  /** 2.2 beasts: an original body plan built in code */
-  beast22?: 'drake' | 'ankylo' | 'wolf';
   /** a 2.1 unit */
   v21?: boolean;
   /** the 2.2 roster: original designs (the roster you pick from) */
@@ -387,8 +385,8 @@ type Look21 = {
   hover?: boolean;
   /** a big flowing cape: wide matching side panels and a tall middle one */
   bigCape?: boolean;
-  /** the lizard as a newt: a flatter head with gill frills, and a cold blue flame */
-  newt?: boolean;
+  /** the lizard as a little dragon: horns, small wings, spines down the tail, a blue flame */
+  drake?: boolean;
   /** a sleeker main-character Gundam head, the crown and ears in the accent colour */
   heroHead?: boolean;
   /** an attacking stance: a lunge (left leg forward, right back), a forward lean, the off hand raised on guard */
@@ -477,41 +475,41 @@ const PATTERNS22: Record<string, [BallTex, ArmourTex]> = {
   liger: ['tiger', 'none'],
   ember: ['candy', 'spots'],
 };
-const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; look?: Look21; beast?: CharacterDef['beast22']; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; tune?: Tune[]; fit?: [number, number, number]; ball: number; palette: Partial<Palette>; glow?: number; matte?: boolean }> = {
-  // the hero swordsman, on his 2.1 frame, in navy, silver and copper: a sleeker hero head under
-  // a new crest (two long V blades and a short centre blade over a red gem)
-  angel: { crest: 'trident', look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xffa04a, palette: { body: 0xe8ecf0, trim: 0x223a6a, accent: 0xe08a3a, joint: 0x161a24, eye: 0x5af0ff } },
-  // a gorilla: knuckles on the floor, one huge blaster on its back reaching over its head; it
-  // bows into every shot and the marble leaves the blaster's muzzle
-  dragon: { special: { windup: 0.16 }, look: { frame: 'heavy', head: 'oni', shoulder: 'heavy', gun: 'backBlaster', gorilla: true, bow: true, menace: true, lean: -0.22 }, ball: 0xff8a3a, palette: { body: 0x4a5058, trim: 0x1c1e22, accent: 0xff7a1a, joint: 0x2a2c30, eye: 0xffd23e } },
-  // a bird-legged scout: one big round eye under a sharp brim, swept fins, wings on its back;
-  // tosses its heavy MG hand to hand
-  pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'scout', shoulder: 'wedge', gun: 'hmg', back: ['wings'], pose: 'dualAim', digi: true, lean: -0.1 }, ball: 0x5af0e0, palette: { body: 0xe8ecef, trim: 0x2a7f86, accent: 0xff5a3a, joint: 0x2a3038, eye: 0x7ff0ff } },
-  // a four-legged siege walker with a diving-helmet head and a long rail rifle
-  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', back: ['radio'], spider: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
-  // a ram with great curled horns and a twin-bore bazooka on its shoulder
-  monoceros: { name: 'Aries', twin: true, look: { frame: 'heavy', head: 'ram', shoulder: 'stepped', gun: 'bazooka', pose: 'bazooka', back: ['boosters'], menace: true, lean: -0.08 }, ball: 0xff8a5a, palette: { body: 0xa8402a, trim: 0x2a2a30, accent: 0xf0d8a0, joint: 0x1a1a1e, eye: 0x7ff0ff } },
-  // a flying ace in crimson on tank treads: flight cap, goggles and scarf, a gatling in both hands
-  baron: { look: { frame: 'heavy', head: 'aviator', shoulder: 'heavy', gun: 'gatling', back: ['drum'], treads: true, pose: 'twoHand' }, ball: 0xffd06a, palette: { body: 0xb8282a, trim: 0x3a2a1a, accent: 0xf2e6c8, joint: 0x2a2420, eye: 0xffd06a } },
-  // a leaf-green praying mantis on bird legs: both forearms are scythes, and a shot is both
-  // slashing in at once, the marble appearing where they cross
-  bastion: { look: { frame: 'lanky', head: 'mantis', shoulder: 'spike', gun: 'mantisScythe', back: ['fins'], digi: true, menace: true, pose: 'aim', lean: -0.26 }, ball: 0xffe05a, palette: { body: 0x7fbf4a, trim: 0x2e4a22, accent: 0xf2e05a, joint: 0x1e2a18, eye: 0xff5a3a } },
-  // an ivory phantom: the 2.1 cowl and staff, a long cape, one tail instead of legs as it floats
+const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; tune?: Tune[]; ball: number; palette: Partial<Palette>; glow?: number; matte?: boolean }> = {
+  // Each 2.2 is its 2.1 with only what gives the reference away changed.
+  // Seraph (Astray Red Frame): the red frame becomes navy and the V-fin a trident crest
+  angel: { crest: 'trident', look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0x5af0ff, palette: { body: 0xf2f2f2, trim: 0x223a6a, accent: 0xe08a3a, joint: 0x1e2a44, eye: 0x5af0ff } },
+  // Wyvern (Megazord): no zord-coloured limbs, pink breastplate, tusk shield or power sword;
+  // one gunmetal-and-orange scheme, an oni head, a claw in the off hand
+  dragon: { special: { windup: 0.16 }, look: { frame: 'heavy', head: 'oni', shoulder: 'heavy', gun: 'chestMaw', left: 'claw', back: ['fins', 'rexTail'], dynamic: true, menace: true, lean: -0.12 }, ball: 0xff8a3a, palette: { body: 0x4a5058, trim: 0x1c1e22, accent: 0xff7a1a, joint: 0x2a2c30, eye: 0xffd23e } },
+  // Pioneer: a hawk-scout head in place of the visor and antenna, white and teal
+  pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'scout', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'dualAim', dynamic: true, lean: -0.16 }, ball: 0x5af0e0, palette: { body: 0xe8ecef, trim: 0x2a7f86, accent: 0xff5a3a, joint: 0x2a3038, eye: 0x7ff0ff } },
+  // Liberty (Tallgeese): a diving-helmet head for the plume helm, a rail rifle for the Dober gun
+  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], treads: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
+  // Aries (Blastoise): no shell on its back; a ram's head with curled horns, in rust
+  monoceros: { name: 'Aries', twin: true, look: { frame: 'heavy', head: 'ram', shoulder: 'heavy', gun: 'shellCannon', back: ['boosters'], gorilla: true, menace: true, lean: -0.32 }, ball: 0xff8a5a, palette: { body: 0xa8402a, trim: 0x2a2a30, accent: 0xf0d8a0, joint: 0x1a1a1e, eye: 0x7ff0ff } },
+  // Crimson Baron (Zaku): a flying-ace head for the mono-eye, plain shoulders for the shield
+  // and spikes, and crimson for the teal
+  baron: { look: { frame: 'heavy', head: 'aviator', shoulder: 'heavy', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xffd06a, palette: { body: 0xb8282a, trim: 0x3a2a1a, accent: 0xf2e6c8, joint: 0x2a2420, eye: 0xffd06a } },
+  // Bastion (the Punisher): no skull; a mantis head, in leaf green
+  bastion: { look: { frame: 'heavy', head: 'mantis', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, menace: true, pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xffe05a, palette: { body: 0x5a9a3a, trim: 0x2e4a22, accent: 0xf2e05a, joint: 0x1a2416, eye: 0xff5a3a } },
+  // Nightshade: ivory for the purple, and one floating tail instead of legs
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, wisp: true, bigCape: true }, ball: 0xff4a5a, glow: 0xff3a4a, palette: { body: 0xe8e2d6, trim: 0x1a1418, accent: 0xff3a4a, joint: 0x2a2428, eye: 0xff3a4a } },
-  // a squat violet tank: a war helm with a crescent crest, huge hands with a palm blaster in each
-  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'squat', head: 'warlord', shoulder: 'heavy', gun: 'palm', back: ['fins'], treads: true, pose: 'dualAim' }, ball: 0xc88aff, glow: 0xb06aff, palette: { body: 0x6a3fc8, trim: 0x1e1a2a, accent: 0xffb02e, joint: 0x14121e, eye: 0x5af0ff } },
-  // a lion king in crimson and gold: a mane and a crown, a royal cape, and a fist cannon on
-  // each arm firing in turn
-  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'heavy', head: 'lion', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.1 }, ball: 0xffc84a, palette: { body: 0x9a1c24, trim: 0x2a1a1a, accent: 0xe8b83a, joint: 0x1e1416, eye: 0xffe14d } },
-  // Cerberus: a horned hellhound head and a snarling wolf's head on each fist; the two hounds
-  // bite in turn, the marble leaving whichever one snaps
-  tyrant: { special: { alternate: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', menace: true, lean: -0.16 }, ball: 0xff5a2a, glow: 0xff3a1a, palette: { body: 0x1e1c22, trim: 0x5a1418, accent: 0x8a8e96, joint: 0x101014, eye: 0xff3a1a } },
-  // the 2.1 rex in frost blue, spines down its back; every fourth shot is a bite
+  // Unit Violet (EVA Unit-08): a crescent war helm for the horned EVA head, fins for the
+  // pylons, tank treads for the long legs, and violet for the pink
+  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'lanky', head: 'warlord', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', treads: true, menace: true, lean: -0.2 }, ball: 0xc88aff, glow: 0xb06aff, palette: { body: 0x6a3fc8, trim: 0x1e1a2a, accent: 0xffb02e, joint: 0x14121e, eye: 0x5af0ff } },
+  // Leo King (Metabee): a lion's head for the beetle dome, no X legs or shell skirt, a royal cape
+  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'lion', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xffc84a, palette: { body: 0x9a1c24, trim: 0x2a1a1a, accent: 0xe8b83a, joint: 0x1e1416, eye: 0xffe14d } },
+  // Tyrant King (Megatron): a hellhound head for the bucket helm, wolf heads on both fists for
+  // the T-rex fist, no silver ribcage; black and blood red
+  tyrant: { special: { alternate: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xff5a2a, glow: 0xff3a1a, palette: { body: 0x1e1c22, trim: 0x5a1418, accent: 0x8a8e96, joint: 0x101014, eye: 0xff3a1a } },
+  // Rex Saur: frost blue for the desert sand, spines down its back
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall', 'spines'], ball: 0x8ad8ff, palette: { body: 0x8ab8d8, trim: 0x2a3a4a, accent: 0xff5a3a, joint: 0x1a2430, eye: 0xffe14d } },
-  // a black-and-gold wolf, high at the shoulder; its marbles ricochet harder
-  liger: { special: { ricochet: 0.35 }, beast: 'wolf', fit: [1.3, 1.3, 1.3], ball: 0xffd23e, palette: { body: 0x2a2a30, trim: 0xd8a83a, accent: 0xd8a83a, joint: 0x16161a, eye: 0x5af0ff } },
-  // a young teal dragon: horns, folded wings, a spade tail; breathes its marbles, head sweeping
-  ember: { special: { wobble: Math.PI / 4 }, beast: 'drake', fit: [1.3, 1.3, 1.3], ball: 0x5af0ff, palette: { body: 0x2ab8a8, trim: 0x14504a, accent: 0xf2c84a, joint: 0x0e3a36, eye: 0x5af0ff } },
+  // Fang Liger (Char's red): black and gold, with blades on its flanks
+  liger: { special: { ricochet: 0.35 }, addons: ['armyWhites', 'blades'], ball: 0xffd23e, palette: { body: 0x2a2a30, trim: 0xd8a83a, accent: 0xd8a83a, joint: 0x16161a, eye: 0x5af0ff } },
+  // Ember Lizard (Charmander): emerald with gold belly scales, horns, wings and spines, and a
+  // spade at the tail's tip instead of the flame
+  ember: { special: { wobble: Math.PI / 4 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', drake: true }, ball: 0x5af0ff, palette: { body: 0x2a9a6a, trim: 0xc8902a, accent: 0xf2c84a, joint: 0x14503a, eye: 0x141018 } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -560,8 +558,7 @@ export const BUILTINS: readonly CharacterDef[] = [
     const palette = { ...o.palette, ...v.palette };
     palette.wing = palette.body;
     palette.wingTip = palette.trim;
-    // (2.2 beasts are built in code; none borrow an older design)
-    const beast = !v.look && !v.beast;
+    const beast = !v.look;
     return {
       ...o,
       id: `${o.id}-22`,
@@ -569,7 +566,6 @@ export const BUILTINS: readonly CharacterDef[] = [
       from: beast ? `${o.id}-2` : o.id,
       v22: true,
       look21: v.look,
-      beast22: v.beast,
       addons: v.addons,
       twin: v.twin,
       special: v.special,
@@ -582,7 +578,7 @@ export const BUILTINS: readonly CharacterDef[] = [
       armourTex: PATTERNS22[o.id]?.[1] ?? 'none',
       glow: v.glow ?? o.glow,
       darkFace: false,
-      fit: v.fit ?? (beast ? V2[o.id]?.fit : undefined),
+      fit: beast ? V2[o.id]?.fit : undefined,
       ball: v.ball,
       palette,
     };
@@ -622,7 +618,7 @@ export const shippedById = (id: string) => {
   const b = BUILTINS.find((c) => c.id === id);
   if (!b) return undefined;
   // a 2.0 unit borrows its original's traits (and, if it has no 2.0 chassis, its design), never its colours or name
-  const borrow = (u: UnitEntry | undefined): UnitEntry | undefined => (u ? { id, base: u.base, blueprint: b.kit || b.look21 || b.beast22 ? undefined : u.blueprint, traits: u.traits } : undefined);
+  const borrow = (u: UnitEntry | undefined): UnitEntry | undefined => (u ? { id, base: u.base, blueprint: b.kit || b.look21 ? undefined : u.blueprint, traits: u.traits } : undefined);
   const shipped = SHIPPED.units[id] ?? (b.from ? borrow(SHIPPED.units[b.from]) : undefined);
   const published = PUBLISHED.units[id] ?? (b.from ? borrow(PUBLISHED.units[b.from]) : undefined);
   return applyEntry(applyEntry(b, shipped), published);
@@ -812,10 +808,6 @@ export class ShooterMesh {
     if (def.blueprint) {
       this.buildBlueprint(def.blueprint, def, marbleColor);
       this.addons21(def);
-      return;
-    }
-    if (def.beast22) {
-      this.buildBeast22(def, { body, trim, accent, joint, eyeMat, ballMat });
       return;
     }
     if (def.look21) {
@@ -3923,250 +3915,32 @@ export class ShooterMesh {
       flame.add(at(new THREE.Mesh(new THREE.BoxGeometry(r * 1.6, r * 1.6, r * 1.6), mat), 0, y));
       flame.add(at(new THREE.Mesh(new THREE.ConeGeometry(r * 0.95, h, 4), mat), 0, y + h / 2));
     };
-    // (a newt's flame burns cold blue)
-    const cold = !!def.look21?.newt;
+    // (a little dragon's flame burns blue)
+    const cold = !!def.look21?.drake;
     fire(0.22, 0.56, cold ? 0x1a6aff : 0xff4a0a, -0.12, 0.85);
     fire(0.15, 0.42, cold ? 0x3ab8ff : 0xffa21a, -0.1, 0.9);
     fire(0.08, 0.26, cold ? 0xc8f4ff : 0xfff07a, -0.08, 1);
     if (cold) {
-      // the newt: a flatter, wider head with gill frills fanned out behind the cheeks
-      head.scale.set(1.12, 0.84, 1.1);
-      for (const sx of [-1, 1])
-        for (let q = 0; q < 3; q++) {
-          const gill = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.2 - q * 0.03, 0.06), this.paint(def.palette.accent, 'accent'));
-          gill.position.set(sx * 0.33, 0.1 - q * 0.08, 0.06 + q * 0.04);
-          gill.rotation.set(0, 0, sx * (0.7 + q * 0.25));
-          head.add(gill);
-        }
+      // the little dragon: two horns swept back off the skull and a short pair behind them,
+      // small bat wings on its back, and spines down the tail
+      const horn = this.paint(def.palette.accent, 'accent');
+      for (const sx of [-1, 1]) {
+        head.add(at(cone(0.05, 0.3, horn), sx * 0.17, 0.3, 0.12, -1.0, 0, -sx * 0.25));
+        head.add(at(cone(0.035, 0.16, horn), sx * 0.26, 0.16, 0.16, -1.2, 0, -sx * 0.6));
+        const wing = at(new THREE.Group(), sx * 0.2, 0.46, 0.34, 0.25, 0, sx * -0.55);
+        const span: [number, number][] = [[0, 0.56], [0.56, 0.34], [0.46, 0.14], [0.32, 0.2], [0.2, 0.06], [0, 0.0]];
+        wing.add(at(box(0.05, 0.58, 0.05, m.joint), 0, 0.28, 0));
+        wing.add(at(plate(sx === 1 ? span : mirrorX(span), 0.025, m.accent), 0, 0, 0.03));
+        this.turret.add(wing);
+      }
+      for (let q = 0; q < 5; q++) tail.add(at(cone(0.035, 0.12 - q * 0.012, horn), 0, 0.13 + q * 0.11, 0.18 + q * 0.2, -0.6 - q * 0.15));
+      // no flame on the tail: a spade at its tip, and the fire lives in its mouth instead
+      tail.add(at(plate([[0, 0.16], [0.14, 0.0], [0, -0.06], [-0.14, 0.0]], 0.05, horn), 0, 0.5, 1.08, -0.4));
+      flame.visible = false;
     }
     tail.add(flame);
-    this.flame = flame;
+    if (flame.visible) this.flame = flame;
     this.root.add(tail);
-    this.wings.position.set(0, 0.4, 0.3);
-    this.turret.add(this.wings);
-    this.wings.add(this.wingL, this.wingR);
-    this.trigger = box(0.01, 0.01, 0.01, m.joint);
-    this.turret.add(this.trigger);
-  }
-
-  /**
-   * 2.2 beasts, built in code on their own body plans: a sprawling salamander with a mortar on
-   * its back, an armoured ankylosaur with a club tail, and a lean wolf, high at the shoulder.
-   * The legs hang from the root (walked in diagonal pairs); the turret is the neck, carrying the
-   * head, whose jaw snaps open as the marble leaves the mouth.
-   */
-  private buildBeast22(def: CharacterDef, m: { body: THREE.Material; trim: THREE.Material; accent: THREE.Material; joint: THREE.Material; eyeMat: THREE.Material; ballMat: THREE.Material }) {
-    const kind = def.beast22!;
-    const white = this.paint(0xf2efe6);
-    const black = this.paint(0x141018, 'rubber');
-    const pink = this.paint(0xc8506a);
-    const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-    const at = <T extends THREE.Object3D>(o: T, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
-      o.position.set(x, y, z);
-      o.rotation.set(rx, ry, rz);
-      return o;
-    };
-    const box = (w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0) => at(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat), x, y, z);
-    const prism = (wb: number, db: number, wt: number, dt: number, h: number, mat: THREE.Material, cuts: Cuts = 0, lean = 0) => facetMesh(prismData(wb, db, wt, dt, h, cuts, lean), mat);
-    const plate = (pts: [number, number][], depth: number, mat: THREE.Material) => facetMesh(extrudeData(pts, depth), mat);
-    const side = (pts: [number, number][], width: number, mat: THREE.Material) => facetMesh(sideData(pts, width), mat);
-    const cone = (r: number, h: number, mat: THREE.Material) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 4, 1, false, Math.PI / 4), mat);
-    /** a block running from a to b */
-    const bar = (parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, w: number, d: number, mat: THREE.Material) => {
-      const o = new THREE.Mesh(new THREE.BoxGeometry(w, a.distanceTo(b), d), mat);
-      o.position.copy(a).add(b).multiplyScalar(0.5);
-      o.quaternion.setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize());
-      parent.add(o);
-      return o;
-    };
-    /** a leg hung at (x, y, z) through the joints `pts` (in the leg's space), ending in a paw */
-    const legAt = (x: number, y: number, z: number, pts: THREE.Vector3[], w: number, paw: (g: THREE.Group, end: THREE.Vector3) => void) => {
-      const g = at(new THREE.Group(), x, y, z);
-      g.add(box(w * 1.1, w * 1.1, w * 1.1, m.joint));
-      for (let i = 0; i < pts.length - 1; i++) {
-        const k = 1 - i * 0.14;
-        bar(g, pts[i], pts[i + 1], w * k, w * k * 1.08, i === pts.length - 2 ? m.joint : m.body);
-        if (i > 0) g.add(at(box(w * k * 1.12, w * 0.7, w * k * 1.12, m.trim), pts[i].x, pts[i].y, pts[i].z));
-      }
-      paw(g, pts[pts.length - 1]);
-      this.root.add(g);
-      return g;
-    };
-    /** the mouth: a jaw hinged at the back, the marble leaving between the lips */
-    const mouth = (head: THREE.Group, y: number, z: number, w: number, len: number, teeth: boolean) => {
-      const jaw = at(new THREE.Group(), 0, y, z + len * 0.45);
-      jaw.add(at(prism(w, len, w * 0.9, len * 0.92, 0.07, m.trim, 0.04), 0, -0.04, -len / 2));
-      jaw.add(at(box(w * 0.7, 0.012, len * 0.8, pink), 0, 0.0, -len / 2));
-      if (teeth) for (const sx of [-1, 1]) jaw.add(at(cone(0.022, 0.07, white), sx * w * 0.36, 0.03, -len * 0.85));
-      head.add(jaw);
-      this.jaw = jaw;
-      this.barrel.position.set(0, y + 0.02, z - len * 0.5);
-      this.barrelZ = this.barrel.position.z;
-      head.add(this.barrel);
-      this.markBelly(this.barrel, 0, 0, -0.06);
-    };
-    const claws = (g: THREE.Group, e: THREE.Vector3, n: number, spread: number, mat: THREE.Material = white) => {
-      for (let q = 0; q < n; q++) g.add(at(cone(0.03, 0.1, mat), e.x + (q - (n - 1) / 2) * spread, e.y - 0.01, e.z - 0.13, -Math.PI / 2));
-    };
-    // legs in walking order: front-left, front-right, back-right, back-left (diagonals in step)
-    const order = (fl: THREE.Group, fr: THREE.Group, br: THREE.Group, bl: THREE.Group) => this.legs.push(fl, fr, br, bl);
-
-    if (kind === 'drake') {
-      // a young dragon on four legs: a curving neck, horns swept back, bat wings folded on its
-      // back, spines down the spine and a spade on the tail; it breathes its marbles, and its
-      // head sweeps side to side as it fires
-      const hy = 0.42;
-      const limb = (sx: number, z: number, back: boolean) =>
-        legAt(sx * 0.22, hy, z, back ? [V(0, 0, 0), V(0, -0.16, 0.1), V(0, -0.3, -0.04), V(0, -hy + 0.05, 0.02)] : [V(0, 0, 0), V(0, -0.2, 0.04), V(0, -hy + 0.05, -0.02)], 0.13, (g, e) => {
-          g.add(at(prism(0.16, 0.22, 0.13, 0.18, 0.06, m.joint, 0.03), e.x, e.y - 0.02, e.z - 0.04));
-          claws(g, e, 3, 0.05);
-        });
-      order(limb(-1, -0.3, false), limb(1, -0.3, false), limb(1, 0.3, true), limb(-1, 0.3, true));
-      // the body: a deep chest, the belly in its paler plates
-      this.root.add(at(prism(0.46, 0.86, 0.42, 0.78, 0.34, m.body, [0.1, 0.1, 0.08, 0.08]), 0, hy + 0.1, 0.0));
-      for (let q = 0; q < 4; q++) this.root.add(box(0.34, 0.03, 0.14, m.trim, 0, hy - 0.08, -0.28 + q * 0.18)); // belly plates
-      for (let q = 0; q < 5; q++) this.root.add(at(cone(0.04, 0.14 - q * 0.012, m.accent), 0, hy + 0.3, -0.3 + q * 0.16, -0.5)); // back spines
-      // folded bat wings: a bony arm up from each shoulder, the membrane hanging back from it
-      for (const sx of [-1, 1]) {
-        const wing = at(new THREE.Group(), sx * 0.2, hy + 0.26, -0.18, 0.15, 0, sx * -0.45);
-        bar(wing, V(0, 0, 0), V(sx * 0.12, 0.34, 0.12), 0.05, 0.05, m.joint);
-        bar(wing, V(sx * 0.12, 0.34, 0.12), V(sx * 0.1, 0.18, 0.62), 0.04, 0.04, m.joint);
-        wing.add(at(cone(0.025, 0.1, m.accent), sx * 0.12, 0.42, 0.12)); // thumb claw
-        const membrane: [number, number][] = [[0.0, 0.0], [0.12, 0.34], [0.62, 0.18], [0.5, 0.06], [0.36, 0.1], [0.26, -0.02]];
-        wing.add(at(side(membrane, 0.025, m.trim), sx * 0.08, 0, 0));
-        this.root.add(wing);
-      }
-      // the tail: tapering segments rising then dropping, spines along it, a spade at the end
-      const tl = [V(0, hy + 0.12, 0.4), V(0, hy + 0.2, 0.66), V(0, hy + 0.16, 0.92), V(0, hy + 0.04, 1.14), V(0, hy - 0.02, 1.3)];
-      for (let q = 0; q < tl.length - 1; q++) {
-        bar(this.root, tl[q], tl[q + 1], 0.18 - q * 0.035, 0.18 - q * 0.035, m.body);
-        this.root.add(at(cone(0.03, 0.1, m.accent), 0, tl[q].y + 0.1 - q * 0.015, tl[q].z + 0.1, -0.6));
-      }
-      this.root.add(at(plate([[0, 0.12], [0.12, 0.0], [0, -0.04], [-0.12, 0.0]], 0.04, m.accent), 0, hy - 0.02, 1.38, -Math.PI / 2));
-      // the neck rises from the chest to the head
-      this.turret.position.set(0, hy + 0.16, -0.4);
-      this.root.add(this.turret);
-      bar(this.turret, V(0, 0, 0.1), V(0, 0.3, -0.1), 0.2, 0.22, m.body);
-      for (let q = 0; q < 3; q++) this.turret.add(at(cone(0.035, 0.12, m.accent), 0, 0.1 + q * 0.1, 0.08 - q * 0.08, -0.4));
-      const head = at(new THREE.Group(), 0, 0.36, -0.18);
-      this.tiltHead = head;
-      this.turret.add(head);
-      head.add(prism(0.34, 0.34, 0.3, 0.3, 0.24, m.body, [0.08, 0.08, 0.05, 0.05]));
-      head.add(at(prism(0.24, 0.34, 0.2, 0.32, 0.13, m.body, 0.04), 0, -0.03, -0.28)); // snout
-      head.add(at(prism(0.3, 0.16, 0.26, 0.14, 0.05, m.trim, 0.03), 0, 0.13, -0.1)); // brow ridge
-      for (const sx of [-1, 1]) {
-        // big bright eyes under the brow, so it reads young and fierce rather than mean
-        head.add(box(0.08, 0.08, 0.03, white, sx * 0.12, 0.05, -0.15));
-        head.add(box(0.045, 0.06, 0.02, m.eyeMat, sx * 0.125, 0.045, -0.167));
-        head.add(box(0.03, 0.02, 0.02, black, sx * 0.06, 0.0, -0.45)); // nostril
-        // two horns a side swept back, the long one curving up at the tip
-        head.add(at(cone(0.045, 0.32, m.accent), sx * 0.12, 0.2, 0.12, -1.1, 0, -sx * 0.2));
-        head.add(at(cone(0.03, 0.16, m.accent), sx * 0.17, 0.08, 0.14, -1.3, 0, -sx * 0.6));
-        head.add(at(plate([[0, 0.06], [0.1, 0.0], [0, -0.06]], 0.02, m.trim), sx * 0.17, -0.02, 0.06, 0, sx * -1.2, 0)); // cheek frill
-        for (let q = 0; q < 2; q++) head.add(at(cone(0.016, 0.05, white), sx * 0.07, -0.1, -0.4 + q * 0.07, Math.PI));
-      }
-      mouth(head, -0.1, -0.22, 0.2, 0.3, true);
-      // a lick of fire always smouldering in its throat
-      const flame = at(new THREE.Group(), 0, -0.07, -0.42);
-      const fire = (r: number, h: number, color: number, opacity: number) => {
-        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
-        flame.add(at(new THREE.Mesh(new THREE.ConeGeometry(r, h, 4), mat), 0, 0, -h / 2, -Math.PI / 2));
-      };
-      fire(0.05, 0.14, 0x1a6aff, 0.8);
-      fire(0.03, 0.09, 0xc8f4ff, 1);
-      head.add(flame);
-      this.flame = flame;
-    } else if (kind === 'ankylo') {
-      // a wide armoured dome on four thick legs, studded and spiked along its sides, a small low
-      // beaked head, and a heavy club at the end of a stiff tail
-      const hy = 0.34;
-      const post = (sx: number, z: number) =>
-        legAt(sx * 0.36, hy, z, [V(0, 0, 0), V(sx * 0.04, -0.16, -0.03), V(sx * 0.05, -hy + 0.06, 0.02)], 0.2, (g, e) => {
-          g.add(at(prism(0.26, 0.28, 0.22, 0.24, 0.07, m.joint, 0.05), e.x, e.y - 0.025, e.z - 0.02));
-          claws(g, e, 3, 0.08);
-        });
-      order(post(-1, -0.34), post(1, -0.34), post(1, 0.36), post(-1, 0.36));
-      const sy = hy + 0.16;
-      this.root.add(at(prism(1.0, 1.24, 0.66, 0.92, 0.32, m.body, [0.2, 0.2, 0.16, 0.16]), 0, sy, 0.02)); // the shell
-      this.root.add(at(prism(0.62, 0.86, 0.36, 0.56, 0.12, m.trim, [0.14, 0.14, 0.1, 0.1]), 0, sy + 0.22, 0.02)); // its cap
-      this.root.add(at(prism(1.06, 1.3, 1.04, 1.28, 0.06, m.joint, 0.2), 0, sy - 0.17, 0.02)); // the rim
-      for (const sx of [-1, 1])
-        for (let q = 0; q < 4; q++) {
-          const z = -0.42 + q * 0.28;
-          this.root.add(at(cone(0.06, 0.24, m.accent), sx * 0.56, sy - 0.12, z, 0, 0, -sx * (Math.PI / 2 + 0.2))); // side spike
-          this.root.add(at(prism(0.1, 0.12, 0.06, 0.08, 0.06, m.trim, 0.02), sx * 0.3, sy + 0.15, z)); // stud
-        }
-      for (let q = 0; q < 3; q++) this.root.add(at(prism(0.12, 0.14, 0.06, 0.08, 0.09, m.accent, 0.03), 0, sy + 0.3, -0.24 + q * 0.24));
-      // the tail: three stiff tapering segments and the club, spiked at its sides
-      const tail = [V(0, sy - 0.04, 0.56), V(0, sy - 0.02, 0.82), V(0, sy, 1.06), V(0, sy + 0.02, 1.26)];
-      for (let i = 0; i < 3; i++) bar(this.root, tail[i], tail[i + 1], 0.22 - i * 0.04, 0.18 - i * 0.03, i % 2 ? m.trim : m.body);
-      this.root.add(at(prism(0.4, 0.3, 0.32, 0.24, 0.2, m.trim, [0.1, 0.1, 0.06, 0.06]), 0, sy + 0.02, 1.36));
-      for (const sx of [-1, 1]) this.root.add(at(cone(0.05, 0.2, m.accent), sx * 0.25, sy + 0.02, 1.36, 0, 0, -sx * Math.PI / 2));
-      // the head: low and small, a beak, a brow plate and cheek horns swept back
-      this.turret.position.set(0, hy + 0.08, -0.62);
-      this.root.add(this.turret);
-      const head = at(new THREE.Group(), 0, 0, -0.12);
-      this.turret.add(head);
-      this.turret.add(at(prism(0.46, 0.24, 0.42, 0.22, 0.2, m.joint, 0.05), 0, 0, 0.04)); // neck collar
-      head.add(prism(0.4, 0.4, 0.32, 0.34, 0.22, m.body, [0.08, 0.08, 0.05, 0.05]));
-      head.add(at(prism(0.42, 0.22, 0.36, 0.18, 0.06, m.trim, 0.04), 0, 0.13, -0.06)); // brow plate
-      head.add(at(prism(0.26, 0.2, 0.18, 0.14, 0.11, m.trim, 0.03), 0, 0.0, -0.26)); // beak
-      for (const sx of [-1, 1]) {
-        head.add(box(0.07, 0.04, 0.02, m.eyeMat, sx * 0.15, 0.05, -0.2));
-        head.add(at(cone(0.04, 0.18, m.accent), sx * 0.21, 0.02, 0.1, Math.PI / 2 - 0.3, 0, -sx * 0.5));
-      }
-      mouth(head, -0.08, -0.12, 0.26, 0.24, false);
-    } else {
-      // a lean wolf, high at the shoulder and sloping down to the hips; a long snout, tall ears,
-      // quills down the neck, armour plates on the shoulders and a brush tail held out behind
-      const fy = 0.74;
-      const by = 0.56;
-      const fore = (sx: number) =>
-        legAt(sx * 0.22, fy, -0.32, [V(0, 0, 0), V(0, -0.32, 0.05), V(0, -0.58, -0.02), V(0, -fy + 0.05, -0.04)], 0.12, (g, e) => {
-          g.add(at(prism(0.15, 0.22, 0.13, 0.18, 0.06, m.joint, 0.03), e.x, e.y - 0.02, e.z - 0.04));
-          claws(g, e, 2, 0.06);
-        });
-      const hind = (sx: number) =>
-        legAt(sx * 0.2, by, 0.42, [V(0, 0, 0), V(0, -0.2, -0.14), V(0, -0.38, 0.08), V(0, -by + 0.05, 0.0)], 0.14, (g, e) => {
-          g.add(at(prism(0.15, 0.22, 0.13, 0.18, 0.06, m.joint, 0.03), e.x, e.y - 0.02, e.z - 0.04));
-          claws(g, e, 2, 0.06);
-        });
-      order(fore(-1), fore(1), hind(1), hind(-1));
-      // the body: a deep chest, a tucked waist, narrow hips, the spine sloping down behind
-      this.root.add(at(prism(0.46, 0.5, 0.5, 0.56, 0.44, m.body, [0.1, 0.1, 0.08, 0.08]), 0, fy + 0.04, -0.3));
-      bar(this.root, V(0, fy + 0.04, -0.1), V(0, by + 0.1, 0.32), 0.36, 0.3, m.body);
-      this.root.add(at(prism(0.4, 0.34, 0.42, 0.36, 0.28, m.body, 0.06), 0, by + 0.1, 0.42));
-      for (let q = 0; q < 4; q++) this.root.add(at(prism(0.2, 0.14, 0.12, 0.1, 0.05, m.trim, 0.02), 0, fy + 0.27 - q * 0.08, -0.28 + q * 0.2, 0.3)); // spine plates
-      for (const sx of [-1, 1]) {
-        const pl: [number, number][] = [[-0.2, 0.18], [0.22, 0.14], [0.2, -0.12], [-0.08, -0.2], [-0.22, 0.0]];
-        this.root.add(at(side(pl, 0.05, m.trim), sx * 0.27, fy + 0.04, -0.3, 0, 0, sx * 0.12)); // shoulder plate
-        this.root.add(at(box(0.03, 0.04, 0.3, m.accent), sx * 0.3, fy + 0.17, -0.3, 0, 0, sx * 0.12));
-      }
-      // the brush tail
-      const tl = [V(0, by + 0.16, 0.56), V(0, by + 0.3, 0.86), V(0, by + 0.36, 1.1)];
-      bar(this.root, tl[0], tl[1], 0.12, 0.12, m.body);
-      bar(this.root, tl[1], tl[2], 0.2, 0.18, m.trim);
-      this.root.add(at(cone(0.1, 0.18, m.accent), 0, by + 0.38, 1.2, Math.PI / 2 + 0.25));
-      // neck and head
-      this.turret.position.set(0, fy + 0.18, -0.5);
-      this.root.add(this.turret);
-      bar(this.turret, V(0, -0.14, 0.18), V(0, 0.02, -0.08), 0.22, 0.24, m.body);
-      for (let q = 0; q < 4; q++) this.turret.add(at(cone(0.04, 0.2 - q * 0.02, m.accent), 0, 0.06 - q * 0.05, 0.02 + q * 0.09, 0.9 + q * 0.1)); // quills
-      const head = at(new THREE.Group(), 0, 0.06, -0.14);
-      this.turret.add(head);
-      head.add(prism(0.34, 0.34, 0.28, 0.3, 0.24, m.body, [0.07, 0.07, 0.05, 0.05]));
-      head.add(at(prism(0.2, 0.4, 0.15, 0.36, 0.12, m.body, 0.04), 0, -0.04, -0.32)); // snout
-      head.add(at(box(0.08, 0.06, 0.05, black), 0, 0.0, -0.51)); // nose
-      head.add(at(prism(0.3, 0.2, 0.26, 0.16, 0.05, m.trim, 0.03), 0, 0.13, -0.08)); // brow
-      for (const sx of [-1, 1]) {
-        head.add(at(box(0.09, 0.025, 0.02, m.eyeMat), sx * 0.09, 0.06, -0.17, 0, sx * 0.3, sx * -0.25));
-        const ear: [number, number][] = [[-0.06, 0], [0.06, 0], [0.01, 0.26]];
-        head.add(at(plate(ear, 0.04, m.body), sx * 0.11, 0.12, 0.06, -0.15, 0, sx * -0.18));
-        head.add(at(plate([[-0.03, 0.02], [0.03, 0.02], [0.005, 0.18]], 0.02, m.accent), sx * 0.11, 0.12, 0.035, -0.15, 0, sx * -0.18));
-        head.add(at(cone(0.02, 0.08, white), sx * 0.06, -0.12, -0.44, Math.PI)); // fangs
-      }
-      mouth(head, -0.1, -0.24, 0.17, 0.34, true);
-    }
     this.wings.position.set(0, 0.4, 0.3);
     this.turret.add(this.wings);
     this.wings.add(this.wingL, this.wingR);
