@@ -117,9 +117,12 @@ export class AIController {
       return;
     }
     if (this.burstLeft > 0) {
-      this.burstLeft -= dt;
-      // (a unit whose head sweeps side to side waits for it to face the target)
-      me.firing = Math.abs(desired - me.aim) < 0.25 && (!me.stats.special?.wobble || Math.abs(me.wobble) < 0.2);
+      // a unit whose head sweeps side to side (its shots follow the head) fires as the sweep
+      // passes over the target, and its burst waits for that rather than running out
+      const sweeping = !!me.stats.special?.wobble;
+      const onTarget = sweeping ? Math.abs(desired - (me.aim + me.wobble)) < 0.22 : Math.abs(desired - me.aim) < 0.25;
+      if (!sweeping || onTarget) this.burstLeft -= dt;
+      me.firing = onTarget;
       if (this.burstLeft <= 0) {
         this.pauseLeft = rand(pr.pause[0], pr.pause[1]);
         me.firing = false;
