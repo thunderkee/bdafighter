@@ -308,12 +308,7 @@ export class Preview {
     const sp = this.special;
     // a head that keeps turning (Ember): the shots follow it
     if (sp.wobble) s.wobble = Math.sin((this.wobbleN += dt * 2.5)) * sp.wobble;
-    if (sp.swap && (this.swapT += dt) >= sp.swap) {
-      this.swapT = 0;
-      s.hand = -s.hand;
-      // (it fires again once the gun lands in the other hand)
-      this.nextShot = Math.max(this.nextShot, t + TOSS_TIME + 0.05);
-    }
+
     // a wind-up: the punch first, the shot when it's done
     if (this.windLeft > 0 && (this.windLeft -= dt) <= 0) this.shoot();
     if (t >= this.nextShot) {
@@ -325,7 +320,7 @@ export class Preview {
       // now and then a quick string of three
       if (this.burstLeft === 0 && !sp.windup && Math.random() < 0.35) this.burstLeft = 3;
       if (this.burstLeft > 0) this.burstLeft--;
-      this.nextShot = t + (this.burstLeft > 0 ? 0.16 : 1.6 + Math.random() * 1.2);
+      this.nextShot = Math.max(this.tossUntil, t + (this.burstLeft > 0 ? 0.16 : 1.6 + Math.random() * 1.2));
     }
     unit.sync(s as Shooter, this.t, dt);
     // keep it planted on the plinth: no sliding along a rail here
@@ -364,10 +359,16 @@ export class Preview {
     s.recoil = 1;
     s.lastHand = s.hand;
     if (sp.alternate) s.hand = -s.hand;
+    // after every few shots the gun is tossed to the other hand; it fires again once it lands
+    if (sp.swap && (this.swapT = (this.swapT + 1) % sp.swap) === 0) {
+      s.hand = -s.hand;
+      this.tossUntil = this.at + TOSS_TIME + 0.05;
+    }
     s.kickT = 0;
     this.ballDue = true;
   }
   private ballDue = false;
+  private tossUntil = 0;
 
   /** a marble out of the muzzle (two from twin barrels), flying down the unit's facing */
   private fire() {

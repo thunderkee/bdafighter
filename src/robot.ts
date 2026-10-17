@@ -407,7 +407,7 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // the old Wyvern head with twin gold horns; it fires from a toothed maw in its chest, and holds
   // a power sword ready in its left hand
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, special: { windup: 0.16 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
-  // swaps the heavy MG from hand to hand every few seconds; the shot leaves from that side
+  // tosses the heavy MG to the other hand after every third shot; the shot leaves from that side
   pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'dualAim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },

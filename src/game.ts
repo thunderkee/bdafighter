@@ -249,6 +249,7 @@ export class Shooter {
   hand = 1;
   lastHand = 1;
   swapT = 0;
+  swapN = 0;
   windLeft = 0;
   windT = 9;
   wobble = 0;
@@ -363,7 +364,7 @@ export class Shooter {
     this.out = false;
     this.kickT = this.heavyT = 9;
     this.hand = this.lastHand = 1;
-    this.swapT = 0;
+    this.swapT = this.swapN = 0;
     this.windLeft = 0;
     this.windT = 9;
     this.wobble = this.wobbleN = 0;
@@ -1311,13 +1312,8 @@ export class Game {
     s.heavyT += adt;
     s.windT += adt;
     const sp = s.stats.special;
-    // Pioneer swaps the gun to the other hand every few seconds
-    if (sp?.swap && (s.swapT += adt) >= sp.swap) {
-      s.swapT = 0;
-      s.hand = -s.hand;
-      // the gun is in the air: it fires again once it lands in the other hand
-      s.cooldown = Math.max(s.cooldown, TOSS_TIME);
-    }
+    // a gun in the air (tossed to the other hand): it can't fire until it lands
+    s.swapT = Math.max(0, s.swapT - adt);
     // a wind-up in progress: the shot leaves when it's done
     if (s.windLeft > 0 && (s.windLeft -= adt) <= 0) {
       s.windLeft = 0;
@@ -1410,7 +1406,7 @@ export class Game {
     // a charging press doesn't stream shots: one shot per press, the rest is charge;
     // a charging CPU holds its fire until it lets go
     const mayFire = human ? !s.pressShot && s.chargeHold < CHARGE.hold : s.chargeWant === 0 && s.chargeHold === 0;
-    if (mayFire && canAct && s.firing && !s.shieldUp && s.reload <= 0 && s.cooldown <= 0 && s.ammo >= 1) {
+    if (mayFire && canAct && s.firing && !s.shieldUp && s.reload <= 0 && s.cooldown <= 0 && s.swapT <= 0 && s.ammo >= 1) {
       if (human) s.pressShot = true;
       const multi = s.multiT > 0 && !s.superReady;
       if (multi) this.fireVolley(s);
@@ -1627,6 +1623,11 @@ export class Game {
     // the hand this shot leaves from (it may change for the next one)
     s.lastHand = s.hand;
     if (sp?.alternate) s.hand = -s.hand;
+    // Pioneer tosses the gun to the other hand after every few shots
+    if (sp?.swap && (s.swapN = (s.swapN + 1) % sp.swap) === 0) {
+      s.hand = -s.hand;
+      s.swapT = TOSS_TIME;
+    }
     // the shot leaves the way the head is facing right now
     const wob = sp?.wobble ? s.wobble : 0;
     const isSuper = s.superReady;

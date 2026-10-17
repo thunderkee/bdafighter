@@ -61,7 +61,7 @@ export interface ShooterStats {
  * Signature tricks some units have:
  * - windup: seconds of wind-up before each shot leaves (Wyvern punches, then its maw blasts)
  * - hand: how far the gun sits off the centre line; the shot leaves from that side
- * - swap: seconds between switching the gun to the other hand (Pioneer)
+ * - swap: shots before the gun is tossed to the other hand (Pioneer)
  * - alternate: fire from alternate hands, shot by shot (Kabuto's twin fist cannons)
  * - wobble: the head keeps turning this far (radians) left and right, and each shot leaves the way
  *   it's facing, so rapid fire sweeps across the table (Ember)
