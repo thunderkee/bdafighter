@@ -2022,9 +2022,13 @@ export class View {
       return;
     }
     const half = ARENA.width / 2 - s.stats.marbleRadius;
-    const d = s.dir();
-    let x = s.x + d.x * 0.95;
-    let y = s.y + d.y * 0.95;
+    // the line shows where the next marble really goes: a turning head (Ember) swings it, and a
+    // gun held in one hand starts it from that side
+    const sp = s.stats.special;
+    const d = s.dir(s.aim + (sp?.wobble ? s.wobble : 0));
+    const side = (sp?.hand ?? 0) * s.hand;
+    let x = s.x + d.x * 0.95 + d.y * side;
+    let y = s.y + d.y * 0.95 - d.x * side;
     let dx = d.x;
     const dy = d.y;
     const stepLen = 0.6;
