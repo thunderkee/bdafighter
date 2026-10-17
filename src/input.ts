@@ -312,3 +312,122 @@ export class Input {
     p.shielding = b.down || k.has('KeyS') || k.has('ArrowDown') || this.shieldDrag;
   }
 }
+
+/**
+ * Two players on one device (local versus). The table is seen from above with player 1's rail
+ * along the bottom of the screen and player 2's along the top: the phone lies between them and
+ * each player has their own half.
+ * - the strip along your end of the screen moves you: your robot follows the finger along the
+ *   rail; drag back toward your end to raise the shield
+ * - the rest of your half aims at the finger and fires while held (hold on to charge)
+ * - keys: P1 A/D move, Q/E aim, Space fire, Left Shift shield, F item;
+ *   P2 Left/Right move, Up/Down aim, Enter fire, Right Shift shield, / item
+ */
+export class DuoInput {
+  enabled = false;
+  onUseItem: ((who: 0 | 1) => void) | null = null;
+  private touches = new Map<number, { who: 0 | 1; kind: 'move' | 'aim'; y0: number; shield: boolean }>();
+  private keys = new Set<string>();
+  /** the strip at your end (share of your half's height) that moves */
+  private static OUTER = 0.38;
+
+  constructor(
+    private el: HTMLElement,
+    private players: [Shooter, Shooter],
+    private screenToWorld: (cx: number, cy: number) => { x: number; y: number } | null,
+  ) {
+    el.addEventListener('pointerdown', this.down);
+    el.addEventListener('pointermove', this.move);
+    el.addEventListener('pointerup', this.up);
+    el.addEventListener('pointercancel', this.up);
+    window.addEventListener('keydown', (e) => {
+      if (!this.enabled) return;
+      if (['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', 'Slash'].includes(e.code)) e.preventDefault();
+      if (!e.repeat && e.code === 'KeyF') this.onUseItem?.(0);
+      if (!e.repeat && e.code === 'Slash') this.onUseItem?.(1);
+      this.keys.add(e.code);
+    });
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => this.release());
+  }
+
+  release() {
+    this.touches.clear();
+    this.keys.clear();
+    for (const p of this.players) {
+      p.firing = p.shielding = false;
+      p.moveTarget = null;
+      p.moveAxis = 0;
+    }
+  }
+
+  private down = (e: PointerEvent) => {
+    if (!this.enabled) return;
+    e.preventDefault();
+    const r = this.el.getBoundingClientRect();
+    const y = (e.clientY - r.top) / r.height;
+    const who: 0 | 1 = y > 0.5 ? 0 : 1;
+    const fromEnd = who === 0 ? (1 - y) / 0.5 : y / 0.5; // 0 at your end of the screen, 1 at the middle
+    try {
+      this.el.setPointerCapture(e.pointerId);
+    } catch {
+      // input still works without capture
+    }
+    this.touches.set(e.pointerId, { who, kind: fromEnd < DuoInput.OUTER ? 'move' : 'aim', y0: e.clientY, shield: false });
+    this.apply(e);
+  };
+
+  private move = (e: PointerEvent) => {
+    if (this.touches.has(e.pointerId)) this.apply(e);
+  };
+
+  private up = (e: PointerEvent) => {
+    const t = this.touches.get(e.pointerId);
+    if (!t) return;
+    this.touches.delete(e.pointerId);
+    if (t.kind === 'move') this.players[t.who].moveTarget = null;
+  };
+
+  private apply(e: PointerEvent) {
+    const t = this.touches.get(e.pointerId)!;
+    const p = this.players[t.who];
+    const w = this.screenToWorld(e.clientX, e.clientY);
+    if (t.kind === 'move') {
+      if (w) p.moveTarget = w.x;
+      // dragging back toward your own end of the screen raises the shield
+      t.shield = (t.who === 0 ? e.clientY - t.y0 : t.y0 - e.clientY) > 28;
+    } else if (w) {
+      const ahead = (w.y - p.y) * p.forward;
+      if (ahead > 0.5) p.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, Math.atan2(w.x - p.x, ahead)));
+    }
+  }
+
+  /** Called once per fixed tick before the game steps. */
+  update(dt: number) {
+    const k = this.keys;
+    // [move -x, move +x, aim -, aim +] in screen terms: left/right along the rails
+    const keymap = [
+      { up: 'KeyA', down: 'KeyD', aimUp: 'KeyQ', aimDown: 'KeyE', fire: 'Space', shield: 'ShiftLeft' },
+      { up: 'ArrowLeft', down: 'ArrowRight', aimUp: 'ArrowUp', aimDown: 'ArrowDown', fire: 'Enter', shield: 'ShiftRight' },
+    ];
+    this.players.forEach((p, who) => {
+      if (!this.enabled) {
+        p.firing = false;
+        return;
+      }
+      const m = keymap[who];
+      const touches = [...this.touches.values()].filter((t) => t.who === who);
+      const moving = touches.some((t) => t.kind === 'move');
+      // screen left is -x on both rails (the table is seen from player 1's end)
+      const axis = (k.has(m.down) ? 1 : 0) - (k.has(m.up) ? 1 : 0);
+      if (!moving) {
+        p.moveAxis = axis;
+        if (axis) p.moveTarget = null;
+      }
+      const turn = (k.has(m.aimDown) ? 1 : 0) - (k.has(m.aimUp) ? 1 : 0);
+      if (turn) p.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, p.aim + turn * AIM_TURN_RATE * dt));
+      p.firing = touches.some((t) => t.kind === 'aim') || k.has(m.fire);
+      p.shielding = touches.some((t) => t.kind === 'move' && t.shield) || k.has(m.shield);
+    });
+  }
+}

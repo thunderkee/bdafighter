@@ -2581,3 +2581,48 @@ body.pressing #pad .pad-btn.fire.held {
   25% { transform: translateX(-5px); }
   75% { transform: translateX(5px); }
 }
+
+/* local versus: the single-player controls step aside; each side gets its own hints */
+#duo-hints {
+  display: none;
+}
+body.duo #duo-hints {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+body.duo #duo-hints.fade {
+  opacity: 0;
+}
+#duo-hints .hint {
+  position: absolute;
+  left: 50%;
+  width: min(86%, 360px);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--char);
+  box-shadow: 0 0 0 1px #000;
+  color: var(--case-hi);
+  font: 700 10px var(--body);
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  text-align: center;
+}
+/* each player reads their hint from their own end of the screen */
+#duo-hints .hint.p1 {
+  bottom: 22%;
+  transform: translateX(-50%);
+}
+#duo-hints .hint.p2 {
+  top: 22%;
+  transform: translateX(-50%) rotate(180deg);
+}
+body.duo #hints,
+body.duo #pad,
+body.duo #item-btn,
+body.duo #view-btn,
+body.duo .charge-meter {
+  display: none !important;
+}

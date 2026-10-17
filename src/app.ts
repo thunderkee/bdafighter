@@ -3,7 +3,7 @@ import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, STEP, chargeLevel, slotTeam, type Shooter } from './game';
 import { View } from './view';
-import { Input, PadTracker } from './input';
+import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
 import { BUILTINS, CHARACTERS, characterById, playable, playableId } from './robot';
@@ -110,7 +110,11 @@ export function boot() {
   const boss = () => (arcade ? bossOf(arcade.stage) : null);
   const isBoss = () => !!boss();
   /** the settings a match plays by: yours, with the arcade stage's layered on top */
-  const S = (): store.Settings => (arcade ? { ...saveData.settings, ...arcade.cfg } : saveData.settings);
+  /** local two-player versus on one device: player 2 takes the opponent's robot */
+  let duo = false;
+  /** the settings a match plays by: yours, with an arcade stage's (or local versus') rules on top */
+  const S = (): store.Settings =>
+    arcade ? { ...saveData.settings, ...arcade.cfg } : duo ? { ...saveData.settings, pack: 1, playerPack: 1, items: false } : saveData.settings;
   // the table width is fixed for the session: walls and scenery are built for it
   setArenaWidth(S().arenaWidth);
   /** the table width the walls and scenery are built for right now */
@@ -170,6 +174,11 @@ export function boot() {
     }));
   };
   const packEnemies = () => {
+    // player 2 fights on the same footing as player 1: standard stats and the unit's own traits
+    if (duo) {
+      const id = unitIds()[1];
+      return [{ stats: withTraits({ ...computeStats(STARTER_BUILD), capacity: magazine() }, id), maxHealth: MATCH.maxHealth * healthTrait(id) }];
+    }
     // a boss sets its own armour and punch per unit (no pack scaling on top)
     const b = boss();
     const sc = b ? { health: 1, damage: b.damage } : PACK_SCALE[packSize() - 1];
@@ -295,6 +304,13 @@ export function boot() {
     return ids;
   };
   const input = new Input($('touch'), player, (x, y) => view.screenToWorld(x, y));
+  const duoInput = new DuoInput($('touch'), [player, game.shooters[1]], (x, y) => view.screenToWorld(x, y));
+  /** turn the controls on or off: yours, or both players' in local versus */
+  const controls = (on: boolean) => {
+    input.enabled = on && !duo;
+    duoInput.enabled = on && duo;
+    if (!on) duoInput.release();
+  };
 
   // ThorVG effects overlay + portraits load in the background; the game never waits
   const fx2d = new Fx2D($<HTMLCanvasElement>('fx'));
@@ -486,7 +502,7 @@ export function boot() {
     flow = 'round';
     flowT = 0;
     hud.classList.remove('hidden');
-    input.enabled = true;
+    controls(true);
     finalRound = roundWins[0] === 1 && roundWins[1] === 1;
     showRounds();
     lastCount = -1;
@@ -508,6 +524,14 @@ export function boot() {
   const startMatch = () => {
     sfx.unlock();
     const st = S();
+    // local versus: the table from above for both players, their own labels and controls
+    document.body.classList.toggle('duo', duo);
+    const cam = duo ? 'duo' : st.camera;
+    if (view.cameraMode !== cam) {
+      view.cameraMode = cam;
+      view.resize();
+    }
+    $('enemy-tag').textContent = duo ? 'P2' : 'CPU';
     // the Opponent settings tune the other side; your pack-mates play at standard skill
     ais.forEach((a, i) => {
       const foe = slotTeam(i + 1) === 1;
@@ -545,7 +569,7 @@ export function boot() {
       allySize() > 1
         ? `PACK OF ${allySize()} // ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
         : `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
-    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : `CPU // ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
+    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : duo ? 'PLAYER 2 // TOP END' : `CPU // ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
     // a boss stage: a red warning card for the challenger
     introEl.classList.toggle('boss', isBoss());
     if (isBoss()) sfx.play('gong');
@@ -576,7 +600,7 @@ export function boot() {
     hud.classList.add('hidden');
     introEl.classList.remove('hidden');
     introEl.querySelectorAll('.in').forEach((el) => el.classList.remove('in'));
-    input.enabled = false;
+    controls(false);
     view.cine = { kind: 'intro', t: 0, shot: -1, slot: 0 };
   };
 
@@ -618,7 +642,7 @@ export function boot() {
 
   const startReplay = (final: boolean, loser: number) => {
     comboEl.classList.remove('on');
-    input.enabled = false;
+    controls(false);
     input.release();
     if (!recorder.frames.length) return endReplay(final, loser);
     flow = 'replay';
@@ -657,7 +681,7 @@ export function boot() {
 
   const endMatch = () => {
     screen = 'result';
-    input.enabled = false;
+    controls(false);
     input.release();
     view.cine = null;
     const w = matchWinner;
@@ -665,7 +689,7 @@ export function boot() {
     if (w === 0) sessionWins++;
     saveData = store.save({ matches: saveData.matches + 1, wins: saveData.wins + (w === 0 ? 1 : 0) });
     const title = $('result-title');
-    title.textContent = w === 0 ? 'VICTORY' : w === 1 ? 'DEFEAT' : 'DRAW';
+    title.textContent = duo ? (w === -1 ? 'DRAW' : `PLAYER ${w + 1} WINS`) : w === 0 ? 'VICTORY' : w === 1 ? 'DEFEAT' : 'DRAW';
     title.className = 'result-title ' + (w === 0 ? 'win' : w === 1 ? 'lose' : '');
     $('result-sub').textContent = `ROUNDS ${roundWins[0]} – ${roundWins[1]} // ${w === 0 ? 'MISSION COMPLETE' : w === 1 ? 'UNIT DOWN' : 'STALEMATE'}`;
     $('r-dealt').textContent = Math.round(totals.dealt).toString();
@@ -780,7 +804,7 @@ export function boot() {
     } else if (flow === 'finale') {
       if (flowT > 1.6 && lastCount !== -9) {
         lastCount = -9;
-        showBanner(matchWinner === 0 ? 'YOU WIN' : matchWinner === 1 ? 'YOU LOSE' : 'DRAW', true);
+        showBanner(duo ? (matchWinner === -1 ? 'DRAW' : `PLAYER ${matchWinner + 1} WINS`) : matchWinner === 0 ? 'YOU WIN' : matchWinner === 1 ? 'YOU LOSE' : 'DRAW', true);
       }
       if (flowT > 4.6) endMatch();
     }
@@ -813,6 +837,7 @@ export function boot() {
   });
 
   $('play-btn').addEventListener('click', () => openSelect('versus'));
+  $('duo-btn').addEventListener('click', () => openSelect('duo'));
   $('arcade-btn').addEventListener('click', () => openSelect('arcade'));
   $('again-btn').addEventListener('click', playAgain);
   $('arcade-quit').addEventListener('click', quitArcade);
@@ -854,8 +879,10 @@ export function boot() {
     view.fxOn = st.effects;
     view.setQuality(st.realism);
     $('fps').classList.toggle('hidden', !st.showFps);
-    if (view.cameraMode !== st.camera) {
-      view.cameraMode = st.camera;
+    // (local versus keeps its overhead view for the whole match)
+    const cam = duo && screen !== 'title' ? 'duo' : st.camera;
+    if (view.cameraMode !== cam) {
+      view.cameraMode = cam;
       view.resize();
     }
     document.body.classList.toggle('triple', st.fireButtons === 'triple');
@@ -918,7 +945,7 @@ export function boot() {
   const preview = new Preview($('preview'));
   type Step = 'fighter' | 'rival' | 'arena' | 'rules';
   let step: Step = 'fighter';
-  let selectMode: 'versus' | 'arcade' = 'versus';
+  let selectMode: 'versus' | 'arcade' | 'duo' = 'versus';
   /** which roster tab is open: the roster (the 2.1 set) or custom units */
   let ver: '21' | 'c' = '21';
   const verOf = (id: string): '21' | 'c' => (BUILTIN_IDS.has(characterById(id).id) ? '21' : 'c');
@@ -989,7 +1016,7 @@ export function boot() {
     }
     const unit = id === 'auto' ? enemyCharacter() : id;
     preview.showUnit(unit);
-    $('pv-tag').textContent = step === 'fighter' ? 'PLAYER 1' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
+    $('pv-tag').textContent = step === 'fighter' ? 'PLAYER 1' : selectMode === 'duo' ? 'PLAYER 2' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
     $('pv-name').textContent = characterById(unit).name;
     $('pv-stats').innerHTML = meters(unit);
     const c = characterById(unit);
@@ -1052,7 +1079,7 @@ export function boot() {
     $('ver-tabs').classList.toggle('hidden', !hasCustom);
     if (ver === 'c' && !hasCustom) ver = '21';
     document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.ver === ver));
-    if (step === 'rival') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
+    if (step === 'rival' && selectMode !== 'duo') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
     for (const c of playable()) {
       if (verOf(c.id) !== ver) continue;
       // the arcade's bosses stay a surprise: they can't be picked for a run
@@ -1085,12 +1112,13 @@ export function boot() {
     show('select');
     // open the roster tab the current pick lives in
     if (step !== 'arena') ver = chosen() === 'auto' ? ver : verOf(chosen());
-    $('select-title').textContent = step === 'fighter' ? 'Select fighter' : step === 'rival' ? 'Select rival' : 'Select arena';
+    $('select-title').textContent =
+      step === 'fighter' ? (selectMode === 'duo' ? 'Player 1 fighter' : 'Select fighter') : step === 'rival' ? (selectMode === 'duo' ? 'Player 2 fighter' : 'Select rival') : 'Select arena';
     $('select-next').textContent = selectMode === 'arcade' ? 'Start arcade ▶' : 'Next ▶';
     buildGrid();
     showPreview();
   };
-  const openSelect = (mode: 'versus' | 'arcade') => {
+  const openSelect = (mode: 'versus' | 'arcade' | 'duo') => {
     sfx.unlock();
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
@@ -1106,6 +1134,9 @@ export function boot() {
   const toTitle = () => {
     show('title');
     screen = 'title';
+    duo = false;
+    document.body.classList.remove('duo');
+    applySettings();
   };
   document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) =>
     b.addEventListener('click', () => {
@@ -1128,6 +1159,7 @@ export function boot() {
   $('setup-back').addEventListener('click', () => goStep('arena'));
   $('fight-btn').addEventListener('click', () => {
     arcade = null;
+    duo = selectMode === 'duo';
     startMatch();
   });
 
@@ -1202,7 +1234,7 @@ export function boot() {
     replayGame = null;
     view.game = game;
     view.cine = null;
-    input.enabled = false;
+    controls(false);
     input.release();
     hud.classList.add('hidden');
     quitArcade();
@@ -1317,7 +1349,9 @@ export function boot() {
           const sdt = STEP * timeScale;
           const rate = (slot: number) => (game.slowT > 0 && game.slowOwner === slot ? SLOWMO.owner / SLOWMO.world : 1);
           input.update(sdt * rate(0));
-          ais.forEach((a, i) => a.update(sdt * rate(i + 1)));
+          duoInput.update(sdt * rate(0));
+          // (in local versus player 2 drives the opponent instead of its AI)
+          ais.forEach((a, i) => (duo && i === 0 ? null : a.update(sdt * rate(i + 1))));
           const before = game.phase;
           game.step(sdt);
           // the replay keeps one frame per full game step, as before
@@ -1532,6 +1566,8 @@ export function boot() {
       showBanner('FIGHT!', true);
       sfx.play('slam');
       setTimeout(() => hints.classList.add('fade'), 3500);
+      $('duo-hints').classList.remove('fade');
+      setTimeout(() => $('duo-hints').classList.add('fade'), 5000);
     } else if (game.phase === 'ko' && lastCount === 0) {
       lastCount = -2;
       const w = game.winner;

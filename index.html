@@ -51,7 +51,7 @@
               <div class="meta">
                 <div class="unit-name"><span id="enemy-name">WYVERN</span></div>
                 <div class="meta-row">
-                  <span class="tag">CPU</span><span class="rounds" id="enemy-rounds"><i></i><i></i></span>
+                  <span class="tag" id="enemy-tag">CPU</span><span class="rounds" id="enemy-rounds"><i></i><i></i></span>
                   <span class="readout" id="enemy-hp-num">100%</span>
                   <span class="super-meter" id="enemy-super" hidden><span class="sm-label">SUPER</span><span class="super-pips"><i></i><i></i><i></i></span></span>
                 </div>
@@ -124,6 +124,10 @@
           </div>
           </div>
         </div>
+        <div id="duo-hints">
+          <div class="hint p1">PLAYER 1 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
+          <div class="hint p2">PLAYER 2 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
+        </div>
         <div id="hints">
           <div class="hint left">◀ DRAG TO MOVE ▶<br />DRAG DOWN: SHIELD · JUST IN TIME: PARRY</div>
           <div class="hint right">TAP TO FIRE · HOLD TO CHARGE<br />DRAG TO AIM</div>
@@ -166,9 +170,10 @@
         </div>
         <nav class="menu">
           <button id="play-btn" class="key menu-item"><em>01</em><b>Versus</b><small>Fighter, rival, arena and rules</small></button>
-          <button id="arcade-btn" class="key menu-item"><em>02</em><b>Arcade</b><small>A ladder of stages, a boss every five</small></button>
-          <a id="lab-btn" class="key menu-item" href="./editor.html"><em>03</em><b>Unit Lab</b><small>Edit and build units</small></a>
-          <button id="settings-btn" class="key menu-item"><em>04</em><b>Options</b><small>Controls, display, opponents</small></button>
+          <button id="arcade-btn" class="key menu-item"><em>02</em><b>Arcade</b><small>A ladder of stages and four bosses</small></button>
+          <button id="duo-btn" class="key menu-item"><em>03</em><b>2 Players</b><small>Head to head on one device</small></button>
+          <a id="lab-btn" class="key menu-item" href="./editor.html"><em>04</em><b>Unit Lab</b><small>Edit and build units</small></a>
+          <button id="settings-btn" class="key menu-item"><em>05</em><b>Options</b><small>Controls, display, opponents</small></button>
         </nav>
         <div class="dev-foot">
           <i class="grille"></i>

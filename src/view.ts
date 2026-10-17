@@ -260,7 +260,8 @@ export class View {
   /** each side's marble colour, from its robot */
   private teamBall: [number, number] = [characterById('angel').ball, characterById('dragon').ball];
   /** settings: chase-camera distance, down to a first-person cockpit view */
-  cameraMode: 'far' | 'mid' | 'near' | 'first' = 'mid';
+  /** 'duo' is local two-player versus: the whole table from above, player 1 at the bottom */
+  cameraMode: 'far' | 'mid' | 'near' | 'first' | 'duo' = 'mid';
   private hopH: Float32Array;
   private hopV: Float32Array;
   private shadows: THREE.InstancedMesh;
@@ -996,6 +997,9 @@ export class View {
       this.camBase.y + Math.sin(t * 1.7 + 1) * sh * 0.5,
       this.camBase.z + Math.sin(t * 1.3 + 2) * sh * 0.4,
     );
+    // seen from above in two-player versus, "up" on screen is along the rails
+    if (this.cameraMode === 'duo' && !this.cine && !this.ko) this.camera.up.set(0, 0, -1);
+    else this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.camLook);
     if (this.debugCam) {
       this.camera.position.copy(this.debugCam[0]);
@@ -1775,6 +1779,18 @@ export class View {
         this.camGoal.set(p.x, 1.8, -p.y - 0.1);
         this.lookGoal.set(p.x + Math.sin(p.aim) * 10, 0.6, -p.y - Math.cos(p.aim) * 10);
         break;
+      case 'duo': {
+        // the whole table from above: player 1's rail along the bottom of the screen, player 2's
+        // along the top (the phone lies between them), high enough to fit it all
+        const tan = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+        // (centred a little toward player 2 so the top bar doesn't cover their robot)
+        const h = Math.max((ARENA.length / 2 + 2.4) / tan, (ARENA.width / 2 + 0.6) / (tan * this.camera.aspect));
+        const off = -1.5;
+        // a slight tilt (the camera a little toward player 1) keeps the robots 3D
+        this.camGoal.set(0, h, off + h * 0.12);
+        this.lookGoal.set(0, 0, off);
+        break;
+      }
     }
     // frame-rate independent smoothing
     const k = this.snapCamera ? 1 : 1 - Math.exp(-dt * 6);
