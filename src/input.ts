@@ -25,6 +25,8 @@ type PadButton = 'left' | 'right' | 'fire' | 'down' | 'fireL' | 'fireR';
  */
 export class PadTracker {
   private fingers = new Map<number, PadButton | null>();
+  /** buttons pressed since the game last looked, so a tap shorter than a frame still counts */
+  private taps = new Set<PadButton>();
   /** the finger working the move slider (if any) and where it is along the track, 0..1 */
   private sliderId: number | null = null;
   private sliderU = 0.5;
@@ -111,6 +113,7 @@ export class PadTracker {
       // still tracked without capture
     }
     this.fingers.set(e.pointerId, b);
+    this.taps.add(b);
     this.onPress?.();
   };
 
@@ -131,13 +134,20 @@ export class PadTracker {
   };
 
   held(name: PadButton) {
+    if (this.taps.has(name)) return true;
     for (const b of this.fingers.values()) if (b === name) return true;
     return false;
+  }
+
+  /** the game has read this frame's buttons: quick taps have now been seen */
+  seen() {
+    this.taps.clear();
   }
 
   /** forget every finger (pause / leaving the match) */
   clear() {
     this.fingers.clear();
+    this.taps.clear();
     this.sliderId = null;
   }
 }
@@ -276,7 +286,10 @@ export class Input {
     }
     const k = this.keys;
     const b = this.buttons;
-    if (this.pad) for (const name of Object.keys(b) as PadButton[]) b[name] = this.pad.held(name);
+    if (this.pad) {
+      for (const name of Object.keys(b) as PadButton[]) b[name] = this.pad.held(name);
+      this.pad.seen();
+    }
     // slider: the thumb's spot on the track is a spot in the robot's lane
     const slide = this.settings.layout === 'buttons' && this.settings.moveControl === 'slider' ? this.pad?.slider() ?? null : null;
     if (slide !== null) {
@@ -410,11 +423,9 @@ export class DuoInput {
       { up: 'KeyA', down: 'KeyD', aimUp: 'KeyQ', aimDown: 'KeyE', fire: 'Space', shield: 'ShiftLeft' },
       { up: 'ArrowLeft', down: 'ArrowRight', aimUp: 'ArrowUp', aimDown: 'ArrowDown', fire: 'Enter', shield: 'ShiftRight' },
     ];
+    // (switched off outside local versus: leave the robots alone, the solo controls drive them)
+    if (!this.enabled) return;
     this.players.forEach((p, who) => {
-      if (!this.enabled) {
-        p.firing = false;
-        return;
-      }
       const m = keymap[who];
       const touches = [...this.touches.values()].filter((t) => t.who === who);
       const moving = touches.some((t) => t.kind === 'move');
