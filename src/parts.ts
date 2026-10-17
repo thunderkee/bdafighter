@@ -31,7 +31,7 @@ export const STARTER_BUILD: Build = {
 
 export function computeStats(build: Build, overrides?: Partial<ShooterStats>): ShooterStats {
   const stats: ShooterStats = { ...BASE_STATS };
-  const keys = Object.keys(stats).filter((k) => k !== 'twin') as Exclude<keyof ShooterStats, 'twin'>[];
+  const keys = Object.keys(stats).filter((k) => k !== 'twin' && k !== 'special') as Exclude<keyof ShooterStats, 'twin' | 'special' | 'fan'>[];
   for (const slot of Object.keys(build) as Slot[]) {
     const part = PARTS.find((p) => p.id === build[slot]);
     if (!part) continue;

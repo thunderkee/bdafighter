@@ -107,6 +107,7 @@ export function boot() {
       fireInterval: stats.fireInterval / traitMul(t?.fireRate, 'fireRate'),
       agility: traitMul(t?.agility, 'agility'),
       twin: characterById(id).twin,
+      special: characterById(id).special,
     };
   };
   const healthTrait = (id: string) => traitMul(characterById(id).traits?.health, 'health');

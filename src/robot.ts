@@ -6,7 +6,7 @@ import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
-import { TWIN_X } from './config';
+import { TWIN_X, type Special } from './config';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -75,6 +75,8 @@ export interface CharacterDef {
   v21?: boolean;
   /** twin barrels: every shot is a pair of marbles side by side */
   twin?: boolean;
+  /** a signature trick (wind-up punch, hand swap, alternate hands, spray, anti-air) */
+  special?: Special;
   /** matte (doff) plastic instead of the glossy finish */
   matte?: boolean;
   /** 2.1: the pattern on this unit's marbles */
@@ -355,7 +357,7 @@ type Look21 = {
   boneSkull?: boolean;
   /** aim: the right arm straight out; twoHand: both arms forward, the gun held at the centre */
   /** centerAim: the right arm straight forward, turned in so the hand is at the middle */
-  pose?: 'stand' | 'aim' | 'twoHand' | 'bazooka' | 'centerAim';
+  pose?: 'stand' | 'aim' | 'twoHand' | 'bazooka' | 'centerAim' | 'dualAim';
   /** a gorilla's hunch: long arms swung forward, knuckles low */
   gorilla?: boolean;
   /** tank treads in place of legs */
@@ -396,7 +398,7 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
   ember: ['sparks', 'spots'],
   rex: ['scale', 'crackle'],
 };
-const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
+const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   // Astray Red Frame: white armour over a red frame, black trim
   // a swordsman: the katana raised in the right hand, every shot a slash whose arc throws the marble
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
@@ -404,8 +406,9 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // breastplate, black arms with a tusked shield on the back, blue and yellow legs, a T-rex tail;
   // the old Wyvern head with twin gold horns; it fires from a toothed maw in its chest, and holds
   // a power sword ready in its left hand
-  dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
-  pioneer: { look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
+  dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, special: { windup: 0.16 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
+  // swaps the heavy MG from hand to hand every few seconds; the shot leaves from that side
+  pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
   // Blastoise-style: a shell on its back with a twin cannon (two marbles a shot), hunched like a gorilla
@@ -419,13 +422,16 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // Unit-08 pink and mint, hunched, an open palm thrust out
   violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'palm', left: 'knife', back: ['pylons'], pose: 'aim', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
-  kabuto: { look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'aim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xffb02e, joint: 0x23261e, eye: 0xffd23e } },
+  // a fist cannon on each arm, firing left and right in turn
+  kabuto: { special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'dualAim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xffb02e, joint: 0x23261e, eye: 0xffd23e } },
   tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim', dynamic: true, lean: -0.18 }, ball: 0xb06aff, palette: { body: 0x5a606a, trim: 0x8a4aff, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
-  ember: { look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
+  // the head always cocked to one side: rapid fire sprays
+  ember: { special: { wobble: 0.2 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   // desert: sand armour, dark brown, red accents, cyan eyes
-  rex: { addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
+  // rex and liger shoot an enemy air drop out of the sky when it falls straight ahead
+  rex: { special: { antiAir: true }, addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
   // Char's red Zaku: salmon red armour, deep maroon plates, dark grey frame, a pink-red eye; no patterns
-  liger: { addons: ['armyWhites'], ball: 0xff5a6a, palette: { body: 0xd9525e, trim: 0x7c1c28, accent: 0x7c1c28, joint: 0x34343c, eye: 0xff3a7a } },
+  liger: { special: { antiAir: true }, addons: ['armyWhites'], ball: 0xff5a6a, palette: { body: 0xd9525e, trim: 0x7c1c28, accent: 0x7c1c28, joint: 0x34343c, eye: 0xff3a7a } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
@@ -455,6 +461,7 @@ export const BUILTINS: readonly CharacterDef[] = [
       look21: v.look,
       addons: v.addons,
       twin: v.twin,
+      special: v.special,
       crest: v.crest ?? o.crest,
       emblem: v.emblem,
       matte: v.matte,
@@ -563,6 +570,17 @@ export class ShooterMesh {
   private stride = 0;
   /** rest pose of animated parts (Unit Lab designs can tilt them); animation is added on top */
   private rest = { turretY: 0, turretZ: 0, jaw: 0, slash: 0, legs: [] as number[], flame: new THREE.Vector3(1, 1, 1) };
+  /** a puncher's arms (both thrust forward in the wind-up before each shot) and their rest angles */
+  punchArms: THREE.Object3D[] = [];
+  private punchRest: number[] = [];
+  private windup = 0;
+  /** a gun that swaps hands (the upper body mirrors), and a second gun in the left hand */
+  private swapper = false;
+  private barrel2: THREE.Object3D | null = null;
+  private bellyMarkL: THREE.Object3D | null = null;
+  private lastHand = 1;
+  /** a head kept cocked to one side, swaying with rapid fire's spray */
+  private tiltHead: THREE.Object3D | null = null;
   /** a swordsman's sword arm (it swings down on each shot) and the crescent its slash throws */
   slashArm: THREE.Object3D | null = null;
   private slashArc: THREE.Mesh | null = null;
@@ -606,6 +624,8 @@ export class ShooterMesh {
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
     if (def.look21?.gun === 'dragonMaw' || def.look21?.gun === 'chestMaw') this.jawOpen = -0.95;
+    this.windup = def.special?.windup ?? 0;
+    this.swapper = !!def.special?.swap;
     if (def.look21?.gun === 'slashSword') {
       // the crescent of light a slash throws, flashed in front of the chest on each shot
       const arc = new THREE.Mesh(
@@ -1385,6 +1405,10 @@ export class ShooterMesh {
           this.slashArm = o;
           this.rest.slash = o.rotation.x;
           break;
+        case 'punch':
+          this.punchArms.push(o);
+          this.punchRest.push(o.rotation.x);
+          break;
         case 'belly':
           this.bellyMark = o;
           break;
@@ -1434,6 +1458,7 @@ export class ShooterMesh {
       if (o === this.jaw) return 'jaw';
       if (o === this.flame) return 'flame';
       if (o === this.slashArm) return 'slash';
+      if (this.punchArms.includes(o)) return 'punch';
       if (o === this.trigger) return 'trigger';
       if (o === this.bellyMark) return 'belly';
       if (o === this.wings) return 'wings';
@@ -2180,22 +2205,27 @@ export class ShooterMesh {
         glow(leg, 0.03, 0.16 * k, 0.02, 0, -0.37 * k, -0.19 * lw);
       }
       leg.add(box(0.15 * lw, 0.06, 0.16 * lw, m.joint, 0, -0.475 * k, 0.02)); // ankle
-      // foot: a side-view wedge, low toe and a raised heel block, plus a toe cap and heel spur
-      const fl = F.foot;
       const sole = -0.54 * k;
-      leg.add(at(side([[-0.4 * fl, 0], [0.2 * fl, 0], [0.24 * fl, 0.05], [0.15 * fl, 0.12], [-0.12 * fl, 0.13], [-0.4 * fl, 0.045]], 0.4 * lw, m.body), 0, sole, -0.04));
-      if (def.feet === 'claw' && !L.megazord) {
-        for (const cx of [-0.12, 0, 0.12]) leg.add(at(cone(0.05, 0.16, m.joint), cx * lw, sole + 0.04, -0.47 * fl, -Math.PI / 2));
+      if (L.hover) {
+        // no feet: the shins taper off into a glow, as if it doesn't need the floor at all
+        leg.add(at(prism(0.15 * lw, 0.16 * lw, 0.08 * lw, 0.08 * lw, 0.08, m.joint, 0.02), 0, -0.53 * k, 0.02, Math.PI));
+        leg.add(box(0.07 * lw, 0.05, 0.07 * lw, m.glowMat ?? m.eyeMat, 0, -0.58 * k, 0.02));
       } else {
-        leg.add(at(side([[-0.42 * fl, 0], [-0.2 * fl, 0], [-0.2 * fl, 0.07], [-0.42 * fl, 0.04]], 0.42 * lw, m.accent), 0, sole, -0.04));
+        // foot: a side-view wedge, low toe and a raised heel block, plus a toe cap and heel spur
+        const fl = F.foot;
+        leg.add(at(side([[-0.4 * fl, 0], [0.2 * fl, 0], [0.24 * fl, 0.05], [0.15 * fl, 0.12], [-0.12 * fl, 0.13], [-0.4 * fl, 0.045]], 0.4 * lw, m.body), 0, sole, -0.04));
+        if (def.feet === 'claw' && !L.megazord) {
+          for (const cx of [-0.12, 0, 0.12]) leg.add(at(cone(0.05, 0.16, m.joint), cx * lw, sole + 0.04, -0.47 * fl, -Math.PI / 2));
+        } else {
+          leg.add(at(side([[-0.42 * fl, 0], [-0.2 * fl, 0], [-0.2 * fl, 0.07], [-0.42 * fl, 0.04]], 0.42 * lw, m.accent), 0, sole, -0.04));
+        }
+        leg.add(at(side([[0.18, 0], [0.3, 0], [0.24, 0.08], [0.16, 0.08]], 0.2 * lw, m.joint), 0, sole, 0.0)); // heel spur
       }
-      leg.add(at(side([[0.18, 0], [0.3, 0], [0.24, 0.08], [0.16, 0.08]], 0.2 * lw, m.joint), 0, sole, 0.0)); // heel spur
       this.root.add(leg);
       if (L.hover) {
         // long dangling legs that sway as it drifts, with a jet glowing under each sole
         leg.scale.set(1, HOVER_LEG, 1);
         leg.rotation.x = s === -1 ? -0.14 : 0.2;
-        leg.add(box(0.16 * lw, 0.02 / HOVER_LEG, 0.22 * lw, m.glowMat ?? m.eyeMat, 0, sole - 0.012, -0.08));
         this.dangle.push(leg);
         continue;
       }
@@ -2370,9 +2400,10 @@ export class ShooterMesh {
       const bazooka = L.pose === 'bazooka' && s === 1;
       const centre = L.pose === 'centerAim' && s === 1;
       // the off hand raised on guard (or with the knife ready), and the gorilla's planted arms
-      const guard = s === -1 && L.dynamic && (!L.left || L.left === 'claw');
+      const dual = L.pose === 'dualAim';
+      const guard = s === -1 && L.dynamic && !dual && (!L.left || L.left === 'claw');
       const knuckle = !!L.gorilla;
-      const aiming = (L.pose === 'aim' && s === 1) || twoHand || bazooka || centre || guard || knuckle;
+      const aiming = (L.pose === 'aim' && s === 1) || dual || twoHand || bazooka || centre || guard || knuckle;
       if (aiming) {
         // straight out at the target; with both hands, each arm turns in to meet at the gun;
         // with the bazooka, each arm is aimed (and stretched) so its fist closes on a grip:
@@ -2439,6 +2470,11 @@ export class ShooterMesh {
       this.turret.add(sh);
       if (s === 1) rightSh = sh;
       else leftSh = sh;
+      // a wind-up puncher thrusts both whole arms forward before each shot
+      if (def.special?.windup) {
+        this.punchArms.push(sh);
+        this.punchRest.push(sh.rotation.x);
+      }
     }
     // where the right fist is, in its shoulder's space
     const fist = L.pose === 'aim' ? V(0, -0.14, -0.74) : V(-0.04, -0.52 * as, -0.22);
@@ -2643,6 +2679,14 @@ export class ShooterMesh {
           tube(0.035, 0.02, hole, x, 0, -0.245);
         }
         mark(0, 0, -0.27);
+        if (L.pose === 'dualAim') {
+          // the same cannon on the left fist, with its own muzzle
+          const g2 = gun.clone();
+          g2.position.copy(gun.position);
+          leftSh!.add(g2);
+          this.barrel2 = g2;
+          this.bellyMarkL = g2.children[gun.children.indexOf(this.bellyMark!)] ?? null;
+        }
         break;
       }
       case 'rexFist': {
@@ -3224,6 +3268,9 @@ export class ShooterMesh {
     }
     // the big head: a faceted skull, a round snout, big shiny eyes
     const head = at(new THREE.Group(), 0, 0.68, -0.04);
+    // the head is always cocked to one side (rapid fire sprays as it sways)
+    head.rotation.z = 0.28;
+    this.tiltHead = head;
     this.turret.add(head);
     head.add(prism(0.62, 0.58, 0.54, 0.5, 0.5, m.body, 0.15));
     head.add(at(prism(0.5, 0.36, 0.44, 0.3, 0.24, m.body, [0.12, 0.12, 0.04, 0.04]), 0, -0.08, -0.36)); // snout
@@ -4031,6 +4078,7 @@ export class ShooterMesh {
   muzzleWorld(out: THREE.Vector3) {
     this.root.updateMatrixWorld(true);
     // B-Daman style: the marble leaves from the front of the belly
+    if (this.lastHand === -1 && this.bellyMarkL) return this.bellyMarkL.getWorldPosition(out);
     if (this.bellyMark) return this.bellyMark.getWorldPosition(out);
     return this.barrel.localToWorld(out.set(0, 0, -0.25));
   }
@@ -4086,7 +4134,28 @@ export class ShooterMesh {
     // the turret faces -z for the player and +z for the opponent
     this.root.rotation.y = s.team === 0 ? 0 : Math.PI;
     this.turret.rotation.y = this.rest.turretY + (s.team === 0 ? -s.aim : s.aim);
-    this.barrel.position.z = this.barrelZ + s.recoil * (this.jaw ? 0.04 : 0.12);
+    // (with a gun in each hand, only the one that fired kicks back)
+    this.lastHand = s.lastHand ?? 1;
+    const kicked = this.barrel2 && this.lastHand === -1 ? this.barrel2 : this.barrel;
+    const idle = kicked === this.barrel ? this.barrel2 : this.barrel;
+    kicked.position.z = this.barrelZ + s.recoil * (this.jaw ? 0.04 : 0.12);
+    if (idle) idle.position.z = this.barrelZ;
+    if (this.punchArms.length) {
+      // the wind-up: both arms thrust straight out, held through the blast, then drawn back
+      const w = s.windT ?? 9;
+      const hold = this.windup + 0.18;
+      const p = w < 0.1 ? 1 - (1 - w / 0.1) ** 3 : w < hold ? 1 : w < hold + 0.3 ? 1 - (w - hold) / 0.3 : 0;
+      this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) + p * 1.45));
+    }
+    if (this.swapper) {
+      // swapping hands: the upper body mirrors over, the gun crossing to the other side
+      const want = s.hand ?? 1;
+      this.turret.scale.x += (want - this.turret.scale.x) * Math.min(1, dt * 12);
+    }
+    if (this.tiltHead) {
+      this.tiltHead.rotation.z = 0.28 + (s.wobble ?? 0) * 1.4;
+      this.tiltHead.rotation.y = (s.wobble ?? 0) * 0.9;
+    }
     this.trigger.position.z = this.triggerZ - s.recoil * 0.1;
     // beasts: the jaw snaps open as the marble leaves the mouth
     if (this.jaw) {
@@ -4141,7 +4210,7 @@ export class ShooterMesh {
     }
     // tanks glide, they don't bob
     this.dangle.forEach((l, i) => (l.rotation.x = (i ? 0.2 : -0.14) + Math.sin(time * 1.6 + i * 1.3) * 0.08 - s.vx * 0.03 * (s.team === 0 ? 1 : -1)));
-    const bob = this.hoverLift ? Math.sin(time * 2.2) * 0.04 : this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * 0.05 * moving;
+    const bob = this.hoverLift ? Math.sin(time * 1.5) * 0.07 : this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * 0.05 * moving;
 
     // wings breathe at idle, flare open while firing
     const flare = s.firing ? 0.18 : 0;

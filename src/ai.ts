@@ -227,7 +227,8 @@ export class AIController {
     const pr = this.profile;
     const dy = foe.y - me.y;
     const dist = Math.abs(dy);
-    const flight = dist / me.stats.muzzleSpeed;
+    // (a wind-up before the shot leaves adds to the lead)
+    const flight = dist / me.stats.muzzleSpeed + (me.stats.special?.windup ?? 0);
     let tx = foe.x + foe.vx * flight * pr.lead;
     const half = ARENA.width / 2 - me.stats.marbleRadius;
 

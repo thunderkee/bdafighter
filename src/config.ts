@@ -53,6 +53,26 @@ export interface ShooterStats {
   twin?: boolean;
   /** spread fire: marbles per regular shot, fanned around the aim (an arcade boss) */
   fan?: number;
+  /** a unit's signature trick (see Special) */
+  special?: Special;
+}
+
+/**
+ * Signature tricks some units have:
+ * - windup: seconds of wind-up before each shot leaves (Wyvern punches, then its maw blasts)
+ * - hand: how far the gun sits off the centre line; the shot leaves from that side
+ * - swap: seconds between switching the gun to the other hand (Pioneer)
+ * - alternate: fire from alternate hands, shot by shot (Kabuto's twin fist cannons)
+ * - wobble: rapid fire sprays this far (radians) either side, the head tilting (Ember)
+ * - antiAir: fires straight up at an enemy air drop falling straight ahead (Rex, Liger)
+ */
+export interface Special {
+  windup?: number;
+  hand?: number;
+  swap?: number;
+  alternate?: boolean;
+  wobble?: number;
+  antiAir?: boolean;
 }
 
 export const BASE_STATS: ShooterStats = {

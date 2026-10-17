@@ -1415,6 +1415,7 @@ const ROLE_LABEL: Record<Role, string> = {
   wingL: 'WING L',
   wingR: 'WING R',
   slash: 'SLASH ARM',
+  punch: 'PUNCH ARM',
 };
 const blockColor = (b: Block) => (b.mat ? resolveColor(b.mat.color, def(), def().ball) : null);
 

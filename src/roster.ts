@@ -33,7 +33,7 @@ export type PaletteSlot = 'body' | 'trim' | 'accent' | 'joint' | 'eye' | 'ball';
 export type ColorRef = PaletteSlot | number;
 
 /** parts the animation drives (walk cycle, aiming, recoil, jaw snap, flame flicker) and the belly launch point */
-export type Role = 'turret' | 'barrel' | 'belly' | 'leg' | 'jaw' | 'flame' | 'trigger' | 'wings' | 'wingL' | 'wingR' | 'slash';
+export type Role = 'turret' | 'barrel' | 'belly' | 'leg' | 'jaw' | 'flame' | 'trigger' | 'wings' | 'wingL' | 'wingR' | 'slash' | 'punch';
 
 export type Shape = 'group' | 'box' | 'rbox' | 'capsule' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'mesh';
 

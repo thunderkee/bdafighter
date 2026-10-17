@@ -625,10 +625,13 @@ export class View {
           break;
         }
         case 'drop-destroyed': {
+          // (shot out of the sky by anti-air: the burst is up where the crate was)
           const c = ITEMS[f.item].color;
-          const sp = this.project(f.x, f.y, 0.5);
-          this.burst(f.x, f.y, c, 24, 7, { h: 0.5 });
-          this.burst(f.x, f.y, 0x8a90a8, 14, 5, { h: 0.5 });
+          const h = f.h ?? 0.5;
+          const sp = this.project(f.x, f.y, h);
+          this.burst(f.x, f.y, c, 24, 7, { h });
+          this.burst(f.x, f.y, 0x8a90a8, 14, 5, { h });
+          if (f.h) for (let k = 1; k < 6; k++) this.burst(f.x, f.y, 0xfff0c0, 2, 1.5, { h: (h * k) / 6, size: 0.06 }); // the tracer up to it
           this.fx2d?.ring(sp.x, sp.y, hex(c), true);
           this.fx2d?.star(sp.x, sp.y, hex(c));
           this.shake(0.2);

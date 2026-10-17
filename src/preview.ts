@@ -5,7 +5,7 @@ import { TWIN_X } from './config';
 import type { Shooter } from './game';
 
 /** the preview unit's pretend fight state, fed to the same animation code the match uses */
-type Act = Pick<Shooter, 'x' | 'y' | 'team' | 'aim' | 'recoil' | 'vx' | 'firing' | 'kickT' | 'heavyT' | 'flash' | 'stagger' | 'health'>;
+type Act = Pick<Shooter, 'x' | 'y' | 'team' | 'aim' | 'recoil' | 'vx' | 'firing' | 'kickT' | 'heavyT' | 'flash' | 'stagger' | 'health' | 'hand' | 'lastHand' | 'windT' | 'wobble'>;
 
 /**
  * The select screens' preview window: the chosen fighter on a slowly turning plinth, or a
@@ -27,7 +27,12 @@ export class Preview {
   private mode: 'unit' | 'stage' = 'unit';
   /** turns the unit on the plinth (the unit's own root is driven by its animation) */
   private pivot = new THREE.Group();
-  private act: Act = { x: 0, y: 0, team: 0, aim: 0, recoil: 0, vx: 0, firing: false, kickT: 9, heavyT: 9, flash: 0, stagger: 0, health: 100 };
+  private act: Act = { x: 0, y: 0, team: 0, aim: 0, recoil: 0, vx: 0, firing: false, kickT: 9, heavyT: 9, flash: 0, stagger: 0, health: 100, hand: 1, lastHand: 1, windT: 9, wobble: 0 };
+  /** the unit's signature trick, acted out on the plinth too */
+  private special: NonNullable<ReturnType<typeof characterById>['special']> = {};
+  private windLeft = 0;
+  private swapT = 0;
+  private wobbleN = 0;
   /** seconds into the unit's routine, and when its next shot goes */
   private at = 0;
   private nextShot = 0;
@@ -106,9 +111,13 @@ export class Preview {
     this.handT = 0;
     this.swingT = 0;
     this.twin = !!def.twin;
+    this.special = def.special ?? {};
+    this.windLeft = 0;
+    this.swapT = 0;
+    this.wobbleN = 0;
     this.ballMat.color.setHex(def.ball);
     // it powers up as it's picked: the special-move spring and glow, then its routine
-    this.act = { ...this.act, x: 0, aim: 0, vx: 0, recoil: 0, kickT: 9, heavyT: 0, flash: 0 };
+    this.act = { ...this.act, x: 0, aim: 0, vx: 0, recoil: 0, kickT: 9, heavyT: 0, flash: 0, hand: 1, lastHand: 1, windT: 9, wobble: 0 };
     this.at = 0;
     this.nextShot = 1.4;
     this.scene.background = null;
@@ -293,15 +302,24 @@ export class Preview {
     s.aim = Math.sin(t * 0.7) * 0.28;
     s.kickT += dt;
     s.heavyT += dt;
+    s.windT += dt;
     s.recoil = Math.max(0, s.recoil - dt * 8);
     s.firing = false;
+    const sp = this.special;
+    if (sp.swap && (this.swapT += dt) >= sp.swap) {
+      this.swapT = 0;
+      s.hand = -s.hand;
+    }
+    // a wind-up: the punch first, the shot when it's done
+    if (this.windLeft > 0 && (this.windLeft -= dt) <= 0) this.shoot();
     if (t >= this.nextShot) {
       s.firing = true;
-      s.recoil = 1;
-      s.kickT = 0;
-      this.fire();
+      if (sp.windup) {
+        this.windLeft = sp.windup;
+        s.windT = 0;
+      } else this.shoot();
       // now and then a quick string of three
-      if (this.burstLeft === 0 && Math.random() < 0.35) this.burstLeft = 3;
+      if (this.burstLeft === 0 && !sp.windup && Math.random() < 0.35) this.burstLeft = 3;
       if (this.burstLeft > 0) this.burstLeft--;
       this.nextShot = t + (this.burstLeft > 0 ? 0.16 : 1.6 + Math.random() * 1.2);
     }
@@ -309,6 +327,11 @@ export class Preview {
     // keep it planted on the plinth: no sliding along a rail here
     unit.root.position.x = 0;
     unit.root.position.z = 0;
+    // (the marble leaves once the model has moved its gun to the hand that fired)
+    if (this.ballDue) {
+      this.ballDue = false;
+      this.fire();
+    }
     for (let i = this.balls.length - 1; i >= 0; i--) {
       const b = this.balls[i];
       b.age += dt;
@@ -330,6 +353,20 @@ export class Preview {
   private frameH = 1.4;
   private frameR = 1;
 
+  /** the shot itself: the kick, the hand it leaves from, rapid fire's spray, and the marble */
+  private shoot() {
+    const s = this.act;
+    const sp = this.special;
+    s.recoil = 1;
+    s.lastHand = s.hand;
+    if (sp.alternate) s.hand = -s.hand;
+    this.wobbleN = s.kickT < 0.6 ? this.wobbleN + 1 : 0;
+    s.wobble = sp.wobble ? Math.sin(this.wobbleN * 1.35) * sp.wobble * Math.min(1, this.wobbleN / 2) : 0;
+    s.kickT = 0;
+    this.ballDue = true;
+  }
+  private ballDue = false;
+
   /** a marble out of the muzzle (two from twin barrels), flying down the unit's facing */
   private fire() {
     const unit = this.unit!;
@@ -339,6 +376,7 @@ export class Preview {
     fwd.y = 0;
     fwd.normalize();
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+    if (this.special.wobble) fwd.applyAxisAngle(new THREE.Vector3(0, 1, 0), -this.act.wobble);
     for (const side of this.twin ? [-TWIN_X, TWIN_X] : [0]) {
       const mesh = new THREE.Mesh(this.ballGeo, this.ballMat);
       mesh.castShadow = true;

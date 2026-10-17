@@ -189,7 +189,7 @@ export type Fx =
   | { type: 'block'; x: number; y: number; slot: number; heavy: boolean }
   | { type: 'shield-break'; slot: number }
   | { type: 'clack'; x: number; y: number; intensity: number }
-  | { type: 'drop-destroyed'; x: number; y: number; team: Team; item: ItemType }
+  | { type: 'drop-destroyed'; x: number; y: number; team: Team; item: ItemType; h?: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
   | { type: 'super-fire'; slot: number }
@@ -243,6 +243,16 @@ export class Shooter {
   /** seconds since the last shot, and since the last special move (drives the firing animation) */
   kickT = 9;
   heavyT = 9;
+  /** signature tricks: which hand the gun is in (1 right, -1 left) and the hand the last shot
+   *  left from, the hand-swap timer, a wind-up in progress (seconds left, and since it began),
+   *  and rapid fire's running spray offset */
+  hand = 1;
+  lastHand = 1;
+  swapT = 0;
+  windLeft = 0;
+  windT = 9;
+  wobble = 0;
+  wobbleN = 0;
 
   shots = 0;
   hits = 0;
@@ -352,6 +362,11 @@ export class Shooter {
     if (this.size !== 1) this.setSize(1);
     this.out = false;
     this.kickT = this.heavyT = 9;
+    this.hand = this.lastHand = 1;
+    this.swapT = 0;
+    this.windLeft = 0;
+    this.windT = 9;
+    this.wobble = this.wobbleN = 0;
     this.lane = lane;
     this.x = (lane[0] + lane[1]) / 2;
     this.passing = false;
@@ -1290,6 +1305,19 @@ export class Game {
     s.recoil = Math.max(0, s.recoil - adt * 8);
     s.kickT += adt;
     s.heavyT += adt;
+    s.windT += adt;
+    const sp = s.stats.special;
+    // Pioneer swaps the gun to the other hand every few seconds
+    if (sp?.swap && (s.swapT += adt) >= sp.swap) {
+      s.swapT = 0;
+      s.hand = -s.hand;
+    }
+    // a wind-up in progress: the shot leaves when it's done
+    if (s.windLeft > 0 && (s.windLeft -= adt) <= 0) {
+      s.windLeft = 0;
+      if (s.alive) this.fire(s, true);
+    }
+    if (s.kickT > 0.6) s.wobbleN = 0;
     s.cooldown -= adt;
     s.sinceHit += dt;
     s.sinceHurt += dt;
@@ -1534,10 +1562,11 @@ export class Game {
   private launch(m: Marble, s: Shooter, o: { angle: number; radius: number; speed: number; mass: number; damage: number; kind: MarbleKind; push?: number; weave?: number; side?: number }) {
     const d = s.dir(o.angle);
     const p = s.muzzle();
-    // a twin barrel's marble leaves beside the centre line
-    if (o.side) {
-      p.x += d.y * o.side;
-      p.y -= d.x * o.side;
+    // a twin barrel's marble leaves beside the centre line, and a gun held off-centre fires from its hand
+    const side = (o.side ?? 0) + (s.stats.special?.hand ?? 0) * s.lastHand;
+    if (side) {
+      p.x += d.y * side;
+      p.y -= d.x * side;
     }
     const push = o.push ?? 0;
     m.active = true;
@@ -1561,10 +1590,43 @@ export class Game {
     this.activeCount++;
   }
 
-  private fire(s: Shooter) {
+  private fire(s: Shooter, wound = false) {
+    const st = s.stats;
+    const sp = st.special;
+    // a wind-up first (the punch); the shot itself comes when it's done
+    if (sp?.windup && !wound) {
+      if (s.windLeft <= 0) {
+        s.windLeft = sp.windup;
+        s.windT = 0;
+      }
+      return;
+    }
+    // anti-air: an enemy air drop falling straight ahead is shot out of the sky instead
+    if (sp?.antiAir && Math.abs(s.aim) < 0.3) {
+      const d = this.drops.find((dr) => dr.team !== s.team && dr.h > 1.0 && Math.abs(dr.x - s.x) < 0.9);
+      if (d) {
+        this.drops.splice(this.drops.indexOf(d), 1);
+        const y = d.team === 0 ? -ARENA.railY : ARENA.railY;
+        this.fx.push({ type: 'drop-destroyed', x: d.x, y, team: d.team, item: d.type, h: d.h });
+        this.fx.push({ type: 'muzzle', slot: s.slot });
+        sfx.play('fire', s.slot === 0 ? 1 : 0.45);
+        s.recoil = 1;
+        s.kickT = 0;
+        return;
+      }
+    }
     const m = this.takeMarble();
     if (!m) return;
-    const st = s.stats;
+    // the hand this shot leaves from (it may change for the next one)
+    s.lastHand = s.hand;
+    if (sp?.alternate) s.hand = -s.hand;
+    // rapid fire sprays: each quick follow-up swings further out, side to side
+    let wob = 0;
+    if (sp?.wobble) {
+      s.wobbleN = s.kickT < 0.6 ? s.wobbleN + 1 : 0;
+      wob = Math.sin(s.wobbleN * 1.35) * sp.wobble * Math.min(1, s.wobbleN / 2);
+      s.wobble = wob;
+    }
     const isSuper = s.superReady;
     s.superReady = false;
     // in your own slow-mo every shot is a boost ball
@@ -1574,7 +1636,7 @@ export class Game {
     const fan = !isSuper && (st.fan ?? 1) > 1 ? st.fan! : 1;
     this.launch(m, s, {
       // a super shot flies dead straight
-      angle: s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread),
+      angle: s.aim + (isSuper ? 0 : (Math.random() * 2 - 1) * st.spread + wob),
       radius,
       speed: st.muzzleSpeed * (isSuper ? SUPER.speed : boost ? BOOST_BALL.speed : 1),
       mass: st.marbleMass * (isSuper ? SUPER.mass : boost ? BOOST_BALL.mass : 1),
