@@ -90,8 +90,8 @@ export interface SaveData {
   clearTable?: boolean;
   /** the simple rules (clear table, no power gates) and the mid camera became the default once */
   simpleRules?: boolean;
-  /** units unlocked through the arcade (beyond the starters) */
-  unlocked?: string[];
+  /** every unit unlocked at once (Options > Advanced, for trying them all out) */
+  unlockAll?: boolean;
   muted: boolean;
   settings: Settings;
 }

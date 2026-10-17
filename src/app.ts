@@ -84,6 +84,25 @@ export function boot() {
     { title: 'NIGHTSHADE', units: ['nightshade-21'], health: 3, damage: 0.4, size: 1.6, iq: 'ace', lv: 4, fan: 3, time: 0 },
   ];
   const FINAL_STAGE = BOSSES.length * BOSS_EVERY;
+  /**
+   * Unlocks: six starters, and the rest are earned in the arcade. Clearing each stage listed
+   * here unlocks those units (by base id, whatever their version); a boss is won by beating it.
+   */
+  const UNLOCKS: [number, string[]][] = [
+    [2, ['monoceros']],
+    [3, ['bastion']],
+    [5, ['liger']],
+    [6, ['violet']],
+    [8, ['ember']],
+    [9, ['rex', 'tyrant']],
+    [12, ['nightshade']],
+  ];
+  const baseOf = (id: string) => characterById(id).id.replace(/-\d+$/, '');
+  /** the arcade stage that unlocks this unit (0 = a starter, or a custom unit) */
+  const unlockStage = (id: string) => (BUILTINS.some((b) => b.id === characterById(id).id) ? (UNLOCKS.find(([, ids]) => ids.includes(baseOf(id)))?.[0] ?? 0) : 0);
+  const isLocked = (id: string) => !saveData.unlockAll && unlockStage(id) > (saveData.arcadeBest ?? 0);
+  /** the units a clear of this stage unlocks */
+  const unlocksAt = (stage: number) => playable().filter((c) => unlockStage(c.id) === stage);
   /** the bosses never turn up as ordinary opponents, and can't be picked in arcade */
   const BOSS_IDS = new Set(BOSSES.flatMap((b) => b.units));
   const bossAt = (stage: number) => stage % BOSS_EVERY === 0;
@@ -672,6 +691,9 @@ export function boot() {
     const title = $('result-title');
     let head = '';
     let stageCfg = arcade.cfg;
+    // a first clear of an unlock stage brings in new fighters
+    const fresh = w === 0 && arcade.stage > best ? unlocksAt(arcade.stage) : [];
+    if (fresh.length) setTimeout(() => showToast(`NEW FIGHTER // ${fresh.map((c) => c.name.toUpperCase()).join(' + ')}`, 0xffc23d), 600);
     if (w === 0 && arcade.stage >= FINAL_STAGE) {
       // the last boss is down: the run is cleared
       arcade.cleared = arcade.stage;
@@ -682,7 +704,7 @@ export function boot() {
       arcade.done = true;
       $('again-btn').textContent = 'NEW RUN ▶';
       panel.classList.remove('boss');
-      panel.innerHTML = `<b>CHAMPION</b><div><span>FINAL BOSS</span><em>${BOSSES[BOSSES.length - 1].title} DEFEATED</em></div>`;
+      panel.innerHTML = `<b>CHAMPION</b><div><span>FINAL BOSS</span><em>${BOSSES[BOSSES.length - 1].title} DEFEATED</em></div>${fresh.length ? `<div><span>UNLOCKED</span><em>${fresh.map((c) => c.name.toUpperCase()).join(' + ')}</em></div>` : ''}`;
       return;
     }
     if (w === 0) {
@@ -881,6 +903,16 @@ export function boot() {
     }),
   );
   $('reset-opponent').addEventListener('click', () => saveSetting(store.OPPONENT_DEFAULTS));
+  // unlock all fighters (not a match setting: it lives on the save itself)
+  const showUnlockAll = () =>
+    document.querySelectorAll<HTMLElement>('#unlock-all button').forEach((b) => b.classList.toggle('on', b.dataset.value === String(!!saveData.unlockAll)));
+  document.querySelectorAll<HTMLElement>('#unlock-all button').forEach((b) =>
+    b.addEventListener('click', () => {
+      saveData = store.save({ unlockAll: b.dataset.value === 'true' });
+      showUnlockAll();
+    }),
+  );
+  showUnlockAll();
 
   // ---------- select screens: fighter, rival, arena, then the match rules (like a fighting game) ----------
   const preview = new Preview($('preview'));
@@ -989,6 +1021,18 @@ export function boot() {
       b.addEventListener('click', () => pick(id));
       grid.appendChild(b);
     };
+    const lockedTile = (id: string, stage: number, color: string) => {
+      const b = document.createElement('button');
+      b.className = 'tile locked';
+      b.dataset.id = id;
+      b.style.setProperty('--i', String(grid.children.length));
+      b.innerHTML = `<i data-portrait="${id}" style="background:${color}"></i><em class="lock">🔒</em><span>Arcade stage ${stage}</span>`;
+      b.addEventListener('click', () => {
+        replay(b, 'nope');
+        sfx.play('bump', 0.5);
+      });
+      grid.appendChild(b);
+    };
     if (arena) {
       for (const st of STAGES) tile(st.id, `<i class="swatch" style="background:linear-gradient(160deg, ${hexc(st.swatch[0])} 0 62%, ${hexc(st.swatch[1])} 62%)"></i><span>${st.name}</span>`);
       // swap the colour swatches for real stills of each arena, one at a time
@@ -1013,6 +1057,11 @@ export function boot() {
       if (verOf(c.id) !== ver) continue;
       // the arcade's bosses stay a surprise: they can't be picked for a run
       if (selectMode === 'arcade' && BOSS_IDS.has(c.id)) continue;
+      // a locked unit shows (so there's something to chase) but can't be picked
+      if (isLocked(c.id)) {
+        lockedTile(c.id, unlockStage(c.id), hexc(c.palette.body));
+        continue;
+      }
       tile(c.id, `<i data-portrait="${c.id}" style="background:${hexc(c.palette.body)}"></i><span>${c.name}</span>`);
     }
     fillPortraits(grid);
@@ -1044,11 +1093,14 @@ export function boot() {
   const openSelect = (mode: 'versus' | 'arcade') => {
     sfx.unlock();
     selectMode = mode;
-    // a boss can't start an arcade run: move the pick to the first fighter that can
-    if (mode === 'arcade' && BOSS_IDS.has(saveData.settings.character)) {
-      const first = playable().find((c) => !BOSS_IDS.has(c.id));
+    // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
+    const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && BOSS_IDS.has(id));
+    if (!ok(saveData.settings.character)) {
+      const first = playable().find((c) => ok(c.id));
       if (first) saveData = store.save({ settings: { ...saveData.settings, character: first.id } });
     }
+    if (saveData.settings.enemyCharacter && saveData.settings.enemyCharacter !== 'auto' && isLocked(saveData.settings.enemyCharacter))
+      saveData = store.save({ settings: { ...saveData.settings, enemyCharacter: 'auto' } });
     goStep('fighter');
   };
   const toTitle = () => {

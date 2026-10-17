@@ -2550,3 +2550,34 @@ body.pressing #pad .pad-btn.fire.held {
   75% { opacity: 1; transform: translateX(-50%) scale(1); }
   100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(1); }
 }
+
+/* a fighter still to unlock: dimmed, a padlock, and the arcade stage that opens it */
+.tile.locked {
+  position: relative;
+  cursor: not-allowed;
+}
+.tile.locked i,
+.tile.locked img.portrait {
+  filter: grayscale(1) brightness(0.35) contrast(1.2);
+}
+.tile.locked .lock {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  font-style: normal;
+  font-size: 22px;
+  pointer-events: none;
+}
+.tile.locked span {
+  color: var(--muted);
+  font-size: 9px;
+}
+.tile.nope {
+  animation: nope 0.3s;
+}
+@keyframes nope {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
