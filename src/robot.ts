@@ -6,7 +6,7 @@ import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
-import { TWIN_X, type Special } from './config';
+import { TOSS_TIME, TWIN_X, type Special } from './config';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -408,7 +408,7 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // a power sword ready in its left hand
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, special: { windup: 0.16 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
   // swaps the heavy MG from hand to hand every few seconds; the shot leaves from that side
-  pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'aim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
+  pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'dualAim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
   // Blastoise-style: a shell on its back with a twin cannon (two marbles a shot), hunched like a gorilla
@@ -574,8 +574,18 @@ export class ShooterMesh {
   punchArms: THREE.Object3D[] = [];
   private punchRest: number[] = [];
   private windup = 0;
-  /** a gun that swaps hands (the upper body mirrors), and a second gun in the left hand */
-  private swapper = false;
+  /** two-handed units: each arm aims straight out when its hand is up and rests otherwise; the
+   *  fist anchors, each arm's raise (0 rest, 1 aiming), and a gun tossed between the hands */
+  private armR: THREE.Object3D | null = null;
+  private armL: THREE.Object3D | null = null;
+  private fistR: THREE.Object3D | null = null;
+  private fistL: THREE.Object3D | null = null;
+  private raise = { r: 1, l: 0 };
+  private tossGun: THREE.Object3D | null = null;
+  private toss = { from: 1, to: 1, t: 9 };
+  /** a belt that follows a tossed gun: its rounds and the curve's fixed end and bend */
+  private belt: { rounds: THREE.Object3D[]; a1: THREE.Vector3; a2: THREE.Vector3 } | null = null;
+  /** a second gun in the left hand */
   private barrel2: THREE.Object3D | null = null;
   private bellyMarkL: THREE.Object3D | null = null;
   private lastHand = 1;
@@ -625,7 +635,6 @@ export class ShooterMesh {
     if (!def.blueprint) boxify(this.root);
     if (def.look21?.gun === 'dragonMaw' || def.look21?.gun === 'chestMaw') this.jawOpen = -0.95;
     this.windup = def.special?.windup ?? 0;
-    this.swapper = !!def.special?.swap;
     if (def.look21?.gun === 'slashSword') {
       // the crescent of light a slash throws, flashed in front of the chest on each shot
       const arc = new THREE.Mesh(
@@ -2410,8 +2419,9 @@ export class ShooterMesh {
         // the right on the trigger grip, the left across the chest on the front grip
         let ag: THREE.Object3D = sh;
         if (twoHand || centre) ag = at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0);
-        // a sword arm swings on its own inside the shoulder armour
-        if (L.gun === 'slashSword' && s === 1) ag = new THREE.Group();
+        // a sword arm swings on its own inside the shoulder armour, and so does each arm of a
+        // two-handed unit (raised to aim, lowered to rest)
+        if ((L.gun === 'slashSword' && s === 1) || dual) ag = new THREE.Group();
         if (guard) {
           // forearm up and in, the fist in front of the chest
           ag = new THREE.Group();
@@ -2455,6 +2465,17 @@ export class ShooterMesh {
         ag.add(box(0.22 * aw, 0.22 * aw, 0.2, m.joint, 0, -0.14, -0.74)); // fist
         if (s === 1) rightArm = ag;
         else leftArm = ag;
+        if (dual) {
+          const anchor = at(new THREE.Object3D(), 0, -0.14, -0.74);
+          ag.add(anchor);
+          if (s === 1) {
+            this.armR = ag;
+            this.fistR = anchor;
+          } else {
+            this.armL = ag;
+            this.fistL = anchor;
+          }
+        }
         if (knuckle) ag.add(box(0.3 * aw, 0.24 * aw, 0.26, m.joint, 0, -0.14, -0.78)); // big knuckles
       } else {
         // hanging: slim upper arm, elbow piston, a gauntlet that widens toward the fist
@@ -2477,7 +2498,7 @@ export class ShooterMesh {
       }
     }
     // where the right fist is, in its shoulder's space
-    const fist = L.pose === 'aim' ? V(0, -0.14, -0.74) : V(-0.04, -0.52 * as, -0.22);
+    const fist = L.pose === 'aim' || L.pose === 'dualAim' ? V(0, -0.14, -0.74) : V(-0.04, -0.52 * as, -0.22);
 
     // ---------- the gun ----------
     const gun = this.barrel;
@@ -2498,7 +2519,8 @@ export class ShooterMesh {
         return;
       }
       gun.position.copy(fist);
-      rightSh!.add(gun);
+      // (a two-handed unit's gun rides in the arm, so it rests and aims with it)
+      (L.pose === 'dualAim' ? rightArm! : rightSh!).add(gun);
     };
     switch (L.gun) {
       case 'beamRifle': {
@@ -2671,7 +2693,7 @@ export class ShooterMesh {
       case 'fistCannon': {
         // Metabee's twin cannon over the thrown fist
         gun.position.copy(fist).add(V(0, 0.16, 0.12));
-        rightSh!.add(gun);
+        (L.pose === 'dualAim' ? rightArm! : rightSh!).add(gun);
         gun.add(at(prism(0.28, 0.3, 0.26, 0.28, 0.15, m.body, 0.05), 0, 0, 0));
         gun.add(box(0.3, 0.03, 0.32, m.trim, 0, -0.07, 0));
         for (const x of [-0.07, 0.07]) {
@@ -2683,7 +2705,7 @@ export class ShooterMesh {
           // the same cannon on the left fist, with its own muzzle
           const g2 = gun.clone();
           g2.position.copy(gun.position);
-          leftSh!.add(g2);
+          leftArm!.add(g2);
           this.barrel2 = g2;
           this.bellyMarkL = g2.children[gun.children.indexOf(this.bellyMark!)] ?? null;
         }
@@ -2791,6 +2813,12 @@ export class ShooterMesh {
     }
     this.barrelZ = gun.position.z;
     if (L.gun === 'bazooka') this.barrelZ = 0;
+    if (def.special?.swap && this.fistR) {
+      // a gun that's tossed from hand to hand: it lives on the torso and is placed at whichever
+      // fist holds it (or along the arc between them) every frame
+      this.turret.add(gun);
+      this.tossGun = gun;
+    }
 
     // ---------- the left hand: shields, scythe, claw, tail blade ----------
     const lh = leftSh!;
@@ -2921,6 +2949,9 @@ export class ShooterMesh {
         const a0 = V(F.shOut - 0.24, 0.22, -0.72);
         const a1 = V(F.shOut + 0.5, 0.16, -0.05);
         const a2 = V(0.3, 0.3, cd / 2 + 0.16);
+        const rounds: THREE.Object3D[] = [];
+        // (a gun tossed between the hands drags the belt with it: see sync)
+        if (def.special?.swap) this.belt = { rounds, a1: V(0, 0.0, 0.1), a2 };
         const curve = new THREE.QuadraticBezierCurve3(a0, a1, a2);
         // a bold belt: chunky brass cartridges with copper tips on dark links
         const brass = this.paint(0xc9a03a, 'gold');
@@ -2937,6 +2968,7 @@ export class ShooterMesh {
           round.add(at(cyl(0.045, 0.16, brass), 0, 0.055, 0, 0, 0, Math.PI / 2));
           round.add(at(cone(0.045, 0.08, copper), 0.12, 0.055, 0, 0, 0, -Math.PI / 2));
           this.turret.add(round);
+          rounds.push(round);
         }
       }
       if (back === 'shell') {
@@ -4146,10 +4178,39 @@ export class ShooterMesh {
       const p = w < 0.1 ? 1 - (1 - w / 0.1) ** 3 : w < hold ? 1 : w < hold + 0.3 ? 1 - (w - hold) / 0.3 : 0;
       this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) + p * 1.45));
     }
-    if (this.swapper) {
-      // swapping hands: the upper body mirrors over, the gun crossing to the other side
-      const want = s.hand ?? 1;
-      this.turret.scale.x += (want - this.turret.scale.x) * Math.min(1, dt * 12);
+    if (this.armR && this.armL) {
+      // the hand that's up aims straight out; the other arm rests, lowered at the side
+      const hand = s.hand ?? 1;
+      const k = Math.min(1, dt * 16);
+      this.raise.r += ((hand === 1 ? 1 : 0) - this.raise.r) * k;
+      this.raise.l += ((hand === -1 ? 1 : 0) - this.raise.l) * k;
+      this.armR.rotation.x = -1.3 * (1 - this.raise.r);
+      this.armL.rotation.x = -1.3 * (1 - this.raise.l);
+    }
+    if (this.tossGun && this.fistR && this.fistL) {
+      // the gun jumps to the other hand in an arc, spinning once, then sits in that fist
+      const hand = s.hand ?? 1;
+      if (hand !== this.toss.to) this.toss = { from: this.toss.to, to: hand, t: 0 };
+      this.toss.t += dt;
+      const p = Math.min(1, this.toss.t / TOSS_TIME);
+      this.turret.updateWorldMatrix(true, true);
+      const at = (h: number) => this.turret.worldToLocal((h === 1 ? this.fistR! : this.fistL!).getWorldPosition(new THREE.Vector3()));
+      const a = at(this.toss.from);
+      const b = at(this.toss.to);
+      this.tossGun.position.copy(a.lerp(b, p)).add(new THREE.Vector3(0, Math.sin(p * Math.PI) * 0.5, 0));
+      this.tossGun.rotation.set(p < 1 ? -p * Math.PI * 2 : 0, 0, 0);
+      if (this.belt) {
+        // the belt runs from the pack to the gun's feed, wherever the gun is
+        const feed = this.tossGun.localToWorld(new THREE.Vector3(-0.2, 0.0, -0.1));
+        const a0 = this.turret.worldToLocal(feed);
+        const a1 = this.belt.a1.clone().add(new THREE.Vector3((a0.x + this.belt.a2.x) / 2, 0, 0));
+        const curve = new THREE.QuadraticBezierCurve3(a0, a1, this.belt.a2);
+        const n = this.belt.rounds.length - 1;
+        this.belt.rounds.forEach((r, q) => {
+          r.position.copy(curve.getPoint(q / n));
+          r.lookAt(this.turret.localToWorld(curve.getPoint(Math.min(1, q / n + 0.01))));
+        });
+      }
     }
     // (a positive offset aims to the unit's right, which is a negative turn of the head)
     if (this.tiltHead) this.tiltHead.rotation.y = -(s.wobble ?? 0);

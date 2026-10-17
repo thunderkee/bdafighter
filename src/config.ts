@@ -67,6 +67,9 @@ export interface ShooterStats {
  *   it's facing, so rapid fire sweeps across the table (Ember)
  * - antiAir: fires straight up at an enemy air drop falling straight ahead (Rex, Liger)
  */
+/** seconds a swapped gun takes to jump from one hand to the other (it fires once it lands) */
+export const TOSS_TIME = 0.3;
+
 export interface Special {
   windup?: number;
   hand?: number;

@@ -1,5 +1,5 @@
 import RAPIER from '@dimforge/rapier2d';
-import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, TWIN_X, type ShooterStats } from './config';
+import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, TOSS_TIME, TWIN_X, type ShooterStats } from './config';
 import {
   COVER,
   COVER_X,
@@ -1315,6 +1315,8 @@ export class Game {
     if (sp?.swap && (s.swapT += adt) >= sp.swap) {
       s.swapT = 0;
       s.hand = -s.hand;
+      // the gun is in the air: it fires again once it lands in the other hand
+      s.cooldown = Math.max(s.cooldown, TOSS_TIME);
     }
     // a wind-up in progress: the shot leaves when it's done
     if (s.windLeft > 0 && (s.windLeft -= adt) <= 0) {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ShooterMesh, characterById, studioEnv } from './robot';
 import { Stage } from './stage';
-import { TWIN_X } from './config';
+import { TOSS_TIME, TWIN_X } from './config';
 import type { Shooter } from './game';
 
 /** the preview unit's pretend fight state, fed to the same animation code the match uses */
@@ -311,6 +311,8 @@ export class Preview {
     if (sp.swap && (this.swapT += dt) >= sp.swap) {
       this.swapT = 0;
       s.hand = -s.hand;
+      // (it fires again once the gun lands in the other hand)
+      this.nextShot = Math.max(this.nextShot, t + TOSS_TIME + 0.05);
     }
     // a wind-up: the punch first, the shot when it's done
     if (this.windLeft > 0 && (this.windLeft -= dt) <= 0) this.shoot();
