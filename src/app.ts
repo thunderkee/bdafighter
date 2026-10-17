@@ -6,7 +6,7 @@ import { View } from './view';
 import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
-import { BUILTINS, CHARACTERS, characterById, playable, playableId } from './robot';
+import { BUILTINS, CHARACTERS, characterById, classic, playable, playableId } from './robot';
 import { fillPortraits, portrait } from './portraits';
 import { Preview } from './preview';
 import { profileOf } from './profiles';
@@ -77,11 +77,11 @@ export function boot() {
    */
   const BOSS_EVERY = 3;
   const BOSSES: { title: string; units: string[]; health: number; damage: number; size: number; iq: 'normal' | 'hard' | 'ace'; lv: number; fan?: number; time: number }[] = [
-    { title: 'BASTION', units: ['bastion-21'], health: 1.75, damage: 0.85, size: 1.45, iq: 'hard', lv: 3, time: 90 },
-    { title: 'VIOLET TRIO', units: ['violet-21', 'violet-21', 'violet-21'], health: 0.8, damage: 0.48, size: 1.12, iq: 'hard', lv: 3, time: 90 },
-    { title: 'DINO KINGS', units: ['rex-21', 'tyrant-21'], health: 1.05, damage: 0.56, size: 1.3, iq: 'hard', lv: 4, time: 90 },
+    { title: 'BASTION', units: ['bastion-22'], health: 1.75, damage: 0.85, size: 1.45, iq: 'hard', lv: 3, time: 90 },
+    { title: 'VIOLET TRIO', units: ['violet-22', 'violet-22', 'violet-22'], health: 0.8, damage: 0.48, size: 1.12, iq: 'hard', lv: 3, time: 90 },
+    { title: 'DINO KINGS', units: ['rex-22', 'tyrant-22'], health: 1.05, damage: 0.56, size: 1.3, iq: 'hard', lv: 4, time: 90 },
     // the last boss: triple armour and three-way spread fire, fought to the finish (no clock)
-    { title: 'NIGHTSHADE', units: ['nightshade-21'], health: 3, damage: 0.4, size: 1.6, iq: 'ace', lv: 4, fan: 3, time: 0 },
+    { title: 'NIGHTSHADE', units: ['nightshade-22'], health: 3, damage: 0.4, size: 1.6, iq: 'ace', lv: 4, fan: 3, time: 0 },
   ];
   const FINAL_STAGE = BOSSES.length * BOSS_EVERY;
   /**
@@ -98,6 +98,8 @@ export function boot() {
     [12, ['nightshade']],
   ];
   const baseOf = (id: string) => characterById(id).id.replace(/-\d+$/, '');
+  /** a boss unit, in whichever version (it can't be picked for an arcade run) */
+  const isBossUnit = (id: string) => [...BOSS_IDS].some((b) => baseOf(b) === baseOf(id));
   /** the arcade stage that unlocks this unit (0 = a starter, or a custom unit) */
   const unlockStage = (id: string) => (BUILTINS.some((b) => b.id === characterById(id).id) ? (UNLOCKS.find(([, ids]) => ids.includes(baseOf(id)))?.[0] ?? 0) : 0);
   const isLocked = (id: string) => !saveData.unlockAll && unlockStage(id) > (saveData.arcadeBest ?? 0);
@@ -198,7 +200,7 @@ export function boot() {
   const enemyCharacter = () => {
     const st = S();
     if (st.enemyCharacter && st.enemyCharacter !== 'auto') return st.enemyCharacter;
-    return st.character === 'dragon-21' ? 'angel-21' : 'dragon-21';
+    return st.character === 'dragon-22' ? 'angel-22' : 'dragon-22';
   };
 
   // ---------- arcade: a ladder of matches, each with its own opponent, rules and arena ----------
@@ -946,9 +948,12 @@ export function boot() {
   type Step = 'fighter' | 'rival' | 'arena' | 'rules';
   let step: Step = 'fighter';
   let selectMode: 'versus' | 'arcade' | 'duo' = 'versus';
-  /** which roster tab is open: the roster (the 2.1 set) or custom units */
-  let ver: '21' | 'c' = '21';
-  const verOf = (id: string): '21' | 'c' => (BUILTIN_IDS.has(characterById(id).id) ? '21' : 'c');
+  /** which roster tab is open: the 2.2 roster, the 2.1 set, or custom units */
+  let ver: '22' | '21' | 'c' = '22';
+  const verOf = (id: string): '22' | '21' | 'c' => {
+    const c = characterById(id);
+    return !BUILTIN_IDS.has(c.id) ? 'c' : c.v21 ? '21' : '22';
+  };
   const BUILTIN_IDS = new Set(BUILTINS.map((c) => c.id));
   const TRAITS: [keyof NonNullable<ReturnType<typeof characterById>['traits']>, string][] = [
     ['health', 'Armour'],
@@ -1075,15 +1080,15 @@ export function boot() {
       return;
     }
     const hasCustom = CHARACTERS.some((c) => verOf(c.id) === 'c');
-    // the tabs only show when there are custom units to switch to
-    $('ver-tabs').classList.toggle('hidden', !hasCustom);
-    if (ver === 'c' && !hasCustom) ver = '21';
+    // (the Custom tab only shows when there are custom units)
+    document.querySelector<HTMLElement>('#ver-tabs [data-ver="c"]')!.classList.toggle('hidden', !hasCustom);
+    if (ver === 'c' && !hasCustom) ver = '22';
     document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.ver === ver));
     if (step === 'rival' && selectMode !== 'duo') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
-    for (const c of playable()) {
+    for (const c of ver === '21' ? classic() : playable()) {
       if (verOf(c.id) !== ver) continue;
       // the arcade's bosses stay a surprise: they can't be picked for a run
-      if (selectMode === 'arcade' && BOSS_IDS.has(c.id)) continue;
+      if (selectMode === 'arcade' && isBossUnit(c.id)) continue;
       // a locked unit shows (so there's something to chase) but can't be picked
       if (isLocked(c.id)) {
         lockedTile(c.id, unlockStage(c.id), hexc(c.palette.body));
@@ -1122,7 +1127,7 @@ export function boot() {
     sfx.unlock();
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
-    const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && BOSS_IDS.has(id));
+    const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && isBossUnit(id));
     if (!ok(saveData.settings.character)) {
       const first = playable().find((c) => ok(c.id));
       if (first) saveData = store.save({ settings: { ...saveData.settings, character: first.id } });

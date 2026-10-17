@@ -2,7 +2,7 @@ import './lab.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { BUILTINS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, playable, playableId, reloadRoster, resolveColor, setPublished, studioEnv, type CharacterDef } from './robot';
+import { BUILTINS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, classic, playable, playableId, reloadRoster, resolveColor, setPublished, studioEnv, type CharacterDef } from './robot';
 import { API, cachedPublished, fetchPublished, type PublishedRoster } from './published';
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
@@ -1082,8 +1082,8 @@ $('draw-undo').addEventListener('click', () => {
 function renderRoster() {
   const list = $('unit-list');
   list.innerHTML = '';
-  // the same roster the game picks from: the 2.1 set and custom units
-  for (const c of playable()) {
+  // the same roster the game picks from (2.2 and custom units), then the 2.1 set
+  for (const c of [...playable(), ...classic()]) {
     const b = document.createElement('button');
     b.className = 'unit' + (c.id === currentId ? ' on' : '');
     const tag = !isBuiltin(c.id) ? 'CUSTOM' : roster.units[c.id] ? 'EDITED' : '';
