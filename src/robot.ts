@@ -487,9 +487,8 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   // Each 2.2 is its 2.1 with only what gives the reference away changed.
   // Seraph (Astray Red Frame): the 2.1 design as it is, in the 2.2 colours (navy for the red frame)
   angel: { crest: 'vfin', look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0x5af0ff, palette: { body: 0xf2f2f2, trim: 0x223a6a, accent: 0xe08a3a, joint: 0x1e2a44, eye: 0x5af0ff } },
-  // Wyvern (Megazord): its 2.1 face (the dark-faced helm and twin horns) in the 2.2 colours;
-  // no zord-coloured limbs, pink breastplate, tusk shield or power sword, a claw in the off hand
-  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', darkFace: true, look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'claw', back: ['fins', 'rexTail'], dynamic: true, menace: true, lean: -0.12 }, ball: 0xff8a3a, palette: { body: 0x4a5058, trim: 0x1c1e22, accent: 0xff7a1a, joint: 0x2a2c30, eye: 0xffd23e } },
+  // Wyvern: the 2.1 combiner as it is, in the 2.2 gunmetal and orange (no zord-coloured limbs)
+  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', darkFace: true, look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, ball: 0xff8a3a, palette: { body: 0x4a5058, trim: 0x1c1e22, accent: 0xff7a1a, joint: 0x2a2c30, eye: 0xffd23e } },
   // Pioneer: a police robot that turns into a car: black-and-white with a riot visor and a light
   // bar, a windshield on its chest, the doors on its back, wheels on its shoulders and shins
   pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x5ab8ff, palette: { body: 0xf2f2f2, trim: 0x16161a, accent: 0x2a6aff, joint: 0x22252c, eye: 0x7ff0ff } },
@@ -518,8 +517,9 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   tyrant: { special: { alternate: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xff5a2a, glow: 0xff3a1a, palette: { body: 0x1e1c22, trim: 0x5a1418, accent: 0x8a8e96, joint: 0x101014, eye: 0xff3a1a } },
   // Rex Saur: frost blue for the desert sand, a stegosaurus's plates down its back
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall', 'plates'], ball: 0x8ad8ff, palette: { body: 0x8ab8d8, trim: 0x2a3a4a, accent: 0xff5a3a, joint: 0x1a2430, eye: 0xffe14d } },
-  // Fang Liger (a Zoids liger): a black-and-gold war hound instead, plated all over
-  liger: { special: { ricochet: 0.35 }, hound: true, fit: [1.3, 1.3, 1.3], ball: 0xffd23e, palette: { body: 0x2a2a30, trim: 0xd8a83a, accent: 0xd8a83a, joint: 0x16161a, eye: 0x5af0ff } },
+  // Fang Liger (a Zoids liger): a black-and-gold war hound instead, plated all over, a visor over
+  // its eyes and a blaster on each flank, firing left and right in turn
+  liger: { special: { ricochet: 0.35, alternate: true, hand: 0.4 }, hound: true, fit: [1.3, 1.3, 1.3], ball: 0xffd23e, palette: { body: 0x2a2a30, trim: 0xd8a83a, accent: 0xd8a83a, joint: 0x16161a, eye: 0x5af0ff } },
   // Ember Lizard (Charmander): red, an axolotl's gill fronds fanned from its cheeks, and no flame
   // on its tail
   ember: { special: { wobble: Math.PI / 4 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff8a7a, palette: { body: 0xd8342a, trim: 0xf2c0a8, accent: 0xff7a9a, joint: 0x6a1410, eye: 0x141018 } },
@@ -2533,7 +2533,8 @@ export class ShooterMesh {
     if (L.megazord) {
       // the pterodactyl breastplate: a broad pink plate edged in gold, its gold beak pointing
       // down the middle and its wings folded up into the collar
-      const pink = this.paint(0xf06aa0, 'body');
+      // (a 2.2 combiner wears its own palette: the breastplate in its accent colour)
+      const pink = def.v22 ? m.accent : this.paint(0xf06aa0, 'body');
       const k2 = cw / 0.94;
       this.turret.add(at(plate([[-0.4 * k2, 0.13], [0.4 * k2, 0.13], [0.34 * k2, -0.06], [0.12, -0.16], [-0.12, -0.16], [-0.34 * k2, -0.06]], 0.06, pink), 0, 0.42, z0));
       this.turret.add(at(plate([[-0.42 * k2, 0.16], [0.42 * k2, 0.16], [0.4 * k2, 0.12], [-0.4 * k2, 0.12]], 0.07, m.gold), 0, 0.42, z0 - 0.005));
@@ -3927,7 +3928,7 @@ export class ShooterMesh {
         this.root.add(at(prism(w, 0.2, w * 0.9, 0.18, w * 0.6, q % 2 ? m.trim : m.body, 0.04), 0, tY - 0.1 - q * 0.06, 0.26 + q * 0.17, 0.25 + q * 0.06));
       }
     }
-    if (L.megazord) {
+    if (L.megazord && !def.v22) {
       // each limb in its own zord's colour: black (mastodon) arms, a blue (triceratops) right
       // leg and a yellow (sabertooth) left leg
       const swap = (o: THREE.Object3D, to: Record<string, THREE.Material>) =>
@@ -4183,6 +4184,41 @@ export class ShooterMesh {
         g.add(at(prism(0.17, 0.2, 0.15, 0.18, 0.2, m.trim, 0.03), 0, front ? -0.44 : -0.3, front ? -0.03 : 0.02)); // greave
       });
       mouth(head, -0.1, -0.24, 0.17, 0.34, true);
+      // a visor across the eyes: a dark glass band with a glowing line through it
+      head.add(at(prism(0.32, 0.14, 0.3, 0.12, 0.08, black, 0.03), 0, 0.06, -0.15));
+      head.add(at(box(0.26, 0.02, 0.02, m.eyeMat), 0, 0.06, -0.225));
+      // a blaster on each flank, alongside the neck: they fire left and right in turn (the
+      // marble leaves the blaster, not the mouth)
+      this.barrel.removeFromParent();
+      const gm = this.paint(0x40454a, 'metal');
+      const hole = new THREE.MeshBasicMaterial({ color: 0x050507 });
+      const blaster = (sx: number) => {
+        const g = at(new THREE.Group(), sx * 0.34, -0.14, 0.24);
+        g.add(at(prism(0.16, 0.36, 0.14, 0.32, 0.14, m.trim, 0.03), 0, 0, 0.06)); // mount
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.62, 8), gm);
+        tube.rotation.x = Math.PI / 2;
+        tube.position.set(0, 0.03, -0.24);
+        g.add(tube);
+        const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.12, 8), m.joint);
+        brake.rotation.x = Math.PI / 2;
+        brake.position.set(0, 0.03, -0.52);
+        g.add(brake);
+        const bore = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 8), hole);
+        bore.rotation.x = Math.PI / 2;
+        bore.position.set(0, 0.03, -0.585);
+        g.add(bore);
+        const mark = at(new THREE.Object3D(), 0, 0.03, -0.6);
+        g.add(mark);
+        this.turret.add(g);
+        return { g, mark };
+      };
+      const right = blaster(1);
+      const left = blaster(-1);
+      this.barrel = right.g;
+      this.barrelZ = right.g.position.z;
+      this.bellyMark = right.mark;
+      this.barrel2 = left.g;
+      this.bellyMarkL = left.mark;
         }
     this.wings.position.set(0, 0.4, 0.3);
     this.turret.add(this.wings);
