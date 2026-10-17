@@ -3053,7 +3053,8 @@ export class ShooterMesh {
           g.add(box(0.07, 0.05, 0.05, black, 0, 0.03, -0.45)); // nose
           for (const sx of [-1, 1]) {
             g.add(at(plate([[-0.045, 0], [0.045, 0], [0.01, 0.2]], 0.04, m.trim), sx * 0.08, 0.14, 0.0, -0.3, 0, sx * -0.2)); // ear
-            g.add(at(box(0.07, 0.025, 0.02, red), sx * 0.07, 0.08, -0.17, 0, 0, sx * -0.35)); // eye
+            g.add(at(box(0.08, 0.03, 0.02, red), sx * 0.07, 0.08, -0.17, 0, 0, sx * 0.45)); // eye, glaring down at the snout
+            g.add(at(box(0.1, 0.03, 0.05, m.trim), sx * 0.075, 0.115, -0.165, 0, 0, sx * 0.5)); // brow
             for (let q = 0; q < 3; q++) g.add(at(cone(0.016, 0.06, white), sx * 0.05, -0.06, -0.4 + q * 0.06, Math.PI));
             for (let q = 0; q < 3; q++) g.add(at(cone(0.03, 0.12, m.accent), sx * 0.12, 0.06 - q * 0.05, 0.08 + q * 0.03, 1.3, 0, sx * -0.6)); // mane spikes
           }
@@ -3634,10 +3635,15 @@ export class ShooterMesh {
         // a long-snouted beast head: tall pointed ears, slit eyes, a jaw guard with fangs
         // (the hellhound adds a crown of horns, a burning brow and a spiked collar)
         if (L.head === 'hellhound') {
-          const fire = new THREE.MeshBasicMaterial({ color: 0xff3a1a });
+          for (const sx of [-1, 1]) [0, 1, 2].forEach((q) => head.add(at(prism(0.08 - q * 0.02, 0.08 - q * 0.02, 0.06 - q * 0.02, 0.06 - q * 0.02, 0.16, m.accent, 0.01), sx * (0.24 + q * 0.06), 0.24 + q * 0.12, 0.1 + q * 0.07, 0.6 + q * 0.2, 0, -sx * (0.5 + q * 0.25))));
+          // furious eyes: a dark scowl band, glaring kite eyes whose inner corners dip to the
+          // snout, under heavy brows slammed down into a V, a burning pupil in each
+          head.add(at(plate([[-0.24, 0.07], [0.24, 0.07], [0.2, -0.04], [0, -0.0], [-0.2, -0.04]], 0.02, black), 0, 0.04, -0.245));
+          fierce(0.03, -0.26, 1.15, null, 0.035);
           for (const sx of [-1, 1]) {
-            [0, 1, 2].forEach((q) => head.add(at(prism(0.08 - q * 0.02, 0.08 - q * 0.02, 0.06 - q * 0.02, 0.06 - q * 0.02, 0.16, m.accent, 0.01), sx * (0.24 + q * 0.06), 0.24 + q * 0.12, 0.1 + q * 0.07, 0.6 + q * 0.2, 0, -sx * (0.5 + q * 0.25))));
-            head.add(at(box(0.16, 0.04, 0.02, fire), sx * 0.12, 0.05, -0.252, 0, 0, sx * -0.3));
+            const brow: [number, number][] = [[0.03, 0.04], [0.27, 0.16], [0.27, 0.22], [0.02, 0.1]];
+            head.add(at(plate(sx === 1 ? brow : mirrorX(brow), 0.08, m.trim), 0, 0.0, -0.26));
+            head.add(at(box(0.04, 0.035, 0.02, new THREE.MeshBasicMaterial({ color: 0xffe0a0 })), sx * 0.11, 0.045, -0.285));
           }
           for (let q = 0; q < 7; q++) {
             const a = (q / 6) * Math.PI - Math.PI / 2;
@@ -3649,7 +3655,8 @@ export class ShooterMesh {
         head.add(at(box(0.1, 0.06, 0.05, black), 0, -0.02, -0.54)); // nose
         head.add(at(prism(0.26, 0.3, 0.22, 0.26, 0.06, m.trim, 0.03), 0, -0.19, -0.32)); // jaw guard
         for (const sx of [-1, 1]) {
-          head.add(at(box(0.14, 0.03, 0.02, m.eyeMat), sx * 0.12, 0.05, -0.245, 0, 0, sx * -0.3));
+          // (slit eyes, slanted down toward the snout)
+          if (L.head !== 'hellhound') head.add(at(box(0.14, 0.03, 0.02, m.eyeMat), sx * 0.12, 0.05, -0.245, 0, 0, sx * 0.3));
           head.add(at(plate([[-0.07, 0], [0.07, 0], [0.01, 0.38]], 0.05, m.body), sx * 0.15, 0.18, 0.04, -0.1, 0, sx * -0.12));
           head.add(at(plate([[-0.035, 0.03], [0.035, 0.03], [0.005, 0.28]], 0.02, m.accent), sx * 0.15, 0.18, 0.012, -0.1, 0, sx * -0.12));
           head.add(at(cone(0.022, 0.08, white), sx * 0.08, -0.21, -0.46, Math.PI));
