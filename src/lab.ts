@@ -1082,15 +1082,28 @@ $('draw-undo').addEventListener('click', () => {
 function renderRoster() {
   const list = $('unit-list');
   list.innerHTML = '';
-  // the same roster the game picks from (2.2 and custom units), then the 2.1 set
-  for (const c of [...playable(), ...classic()]) {
-    const b = document.createElement('button');
-    b.className = 'unit' + (c.id === currentId ? ' on' : '');
-    const tag = !isBuiltin(c.id) ? 'CUSTOM' : roster.units[c.id] ? 'EDITED' : '';
-    b.innerHTML = `<i style="background:linear-gradient(135deg, ${hex(c.palette.body)} 0 50%, ${hex(c.palette.trim)} 50% 78%, ${hex(c.ball)} 78%)"></i><span></span>${tag ? `<em>${tag}</em>` : ''}`;
-    b.querySelector('span')!.textContent = c.name;
-    b.addEventListener('click', () => switchUnit(c.id));
-    list.appendChild(b);
+  // the same roster the game picks from, grouped like its version tabs: 2.2, custom, then the 2.1 set
+  const groups: [string, string, CharacterDef[]][] = [
+    ['2.2', '2.2', playable().filter((c) => c.v22)],
+    ['Custom', '', playable().filter((c) => !c.v22)],
+    ['2.1', '2.1', classic()],
+  ];
+  for (const [label, ver, units] of groups) {
+    if (!units.length) continue;
+    const h = document.createElement('div');
+    h.className = 'unit-group';
+    h.textContent = label;
+    list.appendChild(h);
+    for (const c of units) {
+      const b = document.createElement('button');
+      b.className = 'unit' + (c.id === currentId ? ' on' : '');
+      const tag = !isBuiltin(c.id) ? 'CUSTOM' : roster.units[c.id] ? 'EDITED' : '';
+      b.innerHTML = `<i style="background:linear-gradient(135deg, ${hex(c.palette.body)} 0 50%, ${hex(c.palette.trim)} 50% 78%, ${hex(c.ball)} 78%)"></i><span></span>${tag ? `<em>${tag}</em>` : ''}${ver ? `<b class="ver">${ver}</b>` : ''}`;
+      b.querySelector('span')!.textContent = c.name;
+      b.title = `${c.name}${ver ? ` (${ver})` : ''}`;
+      b.addEventListener('click', () => switchUnit(c.id));
+      list.appendChild(b);
+    }
   }
   $<HTMLButtonElement>('delete-unit').disabled = isBuiltin(currentId);
   $<HTMLButtonElement>('reset-unit').disabled = !isBuiltin(currentId) || !roster.units[currentId];

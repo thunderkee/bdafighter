@@ -244,6 +244,33 @@ body[data-mode='studio'] .bar h1 {
   white-space: nowrap;
 }
 
+.unit-group {
+  margin: 10px 4px 4px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.unit-group:first-child {
+  margin-top: 0;
+}
+
+.unit .ver {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid var(--line-dim);
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.unit.on .ver {
+  color: var(--ink);
+  border-color: var(--line);
+}
+
 .unit em {
   font-style: normal;
   font-size: 10px;
@@ -692,6 +719,16 @@ body[data-mode='studio'] .bar h1 {
   .unit {
     width: auto;
     flex: none;
+  }
+
+  .unit-group {
+    flex: none;
+    align-self: center;
+    margin: 0 2px 0 8px;
+  }
+
+  .unit-group:first-child {
+    margin-left: 0;
   }
 
   .unit span {
