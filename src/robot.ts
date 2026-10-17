@@ -77,6 +77,8 @@ export interface CharacterDef {
   twin?: boolean;
   /** a signature trick (wind-up punch, hand swap, alternate hands, spray, anti-air) */
   special?: Special;
+  /** Unit Lab touch-ups on a code-built unit: parts (by design path) moved, turned or resized */
+  tune?: Tune[];
   /** matte (doff) plastic instead of the glossy finish */
   matte?: boolean;
   /** 2.1: the pattern on this unit's marbles */
@@ -94,6 +96,9 @@ export interface CharacterDef {
   /** 2.0 units: resize parts of the design (by block path), e.g. a head to the shared chibi size */
   grow?: { path: string; scale?: number; s?: [number, number, number]; lift?: number }[];
 }
+
+/** one part's new placement, found by its path in the design (as the Unit Lab numbers them) */
+export type Tune = { path: string; p?: [number, number, number]; r?: [number, number, number]; s?: [number, number, number] };
 
 /** the units as shipped; the roster layers edits and custom units on top */
 const ORIGINALS: CharacterDef[] = [
@@ -366,6 +371,8 @@ type Look21 = {
   longSkirt?: boolean;
   /** no legs: the unit floats on a hover thruster under its skirt */
   hover?: boolean;
+  /** a big flowing cape: wide matching side panels and a tall middle one */
+  bigCape?: boolean;
   /** a sleeker main-character Gundam head, the crown and ears in the accent colour */
   heroHead?: boolean;
   /** an attacking stance: a lunge (left leg forward, right back), a forward lean, the off hand raised on guard */
@@ -398,7 +405,7 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
   ember: ['sparks', 'spots'],
   rex: ['scale', 'crackle'],
 };
-const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
+const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; tune?: Tune[]; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   // Astray Red Frame: white armour over a red frame, black trim
   // a swordsman: the katana raised in the right hand, every shot a slash whose arc throws the marble
   angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
@@ -418,13 +425,13 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0x6af0e0, palette: { body: 0x1f8a8a, trim: 0x173a44, accent: 0xffc23d, joint: 0x14202a, eye: 0xff5fd0 } },
   // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true, pose: 'aim', dynamic: true, lean: -0.18 }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0xb82020, joint: 0x17181a, eye: 0xff2a2a } },
-  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, longSkirt: true, hover: true }, ball: 0xd08aff, glow: 0xc86aff, palette: { body: 0x3a2a5c, trim: 0x241c36, accent: 0xc86aff, joint: 0x15111f, eye: 0xd08aff } },
-  // Unit-08 pink and mint, hunched, an open palm thrust out
-  violet: { look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'palm', left: 'knife', back: ['pylons'], pose: 'aim', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
+  nightshade: { tune: [{ path: 'r/15/0', s: [1, 1.45, 1] }], look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, longSkirt: true, hover: true, bigCape: true }, ball: 0xd08aff, glow: 0xc86aff, palette: { body: 0x3a2a5c, trim: 0x241c36, accent: 0xc86aff, joint: 0x15111f, eye: 0xd08aff } },
+  // Unit-08 pink and mint, hunched; a palm blaster in each hand, raised and opened in turn
+  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'palm', back: ['pylons'], pose: 'dualAim', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
   // a fist cannon on each arm, firing left and right in turn
-  kabuto: { special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'dualAim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xffb02e, joint: 0x23261e, eye: 0xffd23e } },
-  tyrant: { look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim', dynamic: true, lean: -0.18 }, ball: 0xb06aff, palette: { body: 0x5a606a, trim: 0x8a4aff, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
+  kabuto: { special: { alternate: true, hand: 0.45 }, tune: [{ path: 'r/10/37/5/9/0', p: [0, 0, 0.12], s: [1, 1, 1.8] }, { path: 'r/10/38/5/9/0', p: [0, 0, 0.147], s: [1, 1, 1.8] }, { path: 'r/10/42/10', p: [0, 0.344, -0.341], r: [-0.262, 0, 0], s: [1.25, 1, 1] }, { path: 'r/10/42/11', p: [-0.3, 0.48, -0.377], r: [-0.257, 0.008, -0.325], s: [1.228, 1.027, 1] }, { path: 'r/10/42/12', p: [0.3, 0.48, -0.377], r: [-0.257, -0.008, 0.325], s: [1.228, 1.027, 1] }], look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'dualAim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xffb02e, joint: 0x23261e, eye: 0xffd23e } },
+  tyrant: { tune: [{ path: 'r/8/32', r: [0.175, -0.087, 0] }, { path: 'r/8/32/8', r: [0.151, 0.089, -0.101] }, { path: 'r/8/32/8/8', r: [0.175, 0, 0] }, { path: 'r/8/32/8/8/15', r: [-0.175, 0, 0] }], look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim', dynamic: true, lean: -0.18 }, ball: 0xb06aff, palette: { body: 0x5a606a, trim: 0x8a4aff, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
   // the head keeps turning 45 degrees left and right; shots follow it, so rapid fire sweeps
   ember: { special: { wobble: Math.PI / 4 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   // desert: sand armour, dark brown, red accents, cyan eyes
@@ -462,6 +469,7 @@ export const BUILTINS: readonly CharacterDef[] = [
       addons: v.addons,
       twin: v.twin,
       special: v.special,
+      tune: v.tune,
       crest: v.crest ?? o.crest,
       emblem: v.emblem,
       matte: v.matte,
@@ -569,7 +577,9 @@ export class ShooterMesh {
   wingR = new THREE.Group();
   private stride = 0;
   /** rest pose of animated parts (Unit Lab designs can tilt them); animation is added on top */
-  private rest = { turretY: 0, turretZ: 0, jaw: 0, slash: 0, legs: [] as number[], flame: new THREE.Vector3(1, 1, 1) };
+  private rest = { turretX: 0, turretY: 0, turretZ: 0, jaw: 0, slash: 0, legs: [] as number[], flame: new THREE.Vector3(1, 1, 1) };
+  /** how far into the defence stance it is (0 none, 1 braced behind the shield) */
+  private guard = 0;
   /** a puncher's arms (both thrust forward in the wind-up before each shot) and their rest angles */
   punchArms: THREE.Object3D[] = [];
   private punchRest: number[] = [];
@@ -585,6 +595,10 @@ export class ShooterMesh {
   private toss = { from: 1, to: 1, t: 9 };
   /** a belt that follows a tossed gun: its rounds and the curve's fixed end and bend */
   private belt: { rounds: THREE.Object3D[]; a1: THREE.Vector3; a2: THREE.Vector3 } | null = null;
+  /** an open-palm blaster's fingers (they curl into a fist at rest, spread to fire) and each one's hand */
+  private fingers: THREE.Object3D[] = [];
+  private fingerSide: number[] = [];
+  private grip = { r: 0, l: 0 };
   /** a second gun in the left hand */
   private barrel2: THREE.Object3D | null = null;
   private bellyMarkL: THREE.Object3D | null = null;
@@ -633,6 +647,14 @@ export class ShooterMesh {
     // the roster's look is boxy: code-built units swap their round parts for square-sided ones
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
+    if (def.tune?.length) this.applyTune(def.tune);
+    // which hand each finger belongs to
+    const inLeft = (o: THREE.Object3D) => {
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === this.armL || p === this.barrel2) return true;
+      return false;
+    };
+    this.fingerSide = this.fingers.map((f) => (inLeft(f) ? -1 : 1));
+    this.rest.turretX = this.turret.rotation.x;
     if (def.look21?.gun === 'dragonMaw' || def.look21?.gun === 'chestMaw') this.jawOpen = -0.95;
     this.windup = def.special?.windup ?? 0;
     if (def.look21?.gun === 'slashSword') {
@@ -1418,6 +1440,21 @@ export class ShooterMesh {
           this.punchArms.push(o);
           this.punchRest.push(o.rotation.x);
           break;
+        case 'armR':
+          this.armR = o;
+          break;
+        case 'armL':
+          this.armL = o;
+          break;
+        case 'barrelL':
+          this.barrel2 = o;
+          break;
+        case 'bellyL':
+          this.bellyMarkL = o;
+          break;
+        case 'finger':
+          this.fingers.push(o);
+          break;
         case 'belly':
           this.bellyMark = o;
           break;
@@ -1468,6 +1505,11 @@ export class ShooterMesh {
       if (o === this.flame) return 'flame';
       if (o === this.slashArm) return 'slash';
       if (this.punchArms.includes(o)) return 'punch';
+      if (o === this.armR) return 'armR';
+      if (o === this.armL) return 'armL';
+      if (o === this.barrel2) return 'barrelL';
+      if (o === this.bellyMarkL) return 'bellyL';
+      if (this.fingers.includes(o)) return 'finger';
       if (o === this.trigger) return 'trigger';
       if (o === this.bellyMark) return 'belly';
       if (o === this.wings) return 'wings';
@@ -2595,19 +2637,33 @@ export class ShooterMesh {
         break;
       }
       case 'palm': {
-        // the right hand thrust forward and spread open; the marble leaves the palm
+        // an open-palm blaster: the palm with a glowing core, four fingers and a thumb on hinges
+        // (curled into a fist at rest, spread open as it fires); one in each hand when two-handed
+        const palm = (g: THREE.Object3D, s: number) => {
+          g.add(box(0.24, 0.24, 0.06, m.joint, 0, 0, 0.0));
+          g.add(at(cyl(0.07, 0.02, m.glowMat ?? m.accent), 0, 0, -0.035, Math.PI / 2));
+          const digit = (x: number, y: number, rz: number, len: number) => {
+            const f = at(new THREE.Group(), x, y, -0.01, 0, 0, rz);
+            f.add(box(0.045, len, 0.045, m.joint, 0, len / 2, 0));
+            g.add(f);
+            this.fingers.push(f);
+          };
+          for (let q = 0; q < 4; q++) digit(s * (-0.09 + q * 0.06), 0.11, s * (0.24 - q * 0.16), 0.16);
+          digit(s * -0.12, -0.04, s * 1.1, 0.13); // thumb
+        };
         const hand = rightArm ?? rightSh!;
         gun.position.set(0, -0.14, -0.86);
         hand.add(gun);
-        gun.add(box(0.24, 0.24, 0.06, m.joint, 0, 0, 0.0)); // palm
-        gun.add(at(cyl(0.07, 0.02, m.glowMat ?? m.accent), 0, 0, -0.035, Math.PI / 2)); // glowing palm core
-        for (let q = 0; q < 4; q++) {
-          // four fingers fanned out, plus the thumb
-          const a = -0.5 + q * 0.33;
-          gun.add(at(box(0.045, 0.16, 0.045, m.joint), Math.sin(a) * 0.1, 0.1 + Math.cos(a) * 0.08, -0.02, 0.2, 0, -a));
-        }
-        gun.add(at(box(0.045, 0.13, 0.045, m.joint), -0.14, -0.06, -0.02, 0.2, 0, 1.1));
+        palm(gun, 1);
         mark(0, 0, -0.08);
+        if (L.pose === 'dualAim' && leftArm) {
+          const g2 = at(new THREE.Group(), 0, -0.14, -0.86);
+          leftArm.add(g2);
+          palm(g2, -1);
+          this.barrel2 = g2;
+          this.bellyMarkL = at(new THREE.Object3D(), 0, 0, -0.08);
+          g2.add(this.bellyMarkL);
+        }
         break;
       }
       case 'shellCannon': {
@@ -2938,9 +2994,17 @@ export class ShooterMesh {
             w.add(at(fin, 0.04, 0.12 - q * 0.08, 0.04 + q * 0.03, 0, -0.35, rz));
           });
         }
-      if (back === 'cape')
-        for (const [x, rz, len] of [[-0.2, 0.06, 0.9], [0, 0, 1.0], [0.2, -0.06, 0.86]] as const)
-          this.turret.add(at(plate([[-0.11, 0], [0.11, 0], [0.09, -len], [0, -len - 0.1], [-0.09, -len]], 0.03, m.trim), x, 0.6, cd / 2 + 0.16, 0.12, 0, rz));
+      if (back === 'cape') {
+        // [x, y, tilt, length, width scale, length scale]; the big cape spreads matching panels wide
+        const panels: [number, number, number, number, number, number][] = L.bigCape
+          ? [[-0.64, 0.574, 0.06, 0.9, 1.95, 1.55], [0.64, 0.574, -0.06, 0.9, 1.95, 1.55], [0, 0.6, 0, 1.0, 2.65, 1.5]]
+          : [[-0.2, 0.6, 0.06, 0.9, 1, 1], [0, 0.6, 0, 1.0, 1, 1], [0.2, 0.6, -0.06, 0.86, 1, 1]];
+        for (const [x, y, rz, len, sw, sl] of panels) {
+          const panel = at(plate([[-0.11, 0], [0.11, 0], [0.09, -len], [0, -len - 0.1], [-0.09, -len]], 0.03, m.trim), x, y, cd / 2 + 0.16, 0.12, 0, rz);
+          panel.scale.set(sw, sl, 1);
+          this.turret.add(panel);
+        }
+      }
       if (back === 'ammoPack') {
         // a big ammo container with spare drums, and the belt running to the gun
         this.turret.add(at(prism(0.64, 0.36, 0.6, 0.34, 0.52, m.trim, 0.06), 0, 0.36, cd / 2 + 0.3));
@@ -4116,6 +4180,35 @@ export class ShooterMesh {
 
   /** where fired marbles appear: an empty marker on the front of the belly */
   bellyMark: THREE.Object3D | null = null;
+  /**
+   * Unit Lab touch-ups on a code-built model: each part is found by its design path (the same
+   * numbering the Unit Lab uses, skipping effects and parts it can't show), then the animation's
+   * rest poses are re-read so they keep the new placement.
+   */
+  private applyTune(tune: Tune[]) {
+    const designKids = (o: THREE.Object3D) =>
+      o.children.filter((c) => {
+        if (c.userData.fx) return false;
+        const mesh = c as THREE.Mesh;
+        return !mesh.isMesh || !!mesh.geometry.userData.meshData || !!SHAPE_OF[mesh.geometry.type];
+      });
+    for (const t of tune) {
+      let o: THREE.Object3D | undefined = this.root;
+      for (const i of t.path.split('/').slice(1)) o = o && designKids(o)[+i];
+      if (!o) continue;
+      if (t.p) o.position.fromArray(t.p);
+      if (t.r) o.rotation.set(t.r[0], t.r[1], t.r[2]);
+      if (t.s) o.scale.fromArray(t.s);
+    }
+    if (this.jaw) this.rest.jaw = this.jaw.rotation.x;
+    this.barrelZ = this.barrel.position.z;
+    this.rest.legs = this.legs.map((l) => l.rotation.x);
+    this.rest.turretY = this.turret.rotation.y;
+    this.rest.turretZ = this.turret.rotation.z;
+    if (this.slashArm) this.rest.slash = this.slashArm.rotation.x;
+    this.punchRest = this.punchArms.map((a) => a.rotation.x);
+  }
+
   private markBelly(parent: THREE.Object3D, x: number, y: number, z: number) {
     const mark = new THREE.Object3D();
     mark.position.set(x, y, z);
@@ -4176,16 +4269,29 @@ export class ShooterMesh {
       const w = s.windT ?? 9;
       const hold = this.windup + 0.18;
       const p = w < 0.1 ? 1 - (1 - w / 0.1) ** 3 : w < hold ? 1 : w < hold + 0.3 ? 1 - (w - hold) / 0.3 : 0;
-      this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) + p * 1.45));
+      this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) + Math.max(p, guard * 0.9) * 1.45));
     }
+    // defence: braced behind the shield (crouched, hunched forward, both guards up)
+    this.guard += ((s.shieldUp ? 1 : 0) - this.guard) * Math.min(1, dt * 12);
+    const guard = this.guard;
+    this.turret.rotation.x = this.rest.turretX - guard * 0.2;
     if (this.armR && this.armL) {
       // the hand that's up aims straight out; the other arm rests, lowered at the side
+      // (behind the shield both come up)
       const hand = s.hand ?? 1;
       const k = Math.min(1, dt * 16);
-      this.raise.r += ((hand === 1 ? 1 : 0) - this.raise.r) * k;
-      this.raise.l += ((hand === -1 ? 1 : 0) - this.raise.l) * k;
+      this.raise.r += (Math.max(guard, hand === 1 ? 1 : 0) - this.raise.r) * k;
+      this.raise.l += (Math.max(guard, hand === -1 ? 1 : 0) - this.raise.l) * k;
       this.armR.rotation.x = -1.3 * (1 - this.raise.r);
       this.armL.rotation.x = -1.3 * (1 - this.raise.l);
+    }
+    if (this.fingers.length) {
+      // the hand that just fired springs open; otherwise the fingers curl into a fist
+      const open = (h: number) => ((s.lastHand ?? 1) === h && (s.kickT ?? 9) < 0.35 ? 1 : 0);
+      const k = Math.min(1, dt * 22);
+      this.grip.r += (open(1) - this.grip.r) * k;
+      this.grip.l += (open(-1) - this.grip.l) * k;
+      this.fingers.forEach((f, i) => (f.rotation.x = -1.45 * (1 - (this.fingerSide[i] === -1 ? this.grip.l : this.grip.r))));
     }
     if (this.tossGun && this.fistR && this.fistL) {
       // the gun jumps to the other hand in an arc, spinning once, then sits in that fist
@@ -4295,7 +4401,7 @@ export class ShooterMesh {
     this.glowCol.setHex(this.ball);
     for (const m of this.mats) m.emissive.setRGB(Math.min(1, f + this.glowCol.r * glow), Math.min(1, f + this.glowCol.g * glow), Math.min(1, f + this.glowCol.b * glow));
     const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
-    this.root.position.y = bob + hurt;
+    this.root.position.y = bob + hurt - this.guard * 0.08;
 
     // shudder while flashing from a hit; a super hit also rocks it backwards
     const jolt = s.flash > 0 ? (s.stagger > 0 ? 0.16 : 0.07) : 0;

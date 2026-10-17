@@ -10,6 +10,12 @@ import { ballTexture } from './patterns';
 import { Stage } from './stage';
 import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 
+/** place an object (and return it) */
+const at3 = <T extends THREE.Object3D>(o: T, x: number, y: number, z: number) => {
+  o.position.set(x, y, z);
+  return o;
+};
+
 /** the homing steel ball's radius */
 const STEEL_R = 0.32;
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
@@ -259,7 +265,9 @@ export class View {
   private hopV: Float32Array;
   private shadows: THREE.InstancedMesh;
   private streaks: Streak[] = [];
-  private shields: THREE.Mesh[] = [];
+  /** energy shields: a tinted hex panel (normal blending, so it shows on bright arenas too), a
+   *  solid team-coloured frame with a dark outline, and an additive glow layer; plus the pop-in */
+  private shields: { root: THREE.Group; panel: THREE.MeshBasicMaterial; glow: THREE.MeshBasicMaterial; frame: THREE.MeshBasicMaterial; up: number }[] = [];
   private shieldFlash = [0, 0];
   private robotFx: RobotFx[];
   /** damage smoke: soft grey puffs that rise, drift and swell */
@@ -341,12 +349,29 @@ export class View {
     const hexTex = this.makeHexTexture();
     for (const i of SLOTS) {
       const arc = Math.PI * 0.75;
-      const geo = new THREE.CylinderGeometry(1.15, 1.15, 1.9, 24, 1, true, Math.PI - arc / 2, arc);
-      const mat = new THREE.MeshBasicMaterial({ color: this.teamBall[slotTeam(i)], map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.visible = false;
-      this.scene.add(mesh);
-      this.shields.push(mesh);
+      const t0 = Math.PI - arc / 2;
+      const root = new THREE.Group();
+      const team = this.teamBall[slotTeam(i)];
+      const panel = new THREE.MeshBasicMaterial({ color: team, map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
+      const glow = new THREE.MeshBasicMaterial({ color: team, map: hexTex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+      const frame = new THREE.MeshBasicMaterial({ color: team, side: THREE.DoubleSide });
+      const dark = new THREE.MeshBasicMaterial({ color: 0x0c0e16, side: THREE.DoubleSide });
+      root.add(new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 1.9, 24, 1, true, t0, arc), panel));
+      root.add(new THREE.Mesh(new THREE.CylinderGeometry(1.16, 1.16, 1.9, 24, 1, true, t0, arc), glow));
+      // the frame: bands along the top and bottom and posts at the ends, each over a dark outline
+      for (const y of [-0.95, 0.95]) {
+        root.add(at3(new THREE.Mesh(new THREE.CylinderGeometry(1.17, 1.17, 0.1, 24, 1, true, t0, arc), dark), 0, y, 0));
+        root.add(at3(new THREE.Mesh(new THREE.CylinderGeometry(1.18, 1.18, 0.05, 24, 1, true, t0, arc), frame), 0, y, 0));
+      }
+      for (const a of [t0, t0 + arc]) {
+        const x = Math.sin(a) * 1.17;
+        const z = Math.cos(a) * 1.17;
+        root.add(at3(new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.0, 0.09), dark), x, 0, z));
+        root.add(at3(new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.96, 0.1), frame), x, 0, z));
+      }
+      root.visible = false;
+      this.scene.add(root);
+      this.shields.push({ root, panel, glow, frame, up: 0 });
     }
 
     // marbles: one instanced mesh per team, hidden instances scaled to 0
@@ -489,7 +514,8 @@ export class View {
     });
     this.shooters.forEach((old, i) => {
       const ball = this.teamBall[slotTeam(i)];
-      (this.shields[i].material as THREE.MeshBasicMaterial).color.set(ball);
+      const sh = this.shields[i];
+      for (const m of [sh.panel, sh.glow, sh.frame]) m.color.set(ball);
       this.robotFx[i].ghostMats.forEach((m) => m.color.set(ball));
       if (old.id === all[i] && old.ball === ball && !old.broken) return;
       this.scene.remove(old.root);
@@ -1241,16 +1267,23 @@ export class View {
 
   private updateShields(dt: number) {
     this.game.shooters.forEach((s, i) => {
-      const mesh = this.shields[i];
+      const sh = this.shields[i];
       this.shieldFlash[i] = Math.max(0, this.shieldFlash[i] - dt * 4);
-      mesh.visible = s.active && !s.out && s.shieldUp && !this.shooters[i].broken;
-      if (!mesh.visible) return;
-      mesh.position.set(s.x, 0.95, -s.y);
-      mesh.rotation.y = s.team === 0 ? 0 : Math.PI;
+      const on = s.active && !s.out && s.shieldUp && !this.shooters[i].broken;
+      // it pops up fast and drops quickly
+      sh.up = Math.max(0, Math.min(1, sh.up + (on ? dt * 9 : -dt * 12)));
+      sh.root.visible = sh.up > 0.01;
+      if (!sh.root.visible) return;
+      const pop = sh.up < 1 ? 1 - (1 - sh.up) ** 3 : 1;
+      sh.root.scale.set(0.6 + pop * 0.4, pop, 0.6 + pop * 0.4);
+      sh.root.position.set(s.x, 0.95, -s.y);
+      sh.root.rotation.y = s.team === 0 ? 0 : Math.PI;
       const low = s.shield / SHIELD.max < 0.3;
-      const flicker = low && Math.random() < 0.3 ? 0.15 : 1;
-      (mesh.material as THREE.MeshBasicMaterial).opacity = (0.38 + this.shieldFlash[i] * 0.6) * flicker;
-      const map = (mesh.material as THREE.MeshBasicMaterial).map;
+      const flicker = low && Math.random() < 0.3 ? 0.25 : 1;
+      const flash = this.shieldFlash[i];
+      sh.panel.opacity = (0.3 + flash * 0.4) * flicker;
+      sh.glow.opacity = (0.22 + flash * 0.6) * flicker;
+      const map = sh.panel.map;
       if (map) map.offset.y = (this.time * 0.3) % 1;
     });
   }
