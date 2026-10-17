@@ -613,8 +613,9 @@ export class ShooterMesh {
         new THREE.MeshBasicMaterial({ color: new THREE.Color(marbleColor).lerp(new THREE.Color(0xffffff), 0.55), transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }),
       );
       arc.userData.fx = true;
-      arc.position.set(0, 0.42, -0.62);
-      arc.rotation.set(-0.2, 0, -0.5);
+      // tilted to run from high on the right down to the centre, along the cut
+      arc.position.set(0.08, 0.4, -0.62);
+      arc.rotation.set(-0.2, 0, -0.95);
       arc.visible = false;
       this.turret.add(arc);
       this.slashArc = arc;
@@ -4094,11 +4095,15 @@ export class ShooterMesh {
       this.jaw.rotation.x = this.rest.jaw + (this.jawOpen ? this.jawOpen * gape : s.recoil * 0.55);
     }
     if (this.slashArm) {
-      // a swordsman's shot is a slash: a fast cut down and across, then back up to the ready
+      // a swordsman's shot is a slash: from the ready (raised on the right, turned a little out),
+      // a fast diagonal cut down and in across the body to the centre, then back up
       const t = s.kickT ?? 9;
       const cut = t < 0.08 ? 1 - (1 - t / 0.08) ** 3 : t < 0.5 ? 1 - ((t - 0.08) / 0.42) ** 0.6 : 0;
-      this.slashArm.rotation.x = this.rest.slash - cut * 1.7;
-      this.slashArm.rotation.z = -cut * 0.35;
+      const arm = this.slashArm;
+      arm.rotation.order = 'YXZ';
+      arm.rotation.y = -0.2 + cut * 0.85; // swings in toward the middle
+      arm.rotation.x = this.rest.slash - cut * 1.6;
+      arm.rotation.z = -0.25 - cut * 0.45; // the blade rolls over into the diagonal
       if (this.slashArc) {
         const on = t < 0.24;
         this.slashArc.visible = on;
