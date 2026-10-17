@@ -104,12 +104,12 @@ export function boot() {
     return {
       ...stats,
       moveSpeed: stats.moveSpeed * traitMul(t?.speed),
-      fireInterval: stats.fireInterval / traitMul(t?.fireRate),
-      agility: traitMul(t?.agility),
+      fireInterval: stats.fireInterval / traitMul(t?.fireRate, 'fireRate'),
+      agility: traitMul(t?.agility, 'agility'),
       twin: characterById(id).twin,
     };
   };
-  const healthTrait = (id: string) => traitMul(characterById(id).traits?.health);
+  const healthTrait = (id: string) => traitMul(characterById(id).traits?.health, 'health');
   const playerStats = () => {
     const base = computeStats(STARTER_BUILD);
     // a bigger pack hits softer each, like the opponent's
@@ -481,7 +481,7 @@ export function boot() {
     allyIds = [0, 1].map(() => draw(st.character));
     // each CPU unit's agility trait sharpens (or dulls) its dodging on top of the setting
     const ids = unitIds();
-    ais.forEach((a, i) => (a.agility *= traitMul(characterById(ids[i + 1]).traits?.agility)));
+    ais.forEach((a, i) => (a.agility *= traitMul(characterById(ids[i + 1]).traits?.agility, 'agility')));
     view.setCharacters(unitIds());
     fitTable(st);
     roundNo = 1;

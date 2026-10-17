@@ -342,8 +342,8 @@ type Look21 = {
   head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese' | 'megazord';
   shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
   shoulderL?: Look21['shoulder'];
-  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka' | 'shellCannon' | 'staffGun' | 'palm' | 'chestMaw';
-  left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade' | 'knife' | 'katana' | 'powerSword';
+  gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka' | 'shellCannon' | 'staffGun' | 'palm' | 'chestMaw' | 'slashSword';
+  left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade' | 'knife' | 'katana' | 'powerSword' | 'ammoDrum';
   back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters' | 'shell' | 'rexTail' | 'tuskShield')[];
   /** a dino combiner: each limb in its own zord's colour (black arms, a blue right leg, a yellow left) and a pink breastplate */
   megazord?: boolean;
@@ -398,7 +398,8 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
 };
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   // Astray Red Frame: white armour over a red frame, black trim
-  angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'beamRifle', left: 'katana', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
+  // a swordsman: the katana raised in the right hand, every shot a slash whose arc throws the marble
+  angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
   // a dino combiner (after the Mighty Morphin Megazord): red core, silver crested helmet, pink
   // breastplate, black arms with a tusked shield on the back, blue and yellow legs, a T-rex tail;
   // the old Wyvern head with twin gold horns; it fires from a toothed maw in its chest, and holds
@@ -410,7 +411,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // Blastoise-style: a shell on its back with a twin cannon (two marbles a shot), hunched like a gorilla
   monoceros: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, twin: true, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // teal and deep blue-green with gold, a pink mono-eye
-  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0x6af0e0, palette: { body: 0x1f8a8a, trim: 0x173a44, accent: 0xffc23d, joint: 0x14202a, eye: 0xff5fd0 } },
+  // a huge drum magazine in the left hand, its belt feeding the machine gun in the right
+  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0x6af0e0, palette: { body: 0x1f8a8a, trim: 0x173a44, accent: 0xffc23d, joint: 0x14202a, eye: 0xff5fd0 } },
   // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true, pose: 'aim', dynamic: true, lean: -0.18 }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0xb82020, joint: 0x17181a, eye: 0xff2a2a } },
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, longSkirt: true, hover: true }, ball: 0xd08aff, glow: 0xc86aff, palette: { body: 0x3a2a5c, trim: 0x241c36, accent: 0xc86aff, joint: 0x15111f, eye: 0xd08aff } },
@@ -560,7 +562,10 @@ export class ShooterMesh {
   wingR = new THREE.Group();
   private stride = 0;
   /** rest pose of animated parts (Unit Lab designs can tilt them); animation is added on top */
-  private rest = { turretY: 0, turretZ: 0, jaw: 0, legs: [] as number[], flame: new THREE.Vector3(1, 1, 1) };
+  private rest = { turretY: 0, turretZ: 0, jaw: 0, slash: 0, legs: [] as number[], flame: new THREE.Vector3(1, 1, 1) };
+  /** a swordsman's sword arm (it swings down on each shot) and the crescent its slash throws */
+  slashArm: THREE.Object3D | null = null;
+  private slashArc: THREE.Mesh | null = null;
   /** rest positions the recoil animation pushes from */
   private barrelZ = -0.32;
   private triggerZ = 0.38;
@@ -601,6 +606,19 @@ export class ShooterMesh {
     // (block designs already store theirs that way, so what the Unit Lab shows is what's drawn)
     if (!def.blueprint) boxify(this.root);
     if (def.look21?.gun === 'dragonMaw' || def.look21?.gun === 'chestMaw') this.jawOpen = -0.95;
+    if (def.look21?.gun === 'slashSword') {
+      // the crescent of light a slash throws, flashed in front of the chest on each shot
+      const arc = new THREE.Mesh(
+        new THREE.RingGeometry(0.42, 0.72, 28, 1, Math.PI * 0.05, Math.PI * 0.9),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(marbleColor).lerp(new THREE.Color(0xffffff), 0.55), transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+      );
+      arc.userData.fx = true;
+      arc.position.set(0, 0.42, -0.62);
+      arc.rotation.set(-0.2, 0, -0.5);
+      arc.visible = false;
+      this.turret.add(arc);
+      this.slashArc = arc;
+    }
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
     this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
   }
@@ -1362,6 +1380,10 @@ export class ShooterMesh {
           this.flame = o;
           this.rest.flame.copy(o.scale);
           break;
+        case 'slash':
+          this.slashArm = o;
+          this.rest.slash = o.rotation.x;
+          break;
         case 'belly':
           this.bellyMark = o;
           break;
@@ -1410,6 +1432,7 @@ export class ShooterMesh {
       if (this.legs.includes(o)) return 'leg';
       if (o === this.jaw) return 'jaw';
       if (o === this.flame) return 'flame';
+      if (o === this.slashArm) return 'slash';
       if (o === this.trigger) return 'trigger';
       if (o === this.bellyMark) return 'belly';
       if (o === this.wings) return 'wings';
@@ -1420,6 +1443,8 @@ export class ShooterMesh {
     const r3 = (n: number) => Math.round(n * 1000) / 1000;
     const v = (x: { x: number; y: number; z: number }): V3 => [r3(x.x), r3(x.y), r3(x.z)];
     const walk = (o: THREE.Object3D): Block | null => {
+      // effects (like the slash crescent) aren't part of the design
+      if (o.userData.fx) return null;
       const mesh = o as THREE.Mesh;
       let b: Block;
       if (mesh.isMesh) {
@@ -2353,6 +2378,8 @@ export class ShooterMesh {
         // the right on the trigger grip, the left across the chest on the front grip
         let ag: THREE.Object3D = sh;
         if (twoHand || centre) ag = at(new THREE.Group(), 0, 0, 0, 0, s * 0.62, 0);
+        // a sword arm swings on its own inside the shoulder armour
+        if (L.gun === 'slashSword' && s === 1) ag = new THREE.Group();
         if (guard) {
           // forearm up and in, the fist in front of the chest
           ag = new THREE.Group();
@@ -2473,7 +2500,8 @@ export class ShooterMesh {
         gun.add(box(0.12, 0.15, 0.44, m.joint, 0, 0.04, -0.08));
         gun.add(box(0.08, 0.14, 0.18, m.joint, 0, 0.02, 0.22));
         gun.add(box(0.125, 0.03, 0.3, m.accent, 0, 0.1, -0.1));
-        gun.add(at(cyl(0.11, 0.08, m.trim), -0.1, 0.02, 0.0, 0, 0, Math.PI / 2));
+        if (L.left !== 'ammoDrum') gun.add(at(cyl(0.11, 0.08, m.trim), -0.1, 0.02, 0.0, 0, 0, Math.PI / 2));
+        else gun.add(box(0.06, 0.1, 0.12, m.trim, -0.09, 0.02, 0.02)); // the belt's feed port
         tube(0.032, 0.3, m.joint, 0, 0.04, -0.45);
         gun.add(box(0.08, 0.08, 0.08, m.trim, 0, 0.04, -0.62));
         mark(0, 0.04, -0.68);
@@ -2669,6 +2697,23 @@ export class ShooterMesh {
         mark(0, -0.04, -0.56);
         break;
       }
+      case 'slashSword': {
+        // the katana raised in the right fist, the blade angled up over the shoulder; the
+        // marble leaves from in front of the chest, where the slash cuts
+        gun.position.copy(fist);
+        rightArm!.add(gun);
+        gun.add(box(0.06, 0.07, 0.24, m.trim, 0, 0, 0.02)); // grip, wrapped
+        gun.add(box(0.16, 0.12, 0.04, m.gold, 0, 0, -0.1)); // guard
+        const blade = at(new THREE.Group(), 0, 0, -0.12, 2.16);
+        blade.add(at(plate([[-0.03, 0], [0.035, 0], [0.035, -1.0], [-0.03, -1.12]], 0.024, this.paint(0xe8ecf0, 'metal')), 0, 0, 0));
+        blade.add(at(plate([[0.022, -0.02], [0.035, -0.02], [0.035, -0.98], [0.022, -0.98]], 0.03, m.accent), 0, 0, 0)); // the glowing edge
+        gun.add(blade);
+        rightArm!.rotation.x = 1.05;
+        this.slashArm = rightArm;
+        this.rest.slash = rightArm!.rotation.x;
+        this.markBelly(this.turret, 0, 0.42, -0.85);
+        break;
+      }
       case 'chestMaw': {
         // a toothed maw in the breastplate: fangs along the top, a hinged lower jaw that snaps
         // open on each shot, and fire glowing in the throat
@@ -2705,7 +2750,25 @@ export class ShooterMesh {
     // ---------- the left hand: shields, scythe, claw, tail blade ----------
     const lh = leftSh!;
     const lfist = V(0.04, -0.52 * as, -0.22);
+    let drumFeed: THREE.Object3D | null = null;
     switch (L.left) {
+      case 'ammoDrum': {
+        // a huge drum magazine carried in the hanging left fist
+        const drum = at(new THREE.Group(), lfist.x - 0.04, lfist.y - 0.2, lfist.z - 0.04);
+        // an octagonal drum (faceted, like the rest of the kit): dark end caps, a gold band
+        const oct = (r: number): [number, number][] => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [Math.cos((i / 8) * Math.PI * 2 + Math.PI / 8) * r, Math.sin((i / 8) * Math.PI * 2 + Math.PI / 8) * r]);
+        drum.add(side(oct(0.3), 0.3, m.trim));
+        for (const x of [-0.16, 0.16]) drum.add(at(side(oct(0.27), 0.03, m.joint), x, 0, 0));
+        drum.add(side(oct(0.31), 0.06, m.accent));
+        for (const x of [-0.18, 0.18]) drum.add(at(side(oct(0.1), 0.03, m.accent), x, 0, 0)); // hub caps
+        drum.add(box(0.08, 0.14, 0.1, m.joint, 0, 0.27, 0)); // carry handle, under the fist
+        drum.add(box(0.1, 0.1, 0.12, m.joint, 0.06, 0.12, -0.24)); // feed throat
+        drumFeed = at(new THREE.Object3D(), 0.06, 0.14, -0.3);
+        drum.add(drumFeed);
+        drum.scale.setScalar(1.3);
+        lh.add(drum);
+        break;
+      }
       case 'powerSword': {
         // the power sword held ready in the hanging left fist, the blade angled up and forward
         const sw = at(new THREE.Group(), lfist.x, lfist.y, lfist.z, -(L.lean ?? F.lean) - 0.75);
@@ -2880,6 +2943,31 @@ export class ShooterMesh {
       }
       if (back === 'launchers') {
         // Metabee: twin launchers on a stalk from the top of the head (added with the head below)
+      }
+    }
+    if (drumFeed) {
+      // the belt: chunky rounds on dark links, sagging from the drum across the front of the body
+      // into the feed port on the gun
+      this.turret.updateWorldMatrix(true, true);
+      const inTurret = (o: THREE.Object3D, v: THREE.Vector3) => this.turret.worldToLocal(o.localToWorld(v));
+      const a0 = inTurret(drumFeed, V(0, 0, 0));
+      const a2 = inTurret(gun, V(-0.1, 0.02, 0.02));
+      const a1 = a0.clone().add(a2).multiplyScalar(0.5).add(V(0, -0.32, -0.3));
+      const curve = new THREE.QuadraticBezierCurve3(a0, a1, a2);
+      const brass = this.paint(0xc9a03a, 'gold');
+      const copper = this.paint(0xb8643a, 'gold');
+      const link = this.paint(0x2a2a2e, 'metal');
+      const n = 18;
+      for (let q = 0; q <= n; q++) {
+        const p = curve.getPoint(q / n);
+        const ahead = curve.getPoint(Math.min(1, q / n + 0.01));
+        const round = new THREE.Group();
+        round.position.copy(p);
+        round.lookAt(ahead);
+        round.add(box(0.17, 0.05, 0.06, link));
+        round.add(at(cyl(0.04, 0.14, brass), 0, 0.045, 0, 0, 0, Math.PI / 2));
+        round.add(at(cone(0.04, 0.07, copper), 0.105, 0.045, 0, 0, 0, -Math.PI / 2));
+        this.turret.add(round);
       }
     }
     this.trigger = box(0.24, 0.14, 0.14, m.gold, 0, 0.06, cd / 2 + 0.36);
@@ -4004,6 +4092,22 @@ export class ShooterMesh {
       // a dragon's maw gapes wide as it blasts and holds open a beat before it shuts
       const gape = Math.max(s.recoil, Math.max(0, 1 - (s.kickT ?? 9) / 0.45));
       this.jaw.rotation.x = this.rest.jaw + (this.jawOpen ? this.jawOpen * gape : s.recoil * 0.55);
+    }
+    if (this.slashArm) {
+      // a swordsman's shot is a slash: a fast cut down and across, then back up to the ready
+      const t = s.kickT ?? 9;
+      const cut = t < 0.08 ? 1 - (1 - t / 0.08) ** 3 : t < 0.5 ? 1 - ((t - 0.08) / 0.42) ** 0.6 : 0;
+      this.slashArm.rotation.x = this.rest.slash - cut * 1.7;
+      this.slashArm.rotation.z = -cut * 0.35;
+      if (this.slashArc) {
+        const on = t < 0.24;
+        this.slashArc.visible = on;
+        if (on) {
+          const k = t / 0.24;
+          this.slashArc.scale.setScalar(0.7 + k * 0.9);
+          (this.slashArc.material as THREE.MeshBasicMaterial).opacity = (1 - k) * 0.95;
+        }
+      }
     }
     if (this.flame) {
       const f = 0.85 + Math.random() * 0.35;

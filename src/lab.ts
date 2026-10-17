@@ -1344,7 +1344,7 @@ function renderProfile() {
     const lvl = traits[tr.key];
     const row = document.createElement('div');
     row.className = 'trait';
-    row.innerHTML = `<div class="trait-head"><b>${tr.label}</b><em>${tr.value(traitMul(lvl))}</em></div><div class="levels"></div><p class="trait-sub">${tr.sub}</p>`;
+    row.innerHTML = `<div class="trait-head"><b>${tr.label}</b><em>${tr.value(traitMul(lvl, tr.key))}</em></div><div class="levels"></div><p class="trait-sub">${tr.sub}</p>`;
     const levels = row.querySelector('.levels')!;
     for (let n = 1; n <= 5; n++) {
       const b = document.createElement('button');
@@ -1414,6 +1414,7 @@ const ROLE_LABEL: Record<Role, string> = {
   wings: 'WINGS',
   wingL: 'WING L',
   wingR: 'WING R',
+  slash: 'SLASH ARM',
 };
 const blockColor = (b: Block) => (b.mat ? resolveColor(b.mat.color, def(), def().ball) : null);
 
