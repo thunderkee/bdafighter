@@ -70,7 +70,15 @@ export function boot() {
     if (character !== st.character || enemyCharacter !== st.enemyCharacter) saveData = store.save({ settings: { ...st, character, enemyCharacter } });
   }
   /** an arcade run: the stage number, how many were cleared, and this stage's match setup */
-  let arcade: { stage: number; cleared: number; cfg: Partial<store.Settings>; next?: Partial<store.Settings>; done?: boolean } | null = null;
+  let arcade: { stage: number; cleared: number; cfg: Partial<store.Settings>; next?: Partial<store.Settings>; done?: boolean; plan: Partial<store.Settings>[] } | null = null;
+  /** after an arcade game over: choosing another fighter to retry the stage with */
+  let arcadeSwap = false;
+  /** the units the current arcade stage puts against you (they can't be your swap) */
+  const arcadeFoes = () => {
+    if (!arcade) return new Set<string>();
+    const b = bossOf(arcade.stage);
+    return new Set((b ? b.units : [arcade.cfg.enemyCharacter ?? '']).filter(Boolean).map((id) => baseOf(id)));
+  };
   /**
    * The arcade ladder: you fight alone, one on one. Two stages, then a boss, four times over;
    * beating the last boss clears the run. Each boss sets its own armour (per unit), punch,
@@ -711,6 +719,8 @@ export function boot() {
   const showArcadeResult = (w: -1 | 0 | 1) => {
     const panel = $('arcade-next');
     panel.classList.toggle('hidden', !arcade);
+    // a game over (or a draw) can be retried with a different fighter
+    $('arcade-swap').classList.toggle('hidden', !arcade || w === 0);
     if (!arcade) {
       $('again-btn').textContent = 'REMATCH';
       return;
@@ -741,7 +751,7 @@ export function boot() {
       if (record) saveData = store.save({ arcadeBest: arcade.cleared });
       title.textContent = bossAt(arcade.stage) ? 'BOSS DEFEATED' : `STAGE ${arcade.stage} CLEAR`;
       $('result-sub').textContent = `ARCADE // ${arcade.cleared} CLEARED${record ? ' · NEW BEST' : ''}`;
-      arcade.next = rollStage(arcade.stage + 1, arcade.cfg);
+      arcade.next = arcade.plan[arcade.stage] ?? rollStage(arcade.stage + 1, arcade.cfg);
       stageCfg = arcade.next;
       head = bossAt(arcade.stage + 1) ? `⚠ BOSS AHEAD // STAGE ${arcade.stage + 1}` : `NEXT // STAGE ${arcade.stage + 1}`;
       $('again-btn').textContent = 'NEXT STAGE ▶';
@@ -759,10 +769,90 @@ export function boot() {
     panel.innerHTML = `<b>${head}</b><div><span>OPPONENT</span><em>${d.foe}</em></div><div><span>DIFFICULTY</span><em>${d.diff}</em></div><div><span>ARENA</span><em>${d.arena}</em></div><div><span>RULES</span><em>${d.rules}</em></div><div><span>YOUR SIDE</span><em>${d.you}</em></div>`;
   };
 
+  /** the whole ladder, rolled at the start of a run (so the tower can show who's coming) */
+  const rollPlan = () => {
+    // (each opponent once where the roster allows, before any repeats)
+    const plan: Partial<store.Settings>[] = [];
+    const used = new Set<string>();
+    for (let s = 1; s <= FINAL_STAGE; s++) {
+      let c = rollStage(s, plan[s - 2]);
+      for (let tries = 0; tries < 16 && !bossAt(s) && c.enemyCharacter && used.has(baseOf(c.enemyCharacter)); tries++) c = rollStage(s, plan[s - 2]);
+      if (c.enemyCharacter && !bossAt(s)) used.add(baseOf(c.enemyCharacter));
+      plan.push(c);
+    }
+    return plan;
+  };
+  /** after a fighter swap: any later stage that would put you against yourself is re-rolled */
+  const refitPlan = () => {
+    if (!arcade) return;
+    const me = baseOf(saveData.settings.character);
+    for (let s = arcade.stage + 1; s <= FINAL_STAGE; s++) {
+      const c = arcade.plan[s - 1];
+      if (!bossAt(s) && c.enemyCharacter && baseOf(c.enemyCharacter) === me) arcade.plan[s - 1] = rollStage(s, arcade.plan[s - 2]);
+    }
+  };
   /** start a new arcade run from stage 1 */
   const startArcade = () => {
-    arcade = { stage: 1, cleared: 0, cfg: rollStage(1) };
-    startMatch();
+    const plan = rollPlan();
+    arcade = { stage: 1, cleared: 0, cfg: plan[0], plan };
+    showTower(startMatch);
+  };
+
+  // ---------- the tower: who you've beaten, who's next, and who waits at the top ----------
+  const towerEl = document.createElement('div');
+  towerEl.id = 'tower';
+  towerEl.className = 'hidden';
+  $('app').appendChild(towerEl);
+  let towerTimer = 0;
+  let towerDone: (() => void) | null = null;
+  const closeTower = () => {
+    if (!towerDone) return;
+    clearTimeout(towerTimer);
+    towerEl.classList.add('hidden');
+    const go = towerDone;
+    towerDone = null;
+    go();
+  };
+  towerEl.addEventListener('click', closeTower);
+  /** show the tower for a moment (tap to skip), then carry on */
+  const showTower = (then: () => void) => {
+    if (!arcade) return then();
+    const a = arcade;
+    const rows: string[] = [];
+    for (let s = FINAL_STAGE; s >= 1; s--) {
+      const b = bossOf(s);
+      const c = a.plan[s - 1] ?? {};
+      const id = b ? b.units[0] : (c.enemyCharacter ?? '');
+      const name = b ? b.title : characterById(id).name;
+      const state = s < a.stage ? 'cleared' : s === a.stage ? 'current' : 'ahead';
+      const crew = b && b.units.length > 1 ? `<small>×${b.units.length}</small>` : '';
+      rows.push(
+        `<li class="tw-stage ${state}${b ? ' boss' : ''}${s === FINAL_STAGE ? ' final' : ''}" data-stage="${s}"><em>${s}</em><i class="tw-face"><i data-portrait="${id}"></i></i><b>${name}${crew}</b>${b ? `<span>${s === FINAL_STAGE ? 'FINAL BOSS' : 'BOSS'}</span>` : ''}${state === 'cleared' ? '<u>✓</u>' : ''}</li>`,
+      );
+    }
+    const me = characterById(saveData.settings.character);
+    towerEl.innerHTML = `<header><span>ARCADE</span><h2>${a.stage === FINAL_STAGE ? 'Final battle' : `Stage ${a.stage}`}</h2></header><div class="tw-col"><ol>${rows.join('')}</ol><div class="tw-you"><i class="tw-face"><i data-portrait="${me.id}"></i></i><b>${me.name}</b></div></div><p>TAP TO CONTINUE</p>`;
+    towerEl.classList.remove('hidden');
+    fillPortraits(towerEl);
+    // the marker starts at the stage below and climbs to this one; the column scrolls to it
+    const col = towerEl.querySelector<HTMLElement>('.tw-col')!;
+    const you = towerEl.querySelector<HTMLElement>('.tw-you')!;
+    const at = (s: number) => towerEl.querySelector<HTMLElement>(`.tw-stage[data-stage="${Math.max(1, s)}"]`)!;
+    const place = (s: number) => {
+      const row = at(s);
+      you.style.transform = `translateY(${row.offsetTop + row.offsetHeight / 2 - you.offsetHeight / 2}px)`;
+    };
+    you.style.transition = 'none';
+    place(a.stage - 1 || 1);
+    const cur = at(a.stage);
+    col.scrollTop = Math.max(0, cur.offsetTop - col.clientHeight / 2 + cur.offsetHeight / 2);
+    requestAnimationFrame(() => {
+      you.style.transition = '';
+      place(a.stage);
+    });
+    sfx.play(bossOf(a.stage) ? 'gong' : 'whoosh');
+    towerDone = then;
+    towerTimer = window.setTimeout(closeTower, 2800);
   };
   /** rematch, or in arcade the next stage (after a win) or the same stage again */
   const playAgain = () => {
@@ -776,7 +866,8 @@ export function boot() {
       arcade.cfg = arcade.next;
       arcade.next = undefined;
     }
-    startMatch();
+    if (arcade) showTower(startMatch);
+    else startMatch();
   };
   /** leave the arcade run: back to the title with your own table */
   const quitArcade = () => {
@@ -854,6 +945,20 @@ export function boot() {
   $('arcade-btn').addEventListener('click', () => openSelect('arcade'));
   $('again-btn').addEventListener('click', playAgain);
   $('arcade-quit').addEventListener('click', quitArcade);
+  $('arcade-swap').addEventListener('click', () => {
+    if (!arcade) return;
+    sfx.unlock();
+    arcadeSwap = true;
+    selectMode = 'arcade';
+    // (if the saved pick is the stage's opponent or a boss, start the grid on the first fighter that isn't)
+    const foes = arcadeFoes();
+    const ok = (id: string) => !isLocked(id) && !isBossUnit(id) && !foes.has(baseOf(id));
+    if (!ok(saveData.settings.character)) {
+      const first = playable().find((c) => ok(c.id));
+      if (first) saveData = store.save({ settings: { ...saveData.settings, character: first.id } });
+    }
+    goStep('fighter');
+  });
   $('pause-btn').addEventListener('click', () => setPaused(true));
   $('resume-btn').addEventListener('click', () => setPaused(false));
   // restart from round 1, straight into the fight (no intro this time)
@@ -1064,12 +1169,13 @@ export function boot() {
       b.addEventListener('click', () => pick(id));
       grid.appendChild(b);
     };
-    const lockedTile = (id: string, stage: number, color: string) => {
+    const foes = arcadeFoes();
+    const lockedTile = (id: string, stage: number, color: string, label = `Arcade stage ${stage}`) => {
       const b = document.createElement('button');
       b.className = 'tile locked';
       b.dataset.id = id;
       b.style.setProperty('--i', String(grid.children.length));
-      b.innerHTML = `<i data-portrait="${id}" style="background:${color}"></i><em class="lock">🔒</em><span>Arcade stage ${stage}</span>`;
+      b.innerHTML = `<i data-portrait="${id}" style="background:${color}"></i><em class="lock">${label === 'Opponent' ? '⚔' : '🔒'}</em><span>${label}</span>`;
       b.addEventListener('click', () => {
         replay(b, 'nope');
         sfx.play('bump', 0.5);
@@ -1099,7 +1205,12 @@ export function boot() {
     for (const c of ver === '21' ? classic() : playable()) {
       if (verOf(c.id) !== ver) continue;
       // the arcade's bosses stay a surprise: they can't be picked for a run
-      if (selectMode === 'arcade' && isBossUnit(c.id)) continue;
+      if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
+      // retrying a stage: the opponent waiting there shows, but can't be your pick
+      if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) {
+        lockedTile(c.id, 0, hexc(c.palette.body), 'Opponent');
+        continue;
+      }
       // a locked unit shows (so there's something to chase) but can't be picked
       if (isLocked(c.id)) {
         lockedTile(c.id, unlockStage(c.id), hexc(c.palette.body));
@@ -1130,7 +1241,8 @@ export function boot() {
     if (step !== 'arena') ver = chosen() === 'auto' ? ver : verOf(chosen());
     $('select-title').textContent =
       step === 'fighter' ? (selectMode === 'duo' ? 'Player 1 fighter' : 'Select fighter') : step === 'rival' ? (selectMode === 'duo' ? 'Player 2 fighter' : 'Select rival') : 'Select arena';
-    $('select-next').textContent = selectMode === 'arcade' ? 'Start arcade ▶' : 'Next ▶';
+    $('select-next').textContent = arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : 'Next ▶';
+    if (arcadeSwap) $('select-title').textContent = 'Change fighter';
     buildGrid();
     showPreview();
   };
@@ -1161,10 +1273,24 @@ export function boot() {
     }),
   );
   $('select-back').addEventListener('click', () => {
+    if (arcadeSwap) {
+      // back to the game-over screen, the run still on
+      arcadeSwap = false;
+      show('result');
+      return;
+    }
     if (step === 'fighter') toTitle();
     else goStep(step === 'arena' ? 'rival' : 'fighter');
   });
   $('select-next').addEventListener('click', () => {
+    if (arcadeSwap) {
+      // the same stage again, with the new fighter
+      arcadeSwap = false;
+      preview.release();
+      refitPlan();
+      showTower(startMatch);
+      return;
+    }
     if (selectMode === 'arcade') {
       preview.release();
       startArcade();
