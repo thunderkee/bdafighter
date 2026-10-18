@@ -1056,7 +1056,7 @@ export class View {
 
   /** keep a camera's lens matched to the view it draws into */
   private fitCamera(aspect: number, cam = this.camera) {
-    const fov = this.cameraMode === 'first' ? (aspect < 0.75 ? 74 : 62) : aspect < 0.75 ? 54 : this.cameraMode === 'split' ? 58 : 44;
+    const fov = this.cameraMode === 'first' ? (aspect < 0.75 ? 74 : 62) : aspect < 0.75 ? 54 : this.cameraMode === 'split' ? 50 : 44;
     if (Math.abs(cam.aspect - aspect) > 1e-3 || cam.fov !== fov) {
       cam.aspect = aspect;
       cam.fov = fov;
@@ -1846,14 +1846,14 @@ export class View {
         this.lookGoal.set(p.x + Math.sin(p.aim) * 10, 0.6, -p.y - Math.cos(p.aim) * 10);
         break;
       case 'split': {
-        // player 1 in the usual chase view; player 2 the same from their own end
-        this.camGoal.set(follow(0.9, 3.15) - lean * 0.9, 6.4, -p.y + 6.4);
-        this.lookGoal.set(follow(0.6, 2.1) + lean * 3, 0.2, -p.y - 7.5);
+        // each player in a close chase view (each half is short, so the camera sits in tight)
+        this.camGoal.set(follow(0.95, 3.4) - lean * 0.7, 4.2, -p.y + 4.4);
+        this.lookGoal.set(follow(0.7, 2.3) + lean * 3.2, 0.4, -p.y - 8);
         const q = this.game.shooters[1];
         const lean2 = Math.sin(q.aim);
         const f2 = (k: number, limit: number) => Math.max(-limit * wk, Math.min(limit * wk, q.x * k));
-        this.cam2Goal.set(f2(0.9, 3.15) + lean2 * 0.9, 6.4, -q.y - 6.4);
-        this.look2Goal.set(f2(0.6, 2.1) - lean2 * 3, 0.2, -q.y + 7.5);
+        this.cam2Goal.set(f2(0.95, 3.4) + lean2 * 0.7, 4.2, -q.y - 4.4);
+        this.look2Goal.set(f2(0.7, 2.3) - lean2 * 3.2, 0.4, -q.y + 8);
         break;
       }
       case 'duo': {
