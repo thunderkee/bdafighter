@@ -14,6 +14,7 @@ import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
+import { SquadRun } from './squadrun';
 import * as store from './storage';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -840,6 +841,15 @@ export function boot() {
 
   $('play-btn').addEventListener('click', () => openSelect('versus'));
   $('duo-btn').addEventListener('click', () => openSelect('duo'));
+  // Squad Run: its own little game over the top, led by your fighter; the arena sleeps meanwhile
+  let squadRun: SquadRun | null = null;
+  $('squad-btn').addEventListener('click', () => {
+    sfx.unlock();
+    squadRun ??= new SquadRun($('app'), { unit: playableId(S().character), onExit: () => toTitle() });
+    show('');
+    squadRun.open(playableId(S().character));
+    if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
+  });
   $('arcade-btn').addEventListener('click', () => openSelect('arcade'));
   $('again-btn').addEventListener('click', playAgain);
   $('arcade-quit').addEventListener('click', quitArcade);
@@ -1445,7 +1455,7 @@ export function boot() {
       sliderEl.classList.toggle('active', u !== null);
       if (u !== null) sliderEl.style.setProperty('--t', String(u));
     }
-    view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
+    if (!squadRun?.active) view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
       const shown = [view.game.shooters[0], view.game.shooters[focus().slot] ?? view.game.shooters[1]];
       if (shown[1] && faceSlot !== shown[1].slot) {
