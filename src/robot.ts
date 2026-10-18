@@ -1583,6 +1583,12 @@ export class ShooterMesh {
         case 'finger':
           this.fingers.push(o);
           break;
+        case 'slashL':
+          this.slashArmL = o;
+          break;
+        case 'jawL':
+          this.jaw2 = o;
+          break;
         case 'belly':
           this.bellyMark = o;
           break;
@@ -1632,6 +1638,8 @@ export class ShooterMesh {
       if (o === this.jaw) return 'jaw';
       if (o === this.flame) return 'flame';
       if (o === this.slashArm) return 'slash';
+      if (o === this.slashArmL) return 'slashL';
+      if (o === this.jaw2) return 'jawL';
       if (this.punchArms.includes(o)) return 'punch';
       if (o === this.armR) return 'armR';
       if (o === this.armL) return 'armL';
@@ -1648,8 +1656,8 @@ export class ShooterMesh {
     const r3 = (n: number) => Math.round(n * 1000) / 1000;
     const v = (x: { x: number; y: number; z: number }): V3 => [r3(x.x), r3(x.y), r3(x.z)];
     const walk = (o: THREE.Object3D): Block | null => {
-      // effects (like the slash crescent) aren't part of the design
-      if (o.userData.fx) return null;
+      // effects (like the slash crescent) and parts the unit hides aren't part of the design
+      if (o.userData.fx || !o.visible) return null;
       const mesh = o as THREE.Mesh;
       let b: Block;
       if (mesh.isMesh) {
@@ -5065,7 +5073,7 @@ export class ShooterMesh {
   private applyTune(tune: Tune[]) {
     const designKids = (o: THREE.Object3D) =>
       o.children.filter((c) => {
-        if (c.userData.fx) return false;
+        if (c.userData.fx || !c.visible) return false;
         const mesh = c as THREE.Mesh;
         return !mesh.isMesh || !!mesh.geometry.userData.meshData || !!SHAPE_OF[mesh.geometry.type];
       });

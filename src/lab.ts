@@ -1434,6 +1434,8 @@ const ROLE_LABEL: Record<Role, string> = {
   barrelL: 'BARREL L',
   bellyL: 'BALL EXIT L',
   finger: 'FINGER',
+  slashL: 'SLASH ARM L',
+  jawL: 'JAW L',
 };
 const blockColor = (b: Block) => (b.mat ? resolveColor(b.mat.color, def(), def().ball) : null);
 
