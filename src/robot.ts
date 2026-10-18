@@ -395,6 +395,8 @@ type Look21 = {
   police?: boolean;
   /** a mantis's long segmented abdomen, swept back from the hips */
   abdomen?: boolean;
+  /** MODOK-style: the head is the body, huge, with the arms and legs small beneath it */
+  modok?: boolean;
   /** a sleeker main-character Gundam head, the crown and ears in the accent colour */
   heroHead?: boolean;
   /** an attacking stance: a lunge (left leg forward, right back), a forward lean, the off hand raised on guard */
@@ -492,23 +494,24 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   // Pioneer: a police robot that turns into a car: black-and-white with a riot visor and a light
   // bar, a windshield on its chest, the doors on its back, wheels on its shoulders and shins
   pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x5ab8ff, palette: { body: 0xf2f2f2, trim: 0x16161a, accent: 0x2a6aff, joint: 0x22252c, eye: 0x7ff0ff } },
-  // Liberty (Tallgeese): a diving-helmet head for the plume helm, a rail rifle for the Dober gun
-  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], treads: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
-  // Mandrill (Blastoise): no shell on its back; a mandrill's head, red-nosed and blue-cheeked,
-  // hunched like a gorilla with the twin cannons over its shoulders
-  monoceros: { name: 'Mandrill', twin: true, look: { frame: 'heavy', head: 'mandrill', shoulder: 'heavy', gun: 'shellCannon', back: ['boosters'], gorilla: true, lean: -0.1 }, ball: 0xff6a5a, palette: { body: 0x5a5040, trim: 0x2a6ad8, accent: 0xd8262b, joint: 0x1e1a14, eye: 0xffb02e } },
+  // Liberty (Tallgeese): a diving-helmet head for the plume helm, a rail rifle for the Dober gun,
+  // mantis-jointed legs for the treads
+  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], digi: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
+  // Mandrill (Blastoise): no shell on its back; MODOK-style, a giant mandrill head is its body,
+  // red-nosed and blue-cheeked, small arms and legs beneath and the twin cannons over its shoulders
+  monoceros: { name: 'Mandrill', twin: true, look: { frame: 'squat', head: 'mandrill', shoulder: 'wedge', gun: 'shellCannon', back: ['boosters'], modok: true, lean: -0.06 }, ball: 0xff6a5a, palette: { body: 0x5a5040, trim: 0x2a6ad8, accent: 0xd8262b, joint: 0x1e1a14, eye: 0xffb02e } },
   // Crimson Baron (Zaku): a flying-ace head for the mono-eye, plain shoulders for the shield
   // and spikes, and crimson for the teal
   baron: { look: { frame: 'heavy', head: 'aviator', shoulder: 'heavy', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xffd06a, palette: { body: 0xb8282a, trim: 0x3a2a1a, accent: 0xf2e6c8, joint: 0x2a2420, eye: 0xffd06a } },
-  // Bastion (the Punisher): no skull; a mantis in leaf green: a mantis head, bird-jointed legs, a
+  // Bastion (the Punisher): no skull; a mantis in leaf green: a mantis head, four walker legs, a
   // long abdomen behind, and scythe forearms: a shot is both scythes slashing in at once, the
   // marble forming where they cross
-  bastion: { look: { frame: 'heavy', head: 'mantis', shoulder: 'spike', gun: 'mantisScythe', back: ['cape'], digi: true, abdomen: true, menace: true, pose: 'aim', lean: -0.18 }, ball: 0xffe05a, palette: { body: 0x5a9a3a, trim: 0x2e4a22, accent: 0xf2e05a, joint: 0x1a2416, eye: 0xff5a3a } },
+  bastion: { look: { frame: 'heavy', head: 'mantis', shoulder: 'spike', gun: 'mantisScythe', back: ['cape'], spider: true, abdomen: true, menace: true, pose: 'aim', lean: -0.18 }, ball: 0xffe05a, palette: { body: 0x5a9a3a, trim: 0x2e4a22, accent: 0xf2e05a, joint: 0x1a2416, eye: 0xff5a3a } },
   // Nightshade: ivory for the purple, and one floating tail instead of legs
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, wisp: true, bigCape: true }, ball: 0xff4a5a, glow: 0xff3a4a, palette: { body: 0xe8e2d6, trim: 0x1a1418, accent: 0xff3a4a, joint: 0x2a2428, eye: 0xff3a4a } },
   // Unit Violet (EVA Unit-08): a silverback gorilla instead: an ape's head for the horned EVA
   // head, a squat hunched frame for the long legs, huge palm-blaster hands, violet with silver
-  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'squat', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', menace: true, lean: -0.3 }, ball: 0xc88aff, glow: 0xb06aff, palette: { body: 0x4a2e8a, trim: 0xb8bec9, accent: 0xffb02e, joint: 0x1a1426, eye: 0xff5a3a } },
+  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'squat', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', treads: true, menace: true, lean: -0.3 }, ball: 0xc88aff, glow: 0xb06aff, palette: { body: 0x4a2e8a, trim: 0xb8bec9, accent: 0xffb02e, joint: 0x1a1426, eye: 0xff5a3a } },
   // Leo King (Metabee): Fang Liger 2.1's head on a short neck for the beetle dome, no X legs or
   // shell skirt, a royal cape
   kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xffc84a, palette: { body: 0x9a1c24, trim: 0x2a1a1a, accent: 0xe8b83a, joint: 0x1e1416, eye: 0xffe14d } },
@@ -3404,6 +3407,11 @@ export class ShooterMesh {
     // (a beast's head sits low on a short neck)
     if (L.head === 'ligerHead') head.position.y -= 0.14;
     head.scale.setScalar(F.headS);
+    if (L.modok) {
+      // the head is the body: blown up to engulf the torso, the limbs poking out beneath it
+      head.scale.multiplyScalar(2.2);
+      head.position.set(0, 0.46, -0.04);
+    }
     this.turret.add(head);
     /**
      * Fierce but likeable eyes: kite shapes whose inner corners dip toward the nose, under
