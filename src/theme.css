@@ -2842,3 +2842,68 @@ body.duo .charge-meter {
   opacity: 1;
   transform: scale(1);
 }
+
+/* split-screen 2 players: no top bar (each half is its own view), a divider, and a health bar in
+   each player's half (player 2's turned round to face them) */
+#duo-hp {
+  display: none;
+}
+body.duo #duo-hp {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+body.duo .vs-bar,
+body.duo #magazine,
+body.duo .ammo-strip,
+body.duo #unit-tags,
+body.duo #enemy-tag {
+  display: none !important;
+}
+#duo-hp .split-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  background: var(--char);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+#duo-hp .bar {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font: 700 12px var(--mono);
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 0 #000;
+}
+#duo-hp .bar.p1 {
+  bottom: max(14px, env(safe-area-inset-bottom));
+}
+#duo-hp .bar.p2 {
+  top: max(14px, env(safe-area-inset-top));
+  transform: rotate(180deg);
+}
+#duo-hp .bar i {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+#duo-hp .bar b {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--good);
+  transition: width 0.12s linear;
+}
+#duo-hp .bar.p2 b {
+  background: var(--coral);
+}

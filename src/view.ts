@@ -202,6 +202,8 @@ export class View {
   private aimDots: THREE.InstancedMesh;
   private trauma = 0;
   private camBase = new THREE.Vector3();
+  private cam2Goal = new THREE.Vector3();
+  private look2Goal = new THREE.Vector3();
   private camLook = new THREE.Vector3();
   private camGoal = new THREE.Vector3();
   private lookGoal = new THREE.Vector3();
@@ -260,8 +262,18 @@ export class View {
   /** each side's marble colour, from its robot */
   private teamBall: [number, number] = [characterById('angel').ball, characterById('dragon').ball];
   /** settings: chase-camera distance, down to a first-person cockpit view */
-  /** 'duo' is local two-player versus: the whole table from above, player 1 at the bottom */
-  cameraMode: 'far' | 'mid' | 'near' | 'first' | 'duo' = 'mid';
+  /** 'duo' is local two-player versus: the whole table from above, player 1 at the bottom;
+   *  'split' is two-player split screen: player 1's chase view in the bottom half, player 2's in
+   *  the top half, turned round to face them across the phone */
+  cameraMode: 'far' | 'mid' | 'near' | 'first' | 'duo' | 'split' = 'mid';
+  /** player 2's camera, for split screen */
+  camera2 = new THREE.PerspectiveCamera(54, 1, 0.1, 140);
+  private cam2Base = new THREE.Vector3();
+  private cam2Look = new THREE.Vector3();
+  /** split screen is on (and not handed over to a cinematic or the KO) */
+  get splitOn() {
+    return this.cameraMode === 'split' && !this.cine && !this.ko;
+  }
   private hopH: Float32Array;
   private hopV: Float32Array;
   private shadows: THREE.InstancedMesh;
@@ -493,8 +505,16 @@ export class View {
   /** Map a screen point to a physics-space point on the floor. */
   screenToWorld(cx: number, cy: number) {
     const r = this.renderer.domElement.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
-    this.raycaster.setFromCamera(ndc, this.camera);
+    let ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    let cam = this.camera;
+    if (this.splitOn) {
+      // each half is its own view: the bottom player 1's, the top player 2's
+      const top = cy - r.top < r.height / 2;
+      const y0 = top ? r.top : r.top + r.height / 2;
+      ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - y0) / (r.height / 2)) * 2 + 1);
+      cam = top ? this.camera2 : this.camera;
+    }
+    this.raycaster.setFromCamera(ndc, cam);
     const hit = this.raycaster.ray.intersectPlane(this.floorPlane, this.tmpV);
     return hit ? { x: hit.x, y: -hit.z } : null;
   }
@@ -1007,6 +1027,14 @@ export class View {
     }
     this.camera.rotateZ(Math.sin(t * 0.9) * sh * 0.04);
 
+    if (this.splitOn) {
+      this.renderSplit(sh, t);
+      // (the 2D effects overlay is drawn for one camera: in split screen it stays clear)
+      this.fx2d?.clearQueued();
+      this.fx2d?.render(dt, [], false, [], [], this.teamBall);
+      return;
+    }
+    this.fitCamera(this.host.clientWidth / this.host.clientHeight);
     if (this.realismOn) this.post.render(dt, this.dim);
     else this.renderer.render(this.scene, this.camera);
     // point the player at crates dropping on their rail, even off-screen
@@ -1024,6 +1052,44 @@ export class View {
       this.fx2d?.clearQueued();
       this.fx2d?.render(dt, [], false, [], [], this.teamBall);
     }
+  }
+
+  /** keep a camera's lens matched to the view it draws into */
+  private fitCamera(aspect: number, cam = this.camera) {
+    const fov = this.cameraMode === 'first' ? (aspect < 0.75 ? 74 : 62) : aspect < 0.75 ? 54 : this.cameraMode === 'split' ? 58 : 44;
+    if (Math.abs(cam.aspect - aspect) > 1e-3 || cam.fov !== fov) {
+      cam.aspect = aspect;
+      cam.fov = fov;
+      cam.updateProjectionMatrix();
+    }
+  }
+
+  /**
+   * Split screen (like a kart racer on one TV): the bottom half is player 1's view, the top half
+   * player 2's from their end, turned half round so it reads the right way up for whoever sits
+   * across the phone. Drawn straight (no post effects), one viewport after the other.
+   */
+  private renderSplit(sh: number, t: number) {
+    const r = this.renderer;
+    const size = r.getSize(new THREE.Vector2());
+    const w = size.x;
+    const h = Math.floor(size.y / 2);
+    this.fitCamera(w / h);
+    this.fitCamera(w / h, this.camera2);
+    const c2 = this.camera2;
+    c2.position.set(this.cam2Base.x + Math.sin(t * 1.2) * sh * 0.7, this.cam2Base.y + Math.sin(t * 1.6) * sh * 0.5, this.cam2Base.z);
+    c2.up.set(0, 1, 0);
+    c2.lookAt(this.cam2Look);
+    c2.rotateZ(Math.PI);
+    r.setScissorTest(true);
+    r.setViewport(0, 0, w, h);
+    r.setScissor(0, 0, w, h);
+    r.render(this.scene, this.camera);
+    r.setViewport(0, size.y - h, w, h);
+    r.setScissor(0, size.y - h, w, h);
+    r.render(this.scene, c2);
+    r.setScissorTest(false);
+    r.setViewport(0, 0, size.x, size.y);
   }
 
   private updateSparks(dt: number) {
@@ -1779,6 +1845,17 @@ export class View {
         this.camGoal.set(p.x, 1.8, -p.y - 0.1);
         this.lookGoal.set(p.x + Math.sin(p.aim) * 10, 0.6, -p.y - Math.cos(p.aim) * 10);
         break;
+      case 'split': {
+        // player 1 in the usual chase view; player 2 the same from their own end
+        this.camGoal.set(follow(0.9, 3.15) - lean * 0.9, 6.4, -p.y + 6.4);
+        this.lookGoal.set(follow(0.6, 2.1) + lean * 3, 0.2, -p.y - 7.5);
+        const q = this.game.shooters[1];
+        const lean2 = Math.sin(q.aim);
+        const f2 = (k: number, limit: number) => Math.max(-limit * wk, Math.min(limit * wk, q.x * k));
+        this.cam2Goal.set(f2(0.9, 3.15) + lean2 * 0.9, 6.4, -q.y - 6.4);
+        this.look2Goal.set(f2(0.6, 2.1) - lean2 * 3, 0.2, -q.y + 7.5);
+        break;
+      }
       case 'duo': {
         // the whole table from above: player 1's rail along the bottom of the screen, player 2's
         // along the top (the phone lies between them), high enough to fit it all
@@ -1796,6 +1873,10 @@ export class View {
     const k = this.snapCamera ? 1 : 1 - Math.exp(-dt * 6);
     this.camBase.lerp(this.camGoal, k);
     this.camLook.lerp(this.lookGoal, k);
+    if (this.cameraMode === 'split') {
+      this.cam2Base.lerp(this.cam2Goal, k);
+      this.cam2Look.lerp(this.look2Goal, k);
+    }
     this.snapCamera = false;
   }
 

@@ -364,6 +364,7 @@ export function boot() {
   const hpChip = [document.querySelector<HTMLElement>('.hp.player .chip')!, document.querySelector<HTMLElement>('.hp.enemy .chip')!];
   const hpBox = [document.querySelector<HTMLElement>('.hp.player')!, document.querySelector<HTMLElement>('.hp.enemy')!];
   const hpNum = [$('player-hp-num'), $('enemy-hp-num')];
+  const duoHp = [document.querySelector<HTMLElement>('#duo-hp .p1 b')!, document.querySelector<HTMLElement>('#duo-hp .p2 b')!];
   const spFill = [document.querySelector<HTMLElement>('.sp.player .fill')!, document.querySelector<HTMLElement>('.sp.enemy .fill')!];
   const spBox = [document.querySelector<HTMLElement>('.sp.player')!, document.querySelector<HTMLElement>('.sp.enemy')!];
   const chip = [1, 1];
@@ -529,7 +530,7 @@ export function boot() {
     const st = S();
     // local versus: the table from above for both players, their own labels and controls
     document.body.classList.toggle('duo', duo);
-    const cam = duo ? 'duo' : st.camera;
+    const cam = duo ? 'split' : st.camera;
     if (view.cameraMode !== cam) {
       view.cameraMode = cam;
       view.resize();
@@ -892,7 +893,7 @@ export function boot() {
     view.setQuality(st.realism);
     $('fps').classList.toggle('hidden', !st.showFps);
     // (local versus keeps its overhead view for the whole match)
-    const cam = duo && screen !== 'title' ? 'duo' : st.camera;
+    const cam = duo && screen !== 'title' ? 'split' : st.camera;
     if (view.cameraMode !== cam) {
       view.cameraMode = cam;
       view.resize();
@@ -1613,6 +1614,8 @@ export function boot() {
     ([player, focus()] as Shooter[]).forEach((s, i) => {
       const frac = game.teamFrac(i === 0 ? 0 : 1);
       hpFill[i].style.width = frac * 100 + '%';
+      // split screen: each player's own bar, in their own half
+      if (duo) duoHp[i].style.width = frac * 100 + '%';
       chipDelay[i] -= dt;
       if (chipDelay[i] <= 0) chip[i] = Math.max(frac, chip[i] - dt * 0.4);
       chip[i] = Math.max(chip[i], frac);
