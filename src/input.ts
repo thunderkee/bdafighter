@@ -29,6 +29,11 @@ export class PadTracker {
   private taps = new Set<PadButton>();
   /** the finger working the move slider (if any) and where it is along the track, 0..1 */
   private sliderId: number | null = null;
+  /** move fingers (on the arrows or the slider): where each came down, and whether it has been
+   *  pulled back toward you far enough to raise the shield */
+  private pulls = new Map<number, { y0: number; on: boolean }>();
+  /** how far (px) a move finger is pulled back to shield */
+  static PULL = 28;
   private sliderU = 0.5;
 
   constructor(private el: HTMLElement) {
@@ -101,6 +106,7 @@ export class PadTracker {
       }
       this.sliderId = e.pointerId;
       this.sliderU = this.trackU(e.clientX);
+      this.pulls.set(e.pointerId, { y0: e.clientY, on: false });
       this.onPress?.();
       return;
     }
@@ -114,10 +120,13 @@ export class PadTracker {
     }
     this.fingers.set(e.pointerId, b);
     this.taps.add(b);
+    if (b === 'left' || b === 'right') this.pulls.set(e.pointerId, { y0: e.clientY, on: false });
     this.onPress?.();
   };
 
   private move = (e: PointerEvent) => {
+    const pull = this.pulls.get(e.pointerId);
+    if (pull) pull.on = e.clientY - pull.y0 > PadTracker.PULL;
     if (e.pointerId === this.sliderId) {
       this.sliderU = this.trackU(e.clientX);
       return;
@@ -130,12 +139,19 @@ export class PadTracker {
 
   private up = (e: PointerEvent) => {
     this.fingers.delete(e.pointerId);
+    this.pulls.delete(e.pointerId);
     if (e.pointerId === this.sliderId) this.sliderId = null;
   };
 
   held(name: PadButton) {
     if (this.taps.has(name)) return true;
     for (const b of this.fingers.values()) if (b === name) return true;
+    return false;
+  }
+
+  /** a move finger is pulled back toward you: shield up */
+  pulled() {
+    for (const p of this.pulls.values()) if (p.on) return true;
     return false;
   }
 
@@ -148,6 +164,7 @@ export class PadTracker {
   clear() {
     this.fingers.clear();
     this.taps.clear();
+    this.pulls.clear();
     this.sliderId = null;
   }
 }
@@ -322,7 +339,8 @@ export class Input {
     else if (b.fireR) p.aim = TRIPLE_ANGLE;
     else if (b.fire && this.settings.fireButtons === 'triple') p.aim = 0;
     p.firing = !!this.aimTouch || (this.settings.mouseAim && this.mouseDown) || k.has('Space') || b.fire || b.fireL || b.fireR;
-    p.shielding = b.down || k.has('KeyS') || k.has('ArrowDown') || this.shieldDrag;
+    // shield: pull your move finger back toward you (on the buttons, the arrows or the slider)
+    p.shielding = b.down || !!this.pad?.pulled() || k.has('KeyS') || k.has('ArrowDown') || this.shieldDrag;
   }
 }
 

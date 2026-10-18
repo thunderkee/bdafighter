@@ -106,13 +106,13 @@
               <div class="track"><i class="ticks"></i><b class="thumb" id="slider-thumb"></b><i class="target" id="slider-target"></i></div>
             </div>
           </div>
-          <!-- right thumb, one group: view, the special weapon (only once it's picked up), shield and fire -->
+          <!-- right thumb, one group: view, the special weapon (only once it's picked up) and fire
+               (the shield is pulling the move finger back toward you) -->
           <div class="pad-right" id="pad-right">
           <!-- group 2: the camera view -->
           <div class="pad-top" id="pad-top"></div>
-          <!-- group 1: the fighting keys, special weapon (once picked up), shield and fire -->
+          <!-- group 1: the fighting keys, special weapon (once picked up) and fire -->
           <div class="pad-actions" id="pad-actions">
-          <button class="pad-btn shield" data-btn="down" aria-label="Shield">▼<small>SHIELD</small></button>
           <div class="pad-fire single">
             <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>
           </div>
@@ -131,7 +131,7 @@
           <div class="hint p2">PLAYER 2 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
         </div>
         <div id="hints">
-          <div class="hint left">◀ DRAG TO MOVE ▶<br />DRAG DOWN: SHIELD · JUST IN TIME: PARRY</div>
+          <div class="hint left">◀ DRAG TO MOVE ▶<br />PULL BACK: SHIELD · JUST IN TIME: PARRY</div>
           <div class="hint right">TAP TO FIRE · HOLD TO CHARGE<br />DRAG TO AIM</div>
         </div>
         <div id="toast"></div>
@@ -180,7 +180,7 @@
         </nav>
         <div class="dev-foot">
           <i class="grille"></i>
-          <p class="how touch-only">Left thumb drag to move · right thumb tap to fire, hold to charge, drag to aim</p>
+          <p class="how touch-only">Left thumb drag to move, pull back to shield · right thumb tap to fire, hold to charge, drag to aim</p>
           <p class="how mouse-only">Mouse aims · click / Space fires (hold to charge) · A / D move · F item · V view</p>
           <button id="mute-btn" class="key round" aria-label="Toggle sound">SND</button>
         </div>
