@@ -438,8 +438,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // the old Wyvern head with twin gold horns; it fires from a toothed maw in its chest, and holds
   // a power sword ready in its left hand
   dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, special: { windup: 0.16 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
-  // tosses the heavy MG to the other hand after every third shot; the shot leaves from that side
-  pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'dualAim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
+  // tosses the heavy MG to the other hand after every fifth shot; the shot leaves from that side
+  pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'dualAim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
   // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
   liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
   // Blastoise-style: a shell on its back with a twin cannon (two marbles a shot), hunched like a gorilla
@@ -456,8 +456,8 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // a fist cannon on each arm, firing left and right in turn
   kabuto: { special: { alternate: true, hand: 0.45 }, tune: [{ path: 'r/10/37/5/9/0', p: [0, 0, 0.12], s: [1, 1, 1.8] }, { path: 'r/10/38/5/9/0', p: [0, 0, 0.147], s: [1, 1, 1.8] }, { path: 'r/10/42/10', p: [0, 0.344, -0.341], r: [-0.262, 0, 0], s: [1.25, 1, 1] }, { path: 'r/10/42/11', p: [-0.3, 0.48, -0.377], r: [-0.257, 0.008, -0.325], s: [1.228, 1.027, 1] }, { path: 'r/10/42/12', p: [0.3, 0.48, -0.377], r: [-0.257, -0.008, 0.325], s: [1.228, 1.027, 1] }], look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'dualAim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xffb02e, joint: 0x23261e, eye: 0xffd23e } },
   tyrant: { tune: [{ path: 'r/8/32', r: [0.175, -0.087, 0] }, { path: 'r/8/32/8', r: [0.151, 0.089, -0.101] }, { path: 'r/8/32/8/8', r: [0.175, 0, 0] }, { path: 'r/8/32/8/8/15', r: [-0.175, 0, 0] }], look: { frame: 'heavy', head: 'bucket', shoulder: 'spike', gun: 'rexFist', left: 'tailBlade', back: ['fins'], ribcage: true, pose: 'centerAim', dynamic: true, lean: -0.18 }, ball: 0xb06aff, palette: { body: 0x5a606a, trim: 0x8a4aff, accent: 0xd8262b, joint: 0x2a2c34, eye: 0xff2a2a } },
-  // the head keeps turning 45 degrees left and right; shots follow it, so rapid fire sweeps
-  ember: { special: { wobble: Math.PI / 4 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
+  // the head keeps turning 30 degrees left and right; shots follow it, so rapid fire sweeps
+  ember: { special: { wobble: Math.PI / 6 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth' }, ball: 0xff7a3a, palette: { body: 0xf2662a, trim: 0xffe0b0, accent: 0xffd23e, joint: 0x8a2a14, eye: 0x141018 } },
   // desert: sand armour, dark brown, red accents, cyan eyes
   // every fourth shot is a giant bite of a marble
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
@@ -493,7 +493,7 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   dragon: { special: { windup: 0.16 }, crest: 'twinHorns', darkFace: true, look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, ball: 0xff8a3a, palette: { body: 0x4a5058, trim: 0x1c1e22, accent: 0xff7a1a, joint: 0x2a2c30, eye: 0xffd23e } },
   // Pioneer: a police robot that turns into a car: black-and-white with a riot visor and a light
   // bar, a windshield on its chest, the doors on its back, wheels on its shoulders and shins
-  pioneer: { special: { swap: 3, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x5ab8ff, palette: { body: 0xf2f2f2, trim: 0x16161a, accent: 0x2a6aff, joint: 0x22252c, eye: 0x7ff0ff } },
+  pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x5ab8ff, palette: { body: 0xf2f2f2, trim: 0x16161a, accent: 0x2a6aff, joint: 0x22252c, eye: 0x7ff0ff } },
   // Liberty (Tallgeese): a diving-helmet head for the plume helm, a rail rifle for the Dober gun,
   // mantis-jointed legs for the treads
   liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], digi: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
@@ -525,7 +525,7 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   liger: { special: { ricochet: 0.35, alternate: true, hand: 0.4 }, hound: true, fit: [1.3, 1.3, 1.3], ball: 0xffd23e, palette: { body: 0x2a2a30, trim: 0xd8a83a, accent: 0xd8a83a, joint: 0x16161a, eye: 0x5af0ff } },
   // Ember Lizard (Charmander): red, an axolotl's gill fronds fanned from its cheeks, and no flame
   // on its tail
-  ember: { special: { wobble: Math.PI / 4 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff8a7a, palette: { body: 0xd8342a, trim: 0xf2c0a8, accent: 0xff7a9a, joint: 0x6a1410, eye: 0x141018 } },
+  ember: { special: { wobble: Math.PI / 6 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff8a7a, palette: { body: 0xd8342a, trim: 0xf2c0a8, accent: 0xff7a9a, joint: 0x6a1410, eye: 0x141018 } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
