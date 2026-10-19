@@ -87,12 +87,35 @@ export const MARBLE_OF: Record<string, MarbleType> = {
   kabuto: 'standard',
   bastion: 'standard',
   baron: 'standard',
-  dragon: 'heavy',
+  // (Wyvern's wound-up punch already throws a heavy marble: on heavy marbles too it ran away with fights)
+  dragon: 'standard',
   monoceros: 'heavy',
   rex: 'heavy',
   tyrant: 'heavy',
   liger: 'bouncy',
   violet: 'bouncy',
+};
+/**
+ * Balance: a hidden damage scale per fighter (by base unit), tuned from bot-against-bot round
+ * robins so every fighter wins about half its fights; the stat bars on the cards are unchanged.
+ * (A fighter whose trick costs it shots, like Pioneer's gun toss or Ember's sweeping head, hits
+ * harder; one whose kit already stacks up, like Wyvern's wound-up heavy marbles, hits softer.)
+ */
+export const BALANCE: Record<string, number> = {
+  pioneer: 2.05,
+  ember: 1.8,
+  rex: 1.55,
+  angel: 1.45,
+  monoceros: 1.15,
+  nightshade: 1.09,
+  bastion: 1.05,
+  tyrant: 1,
+  violet: 0.9,
+  dragon: 0.85,
+  kabuto: 0.84,
+  liberty: 0.78,
+  liger: 0.76,
+  baron: 0.7,
 };
 /** signature magazines that break the type's rule: the Baron's drum */
 export const MAG_OF: Record<string, number> = { baron: 18 };

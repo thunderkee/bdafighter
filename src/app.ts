@@ -1,4 +1,4 @@
-import { AI_PROFILES, ARENA, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
+import { AI_PROFILES, ARENA, BALANCE, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, STEP, chargeLevel, slotTeam, type Shooter } from './game';
@@ -148,7 +148,7 @@ export function boot() {
       marbleRadius: stats.marbleRadius * mb.radius,
       marbleMass: stats.marbleMass * mb.mass,
       muzzleSpeed: stats.muzzleSpeed * mb.speed,
-      damage: stats.damage * mb.damage,
+      damage: stats.damage * mb.damage * (BALANCE[mb.key] ?? 1),
       bounce: mb.bounce,
       capacity: S().magPer === false ? stats.capacity : mb.mag,
       reloadTime: stats.reloadTime * mb.reload,
