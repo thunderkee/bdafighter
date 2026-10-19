@@ -1,4 +1,4 @@
-import { AI_PROFILES, ARENA, MATCH, setArenaWidth, type ShooterStats } from './config';
+import { AI_PROFILES, ARENA, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, STEP, chargeLevel, slotTeam, type Shooter } from './game';
@@ -133,12 +133,27 @@ export function boot() {
   /** magazine size is a match rule, the same for both robots */
   const magazine = () => Math.max(3, Math.min(10, Math.round(S().magazine || 10)));
   /** a unit's traits scale its speed, cadence and shield recharge (health is separate) */
+  /** a fighter's marble type and, when magazines are per fighter, its magazine */
+  const marbleOf = (id: string) => {
+    const c = characterById(id);
+    const key = (c.base ?? c.id).replace(/-\d+$/, '');
+    const type = MARBLE_OF[key] ?? 'standard';
+    return { type, key, ...MARBLES[type], mag: MAG_OF[key] ?? MARBLES[type].mag };
+  };
   const withTraits = <S extends ShooterStats>(stats: S, id: string): S => {
     const t = characterById(id).traits;
+    const mb = marbleOf(id);
     return {
       ...stats,
+      marbleRadius: stats.marbleRadius * mb.radius,
+      marbleMass: stats.marbleMass * mb.mass,
+      muzzleSpeed: stats.muzzleSpeed * mb.speed,
+      damage: stats.damage * mb.damage,
+      bounce: mb.bounce,
+      capacity: S().magPer === false ? stats.capacity : mb.mag,
+      reloadTime: stats.reloadTime * mb.reload,
       moveSpeed: stats.moveSpeed * traitMul(t?.speed),
-      fireInterval: stats.fireInterval / traitMul(t?.fireRate, 'fireRate'),
+      fireInterval: (stats.fireInterval * mb.fire) / traitMul(t?.fireRate, 'fireRate'),
       agility: traitMul(t?.agility, 'agility'),
       twin: characterById(id).twin,
       special: characterById(id).special,
@@ -1082,7 +1097,13 @@ export function boot() {
     return TRAITS.map(([k, label]) => {
       const v = Math.max(1, Math.min(5, Math.round(t?.[k] ?? 3)));
       return `<div class="meter"><span>${label}</span><i>${[1, 2, 3, 4, 5].map((n) => `<b class="${n <= v ? 'lit' : ''}"></b>`).join('')}</i></div>`;
-    }).join('');
+    }).join('') + marbleLine(id);
+  };
+  /** the fighter's marble and magazine, under its meters */
+  const marbleLine = (id: string) => {
+    const mb = marbleOf(id);
+    const mag = S().magPer === false ? magazine() : mb.mag;
+    return `<div class="meter marble"><span>Marble</span><em class="mb-${mb.type}">${mb.name}<small>${mag} PER LOAD</small></em></div>`;
   };
   const markSteps = () => {
     const order: Step[] = selectMode === 'arcade' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];

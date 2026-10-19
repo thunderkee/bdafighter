@@ -3082,3 +3082,21 @@ body.duo #enemy-tag {
   letter-spacing: 0.2em;
   opacity: 0.6;
 }
+
+/* the fighter's marble type and magazine, on the unit card */
+.meter.marble em {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font: 700 11px var(--mono);
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.meter.marble em small {
+  font-size: 9px;
+  opacity: 0.6;
+}
+.meter.marble .mb-light { color: #3a8ad8; }
+.meter.marble .mb-heavy { color: var(--orange-lo); }
+.meter.marble .mb-bouncy { color: #4aa84a; }

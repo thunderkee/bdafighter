@@ -55,7 +55,47 @@ export interface ShooterStats {
   fan?: number;
   /** a unit's signature trick (see Special) */
   special?: Special;
+  /** how bouncy its marbles are (restitution) */
+  bounce?: number;
 }
+
+/**
+ * Marble types: each fighter fires one kind. They trade size, weight and punch against speed,
+ * fire rate and how many fit in a magazine, so the damage a fighter can put out stays about even:
+ * - light: small and fast, quick to fire, a big magazine; light hits that lose a head-on clash
+ * - standard: the all-rounder
+ * - heavy: big and slow, little bounce, a small magazine and a slower trigger; it hits hard, knocks
+ *   back and ploughs through lighter marbles
+ * - bouncy: keeps its speed off the walls, for bank shots; a touch softer straight on
+ * (radius, mass, speed, damage and fire are multipliers on the base; mag is marbles per load when
+ * magazines are per fighter; reload multiplies the reload time)
+ */
+export type MarbleType = 'light' | 'standard' | 'heavy' | 'bouncy';
+export const MARBLES: Record<MarbleType, { name: string; radius: number; mass: number; speed: number; damage: number; fire: number; bounce: number; mag: number; reload: number }> = {
+  light: { name: 'Light', radius: 0.85, mass: 0.6, speed: 1.12, damage: 0.78, fire: 0.85, bounce: 0.82, mag: 14, reload: 1.15 },
+  standard: { name: 'Standard', radius: 1, mass: 1, speed: 1, damage: 1, fire: 1, bounce: 0.82, mag: 10, reload: 1 },
+  heavy: { name: 'Heavy', radius: 1.3, mass: 2.4, speed: 0.86, damage: 1.55, fire: 1.3, bounce: 0.55, mag: 6, reload: 1.1 },
+  bouncy: { name: 'Bouncy', radius: 1, mass: 0.9, speed: 1, damage: 0.9, fire: 1, bounce: 0.97, mag: 12, reload: 1.05 },
+};
+/** each fighter's marble (by its base unit); anything not listed fires standard */
+export const MARBLE_OF: Record<string, MarbleType> = {
+  pioneer: 'light',
+  nightshade: 'light',
+  ember: 'light',
+  angel: 'standard',
+  liberty: 'standard',
+  kabuto: 'standard',
+  bastion: 'standard',
+  baron: 'standard',
+  dragon: 'heavy',
+  monoceros: 'heavy',
+  rex: 'heavy',
+  tyrant: 'heavy',
+  liger: 'bouncy',
+  violet: 'bouncy',
+};
+/** signature magazines that break the type's rule: the Baron's drum */
+export const MAG_OF: Record<string, number> = { baron: 18 };
 
 /**
  * Signature tricks some units have:

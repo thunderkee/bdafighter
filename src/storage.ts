@@ -65,8 +65,10 @@ export interface Settings {
   realism: boolean;
   /** frame-rate meter in the corner */
   showFps: boolean;
-  /** marbles per magazine for both robots (3-10) */
+  /** marbles per magazine for both robots (3-10), when magazines are equal */
   magazine: number;
+  /** magazines per fighter (from its marble type) instead of one size for both */
+  magPer: boolean;
   /** round length in seconds: 60, 90, or 0 for no limit */
   roundTime: number;
   /** fire rate: balls per trigger pull for both robots (1-5) */
@@ -119,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   realism: true,
   showFps: false,
   magazine: 10,
+  magPer: true,
   playerPack: 1,
   enemyIQ: 'normal',
   allyIQ: 'normal',

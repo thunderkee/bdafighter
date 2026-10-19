@@ -1631,6 +1631,7 @@ export class Game {
     m.collider.setRadius(o.radius);
     m.collider.setMass(o.mass);
     m.collider.setCollisionGroups(GROUPS.marble[s.team]);
+    m.collider.setRestitution(s.stats.bounce ?? 0.82);
     m.body.setEnabled(true);
     m.body.setTranslation({ x: p.x + d.x * push, y: p.y + d.y * push }, true);
     m.body.setLinvel({ x: d.x * o.speed, y: d.y * o.speed }, true);
@@ -1877,10 +1878,13 @@ export class Game {
         m.hop = Math.max(m.hop, Math.min(0.35, speed * 0.015));
         m.bounces++;
         // Liger's marbles come off the wall at full speed, and harder for every bounce
-        const ric = this.shooters[m.owner]?.stats.special?.ricochet;
+        const owner = this.shooters[m.owner];
+        const ric = owner?.stats.special?.ricochet;
         if (ric) {
           m.damage *= 1 + ric;
-          m.body.setLinvel({ x: v.x / 0.82, y: v.y / 0.82 }, true);
+          // (undo what the bounce took: the marble's and the wall's restitution, averaged)
+          const keep = ((owner.stats.bounce ?? 0.82) + 0.86) / 2;
+          m.body.setLinvel({ x: v.x / keep, y: v.y / keep }, true);
           this.fx.push({ type: 'spark', x: p.x, y: p.y, intensity: 1 });
         }
         sfx.play('wall', speed / 20);
