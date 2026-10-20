@@ -63,6 +63,8 @@ export interface Settings {
   effects: boolean;
   /** realism: marble hops/spin/shadows, stage particles, full pixel density */
   realism: boolean;
+  /** battery saver: a lighter render (less resolution and post) and 30 fps (on by default on phones) */
+  batterySaver: boolean;
   /** frame-rate meter in the corner */
   showFps: boolean;
   /** marbles per magazine for both robots (3-10), when magazines are equal */
@@ -119,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   camera: 'mid',
   effects: true,
   realism: true,
+  batterySaver: typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0),
   showFps: false,
   magazine: 10,
   magPer: true,

@@ -194,8 +194,10 @@ export class Preview {
   private start() {
     if (this.raf) return;
     this.last = performance.now();
+    // (a turntable doesn't need more than 30 frames a second)
     const loop = (now: number) => {
       this.raf = requestAnimationFrame(loop);
+      if (now - this.last < 1000 / 30 - 4) return;
       const dt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;
       this.frame(dt);

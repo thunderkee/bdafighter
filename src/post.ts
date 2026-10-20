@@ -74,10 +74,23 @@ export class Post {
     this.composer.addPass(new OutputPass());
   }
 
+  /** battery saver: no multisampling (the density does the smoothing) and a quarter-size bloom */
+  private bloomDiv = 2;
+  setLowPower(on: boolean) {
+    const samples = on ? 0 : 4;
+    for (const t of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (t.samples !== samples) {
+        t.samples = samples;
+        t.dispose();
+      }
+    }
+    this.bloomDiv = on ? 4 : 2;
+  }
+
   setSize(w: number, h: number) {
     this.composer.setPixelRatio(this.renderer.getPixelRatio());
     this.composer.setSize(w, h);
-    this.bloom.resolution.set((w * this.renderer.getPixelRatio()) / 2, (h * this.renderer.getPixelRatio()) / 2);
+    this.bloom.resolution.set((w * this.renderer.getPixelRatio()) / this.bloomDiv, (h * this.renderer.getPixelRatio()) / this.bloomDiv);
     this.grade.uniforms.aspect.value = w / Math.max(1, h);
   }
 

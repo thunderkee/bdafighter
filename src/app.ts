@@ -952,7 +952,7 @@ export function boot() {
   let squadRun: SquadRun | null = null;
   $('squad-btn').addEventListener('click', () => {
     sfx.unlock();
-    squadRun ??= new SquadRun($('app'), { unit: playableId(S().character), onExit: () => toTitle() });
+    squadRun ??= new SquadRun($('app'), { unit: playableId(S().character), onExit: () => toTitle(), saver: () => !!S().batterySaver });
     show('');
     squadRun.open(playableId(S().character));
     if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
@@ -1010,7 +1010,7 @@ export function boot() {
     }
     view.showAimLine = st.aimLine;
     view.fxOn = st.effects;
-    view.setQuality(st.realism);
+    view.setQuality(st.realism, !!st.batterySaver);
     $('fps').classList.toggle('hidden', !st.showFps);
     // (local versus keeps its overhead view for the whole match)
     const cam = duo && screen !== 'title' ? 'split' : st.camera;
@@ -1485,8 +1485,12 @@ export function boot() {
   let fpsFrames = 0;
   let fps = 0;
 
+  let lastDrawn = 0;
   const frame = (now: number) => {
     requestAnimationFrame(frame);
+    // battery saver: 30 frames a second in a fight (a 60 Hz screen shows every other one)
+    if (S().batterySaver && screen === 'playing' && now - lastDrawn < 1000 / 30 - 4) return;
+    lastDrawn = now;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
 
@@ -1603,7 +1607,10 @@ export function boot() {
       sliderEl.classList.toggle('active', u !== null);
       if (u !== null) sliderEl.style.setProperty('--t', String(u));
     }
-    if (!squadRun?.active) view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
+    // (the menus, the select screen, options, results and pause are opaque: the arena behind them
+    // isn't drawn at all, nor while Squad Run is up)
+    const covered = screen !== 'playing' || paused || !!squadRun?.active;
+    if (!covered) view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
       const shown = [view.game.shooters[0], view.game.shooters[focus().slot] ?? view.game.shooters[1]];
       if (shown[1] && faceSlot !== shown[1].slot) {

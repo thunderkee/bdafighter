@@ -479,20 +479,32 @@ export class View {
     this.puckRot = this.puckMeshes.map(() => new THREE.Quaternion());
   }
 
-  /** Apply the realism setting's pixel density (1x when off). */
-  setQuality(realism: boolean) {
+  /**
+   * Apply the realism setting's pixel density (1x when off) and the battery saver: a lower
+   * density (1.5x), a smaller shadow map, no multisampling and a quarter-size bloom.
+   */
+  setQuality(realism: boolean, saver = false) {
     this.realismOn = realism;
     this.renderer.shadowMap.enabled = realism;
-    const dpr = realism ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+    const shadow = saver ? 1024 : 2048;
+    if (this.sun.shadow.mapSize.x !== shadow) {
+      this.sun.shadow.mapSize.set(shadow, shadow);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.post.setLowPower(saver);
+    const dpr = realism ? Math.min(window.devicePixelRatio || 1, saver ? 1.5 : 2) : 1;
     if (this.renderer.getPixelRatio() !== dpr) {
       this.renderer.setPixelRatio(dpr);
       this.resize();
-    }
+    } else this.resize();
   }
 
   resize() {
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
+    // (hidden, or not laid out yet: keep the last size rather than shrink to nothing)
+    if (!w || !h) return;
     this.renderer.setSize(w, h, false);
     this.post.setSize(w, h);
     this.camera.aspect = w / h;

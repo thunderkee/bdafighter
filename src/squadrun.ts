@@ -102,7 +102,7 @@ export class SquadRun {
 
   constructor(
     host: HTMLElement,
-    private opts: { unit: string; onExit: () => void },
+    private opts: { unit: string; onExit: () => void; saver?: () => boolean },
   ) {
     this.unitId = opts.unit;
     this.el = document.createElement('div');
@@ -134,6 +134,7 @@ export class SquadRun {
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.applySaver();
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 0.95;
     this.scene.environment = studioEnv(this.renderer);
@@ -154,6 +155,7 @@ export class SquadRun {
   /** show the start panel with this fighter leading */
   open(unit: string) {
     this.unitId = unit;
+    this.applySaver();
     this.el.classList.remove('hidden');
     this.reset();
     this.showPanel('start');
@@ -382,9 +384,18 @@ export class SquadRun {
 
   // ---------- the loop ----------
 
+  /** battery saver: 1.5x density and 30 frames a second */
+  private saverOn = false;
+  private applySaver() {
+    this.saverOn = !!this.opts.saver?.();
+    const dpr = Math.min(window.devicePixelRatio || 1, this.saverOn ? 1.5 : 2);
+    if (this.renderer.getPixelRatio() !== dpr) this.renderer.setPixelRatio(dpr);
+  }
+
   private frame = (now: number) => {
     if (!this.running) return;
     this.raf = requestAnimationFrame(this.frame);
+    if (this.saverOn && now - this.last < 1000 / 30 - 4) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (!this.over) this.step(dt);
