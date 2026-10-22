@@ -47,6 +47,8 @@ export interface Settings {
   character: string;
   /** buzz the phone on hits */
   vibrate: boolean;
+  /** background music (the sound effects are separate) */
+  music: boolean;
   /** stage id (see STAGES in stage.ts) */
   stage: string;
   /** air-drop items on/off */
@@ -113,6 +115,7 @@ export const DEFAULT_SETTINGS: Settings = {
   enemyAim: 'flexible',
   character: 'angel',
   vibrate: true,
+  music: true,
   stage: 'space',
   items: true,
   gates: false,

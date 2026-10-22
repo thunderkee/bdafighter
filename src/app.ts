@@ -15,6 +15,8 @@ import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import { SquadRun } from './squadrun';
+import { buzz as haptic } from './haptics';
+import * as music from './music';
 import * as store from './storage';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -35,15 +37,11 @@ const HEALTH = [0.5, 0.75, 1, 1.5, 2];
 /** agility: dodge chance and reaction speed multiplier */
 const AGILITY = [0.3, 0.65, 1, 1.35, 1.7];
 
-/** buzz the phone if the browser allows it (Android Chrome; iOS Safari ignores it) */
+/** a haptic tap or pattern: Android vibrates, iPhone (iOS 18+) clicks its haptic engine */
 const buzz = (pattern: number | number[]) => {
-  try {
-    // browsers block vibration until the page has had a real tap
-    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
-    navigator.vibrate?.(pattern);
-  } catch {
-    // not supported
-  }
+  // browsers block haptics until the page has had a real tap
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+  haptic(pattern);
 };
 
 const hexc = (n: number) => '#' + n.toString(16).padStart(6, '0');
@@ -645,6 +643,7 @@ export function boot() {
   /** the round is over (KO slow-mo finished): score it and roll the replay */
   const onRoundOver = () => {
     const w = game.winner;
+    if (S().vibrate) buzz(w === 0 ? [20, 40, 20, 40, 60] : w === 1 ? [120, 60, 120] : 40);
     if (w === 0 || w === 1) roundWins[w]++;
     else {
       // a drawn round counts for both, unless that would decide nothing forever
@@ -952,7 +951,7 @@ export function boot() {
   let squadRun: SquadRun | null = null;
   $('squad-btn').addEventListener('click', () => {
     sfx.unlock();
-    squadRun ??= new SquadRun($('app'), { unit: playableId(S().character), onExit: () => toTitle(), saver: () => !!S().batterySaver });
+    squadRun ??= new SquadRun($('app'), { unit: playableId(S().character), onExit: () => toTitle(), saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
     show('');
     squadRun.open(playableId(S().character));
     if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
@@ -1486,13 +1485,39 @@ export function boot() {
   let fps = 0;
 
   let lastDrawn = 0;
+  let wasShielding = false;
+  /** the soundtrack follows the screen: menus, a fight (a boss stage gets its own), Squad Run */
+  const scoreMusic = () => {
+    const st = S();
+    music.setEnabled(st.music !== false);
+    music.setDucked(paused);
+    if (squadRun?.active) {
+      music.play(squadRun.bossOn ? 'boss' : 'squad');
+      music.intensity(squadRun.bossOn ? 1 : 0.55);
+      return;
+    }
+    if (screen === 'playing') {
+      music.play(arcade && boss() ? 'boss' : 'fight');
+      // it heats up in the final round, or when either side is nearly down
+      const low = Math.min(game.teamFrac(0), game.teamFrac(1)) < 0.3;
+      music.intensity(finalRound || low ? 1 : 0.5);
+      return;
+    }
+    music.play('menu');
+    music.intensity(0.3);
+  };
   const frame = (now: number) => {
     requestAnimationFrame(frame);
+    scoreMusic();
     // battery saver: 30 frames a second in a fight (a 60 Hz screen shows every other one)
     if (S().batterySaver && screen === 'playing' && now - lastDrawn < 1000 / 30 - 4) return;
     lastDrawn = now;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
+    // a tap as your shield comes up
+    const shielding = screen === 'playing' && player.shieldUp;
+    if (shielding && !wasShielding && S().vibrate) buzz(12);
+    wasShielding = shielding;
 
     if (screen === 'playing' && !paused && flow !== 'round') updateFlow(dt);
     // knocked out but the pack fights on: you're spectating from the sky, so put the controls away
@@ -1579,6 +1604,9 @@ export function boot() {
           }
         }
         if (f.type === 'super-ready' && f.slot === 0 && S().vibrate) buzz([20, 40, 20]);
+        // a light tick under your thumb for every shot you fire, a thump for a super
+        if (f.type === 'muzzle' && f.slot === 0 && S().vibrate) buzz(8);
+        if (f.type === 'super-fire' && f.slot === 0 && S().vibrate) buzz([30, 30, 50]);
         if (f.type === 'parry') {
           if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'PARRY!' : 'ALLY PARRY', 'cyan');
           else callout('PARRIED', 'red');

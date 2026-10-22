@@ -31,6 +31,11 @@ export function unlock() {
   }
 }
 
+/** the running audio context and the master bus (for the music), once unlocked */
+export function context() {
+  return ctx && master ? { ctx, master } : null;
+}
+
 export function setMuted(m: boolean) {
   muted = m;
   if (master) master.gain.value = m ? 0 : 0.7;

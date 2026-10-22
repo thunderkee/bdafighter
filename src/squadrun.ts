@@ -102,7 +102,7 @@ export class SquadRun {
 
   constructor(
     host: HTMLElement,
-    private opts: { unit: string; onExit: () => void; saver?: () => boolean },
+    private opts: { unit: string; onExit: () => void; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
   ) {
     this.unitId = opts.unit;
     this.el = document.createElement('div');
@@ -175,6 +175,15 @@ export class SquadRun {
 
   get active() {
     return this.running;
+  }
+
+  /** the boss is up (for the music) */
+  get bossOn() {
+    return !!this.boss && this.boss.hp > 0 && !this.over;
+  }
+
+  private tap(p: number | number[]) {
+    this.opts.vibrate?.(p);
   }
 
   // ---------- the world ----------
@@ -356,6 +365,7 @@ export class SquadRun {
       // (best score just isn't kept)
     }
     sfx.play(win ? 'win' : 'lose');
+    this.tap(win ? [20, 40, 20, 40, 60] : [120, 60, 120]);
     setTimeout(() => this.showPanel(win ? 'win' : 'lose'), 700);
   }
 
@@ -550,6 +560,7 @@ export class SquadRun {
         // it reaches the squad: it's gone, and so are some of yours
         e.hp = 0;
         this.squad = Math.max(0, this.squad - (e.big ? 4 : 1));
+        this.tap(e.big ? 40 : 12);
         this.pop(e.x, 0.4, e.z, 0xff3a4a, 4);
         sfx.play('hurt', 0.6);
       }
@@ -655,6 +666,7 @@ export class SquadRun {
       else this.squad *= op.n;
       this.squad = THREE.MathUtils.clamp(this.squad, 0, MAX_SQUAD);
       const good = this.squad >= before;
+      this.tap(good ? [15, 30, 15] : 60);
       this.pop(this.cx, 1, gt.z, good ? 0x5ab8ff : 0xff3a4a, 10);
       sfx.play(good ? 'charge' : 'hurt');
       // the panel you went through flashes and both fade away
@@ -739,6 +751,7 @@ export class SquadRun {
       o.z += o.vz * dt * sl;
       if (Math.hypot(o.x - this.cx, o.z - (this.z + reach * 0.4)) < reach * 0.8) {
         this.squad = Math.max(0, this.squad - 1);
+        this.tap(30);
         this.pop(o.x, 0.4, o.z, 0xff3a4a, 6);
         sfx.play('hurt');
         return false;
@@ -828,6 +841,7 @@ export class SquadRun {
 
   private grant(c: Crate) {
     c.hp = 0;
+    this.tap([15, 25, 30]);
     const it = ITEMS[c.kind];
     this.pop(c.x, 0.6, c.z, it.color, 12);
     sfx.play('charge');
