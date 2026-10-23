@@ -3827,3 +3827,8 @@ body.duo #enemy-tag {
 #select #select-back:active {
   background: rgba(255, 255, 255, 0.14);
 }
+/* the top of the screen (title bar and strip) on the same light ground as the preview */
+#select.screen.device {
+  background: #fbf8f1;
+  box-shadow: none;
+}
