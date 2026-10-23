@@ -22,6 +22,20 @@ const scrollable = (t: EventTarget | null) => t instanceof Element && !!t.closes
   document.addEventListener('dblclick', (e) => e.preventDefault(), opts);
 }
 
+// Installable app: the service worker caches the game, so it starts instantly and plays offline
+// after the first visit (built pages only; the dev server is never cached).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+// Android Chrome offers an install prompt: keep it for the Install button
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  (window as unknown as { __installPrompt?: Event }).__installPrompt = e;
+  document.body.classList.add('can-install');
+});
+
 // The shared roster from the Unit Studio comes first, so the units are ready when the
 // game builds them; then the physics WASM and three.js load behind the loading screen.
 import('./published')

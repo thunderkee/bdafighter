@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#1b1916" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Marble Fighter" />
+    <meta name="description" content="Tactical marble combat: bank shots, parries and robots built from blocks." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Marble Fighter</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -341,6 +348,11 @@
               <div class="set-head"><b>Battery saver</b></div>
               <span>Runs cooler and lasts longer on a phone.</span>
               <div class="seg" data-setting="batterySaver"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting install-row" id="install-row">
+              <div class="set-head"><b>Install the app</b></div>
+              <span id="install-text">Put Marble Fighter on your home screen: it opens full screen and plays offline.</span>
+              <button class="key" id="install-btn">Install</button>
             </div>
             <button class="key more-settings" id="replay-tutorial">Play the tutorial</button>
             <button class="key more-settings" id="more-settings">More settings ▸</button>

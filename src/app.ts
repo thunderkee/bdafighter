@@ -1515,6 +1515,23 @@ export function boot() {
     $('tut-offer').classList.add('hidden');
     saveData = store.save({ tutorialDone: true });
   });
+  // install as an app: Android shows its own prompt; iPhone Safari needs Share > Add to Home Screen
+  const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('install-row').classList.toggle('hidden', standalone);
+  $('install-btn').addEventListener('click', async () => {
+    const w = window as unknown as { __installPrompt?: Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> } };
+    if (w.__installPrompt) {
+      await w.__installPrompt.prompt();
+      const choice = await w.__installPrompt.userChoice;
+      if (choice.outcome === 'accepted') $('install-row').classList.add('hidden');
+      w.__installPrompt = undefined;
+      return;
+    }
+    $('install-text').textContent = ios
+      ? 'In Safari, tap the Share button (the square with an arrow), then Add to Home Screen.'
+      : 'Open your browser menu and choose Install app (or Add to Home screen).';
+  });
   $('replay-tutorial').addEventListener('click', () => {
     $('settings').classList.add('hidden');
     startTutorial();

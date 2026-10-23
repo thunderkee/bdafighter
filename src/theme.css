@@ -3250,3 +3250,10 @@ body.duo #enemy-tag {
   text-shadow: 0 2px 0 #001a2a;
   letter-spacing: 0.12em;
 }
+#settings .install-row.hidden {
+  display: none;
+}
+#settings .install-row .key {
+  margin-top: 6px;
+  width: 100%;
+}
