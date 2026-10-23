@@ -14,6 +14,9 @@ type Act = Pick<Shooter, 'x' | 'y' | 'team' | 'aim' | 'recoil' | 'vx' | 'firing'
  */
 export class Preview {
   private renderer: THREE.WebGLRenderer | null = null;
+  /** the tallest roster unit (Bastion) and the widest reach (Nightshade), round the plinth's axis */
+  static FRAME_H = 2.5;
+  static FRAME_R = 1.65;
   /** drag to turn the unit (off where a swipe flips to the next one instead) */
   turnable = true;
   private scene = new THREE.Scene();
@@ -130,11 +133,12 @@ export class Preview {
     this.hemi.intensity = 1.5;
     this.sun.intensity = 2.2;
     this.rim.intensity = 1.2;
-    // frame the whole unit however it turns: its height, and its reach round the plinth's axis
+    // one framing for the whole roster (sized for its biggest unit), so the plinth stays put and
+    // units show at their true scale against each other; only an oversized custom unit widens it
     this.unit.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(this.unit.root);
-    this.frameH = Math.max(1.2, box.max.y);
-    this.frameR = Math.max(0.9, Math.hypot(Math.max(-box.min.x, box.max.x), Math.max(-box.min.z, box.max.z)) * 0.7);
+    this.frameH = Math.max(Preview.FRAME_H, box.max.y);
+    this.frameR = Math.max(Preview.FRAME_R, Math.hypot(Math.max(-box.min.x, box.max.x), Math.max(-box.min.z, box.max.z)) * 0.7);
     this.camera.fov = 30;
     this.fitCamera();
     this.start();
