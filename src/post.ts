@@ -4,6 +4,67 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
+import { CEL } from './cel';
+
+/** cel shading's ink: a dark line wherever the depth jumps (the edge of a shape) */
+class InkPass extends Pass {
+  private quad: FullScreenQuad;
+  private mat: THREE.ShaderMaterial;
+  constructor(private camera: THREE.PerspectiveCamera) {
+    super();
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: {
+        tDiffuse: { value: null },
+        tDepth: { value: null },
+        texel: { value: new THREE.Vector2() },
+        near: { value: 0.1 },
+        far: { value: 100 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+      `,
+      fragmentShader: /* glsl */ `
+        #include <packing>
+        uniform sampler2D tDiffuse;
+        uniform sampler2D tDepth;
+        uniform vec2 texel;
+        uniform float near;
+        uniform float far;
+        varying vec2 vUv;
+        float z(vec2 uv) { return -perspectiveDepthToViewZ(texture2D(tDepth, uv).x, near, far); }
+        void main() {
+          vec4 c = texture2D(tDiffuse, vUv);
+          float zc = z(vUv);
+          // the nearest neighbour decides: lines sit on the front shape's rim
+          float zn = min(min(z(vUv + vec2(texel.x, 0.0)), z(vUv - vec2(texel.x, 0.0))), min(z(vUv + vec2(0.0, texel.y)), z(vUv - vec2(0.0, texel.y))));
+          float jump = (zc - zn) / max(zn, 0.001);
+          float ink = smoothstep(0.018, 0.05, jump) * (1.0 - smoothstep(30.0, 60.0, zn));
+          gl_FragColor = vec4(mix(c.rgb, c.rgb * 0.12 + vec3(0.01, 0.01, 0.02), ink), c.a);
+        }
+      `,
+    });
+    this.quad = new FullScreenQuad(this.mat);
+  }
+  setSize(w: number, h: number) {
+    // (w and h are device pixels: a line about two and a half wide)
+    this.mat.uniforms.texel.value.set(2.5 / w, 2.5 / h);
+  }
+  render(renderer: THREE.WebGLRenderer, writeBuffer: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget) {
+    const u = this.mat.uniforms;
+    u.tDiffuse.value = readBuffer.texture;
+    u.tDepth.value = readBuffer.depthTexture;
+    u.near.value = this.camera.near;
+    u.far.value = this.camera.far;
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    this.quad.render(renderer);
+  }
+  dispose() {
+    this.mat.dispose();
+    this.quad.dispose();
+  }
+}
 
 /**
  * The film look, after the PS2-era Mirror's Edge: clean high-key whites, cool shadows,
@@ -55,6 +116,7 @@ export class Post {
   private bloom: UnrealBloomPass;
   private grade: ShaderPass;
   private renderPass: RenderPass;
+  private ink: InkPass;
 
   constructor(
     private renderer: THREE.WebGLRenderer,
@@ -62,10 +124,12 @@ export class Post {
     camera: THREE.Camera,
   ) {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-    const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
     this.composer = new EffectComposer(renderer, target);
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
+    this.ink = new InkPass(camera as THREE.PerspectiveCamera);
+    this.composer.addPass(this.ink);
     // bloom runs at half resolution: only the bright parts (glows, flashes, sunlit white) haze
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.28, 0.45, 1.9);
     this.composer.addPass(this.bloom);
@@ -97,6 +161,7 @@ export class Post {
   render(dt: number, dim: number) {
     this.grade.uniforms.time.value += dt;
     this.grade.uniforms.dim.value = dim;
+    this.ink.enabled = CEL.on;
     this.composer.render(dt);
   }
 

@@ -18,6 +18,7 @@ import { SquadRun } from './squadrun';
 import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
+import { CEL } from './cel';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -1031,6 +1032,7 @@ export function boot() {
     view.showAimLine = st.aimLine;
     view.fxOn = st.effects;
     view.setQuality(st.realism, !!st.batterySaver);
+    CEL.on = st.cel !== false;
     $('fps').classList.toggle('hidden', !st.showFps);
     // (local versus keeps its overhead view for the whole match)
     const cam = duo && screen !== 'title' ? 'split' : st.camera;

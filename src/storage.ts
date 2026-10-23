@@ -65,6 +65,8 @@ export interface Settings {
   effects: boolean;
   /** realism: marble hops/spin/shadows, stage particles, full pixel density */
   realism: boolean;
+  /** cel shading: banded toon lighting with ink outlines */
+  cel: boolean;
   /** battery saver: a lighter render (less resolution and post) and 30 fps (on by default on phones) */
   batterySaver: boolean;
   /** frame-rate meter in the corner */
@@ -126,6 +128,7 @@ export const DEFAULT_SETTINGS: Settings = {
   camera: 'mid',
   effects: true,
   realism: true,
+  cel: true,
   batterySaver: typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0),
   showFps: false,
   magazine: 10,

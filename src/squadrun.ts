@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { celify } from './cel';
 import { ShooterMesh, characterById, playable, studioEnv } from './robot';
 import * as sfx from './audio';
 import { ITEMS, type ItemType } from './items';
@@ -1106,6 +1107,7 @@ export class SquadRun {
     const cam = this.camera;
     cam.position.lerp(new THREE.Vector3(this.cx * 0.35, 8.5, this.z + 8.5), Math.min(1, dt * 6) || 1);
     cam.lookAt(this.cx * 0.2, 0, this.z - 9);
+    celify(this.scene);
     this.renderer.render(this.scene, cam);
   }
 }

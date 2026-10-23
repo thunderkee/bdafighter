@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { celify } from './cel';
 import { ShooterMesh, characterById, studioEnv } from './robot';
 import { Stage } from './stage';
 import { TOSS_TIME, TWIN_X } from './config';
@@ -244,6 +245,7 @@ export class Preview {
     cam.position.set(3, 8, 14);
     cam.lookAt(0, 0, -3);
     r.setSize(320, 180, false);
+    celify(scene);
     r.render(scene, cam);
     url = r.domElement.toDataURL('image/jpeg', 0.85);
     stage.dispose();
@@ -285,6 +287,7 @@ export class Preview {
       this.camera.lookAt(0, 0, -2);
       this.stage.update(dt, this.t);
     }
+    celify(this.scene);
     r.render(this.scene, this.camera);
   }
 

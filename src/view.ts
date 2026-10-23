@@ -20,6 +20,7 @@ const at3 = <T extends THREE.Object3D>(o: T, x: number, y: number, z: number) =>
 const STEEL_R = 0.32;
 import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
 import * as sfx from './audio';
+import { celify } from './cel';
 
 // Physics (x, y) maps to three.js (x, 0, -y): the player sits near the
 // camera at +z and the opponent sits far away at -z.
@@ -1038,6 +1039,7 @@ export class View {
       this.camera.lookAt(this.tmpV.copy(this.debugCam[1]));
     }
     this.camera.rotateZ(Math.sin(t * 0.9) * sh * 0.04);
+    celify(this.scene);
 
     if (this.splitOn) {
       this.renderSplit(sh, t);
