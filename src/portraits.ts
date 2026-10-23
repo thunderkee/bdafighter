@@ -25,14 +25,22 @@ function setup() {
   scene.add(sun);
 }
 
-/** the unit seen from the front-left, a little above, framed to fit */
-function render(id: string) {
+/** the bust crop: a square of the upper body and head */
+const BUST = 128;
+
+/** the unit seen from the front-left, a little above, framed to fit (or, for a bust, the top of it) */
+function render(id: string, bust = false) {
   if (!renderer || !scene) setup();
+  const w = bust ? BUST : W;
+  const h = bust ? BUST : H;
+  renderer!.setSize(w, h, false);
   const def = characterById(id);
   const mesh = new ShooterMesh(def.id, def.ball, def);
   scene!.add(mesh.root);
   mesh.root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(mesh.root);
+  // (a bust keeps the top 55%: the head and body, the legs cropped off)
+  if (bust) box.min.y = box.max.y - (box.max.y - box.min.y) * 0.55;
   const c = box.getCenter(new THREE.Vector3());
   const dir = new THREE.Vector3(-0.75, 0.42, -1).normalize();
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
@@ -50,11 +58,12 @@ function render(id: string) {
         hw = Math.max(hw, Math.abs(p.x));
         hh = Math.max(hh, Math.abs(p.y));
       }
-  const half = Math.max(hw, hh * (W / H)) * 1.06;
+  // (the bust is cropped tight: the arms may run off the sides)
+  const half = bust ? hh * 1.04 : Math.max(hw, hh * (W / H)) * 1.06;
   cam.left = -half;
   cam.right = half;
-  cam.top = (half * H) / W;
-  cam.bottom = (-half * H) / W;
+  cam.top = (half * h) / w;
+  cam.bottom = (-half * h) / w;
   cam.updateProjectionMatrix();
   renderer!.render(scene!, cam);
   const url = renderer!.domElement.toDataURL('image/png');
@@ -64,11 +73,12 @@ function render(id: string) {
 }
 
 /** a unit's portrait, rendering it now if it isn't cached */
-export function portrait(id: string) {
-  let url = cache.get(id);
+export function portrait(id: string, bust = false) {
+  const key = bust ? 'bust:' + id : id;
+  let url = cache.get(key);
   if (!url) {
-    url = render(id);
-    cache.set(id, url);
+    url = render(id, bust);
+    cache.set(key, url);
   }
   return url;
 }
@@ -89,11 +99,12 @@ export function fillPortraits(root: ParentNode = document) {
       return;
     }
     const id = el.dataset.portrait!;
+    const bust = el.dataset.crop === 'bust';
     try {
-      const img = new Image(W, H);
-      img.className = 'portrait';
+      const img = bust ? new Image(BUST, BUST) : new Image(W, H);
+      img.className = bust ? 'portrait bust' : 'portrait';
       img.alt = '';
-      img.src = portrait(id);
+      img.src = portrait(id, bust);
       el.replaceWith(img);
     } catch {
       // keep the colour swatch if WebGL isn't available

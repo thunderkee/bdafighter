@@ -1358,10 +1358,10 @@ export function boot() {
         // the arcade's bosses stay a surprise: they can't be picked for a run
         if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
         // retrying a stage: the opponent waiting there shows, but can't be your pick
-        if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) tile({ id: c.id, color, lock: 'Opponent' }, `<i data-portrait="${c.id}"></i><em class="lock">⚔</em>`);
+        if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) tile({ id: c.id, color, lock: 'Opponent' }, `<i><i data-portrait="${c.id}" data-crop="bust"></i></i><em class="lock">⚔</em>`);
         // a locked unit shows (so there's something to chase) but can't be picked
-        else if (isLocked(c.id)) tile({ id: c.id, color, lock: `arcade stage ${unlockStage(c.id)}` }, `<i class="dark"><i data-portrait="${c.id}"></i></i><em class="lock">🔒</em>`);
-        else tile({ id: c.id, color }, `<i data-portrait="${c.id}"></i>`);
+        else if (isLocked(c.id)) tile({ id: c.id, color, lock: `arcade stage ${unlockStage(c.id)}` }, `<i class="dark"><i data-portrait="${c.id}" data-crop="bust"></i></i><em class="lock">🔒</em>`);
+        else tile({ id: c.id, color }, `<i><i data-portrait="${c.id}" data-crop="bust"></i></i>`);
       }
       fillPortraits(grid);
     }
