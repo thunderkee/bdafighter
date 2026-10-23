@@ -185,7 +185,7 @@ export interface Drop {
 
 /** effects for the view/HUD; `slot` is the robot concerned (0 = player) */
 export type Fx =
-  | { type: 'hit'; x: number; y: number; team: Team; slot: number; amount: number; power: MarbleKind | 'missile' }
+  | { type: 'hit'; x: number; y: number; team: Team; slot: number; amount: number; power: MarbleKind | 'missile'; bounces?: number }
   | { type: 'missile-launch'; slot: number }
   | { type: 'block'; x: number; y: number; slot: number; heavy: boolean }
   | { type: 'shield-break'; slot: number }
@@ -1853,7 +1853,7 @@ export class Game {
         }
         // a beat of hit-stop on every hit (a touch more when you're the one hit), longer for big ones
         this.hitstop = Math.max(this.hitstop, m.kind === 'super' ? 0.18 : m.kind === 'dragon' || m.kind === 'x5' ? 0.1 : s.team === 0 ? 0.075 : 0.06);
-        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, slot: s.slot, amount, power: m.kind });
+        this.fx.push({ type: 'hit', x: p.x, y: p.y, team: s.team, slot: s.slot, amount, power: m.kind, bounces: m.bounces });
         sfx.play(m.kind === 'super' ? 'superhit' : s.team === 0 ? 'hurt' : 'hit', factor);
         this.damage(s, attacker, amount, { marble: m.idx });
         break;

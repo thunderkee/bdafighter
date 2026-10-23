@@ -2,7 +2,7 @@ import './lab.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { BUILTINS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, classic, playable, playableId, reloadRoster, resolveColor, setPublished, studioEnv, type CharacterDef } from './robot';
+import { BUILTINS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, playable, playableId, reloadRoster, resolveColor, setPublished, studioEnv, type CharacterDef } from './robot';
 import { API, cachedPublished, fetchPublished, type PublishedRoster } from './published';
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
@@ -1086,7 +1086,6 @@ function renderRoster() {
   const groups: [string, string, CharacterDef[]][] = [
     ['2.2', '2.2', playable().filter((c) => c.v22)],
     ['Custom', '', playable().filter((c) => !c.v22)],
-    ['2.1', '2.1', classic()],
   ];
   for (const [label, ver, units] of groups) {
     if (!units.length) continue;

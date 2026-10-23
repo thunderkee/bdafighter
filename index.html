@@ -126,6 +126,14 @@
         </div>
         <!-- split-screen 2 players: the screen's divider and each player's health, in their own half -->
         <div id="duo-hp"><i class="split-line"></i><div class="bar p1"><span>P1</span><i><b></b></i></div><div class="bar p2"><span>P2</span><i><b></b></i></div></div>
+        <!-- the tutorial: one step at a time, over the practice match -->
+        <div id="tut" class="hidden">
+          <em class="tut-step">STEP 1 / 6</em>
+          <b class="tut-title">Move</b>
+          <p class="tut-text"></p>
+          <i class="tut-bar"><i></i></i>
+          <div class="tut-actions"><button class="key tut-next hidden">Next ▸</button><button class="key tut-skip">Skip tutorial</button></div>
+        </div>
         <div id="duo-hints">
           <div class="hint p1">PLAYER 1 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
           <div class="hint p2">PLAYER 2 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
@@ -170,6 +178,12 @@
           <div class="lcd-row"><span>ARENA</span><b id="title-stage">ORBITAL DECK</b></div>
           <p id="record" class="lcd-foot"></p>
         </div>
+        <!-- first visit: an offer of the tutorial -->
+        <div id="tut-offer" class="tut-offer hidden">
+          <b>New here? Learn the basics in a minute.</b>
+          <span>Learn to move, shoot, shield and parry in about a minute.</span>
+          <div><button class="key orange" id="tut-start">Play the tutorial</button><button class="key" id="tut-later">Not now</button></div>
+        </div>
         <nav class="menu">
           <button id="play-btn" class="key menu-item"><em>01</em><b>Versus</b><small>Fighter, rival, arena and rules</small></button>
           <button id="arcade-btn" class="key menu-item"><em>02</em><b>Arcade</b><small>A ladder of stages and four bosses</small></button>
@@ -207,11 +221,6 @@
             <div class="meters" id="pv-stats"></div>
             <div class="profile hidden" id="pv-profile"></div>
           </div>
-        </div>
-        <div class="ver-tabs" id="ver-tabs">
-          <button data-ver="22">2.2</button>
-          <button data-ver="21">2.1</button>
-          <button data-ver="c">Custom</button>
         </div>
         <div class="arena-width hidden" id="arena-width">
           <b>Arena width</b>
@@ -298,6 +307,7 @@
         <div class="settings-head">
           <div class="screen-title">Options</div>
           <div class="tabs" role="tablist">
+            <button role="tab" data-tab="basics">Basics</button>
             <button role="tab" data-tab="controls">Controls</button>
             <button role="tab" data-tab="display">Display</button>
             <button role="tab" data-tab="opponent">Opponent</button>
@@ -307,6 +317,34 @@
         </div>
 
         <div class="panels">
+          <!-- the few settings most players ever touch; everything else is under More settings -->
+          <section data-panel="basics">
+            <div class="setting">
+              <div class="set-head"><b>Controls</b></div>
+              <span>On-screen ◀ ▶ and FIRE buttons, or touch gestures anywhere on the screen.</span>
+              <div class="seg" data-setting="layout"><button data-value="buttons">Buttons</button><button data-value="gestures">Gestures</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Camera</b></div>
+              <span>How close the chase camera follows you.</span>
+              <div class="seg" data-setting="camera"><button data-value="far">Far</button><button data-value="mid">Mid</button><button data-value="near">Near</button><button data-value="first">Cockpit</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Music</b></div>
+              <div class="seg" data-setting="music"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Haptics</b></div>
+              <div class="seg" data-setting="vibrate"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
+              <div class="set-head"><b>Battery saver</b></div>
+              <span>Runs cooler and lasts longer on a phone.</span>
+              <div class="seg" data-setting="batterySaver"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <button class="key more-settings" id="replay-tutorial">Play the tutorial</button>
+            <button class="key more-settings" id="more-settings">More settings ▸</button>
+          </section>
           <section data-panel="controls">
             <div class="setting">
               <div class="set-head"><b>Layout</b></div>

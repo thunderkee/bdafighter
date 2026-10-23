@@ -670,10 +670,10 @@ const isCustom = (c: CharacterDef) => !BUILTINS.some((b) => b.id === c.id);
 export const playable = () => CHARACTERS.filter((c) => c.v22 || isCustom(c));
 /** the 2.1 set, still pickable from its own tab */
 export const classic = () => CHARACTERS.filter((c) => c.v21);
-/** a pick is kept if it's a 2.2, a 2.1 or a custom unit; an older one moves to its 2.2 */
+/** a pick is kept if it's a 2.2 or a custom unit; an older one (2.1, 2.0, the originals) moves to its 2.2 */
 export function playableId(id: string) {
   const c = CHARACTERS.find((x) => x.id === id);
-  if (c && (c.v22 || c.v21 || isCustom(c))) return id;
+  if (c && (c.v22 || isCustom(c))) return id;
   const v22 = `${id.replace(/-\d+$/, '')}-22`;
   return CHARACTERS.some((x) => x.id === v22) ? v22 : playable()[0].id;
 }

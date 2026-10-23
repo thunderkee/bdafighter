@@ -98,6 +98,8 @@ export interface SaveData {
   simpleRules?: boolean;
   /** every unit unlocked at once (Options > Advanced, for trying them all out) */
   unlockAll?: boolean;
+  /** the tutorial was finished (or the offer turned down) */
+  tutorialDone?: boolean;
   muted: boolean;
   settings: Settings;
 }

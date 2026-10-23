@@ -3100,3 +3100,139 @@ body.duo #enemy-tag {
 .meter.marble .mb-light { color: #3a8ad8; }
 .meter.marble .mb-heavy { color: var(--orange-lo); }
 .meter.marble .mb-bouncy { color: #4aa84a; }
+
+/* Options: the Basics tab alone until More settings opens the rest */
+#settings:not(.expert) .tabs {
+  display: none;
+}
+#settings .more-settings {
+  margin-top: 6px;
+  width: 100%;
+}
+
+/* ================= tutorial ================= */
+#tut {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: max(76px, calc(env(safe-area-inset-top) + 64px));
+  z-index: 30;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--case-edge);
+  background: radial-gradient(120% 90% at 50% 0%, var(--case-hi), var(--case));
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+}
+#tut.hidden {
+  display: none;
+}
+#tut.pop {
+  animation: tut-pop 0.3s ease-out;
+}
+@keyframes tut-pop {
+  from { transform: translateY(-8px) scale(0.97); opacity: 0.4; }
+}
+#tut .tut-step {
+  font: 700 10px var(--mono);
+  font-style: normal;
+  letter-spacing: 0.16em;
+  color: var(--orange-lo);
+}
+#tut .tut-title {
+  display: block;
+  margin: 2px 0 4px;
+  font: 700 20px var(--display);
+}
+#tut .tut-text {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+#tut .tut-bar {
+  display: block;
+  height: 5px;
+  margin-bottom: 10px;
+  border-radius: 3px;
+  background: var(--case-lo);
+  overflow: hidden;
+}
+#tut .tut-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--orange);
+  transition: width 0.4s;
+}
+#tut .tut-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+#tut .tut-actions .key {
+  padding: 8px 14px;
+  font-size: 12px;
+}
+#tut .tut-next {
+  background: linear-gradient(180deg, var(--orange), var(--orange-lo));
+  color: #fff;
+}
+#tut .tut-next.hidden {
+  display: none;
+}
+#tut.done {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.tut-offer {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid var(--orange);
+  background: var(--case-hi);
+  box-shadow: var(--key-shadow);
+}
+.tut-offer.hidden {
+  display: none;
+}
+.tut-offer b {
+  font: 700 16px var(--display);
+}
+.tut-offer span {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.tut-offer div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.tut-offer .key {
+  padding: 10px 12px;
+}
+/* the first-visit offer: one compact row, so the menu still fits on a short screen */
+.tut-offer {
+  width: min(380px, 100%);
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  padding: 8px 10px;
+  gap: 8px;
+}
+.tut-offer span {
+  display: none;
+}
+.tut-offer div {
+  display: contents;
+}
+.tut-offer .key {
+  padding: 8px 10px;
+  font-size: 11px;
+}
+#title {
+  overflow-y: auto;
+}

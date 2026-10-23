@@ -6,7 +6,7 @@ import { View } from './view';
 import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
-import { BUILTINS, CHARACTERS, characterById, classic, playable, playableId } from './robot';
+import { BUILTINS, characterById, playable, playableId } from './robot';
 import { fillPortraits, portrait } from './portraits';
 import { Preview } from './preview';
 import { profileOf } from './profiles';
@@ -69,6 +69,8 @@ export function boot() {
   }
   /** an arcade run: the stage number, how many were cleared, and this stage's match setup */
   let arcade: { stage: number; cleared: number; cfg: Partial<store.Settings>; next?: Partial<store.Settings>; done?: boolean; plan: Partial<store.Settings>[] } | null = null;
+  /** the tutorial in progress: which step, how long on it, and what's been done */
+  let tut: { i: number; t: number; moved: number; lastX: number; shots0: number; hits0: number; charged: boolean; shield: number; done: boolean } | null = null;
   /** after an arcade game over: choosing another fighter to retry the stage with */
   let arcadeSwap = false;
   /** the units the current arcade stage puts against you (they can't be your swap) */
@@ -123,7 +125,14 @@ export function boot() {
   let duo = false;
   /** the settings a match plays by: yours, with an arcade stage's (or local versus') rules on top */
   const S = (): store.Settings =>
-    arcade ? { ...saveData.settings, ...arcade.cfg } : duo ? { ...saveData.settings, pack: 1, playerPack: 1, items: false } : saveData.settings;
+    tut
+      ? // the tutorial's practice match: one on one, a clean table, no clock, an easy rival
+        { ...saveData.settings, pack: 1, playerPack: 1, items: false, roundTime: 0, pucks: 0, pins: 0, covers: 0, gates: false, enemyIQ: 'easy', enemyCharacter: 'liberty-22', enemyHealth: 3, enemySpeed: 2, enemyPower: 2 }
+      : arcade
+        ? { ...saveData.settings, ...arcade.cfg }
+        : duo
+          ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
+          : saveData.settings;
   // the table width is fixed for the session: walls and scenery are built for it
   setArenaWidth(S().arenaWidth);
   /** the table width the walls and scenery are built for right now */
@@ -1078,13 +1087,7 @@ export function boot() {
   type Step = 'fighter' | 'rival' | 'arena' | 'rules';
   let step: Step = 'fighter';
   let selectMode: 'versus' | 'arcade' | 'duo' = 'versus';
-  /** which roster tab is open: the 2.2 roster, the 2.1 set, or custom units */
-  let ver: '22' | '21' | 'c' = '22';
-  const verOf = (id: string): '22' | '21' | 'c' => {
-    const c = characterById(id);
-    return !BUILTIN_IDS.has(c.id) ? 'c' : c.v21 ? '21' : '22';
-  };
-  const BUILTIN_IDS = new Set(BUILTINS.map((c) => c.id));
+
   const TRAITS: [keyof NonNullable<ReturnType<typeof characterById>['traits']>, string][] = [
     ['health', 'Armour'],
     ['speed', 'Speed'],
@@ -1216,14 +1219,9 @@ export function boot() {
       setTimeout(nextShot, 300);
       return;
     }
-    const hasCustom = CHARACTERS.some((c) => verOf(c.id) === 'c');
-    // (the Custom tab only shows when there are custom units)
-    document.querySelector<HTMLElement>('#ver-tabs [data-ver="c"]')!.classList.toggle('hidden', !hasCustom);
-    if (ver === 'c' && !hasCustom) ver = '22';
-    document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.ver === ver));
     if (step === 'rival' && selectMode !== 'duo') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
-    for (const c of ver === '21' ? classic() : playable()) {
-      if (verOf(c.id) !== ver) continue;
+    // one roster: the fighters, then any custom units from the Unit Lab
+    for (const c of playable()) {
       // the arcade's bosses stay a surprise: they can't be picked for a run
       if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
       // retrying a stage: the opponent waiting there shows, but can't be your pick
@@ -1257,8 +1255,6 @@ export function boot() {
       return;
     }
     show('select');
-    // open the roster tab the current pick lives in
-    if (step !== 'arena') ver = chosen() === 'auto' ? ver : verOf(chosen());
     $('select-title').textContent =
       step === 'fighter' ? (selectMode === 'duo' ? 'Player 1 fighter' : 'Select fighter') : step === 'rival' ? (selectMode === 'duo' ? 'Player 2 fighter' : 'Select rival') : 'Select arena';
     $('select-next').textContent = arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : 'Next ▶';
@@ -1286,12 +1282,6 @@ export function boot() {
     document.body.classList.remove('duo');
     applySettings();
   };
-  document.querySelectorAll<HTMLElement>('#ver-tabs button').forEach((b) =>
-    b.addEventListener('click', () => {
-      ver = b.dataset.ver as typeof ver;
-      buildGrid();
-    }),
-  );
   $('select-back').addEventListener('click', () => {
     if (arcadeSwap) {
       // back to the game-over screen, the run still on
@@ -1331,7 +1321,12 @@ export function boot() {
     document.querySelectorAll<HTMLElement>('.panels section').forEach((p) => p.classList.toggle('on', p.dataset.panel === tab));
   };
   document.querySelectorAll<HTMLElement>('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab!)));
-  showTab('controls');
+  // Options opens on the basics; the full set of tabs comes out with More settings
+  showTab('basics');
+  $('more-settings').addEventListener('click', () => {
+    $('settings').classList.add('expert');
+    showTab('controls');
+  });
   applySettings();
 
   let settingsFrom: 'title' | 'paused' | 'result' = 'title';
@@ -1387,7 +1382,10 @@ export function boot() {
     e.stopPropagation();
     cycleView();
   });
-  $('pause-menu-btn').addEventListener('click', () => {
+  $('pause-menu-btn').addEventListener('click', () => leaveMatch());
+  /** back to the title from a match (or the tutorial) */
+  const leaveMatch = () => {
+    if (tut) endTutorial();
     paused = false;
     sfx.resume();
     pad.clear();
@@ -1400,7 +1398,117 @@ export function boot() {
     input.release();
     hud.classList.add('hidden');
     quitArcade();
+  };
+
+  // ---------- the tutorial: six steps in a practice match, each done by doing it ----------
+  type TutStep = { title: string; text: string; ai?: boolean; check: () => boolean; hard?: boolean };
+  const tutEl = $('tut');
+  const TUT: TutStep[] = [
+    { title: 'Move', text: 'Slide along your rail: hold ◀ or ▶ (with gestures, drag your left thumb).', check: () => !!tut && tut.moved > 3 },
+    { title: 'Fire', text: 'Tap FIRE to shoot a marble down the lane.', check: () => !!tut && player.shots - tut.shots0 >= 3 },
+    { title: 'Charge shot', text: 'Hold FIRE to load marbles into one big shot, then let go.', check: () => !!tut && tut.charged },
+    { title: 'Shield', text: 'Pull your move thumb back toward you to raise the shield. Hold it a moment.', check: () => !!tut && tut.shield > 0.8 },
+    { title: 'Parry', text: 'Your rival is shooting now. Raise the shield just as a marble arrives and it flies back, harder.', ai: true, hard: true, check: () => false },
+    { title: 'Land hits', text: 'Put it together: line up with your rival, dodge, shield and land 3 hits. Tip: shots that bounce off a wall come in from angles a shield can miss.', ai: true, hard: true, check: () => !!tut && player.hits - tut.hits0 >= 3 },
+  ];
+  const tutStepNow = () => TUT[Math.min(tut?.i ?? 0, TUT.length - 1)];
+  const tutShow = () => {
+    if (!tut) return;
+    const step = TUT[tut.i];
+    tutEl.classList.remove('hidden', 'done');
+    tutEl.querySelector('.tut-step')!.textContent = `STEP ${tut.i + 1} / ${TUT.length}`;
+    tutEl.querySelector('.tut-title')!.textContent = step.title;
+    tutEl.querySelector('.tut-text')!.textContent = step.text;
+    tutEl.querySelector<HTMLElement>('.tut-bar i')!.style.width = `${(tut.i / TUT.length) * 100}%`;
+    tutEl.querySelector('.tut-next')!.classList.add('hidden');
+    tutEl.querySelector('.tut-next')!.textContent = 'Next ▸';
+    tutEl.querySelector('.tut-skip')!.textContent = 'Skip tutorial';
+    tut.t = 0;
+    tut.shots0 = player.shots;
+    tut.hits0 = player.hits;
+    tutLoaded = false;
+    replay(tutEl, 'pop');
+  };
+  const tutAdvance = () => {
+    if (!tut) return;
+    sfx.play('charge');
+    if (S().vibrate) buzz([15, 30, 15]);
+    tut.i++;
+    if (tut.i < TUT.length) {
+      callout('NICE!', 'cyan');
+      tutShow();
+      return;
+    }
+    // all done: the way out
+    tut.done = true;
+    callout("YOU'RE READY", 'gold');
+    tutEl.classList.add('done');
+    tutEl.querySelector('.tut-step')!.textContent = 'TUTORIAL COMPLETE';
+    tutEl.querySelector('.tut-title')!.textContent = "You're ready!";
+    tutEl.querySelector('.tut-text')!.textContent = 'That is everything you need. Now win a real fight: Arcade is a ladder of rivals and bosses.';
+    tutEl.querySelector<HTMLElement>('.tut-bar i')!.style.width = '100%';
+    const next = tutEl.querySelector('.tut-next')!;
+    next.textContent = 'Play Arcade ▸';
+    next.classList.remove('hidden');
+    tutEl.querySelector('.tut-skip')!.textContent = 'Main menu';
+    saveData = store.save({ tutorialDone: true });
+  };
+  /** every frame of the practice match: track what's been done, and nobody goes down */
+  const tutTick = (dt: number) => {
+    if (!tut || tut.done) return;
+    tut.t += dt;
+    tut.moved += Math.abs(player.x - tut.lastX);
+    tut.lastX = player.x;
+    if (player.shieldUp) tut.shield += dt;
+    // a charge: marbles loaded (then let go: see tutFx)
+    if (player.stored >= 2) tutLoaded = true;
+    for (const s of [player, game.shooters[1]]) s.health = Math.max(s.health, s.maxHealth * (s === player ? 0.4 : 0.25));
+    // the hard steps can be passed after a while
+    if (tutStepNow().hard && tut.t > 22) tutEl.querySelector('.tut-next')!.classList.remove('hidden');
+    if (tutStepNow().check()) tutAdvance();
+  };
+  let tutLoaded = false;
+  const tutFx = (f: (typeof game.fx)[number]) => {
+    if (!tut || tut.done) return;
+    const i = tut.i;
+    if (f.type === 'muzzle' && f.slot === 0 && player.stored === 0 && tutLoaded) tut.charged = true;
+    if (f.type === 'super-fire' && f.slot === 0 && i === 2) tut.charged = true;
+    if (i === 4 && f.type === 'parry' && f.slot === 0) tutAdvance();
+  };
+  const startTutorial = () => {
+    sfx.unlock();
+    $('tut-offer').classList.add('hidden');
+    arcade = null;
+    duo = false;
+    tut = { i: 0, t: 0, moved: 0, lastX: 0, shots0: 0, hits0: 0, charged: false, shield: 0, done: false };
+    startMatch();
+    tut.lastX = player.x;
+    tutShow();
+  };
+  const endTutorial = () => {
+    tut = null;
+    tutEl.classList.add('hidden');
+    if (!saveData.tutorialDone) saveData = store.save({ tutorialDone: true });
+  };
+  tutEl.querySelector('.tut-next')!.addEventListener('click', () => {
+    if (!tut) return;
+    if (tut.done) {
+      leaveMatch();
+      openSelect('arcade');
+    } else tutAdvance();
   });
+  tutEl.querySelector('.tut-skip')!.addEventListener('click', () => leaveMatch());
+  $('tut-start').addEventListener('click', startTutorial);
+  $('tut-later').addEventListener('click', () => {
+    $('tut-offer').classList.add('hidden');
+    saveData = store.save({ tutorialDone: true });
+  });
+  $('replay-tutorial').addEventListener('click', () => {
+    $('settings').classList.add('hidden');
+    startTutorial();
+  });
+  // the first visit offers the tutorial on the title screen
+  $('tut-offer').classList.toggle('hidden', !!saveData.tutorialDone);
 
   // on-screen pad: one tracker for every finger on it
   const pad = new PadTracker($('pad'));
@@ -1543,7 +1651,7 @@ export function boot() {
           input.update(sdt * rate(0));
           duoInput.update(sdt * rate(0));
           // (in local versus player 2 drives the opponent instead of its AI)
-          ais.forEach((a, i) => (duo && i === 0 ? null : a.update(sdt * rate(i + 1))));
+          ais.forEach((a, i) => ((duo && i === 0) || (tut && !tutStepNow().ai) ? null : a.update(sdt * rate(i + 1))));
           const before = game.phase;
           game.step(sdt);
           // the replay keeps one frame per full game step, as before
@@ -1607,6 +1715,7 @@ export function boot() {
         // a light tick under your thumb for every shot you fire, a thump for a super
         if (f.type === 'muzzle' && f.slot === 0 && S().vibrate) buzz(8);
         if (f.type === 'super-fire' && f.slot === 0 && S().vibrate) buzz([30, 30, 50]);
+        if (tut) tutFx(f);
         if (f.type === 'parry') {
           if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'PARRY!' : 'ALLY PARRY', 'cyan');
           else callout('PARRIED', 'red');
@@ -1622,7 +1731,8 @@ export function boot() {
       }
 
       updateHud(dt);
-      if (game.phase === 'over') onRoundOver();
+      if (tut) tutTick(dt);
+      if (game.phase === 'over' && !tut) onRoundOver();
     }
 
     for (const el of padButtons) el.classList.toggle('held', pad.held(el.dataset.btn as 'left'));
