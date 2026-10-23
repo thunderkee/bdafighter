@@ -218,22 +218,30 @@
           </ol>
           <h2 id="select-title">Select fighter</h2>
         </header>
-        <div class="bay">
-          <div class="crt" id="preview">
-            <!-- the name sits on the unit's own screen -->
-            <div class="crt-name"><span id="pv-tag">PLAYER 1</span><b id="pv-name">Seraph Zero</b></div>
-          </div>
-          <div class="bay-info">
-            <div class="info-tabs" id="info-tabs"><button data-info="stats" class="on">Stats</button><button data-info="profile">Profile</button></div>
-            <div class="meters" id="pv-stats"></div>
-            <div class="profile hidden" id="pv-profile"></div>
+        <!-- one fighter at a time on the rings, its neighbours peeking in from the sides -->
+        <div class="carousel" id="carousel">
+          <div class="car-rings" aria-hidden="true"><i></i></div>
+          <button class="peek prev" id="peek-prev" aria-label="Previous"></button>
+          <button class="peek next" id="peek-next" aria-label="Next"></button>
+          <div class="car-stage" id="preview"></div>
+          <div class="car-lock hidden" id="car-lock"><i class="car-shadow" id="car-shadow"></i><b>🔒</b><span id="car-lock-text">Locked</span></div>
+          <button class="car-arrow prev" id="car-prev" aria-label="Previous"><svg viewBox="0 0 64 56"><path d="M60 22H34l6-16L4 28l36 22-6-16h26z" /></svg></button>
+          <button class="car-arrow next" id="car-next" aria-label="Next"><svg viewBox="0 0 64 56"><path d="M4 22h26l-6-16 36 22-36 22 6-16H4z" /></svg></button>
+          <div class="car-band" id="car-band">
+            <div class="car-tag"><span id="pv-tag">PLAYER 1</span><span class="car-count" id="car-count"></span></div>
+            <b id="pv-name">Seraph Zero</b>
+            <div class="car-info">
+              <div class="info-tabs" id="info-tabs"><button data-info="stats" class="on">Stats</button><button data-info="profile">Profile</button></div>
+              <div class="meters" id="pv-stats"></div>
+              <div class="profile hidden" id="pv-profile"></div>
+            </div>
           </div>
         </div>
         <div class="arena-width hidden" id="arena-width">
           <b>Arena width</b>
           <div class="seg" data-setting="arenaWidth"><button data-value="small">Narrow</button><button data-value="normal">Normal</button><button data-value="large">Wide</button></div>
         </div>
-        <div class="pick-grid" id="pick-grid"></div>
+        <div class="pick-strip" id="pick-grid"></div>
         <footer class="dev-actions">
           <button id="select-back" class="key">◀ Back</button>
           <button id="select-next" class="key orange">Next ▶</button>

@@ -1098,6 +1098,7 @@ export function boot() {
 
   // ---------- select screens: fighter, rival, arena, then the match rules (like a fighting game) ----------
   const preview = new Preview($('preview'));
+  preview.turnable = false;
   type Step = 'fighter' | 'rival' | 'arena' | 'rules';
   let step: Step = 'fighter';
   let selectMode: 'versus' | 'arcade' | 'duo' = 'versus';
@@ -1156,26 +1157,71 @@ export function boot() {
       if (infoTab === 'stats') replay($('pv-stats'), 'refill');
     }),
   );
-  const showPreview = () => {
-    const id = chosen();
-    // the preview screen blinks like a CRT changing channel; the name plate and meters refresh
-    replay($('preview'), 'switch');
-    replay(document.querySelector('.crt-name')!, 'flash');
+  /** the carousel: everything this step can show, and the one in the middle */
+  type Entry = { id: string; color: string; lock?: string };
+  let entries: Entry[] = [];
+  let cur = 0;
+  const lockText = (e: Entry) => (e.lock === 'Opponent' ? 'Your opponent this stage' : `Unlocks at ${e.lock}`);
+  /** the neighbours peeking in from either side */
+  const showPeeks = () => {
+    const n = entries.length;
+    for (const [el, d] of [
+      [$('peek-prev'), -1],
+      [$('peek-next'), 1],
+    ] as const) {
+      el.classList.toggle('hidden', n < 2);
+      const e = entries[(cur + d + n) % n];
+      if (!e || n < 2) continue;
+      if (step === 'arena') el.innerHTML = `<i class="shot" style="background:center / cover url(${preview.stageShot(e.id)})"></i>`;
+      else if (e.id === 'auto') el.innerHTML = `<i class="auto">?</i>`;
+      else el.innerHTML = `<i class="${e.lock ? 'dark' : ''}"><i data-portrait="${e.id}"></i></i>`;
+    }
+    fillPortraits($('carousel'));
+  };
+  const showPreview = (dir = 0) => {
+    const e = entries[cur];
+    const id = e?.id ?? chosen();
+    const locked = !!e?.lock;
+    const car = $('carousel');
+    car.classList.toggle('arena', step === 'arena');
+    car.classList.toggle('locked', locked);
+    car.dataset.side = step === 'arena' ? 'arena' : step === 'fighter' ? 'p1' : 'p2';
+    // the new one slides in from the side it came from; the name band flashes
+    replay($('preview'), dir < 0 ? 'from-left' : dir > 0 ? 'from-right' : 'switch');
+    replay($('car-band'), 'flash');
     replay($('pv-stats'), 'refill');
+    $('car-count').textContent = entries.length > 1 ? `${cur + 1} / ${entries.length}` : '';
+    $('car-lock').classList.toggle('hidden', !locked);
+    if (e && locked) $('car-lock-text').textContent = lockText(e);
+    ($('select-next') as HTMLButtonElement).disabled = locked;
+    showPeeks();
     if (step === 'arena') {
       preview.showStage(id);
       $('pv-tag').textContent = 'ARENA';
       $('pv-name').textContent = stageById(id).name;
-      $('pv-stats').innerHTML = `<p class="pv-note">${stageById(id).name} · scenery and pucks themed to match</p>`;
+      $('pv-stats').innerHTML = `<p class="pv-note">Scenery and pucks themed to match</p>`;
       $('pv-profile').classList.add('hidden');
       $('pv-stats').classList.remove('hidden');
       $('info-tabs').classList.add('hidden');
       return;
     }
     const unit = id === 'auto' ? enemyCharacter() : id;
-    preview.showUnit(unit);
+    // (a locked fighter isn't shown in 3D: only its portrait, blacked out)
+    if (locked) {
+      $('car-shadow').innerHTML = `<i data-portrait="${unit}"></i>`;
+      fillPortraits($('car-lock'));
+    } else preview.showUnit(unit);
     $('pv-tag').textContent = step === 'fighter' ? 'PLAYER 1' : selectMode === 'duo' ? 'PLAYER 2' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
-    $('pv-name').textContent = characterById(unit).name;
+    if (locked && e) {
+      // a locked fighter is only a silhouette until it's won
+      $('pv-name').textContent = e.lock === 'Opponent' ? characterById(unit).name : '???';
+      $('pv-stats').innerHTML = `<p class="pv-note">${e.lock === 'Opponent' ? 'Pick someone else to retry the stage' : 'Climb the arcade ladder to win it'}</p>`;
+      $('pv-profile').classList.add('hidden');
+      $('pv-stats').classList.remove('hidden');
+      $('info-tabs').classList.add('hidden');
+      return;
+    }
+    $('pv-name').textContent = id === 'auto' ? 'Auto' : characterById(unit).name;
     $('pv-stats').innerHTML = meters(unit);
     const c = characterById(unit);
     const pr = profileOf(c.id, c.from, c.base);
@@ -1185,42 +1231,48 @@ export function boot() {
       ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div><p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em></div>`
       : `<div class="pf-head"><b>Custom unit</b><span>Unit Lab</span></div><p>Built in the Unit Lab.</p>`;
   };
+  /** move to an entry: a pickable one becomes the choice straight away */
+  const goTo = (i: number, dir = 0) => {
+    const n = entries.length;
+    if (!n) return;
+    cur = ((i % n) + n) % n;
+    const e = entries[cur];
+    if (!e.lock) saveSetting(step === 'fighter' ? { character: e.id } : step === 'rival' ? { enemyCharacter: e.id } : { stage: e.id });
+    const strip = $('pick-grid');
+    strip.querySelectorAll<HTMLElement>('.tile').forEach((t, k) => t.classList.toggle('on', k === cur));
+    strip.children[cur]?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: dir ? 'smooth' : 'auto' });
+    showPreview(dir);
+  };
+  const go = (d: number) => {
+    if (entries.length < 2) return;
+    sfx.unlock();
+    sfx.play('tick', 0.5);
+    buzz(6);
+    goTo(cur + d, d);
+  };
   const buildGrid = () => {
     const grid = $('pick-grid');
     grid.innerHTML = '';
+    entries = [];
     const arena = step === 'arena';
     $('arena-width').classList.toggle('hidden', !arena);
     grid.classList.toggle('arenas', arena);
-    const pick = (id: string) => {
-      saveSetting(step === 'fighter' ? { character: id } : step === 'rival' ? { enemyCharacter: id } : { stage: id });
-      grid.querySelectorAll<HTMLElement>('.tile').forEach((t) => t.classList.toggle('on', t.dataset.id === id));
-      showPreview();
-    };
-    const tile = (id: string, html: string) => {
+    // the strip under the carousel: every entry as a thumbnail, to jump straight to one
+    const tile = (e: Entry, html: string) => {
+      const k = entries.length;
+      entries.push(e);
       const b = document.createElement('button');
-      b.className = 'tile' + (id === chosen() ? ' on' : '');
-      b.dataset.id = id;
-      // tiles drop in one after another
-      b.style.setProperty('--i', String(grid.children.length));
+      b.className = 'tile' + (e.lock ? ' locked' : '');
+      b.dataset.id = e.id;
+      b.style.setProperty('--i', String(k));
+      b.setAttribute('aria-label', e.lock ? 'Locked' : e.id);
       b.innerHTML = html;
-      b.addEventListener('click', () => pick(id));
+      b.addEventListener('click', () => goTo(k, k === cur ? 0 : k < cur ? -1 : 1));
       grid.appendChild(b);
     };
     const foes = arcadeFoes();
-    const lockedTile = (id: string, stage: number, color: string, label = `Arcade stage ${stage}`) => {
-      const b = document.createElement('button');
-      b.className = 'tile locked';
-      b.dataset.id = id;
-      b.style.setProperty('--i', String(grid.children.length));
-      b.innerHTML = `<i data-portrait="${id}" style="background:${color}"></i><em class="lock">${label === 'Opponent' ? '⚔' : '🔒'}</em><span>${label}</span>`;
-      b.addEventListener('click', () => {
-        replay(b, 'nope');
-        sfx.play('bump', 0.5);
-      });
-      grid.appendChild(b);
-    };
     if (arena) {
-      for (const st of STAGES) tile(st.id, `<i class="swatch" style="background:linear-gradient(160deg, ${hexc(st.swatch[0])} 0 62%, ${hexc(st.swatch[1])} 62%)"></i><span>${st.name}</span>`);
+      for (const st of STAGES) tile({ id: st.id, color: hexc(st.swatch[0]) }, `<i class="swatch" style="background:linear-gradient(160deg, ${hexc(st.swatch[0])} 0 62%, ${hexc(st.swatch[1])} 62%)"></i>`);
       // swap the colour swatches for real stills of each arena, one at a time
       const swatches = [...grid.querySelectorAll<HTMLElement>('.tile')];
       const nextShot = () => {
@@ -1231,27 +1283,46 @@ export function boot() {
         setTimeout(nextShot, 40);
       };
       setTimeout(nextShot, 300);
-      return;
-    }
-    if (step === 'rival' && selectMode !== 'duo') tile('auto', `<i class="auto">?</i><span>Auto</span>`);
-    // one roster: the fighters, then any custom units from the Unit Lab
-    for (const c of playable()) {
-      // the arcade's bosses stay a surprise: they can't be picked for a run
-      if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
-      // retrying a stage: the opponent waiting there shows, but can't be your pick
-      if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) {
-        lockedTile(c.id, 0, hexc(c.palette.body), 'Opponent');
-        continue;
+    } else {
+      if (step === 'rival' && selectMode !== 'duo') tile({ id: 'auto', color: '#3a3631' }, `<i class="auto">?</i>`);
+      // one roster: the fighters, then any custom units from the Unit Lab
+      for (const c of playable()) {
+        const color = hexc(c.palette.body);
+        // the arcade's bosses stay a surprise: they can't be picked for a run
+        if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
+        // retrying a stage: the opponent waiting there shows, but can't be your pick
+        if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) tile({ id: c.id, color, lock: 'Opponent' }, `<i data-portrait="${c.id}"></i><em class="lock">⚔</em>`);
+        // a locked unit shows (so there's something to chase) but can't be picked
+        else if (isLocked(c.id)) tile({ id: c.id, color, lock: `arcade stage ${unlockStage(c.id)}` }, `<i class="dark"><i data-portrait="${c.id}"></i></i><em class="lock">🔒</em>`);
+        else tile({ id: c.id, color }, `<i data-portrait="${c.id}"></i>`);
       }
-      // a locked unit shows (so there's something to chase) but can't be picked
-      if (isLocked(c.id)) {
-        lockedTile(c.id, unlockStage(c.id), hexc(c.palette.body));
-        continue;
-      }
-      tile(c.id, `<i data-portrait="${c.id}" style="background:${hexc(c.palette.body)}"></i><span>${c.name}</span>`);
+      fillPortraits(grid);
     }
-    fillPortraits(grid);
+    cur = Math.max(0, entries.findIndex((e) => e.id === chosen()));
+    goTo(cur);
   };
+  $('car-prev').addEventListener('click', () => go(-1));
+  $('car-next').addEventListener('click', () => go(1));
+  $('peek-prev').addEventListener('click', () => go(-1));
+  $('peek-next').addEventListener('click', () => go(1));
+  // swipe the carousel left and right to flip through
+  {
+    const car = $('carousel');
+    let sx: number | null = null;
+    let sy = 0;
+    car.addEventListener('pointerdown', (e) => {
+      if ((e.target as Element).closest('button, .car-info')) return;
+      sx = e.clientX;
+      sy = e.clientY;
+    });
+    car.addEventListener('pointerup', (e) => {
+      if (sx === null) return;
+      const dx = e.clientX - sx;
+      sx = null;
+      if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(e.clientY - sy)) go(dx < 0 ? 1 : -1);
+    });
+    car.addEventListener('pointercancel', () => (sx = null));
+  }
   const SCREENS = ['title', 'select', 'setup', 'result', 'paused', 'settings'];
   const show = (id: string) => {
     for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id);
@@ -1274,7 +1345,6 @@ export function boot() {
     $('select-next').textContent = arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : 'Next ▶';
     if (arcadeSwap) $('select-title').textContent = 'Change fighter';
     buildGrid();
-    showPreview();
   };
   const openSelect = (mode: 'versus' | 'arcade' | 'duo') => {
     sfx.unlock();
@@ -1552,6 +1622,7 @@ export function boot() {
     if (!$('settings').classList.contains('hidden')) return;
     if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!paused);
     if (e.code === 'KeyV' && screen === 'playing') cycleView();
+    if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && screen !== 'playing' && !$('select').classList.contains('hidden')) go(e.code === 'ArrowLeft' ? -1 : 1);
     if ((e.code === 'Enter' || e.code === 'Space') && screen !== 'playing') {
       e.preventDefault();
       if (!$('setup').classList.contains('hidden')) $('fight-btn').click();

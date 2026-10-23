@@ -14,6 +14,8 @@ type Act = Pick<Shooter, 'x' | 'y' | 'team' | 'aim' | 'recoil' | 'vx' | 'firing'
  */
 export class Preview {
   private renderer: THREE.WebGLRenderer | null = null;
+  /** drag to turn the unit (off where a swipe flips to the next one instead) */
+  turnable = true;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(30, 1, 0.05, 200);
   private hemi = new THREE.HemisphereLight(0xfff6e8, 0x6a6458, 1.6);
@@ -45,7 +47,7 @@ export class Preview {
   constructor(private host: HTMLElement) {
     // drag left and right to turn the unit (vertical drags still scroll the page)
     host.addEventListener('pointerdown', (e) => {
-      if (this.mode !== 'unit') return;
+      if (this.mode !== 'unit' || !this.turnable) return;
       this.dragX = e.clientX;
       host.setPointerCapture(e.pointerId);
       host.classList.add('turning');
