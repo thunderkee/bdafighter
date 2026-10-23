@@ -1592,6 +1592,15 @@ export class ShooterMesh {
         case 'jawL':
           this.jaw2 = o;
           break;
+        case 'fistR':
+          this.fistR = o;
+          break;
+        case 'fistL':
+          this.fistL = o;
+          break;
+        case 'head':
+          this.tiltHead = o;
+          break;
         case 'belly':
           this.bellyMark = o;
           break;
@@ -1630,6 +1639,8 @@ export class ShooterMesh {
     }
     if (!this.barrel.parent) this.turret.add(this.barrel);
     if (!this.turret.parent) this.root.add(this.turret);
+    // a gun tossed hand to hand (Pioneer): the barrel jumps between the two fists
+    if (def.special?.swap && this.fistR && this.fistL && this.barrel.parent === this.turret) this.tossGun = this.barrel;
   }
 
   /** Describe this model as editable blocks (how built-ins become Unit Lab designs). */
@@ -1643,6 +1654,9 @@ export class ShooterMesh {
       if (o === this.slashArm) return 'slash';
       if (o === this.slashArmL) return 'slashL';
       if (o === this.jaw2) return 'jawL';
+      if (o === this.fistR) return 'fistR';
+      if (o === this.fistL) return 'fistL';
+      if (o === this.tiltHead) return 'head';
       if (this.punchArms.includes(o)) return 'punch';
       if (o === this.armR) return 'armR';
       if (o === this.armL) return 'armL';
