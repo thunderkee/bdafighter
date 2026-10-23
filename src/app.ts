@@ -516,6 +516,9 @@ export function boot() {
     }
   };
 
+  /** held items nobody used: they come along into the next round (and yours into the next arcade stage) */
+  let carry: (ItemType | null)[] = [];
+  let carryStage = false;
   /** fresh table for the next round: health, ammo, marbles, items, gates */
   const setupRound = () => {
     resetFeel();
@@ -537,6 +540,10 @@ export function boot() {
       allyCharge: st.allyCharge ?? true,
       boss: boss() ? { slots: boss()!.units.map((_, k) => 1 + k), size: boss()!.size } : undefined,
     });
+    game.shooters.forEach((sh, i) => {
+      if (sh.active && carry[i]) sh.item = carry[i];
+    });
+    carry = [];
     for (const a of ais) a.reset();
     recorder.clear();
     input.release();
@@ -570,6 +577,10 @@ export function boot() {
 
   const startMatch = () => {
     sfx.unlock();
+    // a new match starts empty-handed; the next arcade stage keeps your unused item
+    carry = carryStage ? [carry[0] ?? null] : [];
+    carryStage = false;
+    saveRun('start');
     const st = S();
     // local versus: the table from above for both players, their own labels and controls
     document.body.classList.toggle('duo', duo);
@@ -666,6 +677,7 @@ export function boot() {
   const onRoundOver = () => {
     const w = game.winner;
     if (S().vibrate) buzz(w === 0 ? [20, 40, 20, 40, 60] : w === 1 ? [120, 60, 120] : 40);
+    carry = game.shooters.map((sh) => sh.item);
     if (w === 0 || w === 1) roundWins[w]++;
     else {
       // a drawn round counts for both, unless that would decide nothing forever
@@ -745,6 +757,7 @@ export function boot() {
     $('r-hp').textContent = Math.ceil(player.hpFrac * 100) + '%';
     $('session').textContent = `SESSION ${sessionWins} / ${sessionMatches} WON`;
     showArcadeResult(w);
+    saveRun('result');
     $('result').classList.remove('hidden');
     hud.classList.add('hidden');
     sfx.play(w === 0 ? 'win' : 'lose');
@@ -833,6 +846,56 @@ export function boot() {
     arcade = { stage: 1, cleared: 0, cfg: plan[0], plan };
     showTower(startMatch);
   };
+  /**
+   * Keep the run on the save, so closing the app mid-run loses at most the stage being
+   * fought: it picks up at the start of that stage (or the next one, after a clear) with the
+   * fighter and any unused item.
+   */
+  const saveRun = (at: 'start' | 'result') => {
+    if (!arcade || arcade.done) {
+      if (saveData.arcadeRun) saveData = store.save({ arcadeRun: undefined });
+      return;
+    }
+    const won = at === 'result' && !!arcade.next;
+    const run = {
+      stage: won ? arcade.stage + 1 : arcade.stage,
+      cleared: arcade.cleared,
+      cfg: won ? arcade.next! : arcade.cfg,
+      plan: arcade.plan,
+      character: saveData.settings.character,
+      // (during a stage, the item you brought into it; after a clear, the one you still hold)
+      item: at === 'result' ? (won ? player.item : null) : (carry[0] ?? null),
+      at: Date.now(),
+    };
+    saveData = store.save({ arcadeRun: run });
+  };
+  const showRunOffer = () => {
+    const r = saveData.arcadeRun;
+    $('run-offer').classList.toggle('hidden', !r);
+    if (!r) return;
+    $('tut-offer').classList.add('hidden');
+    $('run-offer-title').textContent = bossAt(r.stage) ? `Arcade run saved · boss stage ${r.stage}` : `Arcade run saved · stage ${r.stage}`;
+    $('run-offer-text').textContent = `${characterById(r.character).name}, ${r.cleared} cleared${r.item ? ` · holding ${ITEMS[r.item as ItemType]?.short ?? 'an item'}` : ''}`;
+  };
+  const resumeRun = () => {
+    const r = saveData.arcadeRun;
+    if (!r) return;
+    sfx.unlock();
+    $('run-offer').classList.add('hidden');
+    selectMode = 'arcade';
+    duo = false;
+    if (characterById(r.character)) saveData = store.save({ settings: { ...saveData.settings, character: r.character } });
+    arcade = { stage: r.stage, cleared: r.cleared, cfg: r.cfg, plan: r.plan };
+    carry = [(r.item as ItemType | null) ?? null];
+    carryStage = true;
+    showTower(startMatch);
+  };
+  $('run-continue').addEventListener('click', resumeRun);
+  $('run-drop').addEventListener('click', () => {
+    saveData = store.save({ arcadeRun: undefined });
+    showRunOffer();
+    openSelect('arcade');
+  });
 
   // ---------- the tower: who you've beaten, who's next, and who waits at the top ----------
   const towerEl = document.createElement('div');
@@ -898,6 +961,7 @@ export function boot() {
       return;
     }
     if (arcade?.next) {
+      carryStage = true;
       arcade.stage++;
       arcade.cfg = arcade.next;
       arcade.next = undefined;
@@ -907,7 +971,9 @@ export function boot() {
   };
   /** leave the arcade run: back to the title with your own table */
   const quitArcade = () => {
+    // (the run stays saved: Continue on the title picks it back up)
     arcade = null;
+    showRunOffer();
     screen = 'title';
     show('title');
     fitTable(S());
@@ -1361,6 +1427,7 @@ export function boot() {
   };
   const toTitle = () => {
     show('title');
+    showRunOffer();
     screen = 'title';
     duo = false;
     document.body.classList.remove('duo');
@@ -1610,6 +1677,7 @@ export function boot() {
   });
   // the first visit offers the tutorial on the title screen
   $('tut-offer').classList.toggle('hidden', !!saveData.tutorialDone);
+  showRunOffer();
 
   // on-screen pad: one tracker for every finger on it
   const pad = new PadTracker($('pad'));

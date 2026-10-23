@@ -31,7 +31,7 @@ export class PadTracker {
   private sliderId: number | null = null;
   /** move fingers (on the arrows or the slider): where each came down, and whether it has been
    *  pulled back toward you far enough to raise the shield */
-  private pulls = new Map<number, { y0: number; on: boolean }>();
+  private pulls = new Map<number, { y0: number; on: boolean; push?: boolean }>();
   /** how far (px) a move finger is pulled back to shield */
   static PULL = 28;
   private sliderU = 0.5;
@@ -126,7 +126,12 @@ export class PadTracker {
 
   private move = (e: PointerEvent) => {
     const pull = this.pulls.get(e.pointerId);
-    if (pull) pull.on = e.clientY - pull.y0 > PadTracker.PULL;
+    if (pull) {
+      const dy = e.clientY - pull.y0;
+      pull.on = dy > PadTracker.PULL;
+      // pushed forward: steps out, and stays out until the finger comes most of the way back
+      pull.push = pull.push ? dy < -PadTracker.PULL / 3 : dy < -PadTracker.PULL;
+    }
     if (e.pointerId === this.sliderId) {
       this.sliderU = this.trackU(e.clientX);
       return;
@@ -152,6 +157,12 @@ export class PadTracker {
   /** a move finger is pulled back toward you: shield up */
   pulled() {
     for (const p of this.pulls.values()) if (p.on) return true;
+    return false;
+  }
+
+  /** a move finger is pushed forward, away from you: step out toward the middle */
+  pushed() {
+    for (const p of this.pulls.values()) if (p.push) return true;
     return false;
   }
 
@@ -184,6 +195,8 @@ export class Input {
   private moveTouch: { id: number; x0: number; y0: number; s0: number } | null = null;
   /** gestures: dragging the move thumb downward raises the shield */
   private shieldDrag = false;
+  /** and dragging it upward steps the robot forward */
+  private advanceDrag = false;
   private aimTouch: { id: number; x0: number; a0: number } | null = null;
   private mouseDown = false;
   private keys = new Set<string>();
@@ -210,7 +223,9 @@ export class Input {
     this.mouseDown = false;
     for (const k of Object.keys(this.buttons) as (keyof typeof this.buttons)[]) this.buttons[k] = false;
     this.shieldDrag = false;
+    this.advanceDrag = false;
     this.player.shielding = false;
+    this.player.advancing = false;
     this.player.firing = false;
     this.player.moveTarget = null;
     this.player.moveAxis = 0;
@@ -261,7 +276,9 @@ export class Input {
       // a ~55% screen-width swipe covers the whole rail
       const perPx = (ARENA.railHalfWidth * 2) / (r.width * 0.55);
       this.player.moveTarget = this.moveTouch.s0 + (e.clientX - this.moveTouch.x0) * perPx;
-      this.shieldDrag = e.clientY - this.moveTouch.y0 > 36;
+      const dy = e.clientY - this.moveTouch.y0;
+      this.shieldDrag = dy > 36;
+      this.advanceDrag = this.advanceDrag ? dy < -12 : dy < -36;
     } else if (this.aimTouch?.id === e.pointerId) {
       const perPx = (AIM_LIMIT * 2) / (r.width * 0.6);
       this.player.aim = this.aimTouch.a0 + (e.clientX - this.aimTouch.x0) * perPx;
@@ -283,6 +300,7 @@ export class Input {
       this.moveTouch = null;
       this.player.moveTarget = null;
       this.shieldDrag = false;
+      this.advanceDrag = false;
     }
     if (this.aimTouch?.id === e.pointerId) this.aimTouch = null;
   };
@@ -298,7 +316,7 @@ export class Input {
   update(dt: number) {
     const p = this.player;
     if (!this.enabled) {
-      p.firing = false;
+      p.firing = p.advancing = false;
       return;
     }
     const k = this.keys;
@@ -341,6 +359,8 @@ export class Input {
     p.firing = !!this.aimTouch || (this.settings.mouseAim && this.mouseDown) || k.has('Space') || b.fire || b.fireL || b.fireR;
     // shield: pull your move finger back toward you (on the buttons, the arrows or the slider)
     p.shielding = b.down || !!this.pad?.pulled() || k.has('KeyS') || k.has('ArrowDown') || this.shieldDrag;
+    // step forward: push the move finger away from you (or hold W / Up)
+    p.advancing = !p.shielding && (!!this.pad?.pushed() || k.has('KeyW') || k.has('ArrowUp') || this.advanceDrag);
   }
 }
 
@@ -357,7 +377,7 @@ export class Input {
 export class DuoInput {
   enabled = false;
   onUseItem: ((who: 0 | 1) => void) | null = null;
-  private touches = new Map<number, { who: 0 | 1; kind: 'move' | 'aim'; y0: number; shield: boolean }>();
+  private touches = new Map<number, { who: 0 | 1; kind: 'move' | 'aim'; y0: number; shield: boolean; adv?: boolean }>();
   private keys = new Set<string>();
   /** the strip at your end (share of your half's height) that moves */
   private static OUTER = 0.38;
@@ -386,7 +406,7 @@ export class DuoInput {
     this.touches.clear();
     this.keys.clear();
     for (const p of this.players) {
-      p.firing = p.shielding = false;
+      p.firing = p.shielding = p.advancing = false;
       p.moveTarget = null;
       p.moveAxis = 0;
     }
@@ -426,7 +446,10 @@ export class DuoInput {
     if (t.kind === 'move') {
       if (w) p.moveTarget = w.x;
       // dragging back toward your own end of the screen raises the shield
-      t.shield = (t.who === 0 ? e.clientY - t.y0 : t.y0 - e.clientY) > 28;
+      const back = t.who === 0 ? e.clientY - t.y0 : t.y0 - e.clientY;
+      t.shield = back > 28;
+      // and pushing it toward the middle steps forward
+      t.adv = t.adv ? back < -10 : back < -28;
     } else if (w) {
       const ahead = (w.y - p.y) * p.forward;
       if (ahead > 0.5) p.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, Math.atan2(w.x - p.x, ahead)));
@@ -457,6 +480,7 @@ export class DuoInput {
       if (turn) p.aim = Math.max(-AIM_LIMIT, Math.min(AIM_LIMIT, p.aim + turn * AIM_TURN_RATE * dt));
       p.firing = touches.some((t) => t.kind === 'aim') || k.has(m.fire);
       p.shielding = touches.some((t) => t.kind === 'move' && t.shield) || k.has(m.shield);
+      p.advancing = !p.shielding && touches.some((t) => t.kind === 'move' && t.adv);
     });
   }
 }

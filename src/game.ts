@@ -199,6 +199,9 @@ export class Shooter {
   /** stepping forward to pass a pack-mate, and how far out it is right now */
   passing = false;
   passOff = 0;
+  /** pushed forward off the rail (drag the move finger forward), and how far out it is */
+  advancing = false;
+  advOff = 0;
   /** aim angle relative to straight ahead, radians, + is toward +x */
   aim = 0;
   /** -1..1 from keys/AI, or null when a drag target is in use */
@@ -357,6 +360,8 @@ export class Shooter {
     this.x = (lane[0] + lane[1]) / 2;
     this.passing = false;
     this.passOff = 0;
+    this.advancing = false;
+    this.advOff = 0;
     this.y = this.railY;
     this.vx = 0;
     this.aim = 0;
@@ -417,6 +422,8 @@ const BITE = { radius: 1.6, mass: 3, damage: 1.8 };
 
 /** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
+/** stepping forward: half way from the rail to the middle of the table, and how fast */
+export const ADVANCE = { depth: ARENA.railY / 2, speed: 9 };
 
 export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 
@@ -1306,7 +1313,13 @@ export class Game {
     const passGoal = s.passing ? PASS.depth : 0;
     const passStep = PASS.speed * adt;
     s.passOff += Math.max(-passStep, Math.min(passStep, passGoal - s.passOff));
-    s.y = s.railY + s.forward * s.passOff;
+    // pushed forward: out toward the middle (not with the shield up), back to the rail on release
+    // (with covers up on this side, it stops just behind them rather than inside one)
+    const behind = this.covers.some((c) => c.active && c.hp > 0 && Math.sign(c.y) === Math.sign(s.railY)) ? ARENA.railY - COVER.y - COVER.halfDepth - 0.75 : ADVANCE.depth;
+    const advGoal = s.advancing && !s.shielding && (canAct || this.phase === 'countdown') ? Math.min(ADVANCE.depth, behind) : 0;
+    const advStep = ADVANCE.speed * adt;
+    s.advOff += Math.max(-advStep, Math.min(advStep, advGoal - s.advOff));
+    s.y = s.railY + s.forward * (s.passOff + s.advOff);
     s.body.setNextKinematicTranslation({ x: s.x, y: s.y });
     // Smart Lock: the aim snaps onto the closest opponent, leading it as it moves
     s.lockSlot = -1;

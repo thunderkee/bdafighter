@@ -92,6 +92,8 @@ export interface SaveData {
   wins: number;
   /** the furthest arcade stage cleared */
   arcadeBest?: number;
+  /** an arcade run in progress, to pick up after the app was closed: the stage to play next */
+  arcadeRun?: { stage: number; cleared: number; cfg: Partial<Settings>; plan: Partial<Settings>[]; character: string; item?: string | null; at: number };
   /** the near chase camera became the default once; older saves are moved to it */
   nearCam?: boolean;
   /** a clear table (no pucks, walls or pins) became the default once */

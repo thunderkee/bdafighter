@@ -142,11 +142,11 @@
           <div class="tut-actions"><button class="key tut-next hidden">Next ▸</button><button class="key tut-skip">Skip tutorial</button></div>
         </div>
         <div id="duo-hints">
-          <div class="hint p1">PLAYER 1 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
-          <div class="hint p2">PLAYER 2 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
+          <div class="hint p1">PLAYER 1 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD, PUSH TO STEP UP<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
+          <div class="hint p2">PLAYER 2 · YOUR END: DRAG TO MOVE, PULL BACK TO SHIELD, PUSH TO STEP UP<br />TOWARD THE MIDDLE: TOUCH TO AIM AND FIRE</div>
         </div>
         <div id="hints">
-          <div class="hint left">◀ DRAG TO MOVE ▶<br />PULL BACK: SHIELD · JUST IN TIME: PARRY</div>
+          <div class="hint left">◀ DRAG TO MOVE ▶<br />PULL BACK: SHIELD · PUSH: STEP UP</div>
           <div class="hint right">TAP TO FIRE · HOLD TO CHARGE<br />DRAG TO AIM</div>
         </div>
         <div id="toast"></div>
@@ -191,6 +191,12 @@
           <span>Learn to move, shoot, shield and parry in about a minute.</span>
           <div><button class="key orange" id="tut-start">Play the tutorial</button><button class="key" id="tut-later">Not now</button></div>
         </div>
+        <!-- an arcade run left unfinished (the app was closed): pick it back up -->
+        <div id="run-offer" class="tut-offer run-offer hidden">
+          <b id="run-offer-title">Arcade run saved</b>
+          <span id="run-offer-text"></span>
+          <div><button class="key orange" id="run-continue">Continue ▶</button><button class="key" id="run-drop">New run</button></div>
+        </div>
         <nav class="menu">
           <button id="play-btn" class="key menu-item"><em>01</em><b>Versus</b><small>Fighter, rival, arena and rules</small></button>
           <button id="arcade-btn" class="key menu-item"><em>02</em><b>Arcade</b><small>A ladder of stages and four bosses</small></button>
@@ -201,7 +207,7 @@
         </nav>
         <div class="dev-foot">
           <i class="grille"></i>
-          <p class="how touch-only">Left thumb drag to move, pull back to shield · right thumb tap to fire, hold to charge, drag to aim</p>
+          <p class="how touch-only">Left thumb drag to move, pull back to shield, push forward to step up · right thumb tap to fire, hold to charge, drag to aim</p>
           <p class="how mouse-only">Mouse aims · click / Space fires (hold to charge) · A / D move · F item · V view</p>
           <button id="mute-btn" class="key round" aria-label="Toggle sound">SND</button>
         </div>
