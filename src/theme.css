@@ -3236,3 +3236,17 @@ body.duo #enemy-tag {
 #title {
   overflow-y: auto;
 }
+#dmg-layer .dmg.catch {
+  font-size: 16px;
+  color: #7ff0ff;
+  -webkit-text-stroke-color: #002a30;
+  text-shadow: 0 2px 0 #002a30;
+  letter-spacing: 0.04em;
+}
+#dmg-layer .dmg.bank {
+  font-size: 13px;
+  color: #9ad8ff;
+  -webkit-text-stroke-color: #001a2a;
+  text-shadow: 0 2px 0 #001a2a;
+  letter-spacing: 0.12em;
+}

@@ -1,28 +1,6 @@
 import RAPIER from '@dimforge/rapier2d';
 import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, TOSS_TIME, TWIN_X, type ShooterStats } from './config';
-import {
-  COVER,
-  COVER_X,
-  DRAGON,
-  DROP,
-  GATE,
-  GATES,
-  GATE_TYPES,
-  HEAL,
-  ITEMS,
-  ITEM_TYPES,
-  MISSILE,
-  MULTI,
-  PIN,
-  PIN_SPOTS,
-  SHIELD,
-  PARRY,
-  SLOWMO,
-  WIPER,
-  X5,
-  type GateType,
-  type ItemType,
- BOOST_BALL } from './items';
+import { COVER, COVER_X, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, PIN, PIN_SPOTS, SHIELD, PARRY, SLOWMO, WIPER, X5, type GateType, type ItemType, BOOST_BALL, CATCH, TRICK } from './items';
 import * as sfx from './audio';
 
 // Collision groups: membership in the high 16 bits, filter in the low 16.
@@ -192,6 +170,7 @@ export type Fx =
   | { type: 'clack'; x: number; y: number; intensity: number }
   | { type: 'drop-destroyed'; x: number; y: number; team: Team; item: ItemType; h?: number }
   | { type: 'parry'; x: number; y: number; slot: number }
+  | { type: 'catch'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
   | { type: 'super-fire'; slot: number }
@@ -1831,13 +1810,22 @@ export class Game {
         const heavy = m.kind !== 'normal';
         // power balls always land at full power
         const factor = heavy ? 1 : Math.max(0.45, Math.min(1.25, speed / 15));
-        const amount = m.damage * factor;
+        // trick shots: every wall bounce on the way in adds to the hit
+        const amount = m.damage * factor * (1 + TRICK.per * Math.min(TRICK.max, m.bounces));
         // a perfect block: the marble goes straight back at whoever fired it
         if (s.shieldUp && s.shieldT < PARRY.window) {
           this.parries.push({ s, attacker: this.shooters[m.owner], damage: m.damage, kind: m.kind, x: p.x, y: p.y });
           return;
         }
-        if (this.block(s, amount, p.x, p.y, heavy)) return;
+        if (this.block(s, amount, p.x, p.y, heavy)) {
+          // a regular marble that hits the shield is caught: one more in the magazine
+          if (!heavy && s.ammo < s.stats.capacity) {
+            s.ammo = Math.min(s.stats.capacity, s.ammo + CATCH.ammo);
+            this.fx.push({ type: 'catch', x: p.x, y: p.y, slot: s.slot });
+            if (s.slot === 0) sfx.play('reload', 0.7);
+          }
+          return;
+        }
         s.flash = heavy ? 0.3 : 0.12;
         if (m.kind === 'super') s.stagger = 0.45;
         const attacker = this.shooters[m.owner];

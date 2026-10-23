@@ -435,6 +435,18 @@ export function boot() {
     dmgLayer.appendChild(el);
     setTimeout(() => el.remove(), 900);
   };
+  /** a word floating up from a spot on the table (CATCH +1) */
+  const floatText = (x: number, y: number, text: string, cls: string) => {
+    const sp = view.project(x, y, 1.0);
+    const el = document.createElement('b');
+    el.className = 'dmg ' + cls;
+    el.textContent = text;
+    el.style.left = sp.x + 'px';
+    el.style.top = sp.y + 'px';
+    el.style.setProperty('--dx', '0px');
+    dmgLayer.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  };
   /** a short callout under the clock (FIRST HIT, COMBO, LAST STAND, PARRY...) */
   const callout = (text: string, tone: 'gold' | 'red' | 'cyan' = 'gold') => {
     calloutEl.textContent = text;
@@ -1407,9 +1419,9 @@ export function boot() {
     { title: 'Move', text: 'Slide along your rail: hold ◀ or ▶ (with gestures, drag your left thumb).', check: () => !!tut && tut.moved > 3 },
     { title: 'Fire', text: 'Tap FIRE to shoot a marble down the lane.', check: () => !!tut && player.shots - tut.shots0 >= 3 },
     { title: 'Charge shot', text: 'Hold FIRE to load marbles into one big shot, then let go.', check: () => !!tut && tut.charged },
-    { title: 'Shield', text: 'Pull your move thumb back toward you to raise the shield. Hold it a moment.', check: () => !!tut && tut.shield > 0.8 },
+    { title: 'Shield', text: 'Pull your move thumb back toward you to raise the shield. A marble that hits it is caught: one more in your magazine.', check: () => !!tut && tut.shield > 0.8 },
     { title: 'Parry', text: 'Your rival is shooting now. Raise the shield just as a marble arrives and it flies back, harder.', ai: true, hard: true, check: () => false },
-    { title: 'Land hits', text: 'Put it together: line up with your rival, dodge, shield and land 3 hits. Tip: shots that bounce off a wall come in from angles a shield can miss.', ai: true, hard: true, check: () => !!tut && player.hits - tut.hits0 >= 3 },
+    { title: 'Land hits', text: 'Put it together: line up with your rival, dodge, shield and land 3 hits. Tip: a shot that bounces off a wall on the way hits harder, more for every bounce.', ai: true, hard: true, check: () => !!tut && player.hits - tut.hits0 >= 3 },
   ];
   const tutStepNow = () => TUT[Math.min(tut?.i ?? 0, TUT.length - 1)];
   const tutShow = () => {
@@ -1677,7 +1689,18 @@ export function boot() {
         }
         if (f.type === 'hit') {
           // a number where it landed; the string of hits your side lands; the first hit of the round
-          damageNumber(f.x, f.y, f.amount, f.team === 0, f.power !== 'normal');
+          const banks = Math.min(3, f.bounces ?? 0);
+          damageNumber(f.x, f.y, f.amount, f.team === 0, f.power !== 'normal' || banks > 0);
+          // your trick shots get their name called
+          // (a single bank is common: a small tag at the hit; two or more earn the callout)
+          if (banks > 0 && f.team === 1) {
+            if (banks === 1) floatText(f.x, f.y + 0.6, 'BANK', 'bank');
+            else {
+              callout(banks >= 3 ? 'IMPOSSIBLE SHOT!' : 'TRICK SHOT!', 'gold');
+              sfx.play('super', 0.5);
+              if (S().vibrate) buzz([20, 30, 30]);
+            }
+          }
           if (!roundFeel.firstHit) {
             roundFeel.firstHit = true;
             callout('FIRST HIT', f.team === 0 ? 'red' : 'gold');
@@ -1716,6 +1739,10 @@ export function boot() {
         if (f.type === 'muzzle' && f.slot === 0 && S().vibrate) buzz(8);
         if (f.type === 'super-fire' && f.slot === 0 && S().vibrate) buzz([30, 30, 50]);
         if (tut) tutFx(f);
+        if (f.type === 'catch' && f.slot === 0) {
+          floatText(f.x, f.y, 'CATCH +1', 'catch');
+          if (S().vibrate) buzz(10);
+        }
         if (f.type === 'parry') {
           if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'PARRY!' : 'ALLY PARRY', 'cyan');
           else callout('PARRIED', 'red');

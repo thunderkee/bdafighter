@@ -108,6 +108,16 @@ export const X5 = { damage: 5, radius: 1.45, mass: 4 };
  * back at the shooter as your own boosted marble, costs no shield energy, and stuns briefly
  */
 export const PARRY = { window: 0.2, speed: 1.3, damage: 1.4 };
+/**
+ * Catch: a regular marble that hits your raised shield is caught, back into your magazine
+ * (heavy and power balls are only blocked). A just-in-time shield still parries instead.
+ */
+export const CATCH = { ammo: 1 };
+/**
+ * Trick shots: every wall bounce before a marble lands adds this share of damage, up to `max`
+ * bounces (a bank shot, a trick shot, an impossible shot).
+ */
+export const TRICK = { per: 0.2, max: 3 };
 export const SHIELD = {
   max: 100,
   /** energy drained per second while raised */
