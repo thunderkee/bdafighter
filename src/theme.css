@@ -3262,8 +3262,8 @@ body.duo #enemy-tag {
 #select .step-head h2 {
   /* a black title bar from the left edge */
   align-self: flex-start;
-  margin: 0 0 0 -20px;
-  padding: 6px 22px 6px 20px;
+  margin: 0 0 0 -16px;
+  padding: 6px 22px 6px 16px;
   background: var(--char);
   color: #fff;
   font: 800 19px/1.1 var(--display);
@@ -3272,10 +3272,9 @@ body.duo #enemy-tag {
   clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
 }
 .carousel {
-  --band: #2a4fd6;
   position: relative;
-  width: calc(100% + 40px);
-  margin: 0 -20px;
+  width: calc(100% + 32px);
+  margin: 0 -16px;
   flex: 1;
   min-height: 250px;
   overflow: hidden;
@@ -3284,11 +3283,22 @@ body.duo #enemy-tag {
   -webkit-user-select: none;
   background: #fbf8f1;
 }
-.carousel[data-side='p2'] {
+#select {
+  --band: #2a4fd6;
+  gap: 0;
+}
+#select[data-side='p2'] {
   --band: #d9364a;
 }
-.carousel[data-side='arena'] {
+#select[data-side='arena'] {
   --band: var(--char);
+}
+/* (the step pills are gone: the title bar says where you are) */
+#select .steps {
+  display: none;
+}
+#select .step-head {
+  margin-bottom: 8px;
 }
 /* the target rings behind the fighter */
 .car-rings {
@@ -3316,7 +3326,7 @@ body.duo #enemy-tag {
 }
 .car-stage {
   position: absolute;
-  inset: 0 12% 96px;
+  inset: 0 0 96px;
   z-index: 2;
 }
 .car-stage canvas {
@@ -3511,24 +3521,14 @@ body.duo #enemy-tag {
   left: 0;
   right: 0;
   bottom: 0;
-  min-height: 118px;
-  padding: 22px 20px 12px;
+  min-height: 112px;
+  padding: 14px 16px 12px;
   background: var(--band);
   color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  transition: background 0.25s;
-}
-.car-band::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -13px;
-  height: 14px;
-  background: conic-gradient(from 135deg at 50% 0, var(--band) 90deg, transparent 0) 50% 0 / 28px 14px repeat-x;
   transition: background 0.25s;
 }
 .car-band.flash #pv-name {
@@ -3678,12 +3678,13 @@ body.duo #enemy-tag {
 }
 /* every entry as a thumbnail, to jump straight to one */
 .pick-strip {
-  width: min(420px, 100%);
+  width: calc(100% + 32px);
+  margin: 0 -16px;
   flex: none;
   display: flex;
   gap: 6px;
   overflow-x: auto;
-  padding: 4px 2px 6px;
+  padding: 4px 16px 10px;
   scrollbar-width: none;
   touch-action: pan-x;
 }
@@ -3775,4 +3776,27 @@ body.duo #enemy-tag {
   height: 7px;
   border: 0;
   box-shadow: none;
+}
+
+/* the band runs on into the arena width row and the buttons' bar, one colour to the bottom */
+#select .arena-width {
+  width: calc(100% + 32px);
+  max-width: none;
+  margin: 0 -16px;
+  padding: 4px 16px 8px;
+  background: var(--band);
+  color: #fff;
+}
+#select .dev-actions {
+  margin-top: 0;
+  margin-bottom: calc(-1 * max(18px, env(safe-area-inset-bottom)));
+  background: var(--band);
+  border-top: 0;
+  transition: background 0.25s;
+}
+#select .arena-width > b {
+  color: #fff;
+}
+.car-info .meters .pv-note {
+  grid-column: 1 / -1;
 }

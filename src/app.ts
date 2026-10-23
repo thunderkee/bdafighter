@@ -1251,7 +1251,8 @@ export function boot() {
     const car = $('carousel');
     car.classList.toggle('arena', step === 'arena');
     car.classList.toggle('locked', locked);
-    car.dataset.side = step === 'arena' ? 'arena' : step === 'fighter' ? 'p1' : 'p2';
+    // (the screen carries the side too: the buttons' bar takes the band's colour)
+    car.dataset.side = $('select').dataset.side = step === 'arena' ? 'arena' : step === 'fighter' ? 'p1' : 'p2';
     // the new one slides in from the side it came from; the name band flashes
     replay($('preview'), dir < 0 ? 'from-left' : dir > 0 ? 'from-right' : 'switch');
     replay($('car-band'), 'flash');
