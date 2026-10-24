@@ -229,16 +229,15 @@ export class Preview {
     this.raf = 0;
   }
 
-  /** stop and free the GPU (leaving the select screens) */
+  /**
+   * Stop drawing and drop the model (leaving the screen). The renderer itself is kept and reused:
+   * phones allow only a few 3D canvases, and creating fresh ones each visit can push out the
+   * match's own (it goes black).
+   */
   release() {
     this.stop();
     this.clear();
-    if (this.renderer) {
-      this.renderer.domElement.remove();
-      this.renderer.dispose();
-      this.renderer.forceContextLoss();
-      this.renderer = null;
-    }
+    this.renderer?.renderLists.dispose();
   }
 
   private shots = new Map<string, string>();

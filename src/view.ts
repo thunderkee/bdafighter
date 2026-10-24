@@ -298,6 +298,12 @@ export class View {
   ) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.renderer = new THREE.WebGLRenderer({ antialias: dpr < 2, powerPreference: 'high-performance' });
+    // if the phone drops this canvas anyway (too many 3D canvases), three.js rebuilds it when the
+    // browser hands it back; size and the post chain are set up again then
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+      this.post.setSize(this.host.clientWidth, this.host.clientHeight);
+      this.resize();
+    });
     this.renderer.setPixelRatio(dpr);
     // filmic: a neutral tone curve that keeps the palette true, a studio environment for
     // the plastic and glass to reflect, and real shadows from the key light

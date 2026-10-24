@@ -108,19 +108,15 @@ export function portrait(id: string, bust = false) {
 
 /**
  * Swap each `[data-portrait]` placeholder under `root` for the unit's picture, one unit at a
- * time (a short timer rather than animation frames, so a background tab still gets there). The renderer is released when the queue runs dry.
+ * time (a short timer rather than animation frames, so a background tab still gets there). One renderer, kept for the whole session.
  */
 export function fillPortraits(root: ParentNode = document) {
   const queue = [...root.querySelectorAll<HTMLElement>('[data-portrait]')];
   const step = () => {
     const el = queue.shift();
-    if (!el) {
-      renderer?.dispose();
-      renderer?.forceContextLoss();
-      renderer = null;
-      scene = null;
-      return;
-    }
+    // (the renderer is kept for next time: phones allow only a few 3D canvases, and making a
+    // fresh one for every batch can push out the match's own)
+    if (!el) return;
     const id = el.dataset.portrait!;
     const bust = el.dataset.crop === 'bust';
     try {
