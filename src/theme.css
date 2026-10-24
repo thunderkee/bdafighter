@@ -4911,3 +4911,17 @@ body.duo #enemy-tag {
 #title.home .home-lv i {
   background: rgba(0, 0, 0, 0.25);
 }
+
+/* type: Lilita One for anything loud (titles, names, buttons), Nunito for reading */
+:root {
+  --display: 'Lilita One', 'Nunito', ui-rounded, system-ui, sans-serif;
+  --body: 'Nunito', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+/* (Lilita has one weight: never fake-bold it) */
+html {
+  font-synthesis-weight: none;
+}
+/* the home dots, quieter */
+#title.home {
+  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.045) 0 4px, transparent 5px) 0 0 / 34px 34px, linear-gradient(#3a6cf0, #1f45c0);
+}
