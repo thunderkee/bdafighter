@@ -4224,3 +4224,20 @@ body.duo #enemy-tag {
 .car-lock {
   top: 38%;
 }
+/* the arena fills the whole preview area, edge to edge */
+.carousel.arena .car-stage {
+  flex: 1;
+  align-self: stretch;
+  width: auto;
+  aspect-ratio: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.carousel.arena .peek {
+  display: none;
+}
+.carousel.arena .car-arrow {
+  top: 50%;
+}
