@@ -17,6 +17,9 @@ export class Preview {
   /** the tallest roster unit (Bastion) and the widest reach (Nightshade), round the plinth's axis */
   static FRAME_H = 2.5;
   static FRAME_R = 1.65;
+  /** told the colour at the top of an arena's view (once it's drawn), for the screen round it */
+  onSky: ((css: string) => void) | null = null;
+  private skyIn = 0;
   /** the title screen's hero: no plinth, framed big, an attack pose (punches, no marble), always cel shaded */
   hero = false;
   /** drag to turn the unit (off where a swipe flips to the next one instead) */
@@ -184,6 +187,7 @@ export class Preview {
     this.rim.intensity = 0;
     this.camera.fov = 46;
     this.camera.updateProjectionMatrix();
+    this.skyIn = 2;
     this.start();
   }
 
@@ -300,6 +304,13 @@ export class Preview {
     }
     celify(this.scene, this.hero || CEL.on);
     r.render(this.scene, this.camera);
+    // (read straight after drawing, while the frame is still there)
+    if (this.mode === 'stage' && this.skyIn > 0 && --this.skyIn === 0 && this.onSky) {
+      const gl = r.getContext();
+      const px = new Uint8Array(4);
+      gl.readPixels(Math.floor(gl.drawingBufferWidth / 2), gl.drawingBufferHeight - 2, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      this.onSky(`rgb(${px[0]}, ${px[1]}, ${px[2]})`);
+    }
   }
 
   /**

@@ -1167,6 +1167,10 @@ export function boot() {
   // ---------- select screens: fighter, rival, arena, then the match rules (like a fighting game) ----------
   const preview = new Preview($('preview'));
   preview.turnable = false;
+  // the arena step: the top of the screen takes the colour of the arena's sky
+  preview.onSky = (css) => {
+    if (step === 'arena') $('select').style.setProperty('--top', css);
+  };
   type Step = 'fighter' | 'rival' | 'arena' | 'rules';
   let step: Step = 'fighter';
   let selectMode: 'versus' | 'arcade' | 'duo' = 'versus';
@@ -1264,6 +1268,7 @@ export function boot() {
     if (e && locked) $('car-lock-text').textContent = lockText(e);
     ($('select-next') as HTMLButtonElement).disabled = locked;
     showPeeks();
+    if (step !== 'arena') $('select').style.removeProperty('--top');
     if (step === 'arena') {
       preview.showStage(id);
       $('pv-tag').textContent = 'ARENA';

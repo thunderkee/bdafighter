@@ -4241,3 +4241,11 @@ body.duo #enemy-tag {
 .carousel.arena .car-arrow {
   top: 50%;
 }
+/* the arena step: title, strip and preview all on the arena's own sky */
+#select.screen.device {
+  background: var(--top, #fbf8f1);
+  transition: background 0.3s;
+}
+.carousel.arena {
+  background: var(--top, var(--char));
+}
