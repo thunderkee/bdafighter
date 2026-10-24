@@ -141,6 +141,8 @@ export interface Special {
   hand?: number;
   swap?: number;
   alternate?: boolean;
+  /** a three-shot cycle: left fist, right fist, then both at once (two marbles) */
+  triple?: boolean;
   wobble?: number;
   bite?: number;
   ricochet?: number;

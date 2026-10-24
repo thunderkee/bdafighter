@@ -233,6 +233,8 @@ export class Shooter {
   hand = 1;
   lastHand = 1;
   swapT = 0;
+  /** Tyrant King's three-shot cycle: where it is */
+  tripleN = 0;
   swapN = 0;
   biteN = 0;
   windLeft = 0;
@@ -352,7 +354,7 @@ export class Shooter {
     this.out = false;
     this.kickT = this.heavyT = 9;
     this.hand = this.lastHand = 1;
-    this.swapT = this.swapN = this.biteN = 0;
+    this.swapT = this.swapN = this.biteN = this.tripleN = 0;
     this.windLeft = 0;
     this.windT = 9;
     this.wobble = this.wobbleN = 0;
@@ -1646,6 +1648,14 @@ export class Game {
     // the hand this shot leaves from (it may change for the next one)
     s.lastHand = s.hand;
     if (sp?.alternate) s.hand = -s.hand;
+    // Tyrant King: left, right, then both fists together (lastHand 0 means both)
+    let both = false;
+    if (sp?.triple) {
+      const n = s.tripleN++ % 3;
+      both = n === 2;
+      s.lastHand = n === 0 ? -1 : n === 1 ? 1 : 0;
+      s.hand = n === 0 ? 1 : n === 1 ? 1 : -1;
+    }
     // Pioneer tosses the gun to the other hand after every few shots
     if (sp?.swap && (s.swapN = (s.swapN + 1) % sp.swap) === 0) {
       s.hand = -s.hand;
@@ -1673,9 +1683,26 @@ export class Game {
       kind: isSuper ? 'super' : boost || bite ? 'boost' : 'normal',
       // nudge a big marble forward so it doesn't spawn inside the robot
       push: isSuper || bite ? radius : 0,
-      side: twin ? TWIN.gap : 0,
+      side: twin ? TWIN.gap : both ? (sp?.hand ?? 0.45) : 0,
     });
     s.shots++;
+    // both fists: the second marble from the other fist (it costs a marble too)
+    if (both && s.ammo >= 2) {
+      const m2 = this.takeMarble();
+      if (m2) {
+        this.launch(m2, s, {
+          angle: s.aim + (Math.random() * 2 - 1) * st.spread,
+          radius,
+          speed: st.muzzleSpeed * (boost ? BOOST_BALL.speed : 1),
+          mass: st.marbleMass * (boost ? BOOST_BALL.mass : 1),
+          damage: st.damage * (boost ? BOOST_BALL.damage : 1),
+          kind: boost ? 'boost' : 'normal',
+          side: -(sp?.hand ?? 0.45),
+        });
+        s.shots++;
+        s.ammo -= 1;
+      }
+    }
     // twin barrels: a second marble from the other barrel, each a little lighter on damage
     // spread fire: the rest of the fan, alternating either side of the aim
     for (let k = 1; k < fan; k++) {

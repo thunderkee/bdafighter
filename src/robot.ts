@@ -334,7 +334,7 @@ const V2: Record<string, V2Look> = {
   rex: { fit: [1.12, 1.12, 1.12], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
 };
 /** a 2.1 body plan: how long the legs are, how wide the chest, how the arms and head sit */
-type Frame21 = { legS: number; legW: number; legGap: number; foot: number; chestW: number; chestB: number; chestD: number; waistW: number; armS: number; armW: number; shOut: number; headS: number; headY?: number; lean: number };
+type Frame21 = { legS: number; legW: number; legGap: number; foot: number; chestW: number; chestB: number; chestD: number; waistW: number; armS: number; armW: number; shOut: number; headS: number; headY?: number; lean: number; /** the torso stretched taller (head and arms ride up on it, unstretched) */ chestH?: number };
 const FRAMES21: Record<string, Frame21> = {
   /** the standard hero: V chest, even limbs */
   hero: { legS: 1, legW: 1, legGap: 0.25, foot: 1, chestW: 0.94, chestB: 0.62, chestD: 0.6, waistW: 0.42, armS: 1, armW: 1, shOut: 0.64, headS: 1.04, lean: 0 },
@@ -348,6 +348,8 @@ const FRAMES21: Record<string, Frame21> = {
   beetle: { legS: 0.96, legW: 0.84, legGap: 0.24, foot: 0.92, chestW: 0.8, chestB: 0.56, chestD: 0.54, waistW: 0.4, armS: 0.96, armW: 0.82, shOut: 0.56, headS: 1.24, headY: 0.04, lean: 0 },
   /** squat and wide: short thick legs, a broad chest, big arms and hands */
   squat: { legS: 0.74, legW: 1.3, legGap: 0.3, foot: 1.2, chestW: 1.14, chestB: 0.84, chestD: 0.7, waistW: 0.56, armS: 0.9, armW: 1.42, shOut: 0.8, headS: 0.9, lean: 0 },
+  /** a silverback: a huge barrel chest, long thick arms, short bowed legs, a small head sunk between the shoulders */
+  gorilla: { legS: 0.62, legW: 1.6, legGap: 0.36, foot: 1.3, chestW: 1.5, chestB: 1.04, chestD: 0.86, waistW: 0.64, armS: 1.28, armW: 1.85, shOut: 1.02, headS: 0.82, headY: -0.08, lean: 0, chestH: 1.4 },
   lizard: { legS: 1, legW: 1, legGap: 0.24, foot: 1, chestW: 0.6, chestB: 0.6, chestD: 0.5, waistW: 0.4, armS: 1, armW: 1, shOut: 0.3, headS: 1, lean: 0 },
 };
 type Look21 = {
@@ -511,13 +513,14 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, wisp: true, bigCape: true }, ball: 0xff4a5a, glow: 0xff3a4a, palette: { body: 0xe8e2d6, trim: 0x1a1418, accent: 0xff3a4a, joint: 0x2a2428, eye: 0xff3a4a } },
   // Unit Violet (EVA Unit-08): a silverback gorilla instead: an ape's head for the horned EVA
   // head, a squat hunched frame for the long legs, huge palm-blaster hands, violet with silver
-  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'squat', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', digi: true, menace: true, lean: -0.3 }, ball: 0xc88aff, glow: 0xb06aff, palette: { body: 0x4a2e8a, trim: 0xb8bec9, accent: 0xffb02e, joint: 0x1a1426, eye: 0xff5a3a } },
+  // (big now: a towering hunched silverback, near-black violet, a silver back and burning red eyes)
+  violet: { special: { alternate: true, hand: 0.45 }, fit: [1.38, 1.38, 1.38], look: { frame: 'gorilla', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', menace: true, lean: -0.46 }, ball: 0xb06aff, glow: 0xff3a1a, palette: { body: 0x2a1a48, trim: 0xc8ccd6, accent: 0xff4a2a, joint: 0x0e0a16, eye: 0xff2a14 } },
   // Leo King (Metabee): Fang Liger 2.1's head on a short neck for the beetle dome, no X legs or
   // shell skirt, a royal cape
   kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xffc84a, palette: { body: 0x9a1c24, trim: 0x2a1a1a, accent: 0xe8b83a, joint: 0x1e1416, eye: 0xffe14d } },
   // Tyrant King (Megatron): a hellhound head for the bucket helm, wolf heads on both fists for
   // the T-rex fist, no silver ribcage; black and blood red
-  tyrant: { special: { alternate: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xff5a2a, glow: 0xff3a1a, palette: { body: 0x1e1c22, trim: 0x5a1418, accent: 0x8a8e96, joint: 0x101014, eye: 0xff3a1a } },
+  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xff5a2a, glow: 0xff3a1a, palette: { body: 0x1e1c22, trim: 0x5a1418, accent: 0x8a8e96, joint: 0x101014, eye: 0xff3a1a } },
   // Rex Saur: frost blue for the desert sand, a stegosaurus's plates down its back
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall', 'plates'], ball: 0x8ad8ff, palette: { body: 0x8ab8d8, trim: 0x2a3a4a, accent: 0xff5a3a, joint: 0x1a2430, eye: 0xffe14d } },
   // Fang Liger (a Zoids liger): a black-and-gold war hound instead, plated all over, a visor over
@@ -759,6 +762,12 @@ export class ShooterMesh {
     this.id = def.id;
     this.ball = marbleColor;
     this.build(def, marbleColor);
+    // a taller torso: the chest's own plates stretch, the parts on it (head, arms) just ride up
+    const chestH = def.look21 ? FRAMES21[def.look21.frame]?.chestH : undefined;
+    if (chestH && !def.blueprint) {
+      this.turret.scale.y *= chestH;
+      for (const c of this.turret.children) if (!(c as THREE.Mesh).isMesh) c.scale.y /= chestH;
+    }
     if (def.fit) {
       this.fit.set(...def.fit);
       this.root.scale.copy(this.fit);
@@ -5181,7 +5190,8 @@ export class ShooterMesh {
     const kicked = this.barrel2 && this.lastHand === -1 ? this.barrel2 : this.barrel;
     const idle = kicked === this.barrel ? this.barrel2 : this.barrel;
     kicked.position.z = this.barrelZ + s.recoil * (this.jaw ? 0.04 : 0.12);
-    if (idle) idle.position.z = this.barrelZ;
+    // (lastHand 0: both fired at once)
+    if (idle) idle.position.z = this.lastHand === 0 ? kicked.position.z : this.barrelZ;
     if (this.punchArms.length) {
       // the wind-up: both arms thrust straight out, held through the blast, then drawn back
       const w = s.windT ?? 9;
@@ -5248,7 +5258,7 @@ export class ShooterMesh {
       const biter = this.jaw2 && this.lastHand === -1 ? this.jaw2 : this.jaw;
       const rested = biter === this.jaw ? this.jaw2 : this.jaw;
       biter.rotation.x = this.rest.jaw + (this.jawOpen ? this.jawOpen * gape : s.recoil * 0.55);
-      if (rested) rested.rotation.x = this.rest.jaw;
+      if (rested) rested.rotation.x = this.lastHand === 0 ? biter.rotation.x : this.rest.jaw;
     }
     if (this.slashArm) {
       // a swordsman's shot is a slash: from the ready (raised on the right, turned a little out),

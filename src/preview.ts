@@ -374,6 +374,7 @@ export class Preview {
     }
   }
   private burstLeft = 0;
+  private tripleN = 0;
   /** drag to turn the unit by hand: the extra turn, and how long the auto swing waits after a drag */
   private spin = 0;
   private handT = 0;
@@ -390,6 +391,12 @@ export class Preview {
     s.recoil = 1;
     s.lastHand = s.hand;
     if (sp.alternate) s.hand = -s.hand;
+    // Tyrant King's cycle: left, right, both
+    if (sp.triple) {
+      const n = this.tripleN++ % 3;
+      s.lastHand = n === 0 ? -1 : n === 1 ? 1 : 0;
+      s.hand = n === 2 ? -1 : 1;
+    }
     // after every few shots the gun is tossed to the other hand; it fires again once it lands
     if (sp.swap && (this.swapT = (this.swapT + 1) % sp.swap) === 0) {
       s.hand = -s.hand;
@@ -411,7 +418,8 @@ export class Preview {
     fwd.normalize();
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
     if (this.special.wobble) fwd.applyAxisAngle(new THREE.Vector3(0, 1, 0), -this.act.wobble);
-    for (const side of this.twin ? [-TWIN_X, TWIN_X] : [0]) {
+    const both = this.act.lastHand === 0;
+    for (const side of this.twin ? [-TWIN_X, TWIN_X] : both ? [-(this.special.hand ?? 0.45), this.special.hand ?? 0.45] : [0]) {
       const mesh = new THREE.Mesh(this.ballGeo, this.ballMat);
       mesh.castShadow = true;
       mesh.position.copy(from).addScaledVector(right, side);
