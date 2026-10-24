@@ -4332,3 +4332,273 @@ body.duo #enemy-tag {
   left: 14px;
   bottom: 48px;
 }
+
+/* ================= cartoon kit: one look across the menus and the HUD =================
+   Flat light grounds, thick ink outlines, hard drop shadows (no soft blur), chunky
+   uppercase type with an ink stroke: the same language as the cel-shaded fighters. */
+:root {
+  --line: #1b1916;
+  --pop: 0 4px 0 var(--line);
+  --pop-press: 0 1px 0 var(--line);
+}
+.screen.device {
+  background: #fbf8f1;
+  box-shadow: none;
+}
+/* keys: chunky, outlined, a hard shadow they press down into */
+.key,
+.btn {
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--line);
+  font: 800 14px var(--display);
+  letter-spacing: 0.05em;
+  box-shadow: var(--pop);
+}
+.key:active,
+.key.tap {
+  transform: translateY(3px);
+  box-shadow: var(--pop-press);
+}
+.key.orange {
+  background: linear-gradient(#ff9a66, var(--orange));
+  color: #fff;
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+}
+/* panels: white stickers with an ink edge */
+.setting {
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--pop);
+}
+.setting:nth-child(4n + 2) {
+  background: #fff;
+}
+.set-head b {
+  font: 800 13px var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--line);
+}
+/* toggles: an outlined pill, the choice in orange */
+.seg {
+  padding: 3px;
+  border-radius: 99px;
+  border: 2.5px solid var(--line);
+  background: #efe9dd;
+  box-shadow: none;
+}
+.seg button {
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 800 11px var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  box-shadow: none;
+}
+.seg button.on {
+  background: var(--orange);
+  color: #fff;
+  -webkit-text-stroke: 3px var(--line);
+  paint-order: stroke fill;
+  box-shadow: inset 0 0 0 2px var(--line);
+  transform: none;
+}
+.seg.level button.lit {
+  background: var(--amber);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+/* screen titles: the black slanted bar from the select screens */
+.screen-title {
+  align-self: flex-start;
+  margin: 0 0 4px -16px;
+  padding: 6px 22px 6px 16px;
+  background: var(--line);
+  color: #fff;
+  font: 800 19px/1.1 var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+}
+/* big words (PAUSED, VICTORY): ink with a thick white sticker edge */
+.result-title {
+  font: 800 54px/1 var(--display);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: var(--line);
+  -webkit-text-stroke: 10px #fff;
+  paint-order: stroke fill;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.14));
+  rotate: -3deg;
+}
+.result-title.win {
+  color: var(--orange);
+}
+.result-title.lose {
+  color: var(--coral);
+}
+.sys-line {
+  font: 800 11px var(--display);
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+/* LCD read-outs: kept, in an ink frame */
+.lcd {
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--pop);
+}
+/* tabs (Options) as an outlined pill row */
+.tabs {
+  padding: 3px;
+  border: 2.5px solid var(--line);
+  border-radius: 99px;
+  background: #efe9dd;
+}
+.tabs button {
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  font: 800 11px var(--display);
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.tabs button.on {
+  background: var(--line);
+  color: #fff;
+}
+/* ---- the HUD in the same language ---- */
+.side {
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--pop);
+}
+.unit-name {
+  font: 800 11px var(--display);
+  text-transform: uppercase;
+}
+.hp,
+.hp.enemy {
+  height: 15px;
+  border-radius: 99px;
+  border: 2.5px solid var(--line);
+  box-shadow: none;
+  background: #3a3631;
+}
+.hp .fill,
+.hp .chip {
+  -webkit-mask: none;
+  mask: none;
+  border-radius: 99px;
+}
+.portrait,
+.side.enemy .portrait {
+  border: 2.5px solid var(--line);
+  border-radius: 12px;
+  padding: 0;
+}
+#clock-wrap {
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--pop);
+}
+.hud-btns .icon-btn,
+.icon-btn.view {
+  border: 2.5px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
+}
+.pad-btn {
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 5px 0 var(--line);
+  font: 800 22px var(--display);
+}
+.pad-btn.held {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--line);
+}
+.pad-btn.fire {
+  background: linear-gradient(#ff9a66, var(--orange));
+  color: #fff;
+}
+#hud .hint {
+  border: 2.5px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--line);
+  font-weight: 800;
+  box-shadow: 0 3px 0 var(--line);
+}
+.magazine,
+.mag-tube {
+  border-color: var(--line);
+}
+/* the HUD's top bar: one white sticker with an ink edge (the sides inside stay plain) */
+.vs-bar {
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--pop);
+}
+.vs-bar .side {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+/* the rules: one choice per row, the whole seg readable */
+.panels.rules section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.panels.rules .setting > span {
+  display: block;
+}
+/* bottom bars on the same light ground */
+.dev-actions {
+  background: #fbf8f1;
+  border-top: 0;
+}
+.key.orange {
+  -webkit-text-stroke-width: 3px;
+}
+/* (the outlined portrait frame is for the HUD only: cut-outs elsewhere stay bare) */
+.peek img.portrait,
+.card-art img.portrait,
+.car-shadow img,
+.tw-face img.portrait {
+  border: 0;
+}
+.pick-strip img.portrait {
+  border: 0;
+  border-radius: 10px;
+}
+/* strip thumbnails as little ink-edged stickers */
+.pick-strip .tile {
+  padding: 0;
+  border: 2.5px solid var(--line);
+  border-radius: 14px;
+  background: #2a2723;
+  box-shadow: 0 3px 0 var(--line);
+  overflow: hidden;
+}
+.pick-strip .tile > i {
+  border-radius: 0;
+}
+.pick-strip .tile.on {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+}
+/* the home offers as stickers too */
+.tut-offer {
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--pop);
+}
