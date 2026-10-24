@@ -89,8 +89,8 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Geo-front cage, Unit 01',
     style: 'Soak it up, hit back',
     specialty: 'Tough and relentless',
-    bio: 'A bio-frame that fights like it has a mind of its own. Unit Violet shrugs off hits and answers with a rifle that doesn’t stop.',
-    traits: { health: 3, speed: 4, fireRate: 4, agility: 2 },
+    bio: 'A towering silverback that shrugs off hits and answers with palm blasters that don’t stop.',
+    traits: { health: 5, speed: 2, fireRate: 4, agility: 2 },
   },
   kabuto: {
     role: 'Gunslinger',
