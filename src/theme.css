@@ -4890,3 +4890,24 @@ body.duo #enemy-tag {
   font-size: 0.85em;
   opacity: 0.8;
 }
+/* home on one blue ground, the dotted pattern all the way up */
+#title.home {
+  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.1) 0 5px, transparent 6px) 0 0 / 34px 34px, linear-gradient(#3a6cf0, #1f45c0);
+}
+#title.home .home-cards {
+  background: none;
+}
+#title.home .home-name span,
+#title.home .home-lv em {
+  color: #fff;
+}
+#title.home .home-lv small,
+#title.home .home-record {
+  color: rgba(255, 255, 255, 0.75);
+}
+#title.home .home-next {
+  color: var(--amber);
+}
+#title.home .home-lv i {
+  background: rgba(0, 0, 0, 0.25);
+}
