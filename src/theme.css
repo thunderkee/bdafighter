@@ -4880,3 +4880,13 @@ body.duo #enemy-tag {
 .car-info .pf-head span {
   color: rgba(255, 255, 255, 0.7);
 }
+/* the hero and its name are a button: tap to pick another fighter */
+.home-hero,
+.home-name {
+  cursor: pointer;
+}
+.home-name b::after {
+  content: ' ⇄';
+  font-size: 0.85em;
+  opacity: 0.8;
+}

@@ -1270,7 +1270,7 @@ export function boot() {
   };
   type Step = 'fighter' | 'rival' | 'arena' | 'rules';
   let step: Step = 'fighter';
-  let selectMode: 'versus' | 'arcade' | 'duo' = 'versus';
+  let selectMode: 'versus' | 'arcade' | 'duo' | 'home' = 'versus';
 
   const TRAITS: [keyof NonNullable<ReturnType<typeof characterById>['traits']>, string][] = [
     ['health', 'Armour'],
@@ -1301,7 +1301,7 @@ export function boot() {
       .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load</p>`;
   };
   const markSteps = () => {
-    const order: Step[] = selectMode === 'arcade' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];
+    const order: Step[] = selectMode === 'arcade' || selectMode === 'home' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];
     document.querySelectorAll<HTMLElement>('.steps li').forEach((li) => {
       const k = order.indexOf(li.dataset.step as Step);
       li.classList.toggle('hidden', k < 0);
@@ -1567,6 +1567,8 @@ export function boot() {
     $('tut-card').querySelector('.new-badge')!.remove();
   }
   $('tut-card').addEventListener('click', () => startTutorial());
+  // tap your fighter (or its name) to pick another
+  for (const el of [$('title-hero'), document.querySelector<HTMLElement>('.home-name')!]) el.addEventListener('click', () => openSelect('home'));
   const cards = [...document.querySelectorAll<HTMLElement>('#home-cards .mode-card')];
   let cardIdx = 0;
   // every card the same wide rectangle; the one scrolled to the middle is the mode, and a tap on
@@ -1630,11 +1632,12 @@ export function boot() {
     show('select');
     $('select-title').textContent =
       step === 'fighter' ? (selectMode === 'duo' ? 'Player 1 fighter' : 'Select fighter') : step === 'rival' ? (selectMode === 'duo' ? 'Player 2 fighter' : 'Select rival') : 'Select arena';
-    $('select-next').textContent = arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : 'Next ▶';
+    $('select-next').textContent = arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : selectMode === 'home' ? 'Use this fighter ✓' : 'Next ▶';
+    if (selectMode === 'home') $('select-title').textContent = 'Your fighter';
     if (arcadeSwap) $('select-title').textContent = 'Change fighter';
     buildGrid();
   };
-  const openSelect = (mode: 'versus' | 'arcade' | 'duo') => {
+  const openSelect = (mode: 'versus' | 'arcade' | 'duo' | 'home') => {
     sfx.unlock();
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
@@ -1666,6 +1669,12 @@ export function boot() {
     else goStep(step === 'arena' ? 'rival' : 'fighter');
   });
   $('select-next').addEventListener('click', () => {
+    // picked from home: that's the fighter now, back home to see it
+    if (selectMode === 'home') {
+      preview.release();
+      toTitle();
+      return;
+    }
     if (arcadeSwap) {
       // the same stage again, with the new fighter
       arcadeSwap = false;
