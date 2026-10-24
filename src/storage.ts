@@ -23,6 +23,8 @@ export interface Settings {
   arenaWidth: 'small' | 'normal' | 'large';
   /** CPU intelligence for the opponent pack and for your pack-mates */
   enemyIQ: AILevel;
+  /** the rules screen's one-tap opponent preset (custom once Options' opponent settings are changed) */
+  difficulty?: 'easy' | 'normal' | 'hard' | 'custom';
   allyIQ: AILevel;
   /** who each CPU pack goes after */
   enemyTactic: 'nearest' | 'weakest' | 'hunt';
@@ -127,6 +129,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gates: false,
   fireButtons: 'single',
   enemyCharacter: 'auto',
+  difficulty: 'normal',
   camera: 'mid',
   effects: true,
   realism: true,
@@ -153,6 +156,12 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /** the opponent settings, for "reset opponent" */
+/** Difficulty: each preset sets the opponent's brain and its four levels together */
+export const DIFFICULTY: Record<'easy' | 'normal' | 'hard', Partial<Settings>> = {
+  easy: { enemyIQ: 'easy', enemyHealth: 2, enemySpeed: 2, enemyAgility: 2, enemyPower: 2 },
+  normal: { enemyIQ: 'normal', enemyHealth: 3, enemySpeed: 3, enemyAgility: 3, enemyPower: 3 },
+  hard: { enemyIQ: 'hard', enemyHealth: 4, enemySpeed: 4, enemyAgility: 4, enemyPower: 4 },
+};
 export const OPPONENT_DEFAULTS: Partial<Settings> = {
   enemyHealth: 3,
   enemySpeed: 3,

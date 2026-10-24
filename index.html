@@ -206,7 +206,7 @@
         </div>
         <!-- the modes, one featured at a time: tap a card to bring it up, tap it again to play -->
         <nav class="home-cards" id="home-cards">
-          <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Fighter, rival, arena and rules</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Your fighter, straight into a match</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
           <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small>A ladder of stages and four bosses</small></span><span class="card-go">PLAY ▶</span></button>
           <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
           <button id="duo-btn" class="mode-card" data-art="duo"><i class="card-art"><em>P1</em><i data-portrait="dragon-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><em>P2</em></i><span class="card-text"><b>2 Players</b><small>Head to head on one device</small></span><span class="card-go">PLAY ▶</span></button>
@@ -268,33 +268,29 @@
           <h2>Match rules</h2>
         </header>
         <div class="lcd vs-lcd" id="vs-lcd"></div>
+        <!-- three choices; everything else about the opponent is in Options -->
         <div class="panels rules">
           <section class="on">
             <div class="setting">
-              <div class="set-head"><b>Intelligence</b></div>
-              <span>How well the opponent aims, leads, dodges and reacts.</span>
-              <div class="seg" data-setting="enemyIQ"><button data-value="easy">Rookie</button><button data-value="normal">Regular</button><button data-value="hard">Veteran</button><button data-value="ace">Ace</button></div>
+              <div class="set-head"><b>Difficulty</b></div>
+              <span>How tough your rival is. Fine-tune it in Options, Opponent.</span>
+              <div class="seg" data-setting="difficulty"><button data-value="easy">Easy</button><button data-value="normal">Normal</button><button data-value="hard">Hard</button></div>
             </div>
             <div class="setting">
-              <div class="set-head"><b>Round time</b></div>
-              <span>Length of each round. ∞ plays until a knockout.</span>
-              <div class="seg" data-setting="roundTime"><button data-value="60">60s</button><button data-value="90">90s</button><button data-value="0">∞</button></div>
+              <div class="set-head"><b>Match length</b></div>
+              <span>Quick rounds, long rounds, or fight on until a knockout.</span>
+              <div class="seg" data-setting="roundTime"><button data-value="60">Quick</button><button data-value="90">Long</button><button data-value="0">To the KO</button></div>
             </div>
             <div class="setting">
-              <div class="set-head"><b>Arena width</b></div>
-              <span>How wide the table is: narrow and close, normal, or wide open.</span>
-              <div class="seg" data-setting="arenaWidth"><button data-value="small">Narrow</button><button data-value="normal">Normal</button><button data-value="large">Wide</button></div>
-            </div>
-            <div class="setting">
-              <div class="set-head"><b>Air drops</b></div>
-              <span>Item crates parachute onto each rail. Walk over one to grab it.</span>
+              <div class="set-head"><b>Power-ups</b></div>
+              <span>Crates drop onto your rail: walk over one to grab it.</span>
               <div class="seg" data-setting="items"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
-            </section>
+          </section>
         </div>
         <footer class="dev-actions">
           <button id="setup-back" class="key">◀ Back</button>
-          <button id="fight-btn" class="key orange big">Fight</button>
+          <button id="fight-btn" class="key orange big">FIGHT!</button>
         </footer>
       </div>
 

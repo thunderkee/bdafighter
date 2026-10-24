@@ -1034,7 +1034,19 @@ export function boot() {
     useItem();
   });
 
-  $('play-btn').addEventListener('click', () => openSelect('versus'));
+  // Versus from home: straight into a match with your fighter, your last rival and arena;
+  // Customise walks the steps instead
+  const quickMatch = () => {
+    sfx.unlock();
+    selectMode = 'versus';
+    arcade = null;
+    duo = false;
+    startMatch();
+  };
+  $('play-btn').addEventListener('click', (e) => {
+    if ((e.target as Element).closest('.card-custom')) openSelect('versus');
+    else quickMatch();
+  });
   $('duo-btn').addEventListener('click', () => openSelect('duo'));
   // Squad Run: its own little game over the top, led by your fighter; the arena sleeps meanwhile
   let squadRun: SquadRun | null = null;
@@ -1149,10 +1161,13 @@ export function boot() {
       const key = (b.parentElement as HTMLElement).dataset.setting as keyof store.Settings;
       const raw = b.dataset.value!;
       const value = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? Number(raw) : raw;
-      saveSetting({ [key]: value } as Partial<store.Settings>);
+      // Difficulty sets the whole opponent; tuning one part of it by hand makes it custom
+      if (key === 'difficulty') saveSetting({ difficulty: value, ...store.DIFFICULTY[value as 'easy'] } as Partial<store.Settings>);
+      else if (['enemyIQ', 'enemyHealth', 'enemySpeed', 'enemyAgility', 'enemyPower'].includes(key)) saveSetting({ [key]: value, difficulty: 'custom' } as Partial<store.Settings>);
+      else saveSetting({ [key]: value } as Partial<store.Settings>);
     }),
   );
-  $('reset-opponent').addEventListener('click', () => saveSetting(store.OPPONENT_DEFAULTS));
+  $('reset-opponent').addEventListener('click', () => saveSetting({ ...store.OPPONENT_DEFAULTS, difficulty: 'normal' }));
   // unlock all fighters (not a match setting: it lives on the save itself)
   const showUnlockAll = () =>
     document.querySelectorAll<HTMLElement>('#unlock-all button').forEach((b) => b.classList.toggle('on', b.dataset.value === String(!!saveData.unlockAll)));

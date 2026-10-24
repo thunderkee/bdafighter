@@ -4295,3 +4295,40 @@ body.duo #enemy-tag {
 .carousel:not(.arena) .car-stage canvas {
   filter: drop-shadow(2px 0 0 #1b1916) drop-shadow(-2px 0 0 #1b1916) drop-shadow(0 2px 0 #1b1916) drop-shadow(0 -2px 0 #1b1916);
 }
+/* the Versus card's second way in: walk the fighter, rival and arena steps */
+.card-custom {
+  display: none;
+}
+.mode-card.on .card-custom {
+  display: block;
+  position: absolute;
+  left: 96px;
+  bottom: 14px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  color: #fff;
+  font: 800 10px var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* the rules screen in the select screen's style: no step pills, the black title bar */
+#setup .steps {
+  display: none;
+}
+#setup .step-head h2 {
+  align-self: flex-start;
+  margin: 0 0 0 -16px;
+  padding: 6px 22px 6px 16px;
+  background: var(--char);
+  color: #fff;
+  font: 800 19px/1.1 var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+}
+.mode-card.on .card-custom {
+  left: 14px;
+  bottom: 48px;
+}
