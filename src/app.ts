@@ -1167,6 +1167,7 @@ export function boot() {
   // ---------- select screens: fighter, rival, arena, then the match rules (like a fighting game) ----------
   const preview = new Preview($('preview'));
   preview.turnable = false;
+  preview.cel = true;
   // the arena step: the top of the screen takes the colour of the arena's sky
   preview.onSky = (css) => {
     if (step === 'arena') $('select').style.setProperty('--top', css);
@@ -1417,16 +1418,46 @@ export function boot() {
   };
   const cards = [...document.querySelectorAll<HTMLElement>('#home-cards .mode-card')];
   let cardIdx = 0;
-  // every card is the same wide rectangle, and a tap plays it; the keys step a highlight along
+  // every card the same wide rectangle; the one scrolled to the middle is the mode, and a tap on
+  // it plays (a tap on another slides that one to the middle)
   cards.forEach((c) => c.classList.add('on'));
+  const row = $('home-cards');
+  const centre = (k: number, smooth = true) => {
+    const c = cards[k];
+    row.scrollTo({ left: c.offsetLeft - (row.clientWidth - c.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  const markActive = () => {
+    const mid = row.scrollLeft + row.clientWidth / 2;
+    let best = 0;
+    cards.forEach((c, k) => {
+      if (Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid) < Math.abs(cards[best].offsetLeft + cards[best].offsetWidth / 2 - mid)) best = k;
+    });
+    cardIdx = best;
+    cards.forEach((c, k) => c.classList.toggle('sel', k === best));
+  };
+  row.addEventListener('scroll', markActive, { passive: true });
   const focusCard = (i: number, smooth = true) => {
     cardIdx = (i + cards.length) % cards.length;
-    cards.forEach((c, k) => c.classList.toggle('sel', k === cardIdx));
-    cards[cardIdx].scrollIntoView({ inline: 'center', block: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
+    centre(cardIdx, smooth);
   };
+  row.addEventListener(
+    'click',
+    (e) => {
+      const c = (e.target as Element).closest<HTMLElement>('.mode-card');
+      const k = c ? cards.indexOf(c) : -1;
+      if (k < 0 || k === cardIdx) return;
+      e.preventDefault();
+      e.stopPropagation();
+      focusCard(k);
+    },
+    { capture: true },
+  );
   fillPortraits($('home-cards'));
-  // (a saved arcade run: its card in view)
-  if (saveData.arcadeRun) requestAnimationFrame(() => cards[1].scrollIntoView({ inline: 'center', block: 'nearest' }));
+  // (a saved arcade run: its card in the middle)
+  requestAnimationFrame(() => {
+    centre(saveData.arcadeRun ? 1 : 0, false);
+    markActive();
+  });
 
   const SCREENS = ['title', 'select', 'setup', 'result', 'paused', 'settings'];
   const show = (id: string) => {

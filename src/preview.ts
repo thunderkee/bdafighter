@@ -20,6 +20,8 @@ export class Preview {
   /** told the colour at the top of an arena's view (once it's drawn), for the screen round it */
   onSky: ((css: string) => void) | null = null;
   private skyIn = 0;
+  /** units always cel shaded (whatever the setting) */
+  cel = false;
   /** the title screen's hero: no plinth, framed big, an attack pose (punches, no marble), always cel shaded */
   hero = false;
   /** drag to turn the unit (off where a swipe flips to the next one instead) */
@@ -302,7 +304,7 @@ export class Preview {
       this.camera.lookAt(0, 0, -2);
       this.stage.update(dt, this.t);
     }
-    celify(this.scene, this.hero || CEL.on);
+    celify(this.scene, this.hero || (this.cel && this.mode === 'unit') || CEL.on);
     r.render(this.scene, this.camera);
     // (read straight after drawing, while the frame is still there)
     if (this.mode === 'stage' && this.skyIn > 0 && --this.skyIn === 0 && this.onSky) {

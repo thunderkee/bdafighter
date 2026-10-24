@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ShooterMesh, characterById, studioEnv } from './robot';
+import { celify } from './cel';
 
 // 3/4-view portraits of the units for the pickers: each fighter rendered once into a
 // small picture, one at a time so opening the menu never stutters.
@@ -39,12 +40,18 @@ function render(id: string, bust = false) {
   scene!.add(mesh.root);
   mesh.root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(mesh.root);
-  // (a bust keeps the top 42%: head to shoulders)
-  if (bust) box.min.y = box.max.y - (box.max.y - box.min.y) * 0.42;
+  const tall = box.max.y - box.min.y;
+  // (a bust keeps the top half: head to shoulders, with room for the tilt)
+  if (bust) box.min.y = box.max.y - tall * 0.5;
   const c = box.getCenter(new THREE.Vector3());
-  const dir = new THREE.Vector3(-0.75, 0.42, -1).normalize();
+  // the bust centres on the eyes (horns, blades and antennae don't pull the face off the frame)
+  const eyes = bust ? eyeCentre(mesh.root, def.palette.eye) : null;
+  if (eyes) c.set(eyes.x, eyes.y - tall * 0.12, eyes.z);
+  // (the bust: a low hero angle from the front-right, looking up at the face, the frame tilted)
+  const dir = bust ? new THREE.Vector3(0.62, -0.16, -1).normalize() : new THREE.Vector3(-0.75, 0.42, -1).normalize();
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
   cam.position.copy(c).addScaledVector(dir, 10);
+  if (bust) cam.up.set(Math.sin(0.2), Math.cos(0.2), 0);
   cam.lookAt(c);
   // fit the projected bounds, with a little air
   cam.updateMatrixWorld();
@@ -59,17 +66,33 @@ function render(id: string, bust = false) {
         hh = Math.max(hh, Math.abs(p.y));
       }
   // (the bust is cropped tight: the arms may run off the sides)
-  const half = bust ? Math.max(hh, hw * 0.62) * 1.08 : Math.max(hw, hh * (W / H)) * 1.06;
+  const half = eyes ? Math.max(0.75, tall * 0.4) : bust ? Math.max(hh, hw * 0.62) * 1.08 : Math.max(hw, hh * (W / H)) * 1.06;
   cam.left = -half;
   cam.right = half;
   cam.top = (half * h) / w;
   cam.bottom = (-half * h) / w;
   cam.updateProjectionMatrix();
+  if (bust) celify(scene!, true);
   renderer!.render(scene!, cam);
   const url = renderer!.domElement.toDataURL('image/png');
   scene!.remove(mesh.root);
   mesh.dispose();
   return url;
+}
+
+/** where a unit's eyes are: the middle of its glowing parts in the eye colour */
+function eyeCentre(root: THREE.Object3D, eye: number) {
+  const sum = new THREE.Vector3();
+  const p = new THREE.Vector3();
+  let n = 0;
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    const mat = m.isMesh ? (m.material as THREE.MeshBasicMaterial) : null;
+    if (!mat || Array.isArray(mat) || !mat.isMeshBasicMaterial || mat.color.getHex() !== eye) return;
+    sum.add(m.getWorldPosition(p));
+    n++;
+  });
+  return n ? sum.divideScalar(n) : null;
 }
 
 /** a unit's portrait, rendering it now if it isn't cached */

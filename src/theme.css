@@ -4261,3 +4261,37 @@ body.duo #enemy-tag {
   outline: 4px solid var(--amber);
   outline-offset: 2px;
 }
+/* the row centres its cards: the middle one is the mode, the others step back */
+.home-cards {
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0;
+  padding-left: calc(50% - min(32vw, 136px));
+  padding-right: calc(50% - min(32vw, 136px));
+}
+.mode-card {
+  scroll-snap-align: center;
+  transition: scale 0.2s, opacity 0.2s;
+  scale: 0.9;
+  opacity: 0.72;
+}
+.mode-card.sel {
+  scale: 1;
+  opacity: 1;
+  outline: none;
+}
+/* text on the left half, art on the right: no overlap */
+.mode-card.on .card-text {
+  right: 50%;
+}
+.mode-card.on .card-art {
+  inset: 8px 4px 0 52%;
+}
+.mode-card.on .card-art img.portrait {
+  height: 64%;
+  max-width: 58%;
+  margin: 0 -10%;
+}
+/* the fighter preview in cel ink, like the home hero */
+.carousel:not(.arena) .car-stage canvas {
+  filter: drop-shadow(2px 0 0 #1b1916) drop-shadow(-2px 0 0 #1b1916) drop-shadow(0 2px 0 #1b1916) drop-shadow(0 -2px 0 #1b1916);
+}
