@@ -349,7 +349,7 @@ const FRAMES21: Record<string, Frame21> = {
   /** squat and wide: short thick legs, a broad chest, big arms and hands */
   squat: { legS: 0.74, legW: 1.3, legGap: 0.3, foot: 1.2, chestW: 1.14, chestB: 0.84, chestD: 0.7, waistW: 0.56, armS: 0.9, armW: 1.42, shOut: 0.8, headS: 0.9, lean: 0 },
   /** a silverback: a huge barrel chest, long thick arms, short bowed legs, a small head sunk between the shoulders */
-  gorilla: { legS: 0.62, legW: 1.6, legGap: 0.36, foot: 1.3, chestW: 1.5, chestB: 1.04, chestD: 0.86, waistW: 0.64, armS: 1.28, armW: 1.85, shOut: 1.02, headS: 0.82, headY: -0.08, lean: 0, chestH: 1.4 },
+  gorilla: { legS: 0.66, legW: 1.36, legGap: 0.3, foot: 1.2, chestW: 1.14, chestB: 0.84, chestD: 0.8, waistW: 0.54, armS: 1.28, armW: 1.5, shOut: 0.8, headS: 0.84, headY: -0.08, lean: 0, chestH: 1.5 },
   lizard: { legS: 1, legW: 1, legGap: 0.24, foot: 1, chestW: 0.6, chestB: 0.6, chestD: 0.5, waistW: 0.4, armS: 1, armW: 1, shOut: 0.3, headS: 1, lean: 0 },
 };
 type Look21 = {
