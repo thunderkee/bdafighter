@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { celify } from './cel';
+import { CEL, celify } from './cel';
 import { ShooterMesh, characterById, studioEnv } from './robot';
 import { Stage } from './stage';
 import { TOSS_TIME, TWIN_X } from './config';
@@ -17,6 +17,8 @@ export class Preview {
   /** the tallest roster unit (Bastion) and the widest reach (Nightshade), round the plinth's axis */
   static FRAME_H = 2.5;
   static FRAME_R = 1.65;
+  /** the title screen's hero: no plinth, framed big, an attack pose (punches, no marble), always cel shaded */
+  hero = false;
   /** drag to turn the unit (off where a swipe flips to the next one instead) */
   turnable = true;
   private scene = new THREE.Scene();
@@ -111,7 +113,8 @@ export class Preview {
     const def = characterById(id);
     this.unit = new ShooterMesh(def.id, def.ball, def);
     this.pivot.add(this.unit.root);
-    this.scene.add(this.plinth, this.pivot);
+    this.scene.add(this.pivot);
+    if (!this.hero) this.scene.add(this.plinth);
     this.host.classList.remove('stage');
     this.spin = 0;
     this.handT = 0;
@@ -137,8 +140,10 @@ export class Preview {
     // units show at their true scale against each other; only an oversized custom unit widens it
     this.unit.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(this.unit.root);
-    this.frameH = Math.max(Preview.FRAME_H, box.max.y);
-    this.frameR = Math.max(Preview.FRAME_R, Math.hypot(Math.max(-box.min.x, box.max.x), Math.max(-box.min.z, box.max.z)) * 0.7);
+    const reach = Math.hypot(Math.max(-box.min.x, box.max.x), Math.max(-box.min.z, box.max.z)) * 0.7;
+    // (the hero fills its frame instead)
+    this.frameH = this.hero ? Math.max(1.2, box.max.y) : Math.max(Preview.FRAME_H, box.max.y);
+    this.frameR = this.hero ? Math.max(0.8, reach * 0.8) : Math.max(Preview.FRAME_R, reach);
     this.camera.fov = 30;
     this.fitCamera();
     this.start();
@@ -282,7 +287,7 @@ export class Preview {
       // and the swing waits a moment after you let go
       this.handT = Math.max(0, this.handT - dt);
       if (this.handT === 0 && this.dragX === null) this.swingT += dt;
-      const a = -0.55 + Math.sin(this.swingT * 0.45) * 0.75 + this.spin;
+      const a = this.hero ? -0.5 + Math.sin(this.t * 0.35) * 0.14 : -0.55 + Math.sin(this.swingT * 0.45) * 0.75 + this.spin;
       this.pivot.rotation.y = a;
       this.plinth.rotation.y = a;
       this.animate(dt);
@@ -293,7 +298,7 @@ export class Preview {
       this.camera.lookAt(0, 0, -2);
       this.stage.update(dt, this.t);
     }
-    celify(this.scene);
+    celify(this.scene, this.hero || CEL.on);
     r.render(this.scene, this.camera);
   }
 
@@ -309,13 +314,14 @@ export class Preview {
     const t = this.at;
     // a side-step every few seconds: walk cycle on the spot, the body swaying with it
     const step = Math.sin(t * 0.9);
-    s.vx = Math.abs(step) > 0.55 ? Math.sign(step) * 4 : 0;
-    s.aim = Math.sin(t * 0.7) * 0.28;
+    // (the hero stands its ground, squared up and leaning into its shots)
+    s.vx = this.hero ? 0 : Math.abs(step) > 0.55 ? Math.sign(step) * 4 : 0;
+    s.aim = this.hero ? Math.sin(t * 0.5) * 0.1 : Math.sin(t * 0.7) * 0.28;
     s.kickT += dt;
     s.heavyT += dt;
     s.windT += dt;
-    s.recoil = Math.max(0, s.recoil - dt * 8);
-    s.firing = false;
+    s.recoil = Math.max(this.hero ? 0.3 : 0, s.recoil - dt * 8);
+    s.firing = this.hero;
     const sp = this.special;
     // a head that keeps turning (Ember): the shots follow it
     if (sp.wobble) s.wobble = Math.sin((this.wobbleN += dt * 2.5)) * sp.wobble;
@@ -329,7 +335,7 @@ export class Preview {
         s.windT = 0;
       } else this.shoot();
       // now and then a quick string of three
-      if (this.burstLeft === 0 && !sp.windup && Math.random() < 0.35) this.burstLeft = 3;
+      if (this.burstLeft === 0 && !sp.windup && !this.hero && Math.random() < 0.35) this.burstLeft = 3;
       if (this.burstLeft > 0) this.burstLeft--;
       this.nextShot = Math.max(this.tossUntil, t + (this.burstLeft > 0 ? 0.16 : 1.6 + Math.random() * 1.2));
     }
@@ -340,7 +346,7 @@ export class Preview {
     // (the marble leaves once the model has moved its gun to the hand that fired)
     if (this.ballDue) {
       this.ballDue = false;
-      this.fire();
+      if (!this.hero) this.fire();
     }
     for (let i = this.balls.length - 1; i >= 0; i--) {
       const b = this.balls[i];

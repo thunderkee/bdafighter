@@ -495,8 +495,8 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   // bar, a windshield on its chest, the doors on its back, wheels on its shoulders and shins
   pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x5ab8ff, palette: { body: 0xf2f2f2, trim: 0x16161a, accent: 0x2a6aff, joint: 0x22252c, eye: 0x7ff0ff } },
   // Liberty (Tallgeese): a diving-helmet head for the plume helm, a rail rifle for the Dober gun,
-  // mantis-jointed legs for the treads
-  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], digi: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
+  // tank treads (swapped with Violet's mantis legs)
+  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], treads: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
   // Mandrill (Blastoise): no shell on its back; MODOK-style, a giant mandrill head is its body,
   // red-nosed and blue-cheeked, small arms and legs beneath and the twin cannons over its shoulders
   monoceros: { name: 'Mandrill', twin: true, look: { frame: 'squat', head: 'mandrill', shoulder: 'wedge', gun: 'shellCannon', back: ['boosters'], modok: true, lean: -0.06 }, ball: 0xff6a5a, palette: { body: 0x5a5040, trim: 0x2a6ad8, accent: 0xd8262b, joint: 0x1e1a14, eye: 0xffb02e } },
@@ -511,7 +511,7 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, wisp: true, bigCape: true }, ball: 0xff4a5a, glow: 0xff3a4a, palette: { body: 0xe8e2d6, trim: 0x1a1418, accent: 0xff3a4a, joint: 0x2a2428, eye: 0xff3a4a } },
   // Unit Violet (EVA Unit-08): a silverback gorilla instead: an ape's head for the horned EVA
   // head, a squat hunched frame for the long legs, huge palm-blaster hands, violet with silver
-  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'squat', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', treads: true, menace: true, lean: -0.3 }, ball: 0xc88aff, glow: 0xb06aff, palette: { body: 0x4a2e8a, trim: 0xb8bec9, accent: 0xffb02e, joint: 0x1a1426, eye: 0xff5a3a } },
+  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'squat', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', digi: true, menace: true, lean: -0.3 }, ball: 0xc88aff, glow: 0xb06aff, palette: { body: 0x4a2e8a, trim: 0xb8bec9, accent: 0xffb02e, joint: 0x1a1426, eye: 0xff5a3a } },
   // Leo King (Metabee): Fang Liger 2.1's head on a short neck for the beetle dome, no X legs or
   // shell skirt, a royal cape
   kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xffc84a, palette: { body: 0x9a1c24, trim: 0x2a1a1a, accent: 0xe8b83a, joint: 0x1e1416, eye: 0xffe14d } },

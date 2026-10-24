@@ -175,16 +175,23 @@
       </div>
 
       <!-- ================= TITLE: main menu ================= -->
-      <div id="title" class="screen device">
-        <div class="dev-top">
-          <div class="brand"><b>MARBLE</b><b>FIGHTER</b><span>MF-01 · tactical marble combat</span></div>
-          <div class="led-row"><i class="led on"></i><span>POWER</span></div>
+      <div id="title" class="screen device home">
+        <!-- the backdrop: the target rings and a few marble stickers -->
+        <div class="home-bg" aria-hidden="true">
+          <i class="home-rings"></i>
+          <i class="sticker s1"></i><i class="sticker s2"></i><i class="sticker s3"></i><i class="sticker s4"></i>
         </div>
-        <div class="lcd title-lcd">
-          <div class="lcd-row"><span>UNIT</span><b id="title-unit">SERAPH ZERO</b></div>
-          <div class="lcd-row"><span>ARENA</span><b id="title-stage">ORBITAL DECK</b></div>
-          <p id="record" class="lcd-foot"></p>
-        </div>
+        <header class="home-top">
+          <div class="home-logo"><b>MARBLE</b><b>FIGHTER</b></div>
+          <div class="home-icons">
+            <button id="mute-btn" class="icon-btn home-icon" aria-label="Toggle sound">SND</button>
+            <button id="settings-btn" class="icon-btn home-icon" aria-label="Options">⚙</button>
+          </div>
+        </header>
+        <p id="record" class="home-record"></p>
+        <!-- your fighter (the last one played), big in the middle -->
+        <div class="home-hero" id="title-hero"></div>
+        <div class="home-name"><span>YOUR FIGHTER</span><b id="title-unit">SERAPH ZERO</b><i id="title-stage" hidden></i></div>
         <!-- first visit: an offer of the tutorial -->
         <div id="tut-offer" class="tut-offer hidden">
           <b>New here? Learn the basics in a minute.</b>
@@ -197,20 +204,14 @@
           <span id="run-offer-text"></span>
           <div><button class="key orange" id="run-continue">Continue ▶</button><button class="key" id="run-drop">New run</button></div>
         </div>
-        <nav class="menu">
-          <button id="play-btn" class="key menu-item"><em>01</em><b>Versus</b><small>Fighter, rival, arena and rules</small></button>
-          <button id="arcade-btn" class="key menu-item"><em>02</em><b>Arcade</b><small>A ladder of stages and four bosses</small></button>
-          <button id="squad-btn" class="key menu-item"><em>03</em><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></button>
-          <button id="duo-btn" class="key menu-item"><em>04</em><b>2 Players</b><small>Head to head on one device</small></button>
-          <a id="lab-btn" class="key menu-item" href="./editor.html"><em>05</em><b>Unit Lab</b><small>Edit and build units</small></a>
-          <button id="settings-btn" class="key menu-item"><em>06</em><b>Options</b><small>Controls, display, opponents</small></button>
+        <!-- the modes, one featured at a time: tap a card to bring it up, tap it again to play -->
+        <nav class="home-cards" id="home-cards">
+          <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Fighter, rival, arena and rules</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small>A ladder of stages and four bosses</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="duo-btn" class="mode-card" data-art="duo"><i class="card-art"><em>P1</em><i data-portrait="dragon-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><em>P2</em></i><span class="card-text"><b>2 Players</b><small>Head to head on one device</small></span><span class="card-go">PLAY ▶</span></button>
+          <a id="lab-btn" class="mode-card" data-art="lab" href="./editor.html"><i class="card-art"><em>🔧</em></i><span class="card-text"><b>Unit Lab</b><small>Edit and build units</small></span><span class="card-go">OPEN ▶</span></a>
         </nav>
-        <div class="dev-foot">
-          <i class="grille"></i>
-          <p class="how touch-only">Left thumb drag to move, pull back to shield, push forward to step up · right thumb tap to fire, hold to charge, drag to aim</p>
-          <p class="how mouse-only">Mouse aims · click / Space fires (hold to charge) · A / D move · F item · V view</p>
-          <button id="mute-btn" class="key round" aria-label="Toggle sound">SND</button>
-        </div>
       </div>
 
       <!-- ================= SELECT: fighter, rival, arena ================= -->

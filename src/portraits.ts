@@ -39,8 +39,8 @@ function render(id: string, bust = false) {
   scene!.add(mesh.root);
   mesh.root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(mesh.root);
-  // (a bust keeps the top 55%: the head and body, the legs cropped off)
-  if (bust) box.min.y = box.max.y - (box.max.y - box.min.y) * 0.55;
+  // (a bust keeps the top 42%: head to shoulders)
+  if (bust) box.min.y = box.max.y - (box.max.y - box.min.y) * 0.42;
   const c = box.getCenter(new THREE.Vector3());
   const dir = new THREE.Vector3(-0.75, 0.42, -1).normalize();
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
@@ -59,7 +59,7 @@ function render(id: string, bust = false) {
         hh = Math.max(hh, Math.abs(p.y));
       }
   // (the bust is cropped tight: the arms may run off the sides)
-  const half = bust ? hh * 1.04 : Math.max(hw, hh * (W / H)) * 1.06;
+  const half = bust ? Math.max(hh, hw * 0.62) * 1.08 : Math.max(hw, hh * (W / H)) * 1.06;
   cam.left = -half;
   cam.right = half;
   cam.top = (half * h) / w;

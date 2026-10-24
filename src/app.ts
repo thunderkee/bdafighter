@@ -643,6 +643,7 @@ export function boot() {
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
     for (const id of ['title', 'select', 'setup', 'result', 'paused', 'settings']) $(id).classList.add('hidden');
+    showHero();
     preview.release();
     startFaces();
     hints.classList.toggle('hidden', sessionMatches >= 2);
@@ -1108,7 +1109,8 @@ export function boot() {
     }
     document.body.classList.toggle('triple', st.fireButtons === 'triple');
     $('view-btn').textContent = VIEW_LABEL[st.camera];
-    $('title-unit').textContent = characterById(st.character).name.toUpperCase();
+    $('title-unit').textContent = characterById(saveData.settings.character).name.toUpperCase();
+    showHero();
     $('title-stage').textContent = stageById(st.stage).name.toUpperCase();
     document.body.classList.toggle('buttons', st.layout === 'buttons');
     document.body.classList.toggle('hud-tags', st.hudMode === 'tags');
@@ -1390,10 +1392,53 @@ export function boot() {
     });
     car.addEventListener('pointercancel', () => (sx = null));
   }
+  // ---------- home: your fighter (the last one played) as the hero, the modes as cards ----------
+  const hero = new Preview($('title-hero'));
+  hero.hero = true;
+  hero.turnable = false;
+  let heroId = '';
+  /** the hero runs only while the home screen is up */
+  const showHero = () => {
+    if ($('title').classList.contains('hidden')) {
+      if (heroId) hero.release();
+      heroId = '';
+      return;
+    }
+    const id = saveData.settings.character;
+    if (heroId !== id) {
+      heroId = id;
+      hero.showUnit(id);
+    }
+  };
+  const cards = [...document.querySelectorAll<HTMLElement>('#home-cards .mode-card')];
+  let cardIdx = 0;
+  const focusCard = (i: number, smooth = true) => {
+    cardIdx = (i + cards.length) % cards.length;
+    cards.forEach((c, k) => c.classList.toggle('on', k === cardIdx));
+    // (after the wide card has grown, so it centres where it ends up)
+    requestAnimationFrame(() => cards[cardIdx].scrollIntoView({ inline: 'center', block: 'nearest', behavior: smooth ? 'smooth' : 'auto' }));
+  };
+  // a tap on another card brings it up; a tap on the featured one plays it
+  $('home-cards').addEventListener(
+    'click',
+    (e) => {
+      const c = (e.target as Element).closest<HTMLElement>('.mode-card');
+      const k = c ? cards.indexOf(c) : -1;
+      if (k < 0 || k === cardIdx) return;
+      e.preventDefault();
+      e.stopPropagation();
+      focusCard(k);
+    },
+    { capture: true },
+  );
+  fillPortraits($('home-cards'));
+  focusCard(saveData.arcadeRun ? 1 : 0, false);
+
   const SCREENS = ['title', 'select', 'setup', 'result', 'paused', 'settings'];
   const show = (id: string) => {
     for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id);
     if (id !== 'select') preview.release();
+    showHero();
   };
   const goStep = (next: Step) => {
     step = next;
@@ -1486,6 +1531,7 @@ export function boot() {
     settingsFrom = from;
     for (const k of SCREENS) $(k).classList.add('hidden');
     $('settings').classList.remove('hidden');
+    showHero();
   };
   $('settings-btn').addEventListener('click', () => openSettings('title'));
   // back from a reload for a new stage width: reopen settings where we were
@@ -1511,7 +1557,7 @@ export function boot() {
   document.addEventListener(
     'pointerdown',
     (e) => {
-      const key = (e.target as Element | null)?.closest?.('.key, .tile, .seg button, .ver-tabs button, .tabs button, .icon-btn');
+      const key = (e.target as Element | null)?.closest?.('.key, .tile, .mode-card, .seg button, .ver-tabs button, .tabs button, .icon-btn');
       if (!key) return;
       sfx.unlock();
       sfx.play('tick', 0.5);
@@ -1692,11 +1738,12 @@ export function boot() {
     if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!paused);
     if (e.code === 'KeyV' && screen === 'playing') cycleView();
     if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && screen !== 'playing' && !$('select').classList.contains('hidden')) go(e.code === 'ArrowLeft' ? -1 : 1);
+    if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && !$('title').classList.contains('hidden')) focusCard(cardIdx + (e.code === 'ArrowLeft' ? -1 : 1));
     if ((e.code === 'Enter' || e.code === 'Space') && screen !== 'playing') {
       e.preventDefault();
       if (!$('setup').classList.contains('hidden')) $('fight-btn').click();
       else if (!$('select').classList.contains('hidden')) $('select-next').click();
-      else if (!$('title').classList.contains('hidden')) openSelect('versus');
+      else if (!$('title').classList.contains('hidden')) cards[cardIdx].click();
       else if (!$('result').classList.contains('hidden')) $('again-btn').click();
     }
   });
