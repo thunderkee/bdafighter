@@ -191,7 +191,7 @@
         <p id="record" class="home-record"></p>
         <!-- your fighter (the last one played), big in the middle -->
         <div class="home-hero" id="title-hero"></div>
-        <div class="home-name"><span>YOUR FIGHTER</span><b id="title-unit">SERAPH ZERO</b><i id="title-stage" hidden></i></div>
+        <div class="home-name"><span>YOUR FIGHTER</span><b id="title-unit">SERAPH ZERO</b><span class="home-lv" id="title-lv"></span><i id="title-stage" hidden></i></div>
         <!-- first visit: an offer of the tutorial -->
         <div id="tut-offer" class="tut-offer hidden">
           <b>New here? Learn the basics in a minute.</b>
@@ -206,8 +206,9 @@
         </div>
         <!-- the modes, one featured at a time: tap a card to bring it up, tap it again to play -->
         <nav class="home-cards" id="home-cards">
+          <button id="tut-card" class="mode-card" data-art="tutorial"><i class="new-badge">NEW</i><i class="card-art"><em>🎯</em></i><span class="card-text"><b>Tutorial</b><small>Move, shoot, shield and parry in a minute</small></span><span class="card-go">START ▶</span></button>
           <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Your fighter, straight into a match</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
-          <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small>A ladder of stages and four bosses</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small id="arcade-sub">A ladder of stages and four bosses</small></span><span class="card-go" id="arcade-go">PLAY ▶</span><span class="card-custom card-new-run hidden" role="button">New run</span></button>
           <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
           <button id="duo-btn" class="mode-card" data-art="duo"><i class="card-art"><em>P1</em><i data-portrait="dragon-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><em>P2</em></i><span class="card-text"><b>2 Players</b><small>Head to head on one device</small></span><span class="card-go">PLAY ▶</span></button>
           <a id="lab-btn" class="mode-card" data-art="lab" href="./editor.html"><i class="card-art"><em>🔧</em></i><span class="card-text"><b>Unit Lab</b><small>Edit and build units</small></span><span class="card-go">OPEN ▶</span></a>
@@ -240,7 +241,7 @@
             <div class="car-tag"><span id="pv-tag">PLAYER 1</span><span class="car-count" id="car-count"></span></div>
             <b id="pv-name">Seraph Zero</b>
             <div class="car-info">
-              <div class="info-tabs" id="info-tabs"><button data-info="stats" class="on">Stats</button><button data-info="profile">Profile</button></div>
+              <div class="info-tabs" id="info-tabs"><button data-info="stats" class="on">Traits</button><button data-info="profile">Profile</button></div>
               <div class="meters" id="pv-stats"></div>
               <div class="profile hidden" id="pv-profile"></div>
             </div>
@@ -298,6 +299,12 @@
       <div id="result" class="screen device hidden">
         <div class="sys-line" id="result-sub">MISSION COMPLETE</div>
         <div id="result-title" class="result-title">VICTORY</div>
+        <!-- your fighter's XP for the match -->
+        <div class="xp-gain hidden" id="xp-gain">
+          <div class="xp-head"><b id="xp-name"></b><em id="xp-lv"></em><span id="xp-plus"></span></div>
+          <i class="xp-bar"><b id="xp-fill"></b></i>
+          <small id="xp-text"></small>
+        </div>
         <div class="stats lcd">
           <div><span>DAMAGE DEALT</span><b id="r-dealt">0</b></div>
           <div><span>ACCURACY</span><b id="r-acc">0%</b></div>

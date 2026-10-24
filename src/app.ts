@@ -470,6 +470,24 @@ export function boot() {
     banner.classList.add('pop');
   };
 
+  // ---------- fighter levels: XP from every match, a level and a rank for each fighter ----------
+  const LV_MAX = 10;
+  const RANKS = ['Rookie', 'Rookie', 'Brawler', 'Brawler', 'Veteran', 'Veteran', 'Ace', 'Ace', 'Champion', 'Legend'];
+  /** XP to go from level n to n+1 */
+  const lvNeed = (lv: number) => 100 + 50 * (lv - 1);
+  const levelOf = (xp: number) => {
+    let lv = 1;
+    let into = xp;
+    while (lv < LV_MAX && into >= lvNeed(lv)) into -= lvNeed(lv++);
+    return { lv, into, need: lv < LV_MAX ? lvNeed(lv) : 0, rank: RANKS[lv - 1] };
+  };
+  const xpOf = (id: string) => saveData.fighterXp?.[id] ?? 0;
+  /** the level line under a fighter's name: LV 3 [bar] Brawler */
+  const lvHtml = (id: string) => {
+    const L = levelOf(xpOf(id));
+    const pct = L.need ? Math.round((L.into / L.need) * 100) : 100;
+    return `<em>LV ${L.lv}</em><i><b style="width:${pct}%"></b></i><small>${L.need ? `${L.into} / ${L.need} XP` : 'MAX'}</small>`;
+  };
   const showToast = (text: string, color: number) => {
     toast.textContent = text;
     toast.style.setProperty('--item', hexc(color));
@@ -759,12 +777,40 @@ export function boot() {
     $('session').textContent = `SESSION ${sessionWins} / ${sessionMatches} WON`;
     showArcadeResult(w);
     saveRun('result');
+    awardXp(w);
     $('result').classList.remove('hidden');
     hud.classList.add('hidden');
     sfx.play(w === 0 ? 'win' : 'lose');
     updateRecord();
   };
 
+  /** XP for your fighter: more for a win, a little for every round taken (not in 2 players) */
+  const awardXp = (w: -1 | 0 | 1) => {
+    const box = $('xp-gain');
+    box.classList.toggle('hidden', duo);
+    if (duo) return;
+    const id = saveData.settings.character;
+    const gain = (w === 0 ? 50 : w === -1 ? 30 : 20) + roundWins[0] * 10;
+    const before = levelOf(xpOf(id));
+    saveData = store.save({ fighterXp: { ...(saveData.fighterXp ?? {}), [id]: xpOf(id) + gain } });
+    const after = levelOf(xpOf(id));
+    $('xp-name').textContent = characterById(id).name.toUpperCase();
+    $('xp-lv').textContent = `LV ${after.lv} · ${after.rank.toUpperCase()}`;
+    $('xp-plus').textContent = `+${gain} XP`;
+    $('xp-text').textContent = after.need ? `${after.into} / ${after.need} XP to level ${after.lv + 1}` : 'Max level';
+    // the bar fills from where it was (from empty after a level up)
+    const fill = $('xp-fill');
+    const from = after.lv > before.lv ? 0 : before.need ? (before.into / before.need) * 100 : 100;
+    fill.style.transition = 'none';
+    fill.style.width = `${from}%`;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        fill.style.transition = '';
+        fill.style.width = `${after.need ? (after.into / after.need) * 100 : 100}%`;
+      }),
+    );
+    if (after.lv > before.lv) setTimeout(() => showToast(`LEVEL UP // ${characterById(id).name.toUpperCase()} LV ${after.lv}`, 0xffc23d), 700);
+  };
   /** the result screen in arcade: stage clear (and a look at the next one), or game over */
   const showArcadeResult = (w: -1 | 0 | 1) => {
     const panel = $('arcade-next');
@@ -873,6 +919,10 @@ export function boot() {
   const showRunOffer = () => {
     const r = saveData.arcadeRun;
     $('run-offer').classList.toggle('hidden', !r);
+    // the Arcade card carries a saved run: Continue (or a new run)
+    $('arcade-go').textContent = r ? `CONTINUE ▶` : 'PLAY ▶';
+    $('arcade-sub').textContent = r ? `Saved: stage ${r.stage} with ${characterById(r.character).name}` : 'A ladder of stages and four bosses';
+    document.querySelector('#arcade-btn .card-new-run')!.classList.toggle('hidden', !r);
     if (!r) return;
     $('tut-offer').classList.add('hidden');
     $('run-offer-title').textContent = bossAt(r.stage) ? `Arcade run saved · boss stage ${r.stage}` : `Arcade run saved · stage ${r.stage}`;
@@ -1057,7 +1107,14 @@ export function boot() {
     squadRun.open(playableId(S().character));
     if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
   });
-  $('arcade-btn').addEventListener('click', () => openSelect('arcade'));
+  $('arcade-btn').addEventListener('click', (e) => {
+    if (saveData.arcadeRun && (e.target as Element).closest('.card-new-run')) {
+      saveData = store.save({ arcadeRun: undefined });
+      showRunOffer();
+      openSelect('arcade');
+    } else if (saveData.arcadeRun) resumeRun();
+    else openSelect('arcade');
+  });
   $('again-btn').addEventListener('click', playAgain);
   $('arcade-quit').addEventListener('click', quitArcade);
   $('arcade-swap').addEventListener('click', () => {
@@ -1122,6 +1179,7 @@ export function boot() {
     document.body.classList.toggle('triple', st.fireButtons === 'triple');
     $('view-btn').textContent = VIEW_LABEL[st.camera];
     $('title-unit').textContent = characterById(saveData.settings.character).name.toUpperCase();
+    $('title-lv').innerHTML = lvHtml(saveData.settings.character);
     showHero();
     $('title-stage').textContent = stageById(st.stage).name.toUpperCase();
     document.body.classList.toggle('buttons', st.layout === 'buttons');
@@ -1197,18 +1255,27 @@ export function boot() {
     ['fireRate', 'Fire rate'],
     ['agility', 'Agility'],
   ];
+  /** what a fighter is like, in two or three big badges (not a wall of pips) */
   const meters = (id: string) => {
     const t = characterById(id).traits;
-    return TRAITS.map(([k, label]) => {
-      const v = Math.max(1, Math.min(5, Math.round(t?.[k] ?? 3)));
-      return `<div class="meter"><span>${label}</span><i>${[1, 2, 3, 4, 5].map((n) => `<b class="${n <= v ? 'lit' : ''}"></b>`).join('')}</i></div>`;
-    }).join('') + marbleLine(id);
-  };
-  /** the fighter's marble and magazine, under its meters */
-  const marbleLine = (id: string) => {
+    const v = (k: (typeof TRAITS)[number][0]) => Math.max(1, Math.min(5, Math.round(t?.[k] ?? 3)));
+    const out: [string, string][] = [];
+    if (v('health') >= 4) out.push(['🛡', 'Tanky']);
+    if (v('speed') >= 4) out.push(['⚡', 'Fast']);
+    if (v('fireRate') >= 4) out.push(['🔥', 'Rapid fire']);
+    if (v('agility') >= 4) out.push(['🌀', 'Nimble']);
+    if (v('health') <= 2) out.push(['🎯', 'Glass cannon']);
+    if (v('speed') <= 2) out.push(['🐢', 'Slow']);
     const mb = marbleOf(id);
+    if (mb.type === 'heavy') out.push(['💥', 'Heavy marbles']);
+    else if (mb.type === 'light') out.push(['🪶', 'Light marbles']);
+    else if (mb.type === 'bouncy') out.push(['🏀', 'Bouncy marbles']);
+    if (out.length < 2) out.unshift(['⚖', 'All-rounder']);
     const mag = S().magPer === false ? magazine() : mb.mag;
-    return `<div class="meter marble"><span>Marble</span><em class="mb-${mb.type}">${mb.name}<small>${mag} PER LOAD</small></em></div>`;
+    return `<div class="badges">${out
+      .slice(0, 3)
+      .map(([i, l]) => `<span class="badge"><i>${i}</i>${l}</span>`)
+      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load</p>`;
   };
   const markSteps = () => {
     const order: Step[] = selectMode === 'arcade' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];
@@ -1301,7 +1368,7 @@ export function boot() {
       $('car-shadow').innerHTML = `<i data-portrait="${unit}"></i>`;
       fillPortraits($('car-lock'));
     } else preview.showUnit(unit);
-    $('pv-tag').textContent = step === 'fighter' ? 'PLAYER 1' : selectMode === 'duo' ? 'PLAYER 2' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
+    $('pv-tag').textContent = step === 'fighter' ? `PLAYER 1 · LV ${levelOf(xpOf(unit)).lv}` : selectMode === 'duo' ? 'PLAYER 2' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
     if (locked && e) {
       // a locked fighter is only a silhouette until it's won
       $('pv-name').textContent = e.lock === 'Opponent' ? characterById(unit).name : '???';
@@ -1431,6 +1498,12 @@ export function boot() {
       hero.showUnit(id);
     }
   };
+  // the tutorial card leads the row (with its NEW badge) until it's been played, then goes last
+  if (saveData.tutorialDone) {
+    $('home-cards').appendChild($('tut-card'));
+    $('tut-card').querySelector('.new-badge')!.remove();
+  }
+  $('tut-card').addEventListener('click', () => startTutorial());
   const cards = [...document.querySelectorAll<HTMLElement>('#home-cards .mode-card')];
   let cardIdx = 0;
   // every card the same wide rectangle; the one scrolled to the middle is the mode, and a tap on
@@ -1470,7 +1543,7 @@ export function boot() {
   fillPortraits($('home-cards'));
   // (a saved arcade run: its card in the middle)
   requestAnimationFrame(() => {
-    centre(saveData.arcadeRun ? 1 : 0, false);
+    centre(saveData.arcadeRun ? cards.indexOf($('arcade-btn')) : 0, false);
     markActive();
   });
 

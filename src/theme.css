@@ -4602,3 +4602,158 @@ body.duo #enemy-tag {
   background: #fff;
   box-shadow: var(--pop);
 }
+/* (no pop-up boxes on home: the tutorial and a saved run live on their cards) */
+#title.home .tut-offer {
+  display: none;
+}
+#home-cards .mode-card[data-art='tutorial'] {
+  background: linear-gradient(135deg, #ff6fa8, #c2337a);
+}
+.mode-card[data-art='tutorial'] .card-art em {
+  font-size: 48px;
+  -webkit-text-stroke: 0;
+}
+.new-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  padding: 3px 9px;
+  border-radius: 99px;
+  border: 2.5px solid var(--line);
+  background: var(--amber);
+  color: var(--line);
+  font: 800 11px var(--display);
+  font-style: normal;
+  letter-spacing: 0.08em;
+  animation: badge-pulse 1.2s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  50% {
+    scale: 1.14;
+  }
+}
+/* the level under the hero's name */
+.home-lv {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.home-lv em,
+.home-lv small {
+  font: 800 11px var(--display);
+  font-style: normal;
+  color: var(--line);
+}
+.home-lv small {
+  font: 700 9px var(--mono);
+  color: var(--muted);
+}
+.home-lv i,
+.xp-bar {
+  display: block;
+  width: 110px;
+  height: 12px;
+  border: 2.5px solid var(--line);
+  border-radius: 99px;
+  background: #efe9dd;
+  overflow: hidden;
+}
+.home-lv i b,
+.xp-bar b {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(#ffd66a, var(--amber));
+}
+/* the result screen's XP card */
+.xp-gain {
+  width: min(380px, 100%);
+  padding: 12px 14px;
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--pop);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.xp-gain.hidden {
+  display: none;
+}
+.xp-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.xp-head b {
+  font: 800 15px var(--display);
+  color: var(--line);
+}
+.xp-head em {
+  font: 800 11px var(--display);
+  font-style: normal;
+  color: var(--muted);
+}
+.xp-head span {
+  margin-left: auto;
+  font: 800 16px var(--display);
+  color: var(--orange);
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+}
+.xp-gain .xp-bar {
+  width: 100%;
+  height: 16px;
+}
+.xp-gain .xp-bar b {
+  width: 0;
+  transition: width 0.9s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.xp-gain small {
+  font: 700 10px var(--mono);
+  color: var(--muted);
+}
+/* trait badges on the select band */
+.car-info .badges {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border: 2.5px solid var(--line);
+  border-radius: 99px;
+  background: #fff;
+  color: var(--line);
+  font: 800 13px var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  box-shadow: 0 3px 0 var(--line);
+}
+.badge i {
+  font-style: normal;
+  font-size: 16px;
+}
+.car-info .badge-note {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  text-align: center;
+  font: 700 10px var(--mono);
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+}
+/* (the name chip's styles stop at the chip) */
+.home-name .home-lv b {
+  padding: 0;
+  border: 0;
+  border-radius: 99px;
+  box-shadow: none;
+  font-size: 0;
+}
