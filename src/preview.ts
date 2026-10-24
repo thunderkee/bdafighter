@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CEL, celify } from './cel';
-import { ShooterMesh, characterById, studioEnv } from './robot';
+import { ShooterMesh, characterById, studioEnv, type CharacterDef } from './robot';
 import { Stage } from './stage';
 import { TOSS_TIME, TWIN_X } from './config';
 import type { Shooter } from './game';
@@ -111,11 +111,12 @@ export class Preview {
     return r;
   }
 
-  showUnit(id: string) {
+  /** a unit on show; skin is the unit in its cosmetics (your fighter) */
+  showUnit(id: string, skin?: CharacterDef) {
     this.ensure();
     this.clear();
     this.mode = 'unit';
-    const def = characterById(id);
+    const def = skin && skin.id === characterById(id).id ? skin : characterById(id);
     this.unit = new ShooterMesh(def.id, def.ball, def);
     this.pivot.add(this.unit.root);
     // (no plinth: the unit stands on its own, at the roster's shared framing)

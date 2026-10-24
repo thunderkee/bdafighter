@@ -96,6 +96,8 @@ export interface SaveData {
   arcadeBest?: number;
   /** XP each fighter has earned (by unit id) */
   fighterXp?: Record<string, number>;
+  /** each fighter's equipped cosmetics (paint, marbles, eyes, nameplate) */
+  equip?: Record<string, Partial<Record<'plate' | 'marble' | 'paint' | 'eyes', string>>>;
   /** an arcade run in progress, to pick up after the app was closed: the stage to play next */
   arcadeRun?: { stage: number; cleared: number; cfg: Partial<Settings>; plan: Partial<Settings>[]; character: string; item?: string | null; at: number };
   /** the near chase camera became the default once; older saves are moved to it */

@@ -4757,3 +4757,126 @@ body.duo #enemy-tag {
   box-shadow: none;
   font-size: 0;
 }
+/* ---- cosmetics ---- */
+/* nameplates on the home chip and the select name */
+.home-name b.plate-bronze {
+  background: linear-gradient(#d99a5e, #9a5a2a);
+  border-color: #ffe0c0;
+}
+.home-name b.plate-gold {
+  background: linear-gradient(#ffe27a, #d8a020);
+  color: var(--line);
+  border-color: #fff6c8;
+}
+#pv-name.plate-bronze {
+  color: #ffc58e;
+}
+#pv-name.plate-gold {
+  color: #ffd84a;
+}
+.home-next {
+  margin-top: 4px;
+  font: 800 9px var(--display);
+  letter-spacing: 0.08em;
+  color: var(--orange-lo);
+}
+/* the Style tab: a row of pills per slot */
+.style-pick {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.style-pick.hidden {
+  display: none;
+}
+.style-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.style-row > span {
+  flex: none;
+  width: 68px;
+  font: 800 10px var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: left;
+}
+.style-row > div {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.style-opt {
+  flex: none;
+  padding: 4px 10px;
+  border: 2px solid var(--line);
+  border-radius: 99px;
+  background: #fff;
+  color: var(--line);
+  font: 800 10px var(--display);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.style-opt.on {
+  background: var(--amber);
+  box-shadow: 0 2px 0 var(--line);
+}
+.style-opt.locked {
+  background: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.35);
+  cursor: default;
+}
+/* the story on the Story tab */
+.car-info .profile .pf-quote {
+  margin: 4px 0 2px;
+  font: 800 13px/1.25 var(--display);
+  color: #fff;
+}
+.car-info .profile .pf-who {
+  margin: 0 0 4px;
+  font: 700 10px var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+}
+.car-info .profile {
+  max-height: 128px;
+}
+.car-info .info-tabs button.hidden {
+  display: none;
+}
+/* the story right on the band (no card behind it) */
+.car-info .profile {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.92);
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow-y: auto;
+}
+.car-info .profile.hidden {
+  display: none;
+}
+.car-info .profile p {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  color: rgba(255, 255, 255, 0.92);
+}
+.car-info .pf-head b {
+  color: #fff;
+  text-transform: uppercase;
+  font: 800 11px var(--display);
+}
+.car-info .pf-head span {
+  color: rgba(255, 255, 255, 0.7);
+}

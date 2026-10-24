@@ -4,7 +4,7 @@ import { CHARGE, MAX_SHOOTERS, chargeLevel, slotTeam, type Drop, type Game, type
 
 /** every robot slot: 0 you, 1-3 opponents, 4-5 your pack-mates */
 const SLOTS = Array.from({ length: MAX_SHOOTERS }, (_, i) => i);
-import { ShooterMesh, characterById, studioEnv } from './robot';
+import { ShooterMesh, characterById, studioEnv, type CharacterDef } from './robot';
 import { Post } from './post';
 import { ballTexture } from './patterns';
 import { Stage } from './stage';
@@ -261,6 +261,8 @@ export class View {
   /** scripted camera: the VS intro or a replay */
   cine: { kind: 'intro' | 'replay'; t: number; shot: number; slot: number; by?: number } | null = null;
   /** each side's marble colour, from its robot */
+  /** what each slot's model was built in (your fighter's paint), to rebuild when it changes */
+  private skinKey: string[] = [];
   private teamBall: [number, number] = [characterById('angel').ball, characterById('dragon').ball];
   /** settings: chase-camera distance, down to a first-person cockpit view */
   /** 'duo' is local two-player versus: the whole table from above, player 1 at the bottom;
@@ -533,16 +535,19 @@ export class View {
   }
 
   /** Swap the robot models: ids[0] is the player, ids[1..3] the opponents, ids[4..5] your pack-mates. */
-  setCharacters(ids: string[]) {
+  setCharacters(ids: string[], you?: CharacterDef) {
     const all = SLOTS.map((i) => ids[i] ?? (slotTeam(i) === 0 ? ids[0] : ids[1]) ?? 'dragon');
-    this.teamBall = [characterById(all[0]).ball, characterById(all[1]).ball];
+    // your fighter in its cosmetics (paint, eyes, marbles); everyone else as standard
+    const own = you && you.id === all[0] ? you : undefined;
+    const defOf = (i: number) => (i === 0 && own ? own : characterById(all[i]));
+    this.teamBall = [defOf(0).ball, characterById(all[1]).ball];
     // a mirror match keeps the opponent's marbles distinguishable
     if (all[0] === all[1]) this.teamBall[1] = 0xff5a4a;
     this.teamBall.forEach((c, i) => {
       const mat = this.marbleMesh[i].material as THREE.MeshPhysicalMaterial;
       mat.color.set(c);
       // each 2.1 unit fires its own marble pattern; the rest keep the cat's-eye swirl
-      const pattern = characterById(all[i === 0 ? 0 : 1]).ballTex;
+      const pattern = defOf(i === 0 ? 0 : 1).ballTex;
       mat.map = pattern ? ballTexture(pattern) : this.swirlTex;
       mat.needsUpdate = true;
     });
@@ -551,10 +556,12 @@ export class View {
       const sh = this.shields[i];
       for (const m of [sh.panel, sh.glow, sh.frame]) m.color.set(ball);
       this.robotFx[i].ghostMats.forEach((m) => m.color.set(ball));
-      if (old.id === all[i] && old.ball === ball && !old.broken) return;
+      const skin = i === 0 && own ? JSON.stringify(own.palette) : '';
+      if (old.id === all[i] && old.ball === ball && !old.broken && this.skinKey[i] === skin) return;
+      this.skinKey[i] = skin;
       this.scene.remove(old.root);
       old.dispose();
-      const next = new ShooterMesh(all[i], ball);
+      const next = new ShooterMesh(all[i], ball, i === 0 && own ? own : undefined);
       this.scene.add(next.root);
       this.shooters[i] = next;
     });

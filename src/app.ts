@@ -9,7 +9,7 @@ import { Fx2D } from './fx2d';
 import { BUILTINS, characterById, playable, playableId } from './robot';
 import { fillPortraits, portrait } from './portraits';
 import { Preview } from './preview';
-import { profileOf } from './profiles';
+import { profileOf, storyOf } from './profiles';
 import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
@@ -19,6 +19,7 @@ import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
 import { CEL } from './cel';
+import { REWARDS, SLOT_NAME, equipKey, skinned, type Equip, type Slot } from './cosmetics';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -488,6 +489,21 @@ export function boot() {
     const pct = L.need ? Math.round((L.into / L.need) * 100) : 100;
     return `<em>LV ${L.lv}</em><i><b style="width:${pct}%"></b></i><small>${L.need ? `${L.into} / ${L.need} XP` : 'MAX'}</small>`;
   };
+  // ---------- cosmetics: what each fighter has unlocked and has on ----------
+  const equipOf = (id: string): Equip => saveData.equip?.[id] ?? {};
+  /** your fighter as it looks in its cosmetics */
+  const mine = (id: string) => skinned(id, equipOf(id));
+  const unlocked = (id: string, r: (typeof REWARDS)[number]) => levelOf(xpOf(id)).lv >= r.lv;
+  const setEquip = (id: string, slot: Slot, value: string | undefined) => {
+    const e = { ...equipOf(id) };
+    if (value) e[slot] = value;
+    else delete e[slot];
+    saveData = store.save({ equip: { ...(saveData.equip ?? {}), [id]: e } });
+  };
+  /** the nameplate class for a fighter's name chip */
+  const plateClass = (id: string) => (equipOf(id).plate ? `plate-${equipOf(id).plate}` : '');
+  /** the next reward a fighter is working toward */
+  const nextReward = (id: string) => REWARDS.find((r) => r.lv > levelOf(xpOf(id)).lv);
   const showToast = (text: string, color: number) => {
     toast.textContent = text;
     toast.style.setProperty('--item', hexc(color));
@@ -627,7 +643,7 @@ export function boot() {
     // each CPU unit's agility trait sharpens (or dulls) its dodging on top of the setting
     const ids = unitIds();
     ais.forEach((a, i) => (a.agility *= traitMul(characterById(ids[i + 1]).traits?.agility, 'agility')));
-    view.setCharacters(unitIds());
+    view.setCharacters(unitIds(), duo ? undefined : mine(unitIds()[0]));
     fitTable(st);
     roundNo = 1;
     roundWins[0] = roundWins[1] = 0;
@@ -809,7 +825,11 @@ export function boot() {
         fill.style.width = `${after.need ? (after.into / after.need) * 100 : 100}%`;
       }),
     );
-    if (after.lv > before.lv) setTimeout(() => showToast(`LEVEL UP // ${characterById(id).name.toUpperCase()} LV ${after.lv}`, 0xffc23d), 700);
+    // new rewards go on straight away (they can be swapped back on the Style tab)
+    const fresh = REWARDS.filter((r) => r.lv > before.lv && r.lv <= after.lv);
+    for (const r of fresh) setEquip(id, r.slot, r.id);
+    if (fresh.length) $('xp-text').textContent = `Unlocked: ${fresh.map((r) => r.name).join(' + ')}`;
+    if (after.lv > before.lv) setTimeout(() => showToast(`LEVEL UP // ${characterById(id).name.toUpperCase()} LV ${after.lv}${fresh.length ? ` · ${fresh[0].name.toUpperCase()}` : ''}`, 0xffc23d), 700);
   };
   /** the result screen in arcade: stage clear (and a look at the next one), or game over */
   const showArcadeResult = (w: -1 | 0 | 1) => {
@@ -1162,7 +1182,7 @@ export function boot() {
     if (screen !== 'playing') {
       game.puckCount = st.pucks;
       game.placePucks();
-      view.setCharacters(unitIds());
+      view.setCharacters(unitIds(), duo ? undefined : mine(unitIds()[0]));
       view.setStage(st.stage);
     }
     view.showAimLine = st.aimLine;
@@ -1180,6 +1200,9 @@ export function boot() {
     $('view-btn').textContent = VIEW_LABEL[st.camera];
     $('title-unit').textContent = characterById(saveData.settings.character).name.toUpperCase();
     $('title-lv').innerHTML = lvHtml(saveData.settings.character);
+    $('title-unit').className = plateClass(saveData.settings.character);
+    const nx = nextReward(saveData.settings.character);
+    $('title-next').textContent = nx ? `NEXT AT LV ${nx.lv}: ${nx.name.toUpperCase()}` : 'ALL REWARDS UNLOCKED';
     showHero();
     $('title-stage').textContent = stageById(st.stage).name.toUpperCase();
     document.body.classList.toggle('buttons', st.layout === 'buttons');
@@ -1298,18 +1321,50 @@ export function boot() {
     el.classList.add(cls);
   };
   /** the unit card's two tabs: stats or profile */
-  let infoTab: 'stats' | 'profile' = 'stats';
+  let infoTab: 'stats' | 'profile' | 'style' = 'stats';
   const showInfo = () => {
     $('info-tabs').classList.remove('hidden');
-    document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.info === infoTab));
+    // (Style is for your own fighter only)
+    const styleOk = step === 'fighter';
+    if (!styleOk && infoTab === 'style') infoTab = 'stats';
+    document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.info === infoTab);
+      if (b.dataset.info === 'style') b.classList.toggle('hidden', !styleOk);
+    });
     $('pv-stats').classList.toggle('hidden', infoTab !== 'stats');
     $('pv-profile').classList.toggle('hidden', infoTab !== 'profile');
+    $('pv-style').classList.toggle('hidden', infoTab !== 'style');
+  };
+  /** the Style tab: each slot's unlocked looks to pick from, the locked ones showing their level */
+  const showStyle = (id: string) => {
+    const e = equipOf(id);
+    const slots: Slot[] = ['paint', 'marble', 'eyes', 'plate'];
+    $('pv-style').innerHTML = slots
+      .map((slot) => {
+        const opts = REWARDS.filter((r) => r.slot === slot);
+        const pill = (v: string, label: string, ok: boolean, lv?: number) =>
+          `<button class="style-opt${(e[slot] ?? '') === v ? ' on' : ''}${ok ? '' : ' locked'}" data-slot="${slot}" data-v="${v}" ${ok ? '' : 'disabled'}>${ok ? label : `🔒 LV ${lv}`}</button>`;
+        return `<div class="style-row"><span>${SLOT_NAME[slot]}</span><div>${pill('', 'Standard', true)}${opts.map((r) => pill(r.id, r.name.replace(/ (paint|marbles|eyes|nameplate)$/i, ''), unlocked(id, r), r.lv)).join('')}</div></div>`;
+      })
+      .join('');
+    $('pv-style')
+      .querySelectorAll<HTMLButtonElement>('.style-opt:not(.locked)')
+      .forEach((b) =>
+        b.addEventListener('click', () => {
+          setEquip(id, b.dataset.slot as Slot, b.dataset.v || undefined);
+          sfx.play('tick', 0.5);
+          preview.showUnit(id, mine(id));
+          showStyle(id);
+          applySettings();
+        }),
+      );
   };
   document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) =>
     b.addEventListener('click', () => {
       infoTab = b.dataset.info as typeof infoTab;
       showInfo();
       if (infoTab === 'stats') replay($('pv-stats'), 'refill');
+      if (infoTab === 'style') showStyle(saveData.settings.character);
     }),
   );
   /** the carousel: everything this step can show, and the one in the middle */
@@ -1367,7 +1422,7 @@ export function boot() {
     if (locked) {
       $('car-shadow').innerHTML = `<i data-portrait="${unit}"></i>`;
       fillPortraits($('car-lock'));
-    } else preview.showUnit(unit);
+    } else preview.showUnit(unit, step === 'fighter' ? mine(unit) : undefined);
     $('pv-tag').textContent = step === 'fighter' ? `PLAYER 1 · LV ${levelOf(xpOf(unit)).lv}` : selectMode === 'duo' ? 'PLAYER 2' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
     if (locked && e) {
       // a locked fighter is only a silhouette until it's won
@@ -1384,9 +1439,16 @@ export function boot() {
     const pr = profileOf(c.id, c.from, c.base);
     const prof = $('pv-profile');
     showInfo();
+    const sto = storyOf(c.id, c.from, c.base);
     prof.innerHTML = pr
-      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div><p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em></div>`
+      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div>${
+          sto
+            ? `<p class="pf-quote">“${sto.quote}”</p><p class="pf-who">${sto.personality}</p><p>${sto.story}</p><div class="pf-tags"><em>Rival · ${characterById(playable().find((u) => baseOf(u.id) === sto.rival)?.id ?? sto.rival).name}</em><em>Best at · ${pr.specialty}</em></div>`
+            : `<p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em></div>`
+        }`
       : `<div class="pf-head"><b>Custom unit</b><span>Unit Lab</span></div><p>Built in the Unit Lab.</p>`;
+    if (step === 'fighter') showStyle(unit);
+    $('pv-name').className = step === 'fighter' ? plateClass(unit) : '';
   };
   /** move to an entry: a pickable one becomes the choice straight away */
   const goTo = (i: number, dir = 0) => {
@@ -1493,9 +1555,10 @@ export function boot() {
       return;
     }
     const id = saveData.settings.character;
-    if (heroId !== id) {
-      heroId = id;
-      hero.showUnit(id);
+    const key = id + equipKey(equipOf(id));
+    if (heroId !== key) {
+      heroId = key;
+      hero.showUnit(id, mine(id));
     }
   };
   // the tutorial card leads the row (with its NEW badge) until it's been played, then goes last
