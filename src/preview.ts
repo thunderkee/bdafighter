@@ -113,8 +113,8 @@ export class Preview {
     const def = characterById(id);
     this.unit = new ShooterMesh(def.id, def.ball, def);
     this.pivot.add(this.unit.root);
+    // (no plinth: the unit stands on its own, at the roster's shared framing)
     this.scene.add(this.pivot);
-    if (!this.hero) this.scene.add(this.plinth);
     this.host.classList.remove('stage');
     this.spin = 0;
     this.handT = 0;

@@ -4185,3 +4185,9 @@ body.duo #enemy-tag {
 #home-cards .mode-card.on small {
   color: rgba(255, 255, 255, 0.92);
 }
+/* no rings or marble stickers behind the fighters */
+.home-rings,
+.sticker,
+.car-rings {
+  display: none;
+}
