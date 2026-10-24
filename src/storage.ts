@@ -89,6 +89,16 @@ export interface Settings {
   pins: number;
 }
 
+export interface ArcadeRun {
+  stage: number;
+  cleared: number;
+  cfg: Partial<Settings>;
+  plan: Partial<Settings>[];
+  character: string;
+  item?: string | null;
+  at: number;
+}
+
 export interface SaveData {
   matches: number;
   wins: number;
@@ -99,7 +109,11 @@ export interface SaveData {
   /** each fighter's equipped cosmetics (paint, marbles, eyes, nameplate) */
   equip?: Record<string, Partial<Record<'plate' | 'marble' | 'paint' | 'eyes', string>>>;
   /** an arcade run in progress, to pick up after the app was closed: the stage to play next */
-  arcadeRun?: { stage: number; cleared: number; cfg: Partial<Settings>; plan: Partial<Settings>[]; character: string; item?: string | null; at: number };
+  arcadeRun?: ArcadeRun;
+  /** each fighter's own arcade run in progress (by unit id) */
+  arcadeRuns?: Record<string, ArcadeRun>;
+  /** how far each fighter is through its story (chapters cleared) */
+  storyCh?: Record<string, number>;
   /** the near chase camera became the default once; older saves are moved to it */
   nearCam?: boolean;
   /** a clear table (no pucks, walls or pins) became the default once */

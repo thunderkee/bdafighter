@@ -4925,3 +4925,213 @@ html {
 #title.home {
   background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.045) 0 4px, transparent 5px) 0 0 / 34px 34px, linear-gradient(#3a6cf0, #1f45c0);
 }
+/* the band holds everything on one page: traits, story, style (it scrolls if it has to) */
+.car-band {
+  flex: 0 1 auto;
+  max-height: 64%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  justify-content: flex-start;
+}
+.car-band::-webkit-scrollbar {
+  display: none;
+}
+.carousel .car-stage {
+  min-height: 150px;
+}
+.car-info {
+  gap: 10px;
+}
+.car-info .profile {
+  max-height: none;
+  overflow: visible;
+}
+#pv-profile::before,
+#pv-style::before {
+  display: block;
+  margin: 2px 0 6px;
+  padding-top: 8px;
+  border-top: 2px solid rgba(255, 255, 255, 0.18);
+  font: 400 12px var(--display);
+  letter-spacing: 0.1em;
+  color: var(--amber);
+  text-align: left;
+}
+#pv-profile::before {
+  content: 'STORY';
+}
+#pv-style::before {
+  content: 'STYLE';
+}
+/* ---- story mode ---- */
+#home-cards .mode-card[data-art='story'] {
+  background: linear-gradient(135deg, #22c3b8, #12707a);
+}
+.mode-card[data-art='story'] .card-art em {
+  font-size: 46px;
+  -webkit-text-stroke: 0;
+}
+/* the talk before a chapter: the speaker big, a comic-style box under them */
+#story-dlg {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(22px, env(safe-area-inset-bottom));
+  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.045) 0 4px, transparent 5px) 0 0 / 34px 34px, linear-gradient(#3a6cf0, #1f45c0);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#story-dlg.hidden {
+  display: none;
+}
+#story-dlg[data-side='them'] {
+  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.045) 0 4px, transparent 5px) 0 0 / 34px 34px, linear-gradient(#f0525e, #b8243a);
+}
+#story-dlg[data-side='narrator'] {
+  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.03) 0 4px, transparent 5px) 0 0 / 34px 34px, linear-gradient(#2a2723, #121110);
+}
+.dlg-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.dlg-head span {
+  font: 400 12px var(--display);
+  letter-spacing: 0.14em;
+  color: var(--amber);
+}
+.dlg-head b {
+  padding: 5px 18px 5px 16px;
+  margin-left: -16px;
+  background: var(--line);
+  color: #fff;
+  font: 400 20px var(--display);
+  letter-spacing: 0.03em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+}
+.dlg-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+#story-dlg[data-side='them'] .dlg-stage {
+  justify-content: flex-end;
+}
+.dlg-face {
+  display: block;
+  width: min(62vw, 260px);
+  aspect-ratio: 1;
+  margin-bottom: -18px;
+  border: 5px solid #fff;
+  border-radius: 28px;
+  background: #2a2723;
+  overflow: hidden;
+  box-shadow: 0 6px 0 var(--line);
+  rotate: -3deg;
+}
+#story-dlg[data-side='them'] .dlg-face {
+  rotate: 3deg;
+}
+#story-dlg[data-side='narrator'] .dlg-face {
+  display: none;
+}
+.dlg-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+.dlg-face.dlg-pop {
+  animation: dlg-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+@keyframes dlg-pop {
+  from {
+    scale: 0.7;
+    opacity: 0;
+  }
+}
+.dlg-box {
+  position: relative;
+  z-index: 1;
+  min-height: 140px;
+  padding: 16px 18px 30px;
+  border: 4px solid var(--line);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 6px 0 var(--line);
+  color: var(--line);
+  text-align: left;
+}
+.dlg-box b {
+  display: block;
+  margin-bottom: 4px;
+  font: 400 20px var(--display);
+  letter-spacing: 0.02em;
+  color: var(--orange-lo);
+}
+.dlg-box p {
+  margin: 0;
+  font: 800 16px/1.4 var(--body);
+}
+#story-dlg[data-side='narrator'] .dlg-box p {
+  font-style: italic;
+  font-weight: 700;
+}
+.dlg-box p.dlg-in {
+  animation: dlg-in 0.25s ease-out;
+}
+@keyframes dlg-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+.dlg-tap {
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  font: 400 11px var(--display);
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  animation: badge-pulse 1.2s ease-in-out infinite;
+}
+.dlg-skip {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  right: 16px;
+  padding: 6px 12px;
+  border: 2.5px solid #fff;
+  border-radius: 99px;
+  background: transparent;
+  color: #fff;
+  font: 400 12px var(--display);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+/* (inside the preview now) */
+.car-stage .peek,
+.car-stage .car-arrow,
+.car-stage .car-lock {
+  top: 50%;
+}
+.car-stage .peek {
+  z-index: 0;
+}
+.carousel.locked .car-stage {
+  visibility: visible;
+}
+.carousel.locked .car-stage canvas {
+  visibility: hidden;
+}
+.car-band {
+  max-height: 56%;
+}

@@ -19,6 +19,7 @@ import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
 import { CEL } from './cel';
+import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
 import { REWARDS, SLOT_NAME, equipKey, skinned, type Equip, type Slot } from './cosmetics';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -125,12 +126,16 @@ export function boot() {
   /** the settings a match plays by: yours, with the arcade stage's layered on top */
   /** local two-player versus on one device: player 2 takes the opponent's robot */
   let duo = false;
+  /** story mode: whose story, which chapter (0-based), and the chapter's match settings */
+  let story: { hero: string; ch: number; cfg: Partial<store.Settings> } | null = null;
   /** the settings a match plays by: yours, with an arcade stage's (or local versus') rules on top */
   const S = (): store.Settings =>
     tut
       ? // the tutorial's practice match: one on one, a clean table, no clock, an easy rival
         { ...saveData.settings, pack: 1, playerPack: 1, items: false, roundTime: 0, pucks: 0, pins: 0, covers: 0, gates: false, enemyIQ: 'easy', enemyCharacter: 'liberty-22', enemyHealth: 3, enemySpeed: 2, enemyPower: 2 }
-      : arcade
+      : story
+        ? { ...saveData.settings, ...story.cfg }
+        : arcade
         ? { ...saveData.settings, ...arcade.cfg }
         : duo
           ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
@@ -794,6 +799,7 @@ export function boot() {
     showArcadeResult(w);
     saveRun('result');
     awardXp(w);
+    if (story) showStoryResult(w);
     $('result').classList.remove('hidden');
     hud.classList.add('hidden');
     sfx.play(w === 0 ? 'win' : 'lose');
@@ -909,6 +915,9 @@ export function boot() {
   };
   /** start a new arcade run from stage 1 */
   const startArcade = () => {
+    // a fighter with a run of its own picks it back up
+    if (runOf(saveData.settings.character)) return resumeRun();
+    runOwner = saveData.settings.character;
     const plan = rollPlan();
     arcade = { stage: 1, cleared: 0, cfg: plan[0], plan };
     showTower(startMatch);
@@ -918,55 +927,180 @@ export function boot() {
    * fought: it picks up at the start of that stage (or the next one, after a clear) with the
    * fighter and any unused item.
    */
+  // (a save from before runs were per fighter: hand it to its fighter)
+  if (saveData.arcadeRun) saveData = store.save({ arcadeRuns: { ...(saveData.arcadeRuns ?? {}), [saveData.arcadeRun.character]: saveData.arcadeRun }, arcadeRun: undefined });
+  /** a fighter's own arcade run in progress */
+  const runOf = (id: string) => saveData.arcadeRuns?.[id];
+  const setRun = (id: string, run: store.ArcadeRun | undefined) => {
+    const all = { ...(saveData.arcadeRuns ?? {}) };
+    if (run) all[id] = run;
+    else delete all[id];
+    saveData = store.save({ arcadeRuns: all });
+  };
+  /** whose run this is (it follows the fighter if you swap mid-run) */
+  let runOwner = '';
   const saveRun = (at: 'start' | 'result') => {
+    const me = saveData.settings.character;
     if (!arcade || arcade.done) {
-      if (saveData.arcadeRun) saveData = store.save({ arcadeRun: undefined });
+      if (runOf(me)) setRun(me, undefined);
       return;
     }
+    if (runOwner && runOwner !== me) setRun(runOwner, undefined);
+    runOwner = me;
     const won = at === 'result' && !!arcade.next;
-    const run = {
+    setRun(me, {
       stage: won ? arcade.stage + 1 : arcade.stage,
       cleared: arcade.cleared,
       cfg: won ? arcade.next! : arcade.cfg,
       plan: arcade.plan,
-      character: saveData.settings.character,
+      character: me,
       // (during a stage, the item you brought into it; after a clear, the one you still hold)
       item: at === 'result' ? (won ? player.item : null) : (carry[0] ?? null),
       at: Date.now(),
-    };
-    saveData = store.save({ arcadeRun: run });
+    });
   };
+  /** the Arcade card shows your current fighter's run: Continue, or a new run */
   const showRunOffer = () => {
-    const r = saveData.arcadeRun;
-    $('run-offer').classList.toggle('hidden', !r);
-    // the Arcade card carries a saved run: Continue (or a new run)
-    $('arcade-go').textContent = r ? `CONTINUE ▶` : 'PLAY ▶';
-    $('arcade-sub').textContent = r ? `Saved: stage ${r.stage} with ${characterById(r.character).name}` : 'A ladder of stages and four bosses';
-    document.querySelector('#arcade-btn .card-new-run')!.classList.toggle('hidden', !r);
-    if (!r) return;
-    $('tut-offer').classList.add('hidden');
-    $('run-offer-title').textContent = bossAt(r.stage) ? `Arcade run saved · boss stage ${r.stage}` : `Arcade run saved · stage ${r.stage}`;
-    $('run-offer-text').textContent = `${characterById(r.character).name}, ${r.cleared} cleared${r.item ? ` · holding ${ITEMS[r.item as ItemType]?.short ?? 'an item'}` : ''}`;
-  };
-  const resumeRun = () => {
-    const r = saveData.arcadeRun;
-    if (!r) return;
-    sfx.unlock();
+    const r = runOf(saveData.settings.character);
     $('run-offer').classList.add('hidden');
+    $('arcade-go').textContent = r ? `CONTINUE ▶` : 'PLAY ▶';
+    $('arcade-sub').textContent = r ? `${characterById(r.character).name}: stage ${r.stage}, ${r.cleared} cleared` : 'A ladder of stages and four bosses';
+    document.querySelector('#arcade-btn .card-new-run')!.classList.toggle('hidden', !r);
+  };
+  const resumeRun = (id = saveData.settings.character) => {
+    const r = runOf(id);
+    if (!r) return;
+    story = null;
+    sfx.unlock();
     selectMode = 'arcade';
     duo = false;
     if (characterById(r.character)) saveData = store.save({ settings: { ...saveData.settings, character: r.character } });
+    runOwner = r.character;
     arcade = { stage: r.stage, cleared: r.cleared, cfg: r.cfg, plan: r.plan };
     carry = [(r.item as ItemType | null) ?? null];
     carryStage = true;
     showTower(startMatch);
   };
-  $('run-continue').addEventListener('click', resumeRun);
-  $('run-drop').addEventListener('click', () => {
-    saveData = store.save({ arcadeRun: undefined });
-    showRunOffer();
-    openSelect('arcade');
+  $('run-continue').addEventListener('click', () => resumeRun());
+
+  // ---------- story mode: three chapters for each fighter, talk before every fight ----------
+  const unitOfBase = (b: string) => playable().find((u) => baseOf(u.id) === b)?.id ?? `${b}-22`;
+  const pathOf = (id: string) => STORY_PATHS[baseOf(id)];
+  const chOf = (id: string) => saveData.storyCh?.[id] ?? 0;
+  const dlg = $('story-dlg');
+  let dlgLines: Line[] = [];
+  let dlgAt = 0;
+  let dlgDone: (() => void) | null = null;
+  let dlgHero = '';
+  /** one line of the talk: the speaker's face (yours on the left, theirs on the right) */
+  const dlgShow = () => {
+    const l = dlgLines[dlgAt];
+    const narr = l.who === 'narrator';
+    const id = narr ? '' : unitOfBase(l.who);
+    dlg.dataset.side = narr ? 'narrator' : baseOf(id) === baseOf(dlgHero) ? 'you' : 'them';
+    $('dlg-who').textContent = narr ? '' : characterById(id).name;
+    $('dlg-text').textContent = l.text;
+    const face = $('dlg-face');
+    face.innerHTML = narr ? '' : `<i data-portrait="${id}" data-crop="bust"></i>`;
+    if (!narr) fillPortraits(face);
+    replay($('dlg-text'), 'dlg-in');
+    replay(face, 'dlg-pop');
+  };
+  const dlgEnd = () => {
+    dlg.classList.add('hidden');
+    const done = dlgDone;
+    dlgDone = null;
+    done?.();
+  };
+  const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void) => {
+    dlgHero = hero;
+    dlgLines = lines;
+    dlgAt = 0;
+    dlgDone = then;
+    $('dlg-ch').textContent = head;
+    $('dlg-title').textContent = title;
+    for (const k of SCREENS) $(k).classList.add('hidden');
+    showHero();
+    dlg.classList.remove('hidden');
+    sfx.play('whoosh');
+    dlgShow();
+  };
+  dlg.addEventListener('click', (e) => {
+    if ((e.target as Element).closest('#dlg-skip')) return dlgEnd();
+    sfx.play('tick', 0.5);
+    if (++dlgAt >= dlgLines.length) dlgEnd();
+    else dlgShow();
   });
+  /** a chapter's fight: the opponent on their home turf, a little harder each time */
+  const fightChapter = () => {
+    if (!story) return;
+    const c = pathOf(story.hero).chapters[story.ch];
+    const diff = CHAPTER_DIFF[story.ch] ?? 'hard';
+    story.cfg = { enemyCharacter: unitOfBase(c.foe), stage: c.arena, pack: 1, playerPack: 1, items: true, roundTime: 60, difficulty: diff, ...store.DIFFICULTY[diff] };
+    arcade = null;
+    duo = false;
+    selectMode = 'versus';
+    fitTable(S());
+    startMatch();
+  };
+  /** talk, then fight (the story's opening comes before the first chapter) */
+  const playChapter = () => {
+    if (!story) return;
+    const p = pathOf(story.hero);
+    const c = p.chapters[story.ch];
+    const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
+    talk(story.hero, `CHAPTER ${story.ch + 1} OF ${p.chapters.length}`, `VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, lines, fightChapter);
+  };
+  const playStory = () => {
+    sfx.unlock();
+    const hero = saveData.settings.character;
+    if (!pathOf(hero)) return showToast('NO STORY FOR THIS UNIT YET', 0xffc23d);
+    const done = chOf(hero) >= pathOf(hero).chapters.length;
+    story = { hero, ch: done ? 0 : chOf(hero), cfg: {} };
+    playChapter();
+  };
+  $('story-btn').addEventListener('click', playStory);
+  /** the home card: your fighter's chapter, or its finished story */
+  const showStoryCard = () => {
+    const id = saveData.settings.character;
+    const p = pathOf(id);
+    const ch = chOf(id);
+    const done = p && ch >= p.chapters.length;
+    $('story-sub').textContent = !p ? 'No story for this unit yet' : done ? `${p.title} · complete ✓ (play again)` : `${p.title} · chapter ${ch + 1} of ${p.chapters.length}`;
+    $('story-go').textContent = done ? 'REPLAY ▶' : ch > 0 ? 'CONTINUE ▶' : 'PLAY ▶';
+  };
+  /** the result screen in story mode: chapter clear (and on to the next), or try again */
+  const showStoryResult = (w: -1 | 0 | 1) => {
+    if (!story) return;
+    const p = pathOf(story.hero);
+    $('arcade-next').classList.add('hidden');
+    $('arcade-swap').classList.add('hidden');
+    if (w === 0) {
+      story.ch++;
+      saveData = store.save({ storyCh: { ...(saveData.storyCh ?? {}), [story.hero]: Math.max(chOf(story.hero), story.ch) } });
+      $('result-title').textContent = story.ch >= p.chapters.length ? 'STORY CLEAR' : `CHAPTER ${story.ch} CLEAR`;
+      $('again-btn').textContent = story.ch >= p.chapters.length ? 'SEE THE ENDING ▶' : 'NEXT CHAPTER ▶';
+    } else {
+      $('result-title').textContent = w === 1 ? 'TRY AGAIN' : 'DRAW';
+      $('again-btn').textContent = 'RETRY CHAPTER';
+    }
+    $('result-sub').textContent = `STORY // ${p.title.toUpperCase()}`;
+    storyWon = w === 0;
+  };
+  let storyWon = false;
+  const storyNext = () => {
+    if (!story) return;
+    const p = pathOf(story.hero);
+    if (!storyWon) return fightChapter();
+    if (story.ch < p.chapters.length) return playChapter();
+    // the ending, and a bonus for finishing
+    const hero = story.hero;
+    talk(hero, 'THE END', p.title.toUpperCase(), p.ending, () => {
+      saveData = store.save({ fighterXp: { ...(saveData.fighterXp ?? {}), [hero]: xpOf(hero) + STORY_BONUS } });
+      quitArcade();
+      showToast(`STORY COMPLETE // +${STORY_BONUS} XP`, 0xffc23d);
+    });
+  };
 
   // ---------- the tower: who you've beaten, who's next, and who waits at the top ----------
   const towerEl = document.createElement('div');
@@ -1026,6 +1160,7 @@ export function boot() {
   };
   /** rematch, or in arcade the next stage (after a win) or the same stage again */
   const playAgain = () => {
+    if (story) return storyNext();
     // after the final boss, a new run from stage 1
     if (arcade?.done) {
       startArcade();
@@ -1044,6 +1179,7 @@ export function boot() {
   const quitArcade = () => {
     // (the run stays saved: Continue on the title picks it back up)
     arcade = null;
+    story = null;
     showRunOffer();
     screen = 'title';
     show('title');
@@ -1108,6 +1244,7 @@ export function boot() {
   // Customise walks the steps instead
   const quickMatch = () => {
     sfx.unlock();
+    story = null;
     selectMode = 'versus';
     arcade = null;
     duo = false;
@@ -1128,11 +1265,12 @@ export function boot() {
     if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
   });
   $('arcade-btn').addEventListener('click', (e) => {
-    if (saveData.arcadeRun && (e.target as Element).closest('.card-new-run')) {
-      saveData = store.save({ arcadeRun: undefined });
+    const mine = runOf(saveData.settings.character);
+    if (mine && (e.target as Element).closest('.card-new-run')) {
+      setRun(saveData.settings.character, undefined);
       showRunOffer();
       openSelect('arcade');
-    } else if (saveData.arcadeRun) resumeRun();
+    } else if (mine) resumeRun();
     else openSelect('arcade');
   });
   $('again-btn').addEventListener('click', playAgain);
@@ -1200,6 +1338,8 @@ export function boot() {
     $('view-btn').textContent = VIEW_LABEL[st.camera];
     $('title-unit').textContent = characterById(saveData.settings.character).name.toUpperCase();
     $('title-lv').innerHTML = lvHtml(saveData.settings.character);
+    showRunOffer();
+    showStoryCard();
     $('title-unit').className = plateClass(saveData.settings.character);
     const nx = nextReward(saveData.settings.character);
     $('title-next').textContent = nx ? `NEXT AT LV ${nx.lv}: ${nx.name.toUpperCase()}` : 'ALL REWARDS UNLOCKED';
@@ -1322,18 +1462,12 @@ export function boot() {
   };
   /** the unit card's two tabs: stats or profile */
   let infoTab: 'stats' | 'profile' | 'style' = 'stats';
+  /** one page, no tabs: traits, then the story, then (for your own fighter) its style */
   const showInfo = () => {
-    $('info-tabs').classList.remove('hidden');
-    // (Style is for your own fighter only)
-    const styleOk = step === 'fighter';
-    if (!styleOk && infoTab === 'style') infoTab = 'stats';
-    document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.info === infoTab);
-      if (b.dataset.info === 'style') b.classList.toggle('hidden', !styleOk);
-    });
-    $('pv-stats').classList.toggle('hidden', infoTab !== 'stats');
-    $('pv-profile').classList.toggle('hidden', infoTab !== 'profile');
-    $('pv-style').classList.toggle('hidden', infoTab !== 'style');
+    $('info-tabs').classList.add('hidden');
+    $('pv-stats').classList.remove('hidden');
+    $('pv-profile').classList.remove('hidden');
+    $('pv-style').classList.toggle('hidden', step !== 'fighter');
   };
   /** the Style tab: each slot's unlocked looks to pick from, the locked ones showing their level */
   const showStyle = (id: string) => {
@@ -1405,6 +1539,10 @@ export function boot() {
     $('car-lock').classList.toggle('hidden', !locked);
     if (e && locked) $('car-lock-text').textContent = lockText(e);
     ($('select-next') as HTMLButtonElement).disabled = locked;
+    if (selectMode === 'arcade' && !arcadeSwap && step === 'fighter') {
+      const r = e && runOf(e.id);
+      $('select-next').textContent = r ? `Continue stage ${r.stage} ▶` : 'Start arcade ▶';
+    }
     showPeeks();
     if (step !== 'arena') $('select').style.removeProperty('--top');
     if (step === 'arena') {
@@ -1413,6 +1551,7 @@ export function boot() {
       $('pv-name').textContent = stageById(id).name;
       $('pv-stats').innerHTML = `<p class="pv-note">Scenery and pucks themed to match</p>`;
       $('pv-profile').classList.add('hidden');
+      $('pv-style').classList.add('hidden');
       $('pv-stats').classList.remove('hidden');
       $('info-tabs').classList.add('hidden');
       return;
@@ -1429,6 +1568,7 @@ export function boot() {
       $('pv-name').textContent = e.lock === 'Opponent' ? characterById(unit).name : '???';
       $('pv-stats').innerHTML = `<p class="pv-note">${e.lock === 'Opponent' ? 'Pick someone else to retry the stage' : 'Climb the arcade ladder to win it'}</p>`;
       $('pv-profile').classList.add('hidden');
+      $('pv-style').classList.add('hidden');
       $('pv-stats').classList.remove('hidden');
       $('info-tabs').classList.add('hidden');
       return;
@@ -1520,6 +1660,8 @@ export function boot() {
     cur = Math.max(0, entries.findIndex((e) => e.id === chosen()));
     goTo(cur);
   };
+  // the arrows, peeks and lock sit over the preview itself (centred on the fighter, whatever the band's height)
+  for (const id of ['peek-prev', 'peek-next', 'car-lock', 'car-prev', 'car-next']) $('preview').appendChild($(id));
   $('car-prev').addEventListener('click', () => go(-1));
   $('car-next').addEventListener('click', () => go(1));
   $('peek-prev').addEventListener('click', () => go(-1));
@@ -1608,7 +1750,7 @@ export function boot() {
   fillPortraits($('home-cards'));
   // (a saved arcade run: its card in the middle)
   requestAnimationFrame(() => {
-    centre(saveData.arcadeRun ? cards.indexOf($('arcade-btn')) : 0, false);
+    centre(runOf(saveData.settings.character) ? cards.indexOf($('arcade-btn')) : 0, false);
     markActive();
   });
 
@@ -1639,6 +1781,7 @@ export function boot() {
   };
   const openSelect = (mode: 'versus' | 'arcade' | 'duo' | 'home') => {
     sfx.unlock();
+    story = null;
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
     const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && isBossUnit(id));
@@ -1863,6 +2006,7 @@ export function boot() {
     $('tut-offer').classList.add('hidden');
     arcade = null;
     duo = false;
+    story = null;
     tut = { i: 0, t: 0, moved: 0, lastX: 0, shots0: 0, hits0: 0, charged: false, shield: 0, done: false };
     startMatch();
     tut.lastX = player.x;

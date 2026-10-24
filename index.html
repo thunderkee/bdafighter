@@ -208,6 +208,7 @@
         <nav class="home-cards" id="home-cards">
           <button id="tut-card" class="mode-card" data-art="tutorial"><i class="new-badge">NEW</i><i class="card-art"><em>🎯</em></i><span class="card-text"><b>Tutorial</b><small>Move, shoot, shield and parry in a minute</small></span><span class="card-go">START ▶</span></button>
           <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Your fighter, straight into a match</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
+          <button id="story-btn" class="mode-card" data-art="story"><i class="card-art"><em>📖</em></i><span class="card-text"><b>Story</b><small id="story-sub">Your fighter’s path through the League</small></span><span class="card-go" id="story-go">PLAY ▶</span></button>
           <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small id="arcade-sub">A ladder of stages and four bosses</small></span><span class="card-go" id="arcade-go">PLAY ▶</span><span class="card-custom card-new-run hidden" role="button">New run</span></button>
           <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
           <button id="duo-btn" class="mode-card" data-art="duo"><i class="card-art"><em>P1</em><i data-portrait="dragon-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><em>P2</em></i><span class="card-text"><b>2 Players</b><small>Head to head on one device</small></span><span class="card-go">PLAY ▶</span></button>
@@ -580,6 +581,13 @@
         <button id="settings-done" class="key orange">DONE</button>
       </div>
 
+      <!-- story mode: who says what before each chapter -->
+      <div id="story-dlg" class="hidden">
+        <header class="dlg-head"><span id="dlg-ch"></span><b id="dlg-title"></b></header>
+        <div class="dlg-stage"><i class="dlg-face" id="dlg-face"></i></div>
+        <div class="dlg-box"><b id="dlg-who"></b><p id="dlg-text"></p><span class="dlg-tap">TAP ▶</span></div>
+        <button class="dlg-skip" id="dlg-skip">SKIP ▶▶</button>
+      </div>
       <div id="loading" class="screen"><p class="sys-line">BOOTING COMBAT SYSTEMS<b class="blink">…</b></p></div>
       <div id="debug" class="hidden"></div>
       <div id="fps" class="hidden"></div>
