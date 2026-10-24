@@ -4249,3 +4249,15 @@ body.duo #enemy-tag {
 .carousel.arena {
   background: var(--top, var(--char));
 }
+/* all the mode cards one size, snapping as they scroll */
+.home-cards {
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 16px;
+}
+.mode-card {
+  scroll-snap-align: start;
+}
+.mode-card.sel {
+  outline: 4px solid var(--amber);
+  outline-offset: 2px;
+}

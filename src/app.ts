@@ -1417,27 +1417,16 @@ export function boot() {
   };
   const cards = [...document.querySelectorAll<HTMLElement>('#home-cards .mode-card')];
   let cardIdx = 0;
+  // every card is the same wide rectangle, and a tap plays it; the keys step a highlight along
+  cards.forEach((c) => c.classList.add('on'));
   const focusCard = (i: number, smooth = true) => {
     cardIdx = (i + cards.length) % cards.length;
-    cards.forEach((c, k) => c.classList.toggle('on', k === cardIdx));
-    // (after the wide card has grown, so it centres where it ends up)
-    requestAnimationFrame(() => cards[cardIdx].scrollIntoView({ inline: 'center', block: 'nearest', behavior: smooth ? 'smooth' : 'auto' }));
+    cards.forEach((c, k) => c.classList.toggle('sel', k === cardIdx));
+    cards[cardIdx].scrollIntoView({ inline: 'center', block: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
   };
-  // a tap on another card brings it up; a tap on the featured one plays it
-  $('home-cards').addEventListener(
-    'click',
-    (e) => {
-      const c = (e.target as Element).closest<HTMLElement>('.mode-card');
-      const k = c ? cards.indexOf(c) : -1;
-      if (k < 0 || k === cardIdx) return;
-      e.preventDefault();
-      e.stopPropagation();
-      focusCard(k);
-    },
-    { capture: true },
-  );
   fillPortraits($('home-cards'));
-  focusCard(saveData.arcadeRun ? 1 : 0, false);
+  // (a saved arcade run: its card in view)
+  if (saveData.arcadeRun) requestAnimationFrame(() => cards[1].scrollIntoView({ inline: 'center', block: 'nearest' }));
 
   const SCREENS = ['title', 'select', 'setup', 'result', 'paused', 'settings'];
   const show = (id: string) => {
