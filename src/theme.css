@@ -4191,3 +4191,36 @@ body.duo #enemy-tag {
 .car-rings {
   display: none;
 }
+/* the preview and the band stacked (not overlapping), with a clear gap between them */
+.carousel {
+  display: flex;
+  flex-direction: column;
+}
+.car-stage {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 20px;
+}
+.car-band {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex: none;
+}
+.carousel.arena .car-stage {
+  flex: none;
+  position: relative;
+  left: auto;
+  top: auto;
+  translate: none;
+  align-self: center;
+  margin: auto 0 20px;
+}
+.peek,
+.car-arrow,
+.car-lock {
+  top: 38%;
+}
