@@ -49,7 +49,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Island Beach honour guard',
     style: 'Hold the line',
     specialty: 'Takes a beating',
-    bio: 'Gold-trimmed and parade-ready, Liberty was built to stand in front of others. Heavy armour, a sure shield, and no hurry.',
+    bio: 'Teal-plated and parade-ready, Liberty was built to stand in front of others. Heavy armour, a sure shield, and no hurry.',
     traits: { health: 5, speed: 1, fireRate: 3, agility: 1 },
   },
   monoceros: {
@@ -81,7 +81,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Night Forest',
     style: 'Dodge, then strike',
     specialty: 'Best dodger',
-    bio: 'A black frame with a scythe and green eyes that you only see once it has slipped your shot. Fragile, but very hard to hit.',
+    bio: 'A plum frame with a scythe and pink eyes that you only see once it has slipped your shot. Fragile, but very hard to hit.',
     traits: { health: 3, speed: 5, fireRate: 3, agility: 5 },
   },
   violet: {
@@ -234,7 +234,7 @@ export const STORIES: Record<string, Story> = {
     personality: 'Grumpy, tough, old-school',
     quote: 'Back in my day we bit things.',
     story:
-      'Thawed out of the Snowfield glacier still running, Rex Saur thinks every new machine is too soft and too shiny. It bites first and asks later, its frosted plates bristling down its back. It rides with Tyrant King for the fights, not the plans, and it cannot stand that cheerful little Ember Lizard.',
+      'Thawed out of the Snowfield glacier still running, Rex Saur thinks every new machine is too soft and too shiny. It bites first and asks later, its orange plates bristling down its sky-blue back. It rides with Tyrant King for the fights, not the plans, and it cannot stand that cheerful little Blossom.',
     rival: 'ember',
   },
   liger: {
@@ -248,7 +248,7 @@ export const STORIES: Record<string, Story> = {
     personality: 'Cheerful, curious, a little chaotic',
     quote: 'Ooh, what does THIS button do?',
     story:
-      'The smallest fighter in the League hatched in the hot springs under the Lava Forge, and its head never stops turning to look at everything. Ember Lizard is everyone’s favourite underdog, except Rex Saur’s. Its marbles go wherever its head happens to be looking, and that’s usually somewhere surprising.',
+      'The smallest fighter in the League a pink axolotl hatched in the hot springs under the Lava Forge, and its head never stops turning to look at everything. Blossom is everyone’s favourite underdog, except Rex Saur’s. Its marbles go wherever its head happens to be looking, and that’s usually somewhere surprising.',
     rival: 'rex',
   },
 };

@@ -528,7 +528,8 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   liger: { special: { ricochet: 0.35, alternate: true, hand: 0.4 }, hound: true, fit: [1.3, 1.3, 1.3], ball: 0xe8b43a, palette: { body: 0x2a2734, trim: 0xe8b43a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0x5af0ff } },
   // Ember Lizard (Charmander): red, an axolotl's gill fronds fanned from its cheeks, and no flame
   // on its tail
-  ember: { special: { wobble: Math.PI / 6 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff6a9a, palette: { body: 0xff6a9a, trim: 0xf2ead8, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0x7affb0 } },
+  // (pink now: named for it)
+  ember: { name: 'Blossom', special: { wobble: Math.PI / 6 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff6a9a, palette: { body: 0xff6a9a, trim: 0xf2ead8, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0x7affb0 } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;

@@ -211,7 +211,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       { foe: 'ember', arena: 'lava', before: [{ who: 'ember', text: 'Grandpa Rex! Did you come to play?!' }, { who: 'rex', text: 'I am NOT your grandpa.' }] },
     ],
     ending: [
-      { who: N, text: 'Ember Lizard tumbles into the hot springs, giggling, and Rex Saur stomps home for another nap.' },
+      { who: N, text: 'Blossom tumbles into the hot springs, giggling, and Rex Saur stomps home for another nap.' },
       { who: 'rex', text: 'Kids these days. …Fine. It was a good fight.' },
     ],
   },
@@ -238,7 +238,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       { who: 'ember', text: 'Ooh, what does THIS button do?' },
     ],
     chapters: [
-      { foe: 'monoceros', arena: 'city', before: [{ who: 'monoceros', text: 'A tiny lizard. In MY lab. Touching MY buttons.' }, { who: 'ember', text: 'This one is red! Red is the best one!' }] },
+      { foe: 'monoceros', arena: 'city', before: [{ who: 'monoceros', text: 'A tiny lizard. In MY lab. Touching MY buttons.' }, { who: 'ember', text: 'This one is pink! Pink is the best one!' }] },
       { foe: 'bastion', arena: 'forest', before: [{ who: 'bastion', text: '…' }, { who: 'ember', text: 'Hi! You’re very quiet. Do you want to be friends?' }] },
       { foe: 'rex', arena: 'snow', before: [{ who: 'rex', text: 'You. The little one. You never stop talking.' }, { who: 'ember', text: 'Grandpa Rex! Let’s play!' }] },
     ],
