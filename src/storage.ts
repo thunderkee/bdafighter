@@ -122,6 +122,8 @@ export interface SaveData {
   simpleRules?: boolean;
   /** the on-screen buttons came back as the default once */
   buttonsBack?: boolean;
+  /** the move slider became the button pad's default once */
+  sliderMove?: boolean;
   /** every unit unlocked at once (Options > Advanced, for trying them all out) */
   unlockAll?: boolean;
   /** the tutorial was finished (or the offer turned down) */
@@ -166,7 +168,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cpuCharge: true,
   allyCharge: true,
   allyTactic: 'nearest',
-  moveControl: 'buttons',
+  moveControl: 'slider',
   hudMode: 'top',
   roundTime: 60,
   burst: 1,
@@ -212,7 +214,9 @@ export function load(): SaveData {
       if (!parsed.simpleRules) Object.assign(settings, { pucks: 0, covers: 0, pins: 0, gates: false, camera: 'mid' });
       // the on-screen button pad is the default again
       if (!parsed.buttonsBack) settings.layout = 'buttons';
-      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true, clearTable: true, simpleRules: true, buttonsBack: true };
+      // with the button pad, moving is on the slider
+      if (!parsed.sliderMove) settings.moveControl = 'slider';
+      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true, clearTable: true, simpleRules: true, buttonsBack: true, sliderMove: true };
     }
   } catch {
     // keep the in-memory copy
