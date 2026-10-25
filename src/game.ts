@@ -1,5 +1,6 @@
 import RAPIER from '@dimforge/rapier2d';
 import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, TOSS_TIME, TWIN_X, type ShooterStats } from './config';
+import { BOARDS, KICK, PORTAL_R, type Board } from './pinball';
 import { COVER, COVER_X, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, PIN, PIN_SPOTS, SHIELD, PARRY, SLOWMO, WIPER, X5, type GateType, type ItemType, BOOST_BALL, CATCH, TRICK } from './items';
 import * as sfx from './audio';
 
@@ -139,6 +140,15 @@ export interface Cover {
   y: number;
   hp: number;
   active: boolean;
+}
+
+/** a pinball pop bumper on the board (the newer arenas) */
+export interface PinBumper {
+  x: number;
+  y: number;
+  r: number;
+  /** seconds of flash after a kick */
+  glow: number;
 }
 
 export interface Pin {
@@ -407,7 +417,9 @@ type Tag =
   | { kind: 'bump'; b: Bump }
   | { kind: 'cover'; c: Cover }
   | { kind: 'pin'; p: Pin }
-  | { kind: 'gatewall' };
+  | { kind: 'gatewall' }
+  | { kind: 'pbump'; b: PinBumper }
+  | { kind: 'pbar' };
 
 /** seconds between the balls of one trigger pull */
 const BURST_GAP = 0.07;
@@ -621,6 +633,88 @@ export class Game {
   private ground: RAPIER.RigidBody | null = null;
 
   /** the table width changed (setArenaWidth): move the walls to the new edges */
+  // ---------- the pinball board (newer arenas) ----------
+  /** the board in play: its pop bumpers (for the view's flashes), current zones and portals */
+  board: Board | null = null;
+  pinBumpers: PinBumper[] = [];
+  private boardColliders: RAPIER.Collider[] = [];
+  private boardZones: Board['zones'] = [];
+  private boardPortals: Board['portals'] = [];
+  /** marbles that just came out of a portal (by pool index), so they don't bounce straight back */
+  private warped = new Map<number, number>();
+  /** put this arena's pinball board on the table (or clear it: most arenas have none) */
+  setBoard(stage: string | null) {
+    for (const c of this.boardColliders) {
+      this.tags.delete(c.handle);
+      this.world.removeCollider(c, false);
+    }
+    this.boardColliders = [];
+    this.pinBumpers = [];
+    this.warped.clear();
+    const src = stage ? BOARDS[stage] : undefined;
+    // (laid out for the standard table: across, it scales with the table's width)
+    const k = ARENA.width / 10;
+    this.board = src
+      ? {
+          bumpers: src.bumpers.map((b) => ({ ...b, x: b.x * k })),
+          bars: src.bars.map((b) => ({ ...b, x: b.x * k })),
+          zones: src.zones.map((z) => ({ ...z, x: z.x * k, w: z.w * k })),
+          portals: src.portals.map((p) => ({ a: [p.a[0] * k, p.a[1]] as [number, number], b: [p.b[0] * k, p.b[1]] as [number, number] })),
+        }
+      : null;
+    this.boardZones = this.board?.zones ?? [];
+    this.boardPortals = this.board?.portals ?? [];
+    if (!this.board) return;
+    const ground = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    for (const b of this.board.bumpers) {
+      const c = this.world.createCollider(RAPIER.ColliderDesc.ball(b.r).setTranslation(b.x, b.y).setRestitution(1).setFriction(0).setCollisionGroups(GROUPS.block), ground);
+      const pb: PinBumper = { x: b.x, y: b.y, r: b.r, glow: 0 };
+      this.pinBumpers.push(pb);
+      this.tags.set(c.handle, { kind: 'pbump', b: pb });
+      this.boardColliders.push(c);
+    }
+    for (const b of this.board.bars) {
+      const c = this.world.createCollider(
+        RAPIER.ColliderDesc.cuboid(b.len / 2, 0.14).setTranslation(b.x, b.y).setRotation(b.angle).setRestitution(1.25).setFriction(0).setCollisionGroups(GROUPS.block),
+        ground,
+      );
+      this.tags.set(c.handle, { kind: 'pbar' });
+      this.boardColliders.push(c);
+    }
+  }
+
+  /** currents push marbles inside them; portals swap a marble to the other end of the pair */
+  private stepBoard(dt: number) {
+    for (const pb of this.pinBumpers) pb.glow = Math.max(0, pb.glow - dt);
+    if (!this.boardZones.length && !this.boardPortals.length) return;
+    for (const m of this.marbles) {
+      if (!m.active) continue;
+      const p = m.body.translation();
+      for (const z of this.boardZones) {
+        if (Math.abs(p.x - z.x) > z.w / 2 || Math.abs(p.y - z.y) > z.h / 2) continue;
+        const v = m.body.linvel();
+        m.body.setLinvel({ x: v.x + z.fx * dt, y: v.y + z.fy * dt }, true);
+      }
+      const cd = this.warped.get(m.idx) ?? 0;
+      if (cd > 0) {
+        this.warped.set(m.idx, cd - dt);
+        continue;
+      }
+      for (const pr of this.boardPortals) {
+        const inA = Math.hypot(p.x - pr.a[0], p.y - pr.a[1]) < PORTAL_R;
+        const inB = !inA && Math.hypot(p.x - pr.b[0], p.y - pr.b[1]) < PORTAL_R;
+        if (!inA && !inB) continue;
+        const to = inA ? pr.b : pr.a;
+        this.fx.push({ type: 'pin', x: p.x, y: p.y });
+        m.body.setTranslation({ x: to[0], y: to[1] }, true);
+        this.fx.push({ type: 'pin', x: to[0], y: to[1] });
+        this.warped.set(m.idx, 0.45);
+        sfx.play('whoosh', 0.5);
+        break;
+      }
+    }
+  }
+
   resizeArena() {
     for (const c of this.arenaColliders) {
       this.tags.delete(c.handle);
@@ -902,6 +996,7 @@ export class Game {
       m.body.setLinvel({ x: v.x + dv, y: v.y }, true);
     }
 
+    this.stepBoard(dt);
     // slow-mo steps the same number of times with a smaller time slice, so motion stays smooth
     if (this.world.timestep !== dt) this.world.timestep = dt;
     this.world.step(this.events);
@@ -1318,7 +1413,9 @@ export class Game {
     // pushed forward: out toward the middle (not with the shield up), back to the rail on release
     // (with covers up on this side, it stops just behind them rather than inside one)
     const behind = this.covers.some((c) => c.active && c.hp > 0 && Math.sign(c.y) === Math.sign(s.railY)) ? ARENA.railY - COVER.y - COVER.halfDepth - 0.75 : ADVANCE.depth;
-    const advGoal = s.advancing && !s.shielding && (canAct || this.phase === 'countdown') ? Math.min(ADVANCE.depth, behind) : 0;
+    // (on a pinball board it stops short of the bumpers)
+    const clear = this.board ? 4.4 : ADVANCE.depth;
+    const advGoal = s.advancing && !s.shielding && (canAct || this.phase === 'countdown') ? Math.min(ADVANCE.depth, behind, clear) : 0;
     const advStep = ADVANCE.speed * adt;
     s.advOff += Math.max(-advStep, Math.min(advStep, advGoal - s.advOff));
     s.y = s.railY + s.forward * (s.passOff + s.advOff);
@@ -1923,6 +2020,28 @@ export class Game {
         m.hop = Math.max(m.hop, Math.min(0.45, speed * 0.02));
         m.bounces++;
         sfx.play('bump', speed / 18);
+        break;
+      case 'pbump': {
+        // a pop bumper kicks the marble straight away from its centre, faster than it came
+        const b = other.b;
+        const dx = p.x - b.x;
+        const dy = p.y - b.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const out = Math.min(KICK.max, Math.max(KICK.min, speed * KICK.mul));
+        m.body.setLinvel({ x: (dx / d) * out, y: (dy / d) * out }, true);
+        b.glow = 0.35;
+        m.hop = Math.max(m.hop, 0.3);
+        m.bounces++;
+        this.fx.push({ type: 'pin', x: b.x, y: b.y });
+        this.fx.push({ type: 'spark', x: p.x, y: p.y, intensity: 1 });
+        sfx.play('clack', 1);
+        break;
+      }
+      case 'pbar':
+        m.bounces++;
+        m.hop = Math.max(m.hop, 0.15);
+        this.fx.push({ type: 'spark', x: p.x, y: p.y, intensity: 0.6 });
+        sfx.play('wall', speed / 16);
         break;
       case 'pin':
         other.p.glow = 0.3;

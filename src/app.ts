@@ -650,6 +650,8 @@ export function boot() {
     ais.forEach((a, i) => (a.agility *= traitMul(characterById(ids[i + 1]).traits?.agility, 'agility')));
     view.setCharacters(unitIds(), duo ? undefined : mine(unitIds()[0]));
     fitTable(st);
+    // the newer arenas bring their pinball board
+    game.setBoard(st.stage);
     roundNo = 1;
     roundWins[0] = roundWins[1] = 0;
     totals.dealt = totals.shots = totals.hits = 0;

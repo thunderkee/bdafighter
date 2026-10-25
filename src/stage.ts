@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ARENA } from './config';
-import { TOON, paintToonFloor, toonRails, toonScenery } from './toonstage';
+import { TOON, paintToonFloor, toonBoard, toonRails, toonScenery } from './toonstage';
 
 // Themed stages. Each one is data (colours, lighting) plus a scenery builder,
 // an ambient particle style, moving props, and a matching puck model.
@@ -222,6 +222,16 @@ export class Stage {
   private water: THREE.Mesh[] = [];
   /** animated props: boats, flying cars, drones, birds, flickering signs */
   private movers: ((t: number, dt: number) => void)[] = [];
+  /** the pinball bumpers' caps, in board order (they flash white when they kick) */
+  private bumperCaps: THREE.MeshBasicMaterial[] = [];
+  private capBase = new THREE.Color();
+  setBumperGlow(glow: number[]) {
+    this.bumperCaps.forEach((m, i) => {
+      const g = glow[i] ?? 0;
+      if (!this.capBase.getHex()) this.capBase.copy(m.color);
+      m.color.copy(this.capBase).lerp(new THREE.Color(0xffffff), Math.min(1, g * 3));
+    });
+  }
 
   constructor(id: string) {
     this.def = stageById(id);
@@ -229,6 +239,10 @@ export class Stage {
     this.buildRails();
     // a few big cartoon props round the table and one piece on the horizon
     if (TOON[this.def.id]) toonScenery(this.group, this.def.id);
+    // and the pinball board's pieces, where the arena has one
+    const board = toonBoard(this.group, this.def.id);
+    this.bumperCaps = board.caps;
+    for (const a of board.anim) this.movers.push((t) => a(t));
     // the floor and rails are built for the current table width; the scenery is laid out for the standard one
     // only the table itself: the scenery, backdrop and ambient particles outside the field are
     // left out, which keeps the frame cheap (set SCENERY to bring them back)

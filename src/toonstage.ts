@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ARENA } from './config';
+import { BOARDS, PORTAL_R } from './pinball';
 
 /**
  * The cartoon arenas: flat floors with a bright play lane and one bold motif, chunky capped
@@ -545,6 +546,89 @@ function backdrop(id: string): THREE.Object3D {
     }
   }
   return new THREE.Group();
+}
+
+/** a floor texture of chevrons, for a current zone (scrolled along the push to show it moving) */
+function arrowTex(color: string) {
+  const cvs = document.createElement('canvas');
+  cvs.width = 64;
+  cvs.height = 64;
+  const c = cvs.getContext('2d')!;
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(14, 8);
+  c.lineTo(42, 32);
+  c.lineTo(14, 56);
+  c.lineTo(26, 56);
+  c.lineTo(54, 32);
+  c.lineTo(26, 8);
+  c.closePath();
+  c.fill();
+  const t = new THREE.CanvasTexture(cvs);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/**
+ * The pinball board's pieces (the game builds the matching physics from the same layout):
+ * mushroom bumpers whose caps flash when they kick, slingshot bars, current zones as scrolling
+ * chevrons on the floor, and portal rings. Returns what animates each frame, and the bumper
+ * caps in board order for the flashes.
+ */
+export function toonBoard(g: THREE.Group, id: string) {
+  const b = BOARDS[id];
+  const anim: ((t: number) => void)[] = [];
+  const caps: THREE.MeshBasicMaterial[] = [];
+  if (!b) return { anim, caps };
+  const t = TOON[id];
+  const k = ARENA.width / 10;
+  for (const bp of b.bumpers) {
+    const cap = glow(t.cap);
+    caps.push(cap);
+    const o = grp(mesh(new THREE.CylinderGeometry(bp.r * 1.05, bp.r * 1.2, 0.36, 18), lam(t.wall), 0, 0.18, 0), mesh(new THREE.CylinderGeometry(bp.r * 0.95, bp.r, 0.2, 18), cap, 0, 0.46, 0), mesh(new THREE.TorusGeometry(bp.r * 1.08, 0.06, 6, 20), lam(0xffffff), 0, 0.38, 0));
+    (o.children[2] as THREE.Mesh).rotation.x = Math.PI / 2;
+    o.position.set(bp.x * k, 0, -bp.y);
+    g.add(o);
+  }
+  for (const br of b.bars) {
+    const bar = mesh(new THREE.CapsuleGeometry(0.14, br.len - 0.28, 4, 8), lam(t.cap), br.x * k, 0.22, -br.y);
+    bar.rotation.set(0, br.angle, Math.PI / 2);
+    g.add(bar);
+    const base = mesh(new THREE.BoxGeometry(br.len, 0.12, 0.34), lam(t.wall), br.x * k, 0.06, -br.y);
+    base.rotation.y = br.angle;
+    g.add(base);
+  }
+  for (const z of b.zones) {
+    const tex = arrowTex('rgba(255,255,255,0.85)');
+    const len = Math.hypot(z.fx, z.fy) || 1;
+    // the chevrons point along the push; texture u runs along it
+    const along = Math.abs(z.fx) >= Math.abs(z.fy);
+    const w = z.w * k;
+    tex.repeat.set(along ? w / 1.2 : z.h / 1.2, along ? z.h / 1.2 : w / 1.2);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, color: t.line, transparent: true, opacity: 0.55, depthWrite: false });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(along ? w : z.h, along ? z.h : w), mat);
+    plane.rotation.x = -Math.PI / 2;
+    // (game +y is world -z; turn the chevrons to face the push)
+    plane.rotation.z = along ? (z.fx < 0 ? Math.PI : 0) : z.fy > 0 ? Math.PI / 2 : -Math.PI / 2;
+    plane.position.set(z.x * k, 0.015, -z.y);
+    g.add(plane);
+    const speed = len / 6;
+    anim.push((time) => (tex.offset.x = -time * speed));
+  }
+  for (const pr of b.portals)
+    for (const [x, y] of [pr.a, pr.b]) {
+      const ring = mesh(new THREE.TorusGeometry(PORTAL_R, 0.12, 8, 24), glow(0xb07aff), x * k, 0.2, -y);
+      ring.rotation.x = Math.PI / 2;
+      const core = mesh(new THREE.CircleGeometry(PORTAL_R * 0.85, 24), new THREE.MeshBasicMaterial({ color: 0x2a0a4a, transparent: true, opacity: 0.85 }), x * k, 0.02, -y);
+      core.rotation.x = -Math.PI / 2;
+      g.add(ring, core);
+      anim.push((time) => {
+        ring.rotation.z = time * 2.4;
+        ring.scale.setScalar(1 + Math.sin(time * 4) * 0.06);
+      });
+    }
+  return { anim, caps };
 }
 
 /** the scenery round the table: three props a side and the horizon piece */

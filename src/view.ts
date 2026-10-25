@@ -867,6 +867,9 @@ export class View {
     this.glows.length = 0;
     this.handleFx();
     this.stage.update(wdt, this.worldTime);
+    // pinball bumpers flash as they kick
+    const pb = (this.game as { pinBumpers?: { glow: number }[] }).pinBumpers;
+    if (pb) this.stage.setBumperGlow(pb.map((b) => b.glow));
     this.stage.setParticles(this.realismOn);
 
     g.shooters.forEach((s, i) => {
