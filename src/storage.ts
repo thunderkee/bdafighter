@@ -120,6 +120,8 @@ export interface SaveData {
   clearTable?: boolean;
   /** the simple rules (clear table, no power gates) and the mid camera became the default once */
   simpleRules?: boolean;
+  /** the on-screen buttons came back as the default once */
+  buttonsBack?: boolean;
   /** every unit unlocked at once (Options > Advanced, for trying them all out) */
   unlockAll?: boolean;
   /** the tutorial was finished (or the offer turned down) */
@@ -131,7 +133,7 @@ export interface SaveData {
 export const DEFAULT_SETTINGS: Settings = {
   mouseAim: true,
   arrows: 'move',
-  layout: 'gestures',
+  layout: 'buttons',
   pucks: 0,
   aimLine: true,
   enemyHealth: 3,
@@ -208,7 +210,9 @@ export function load(): SaveData {
       if (!parsed.clearTable) Object.assign(settings, { pucks: 0, covers: 0, pins: 0 });
       // simple rules: a clear table without power gates, seen from the mid camera
       if (!parsed.simpleRules) Object.assign(settings, { pucks: 0, covers: 0, pins: 0, gates: false, camera: 'mid' });
-      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true, clearTable: true, simpleRules: true };
+      // the on-screen button pad is the default again
+      if (!parsed.buttonsBack) settings.layout = 'buttons';
+      memory = { ...DEFAULTS, ...parsed, settings, nearCam: true, clearTable: true, simpleRules: true, buttonsBack: true };
     }
   } catch {
     // keep the in-memory copy

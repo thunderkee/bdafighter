@@ -7,7 +7,7 @@ import { TOON, paintToonFloor, toonRails, toonScenery } from './toonstage';
 // an ambient particle style, moving props, and a matching puck model.
 // Physics is identical on every stage; only the look changes.
 
-export type StageId = 'space' | 'beach' | 'lava' | 'snow' | 'city' | 'forest' | 'river' | 'cyber' | 'soccer';
+export type StageId = 'space' | 'beach' | 'lava' | 'snow' | 'city' | 'forest' | 'river' | 'cyber' | 'soccer' | 'desert' | 'candy' | 'cloud' | 'haunted' | 'reef';
 
 interface StageDef {
   id: StageId;
@@ -177,6 +177,12 @@ export const STAGES: StageDef[] = [
     apron: 0x2f7a36,
     particles: 'confetti',
   },
+  // the five newer arenas are cartoon-only (their look is all in toonstage.ts)
+  { id: 'desert', name: 'Dune Canyon', swatch: [0xf0b46a, 0xd8643a], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  { id: 'candy', name: 'Candy Land', swatch: [0xffb8dc, 0x7ad8ff], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  { id: 'cloud', name: 'Cloud Kingdom', swatch: [0xdff2ff, 0xffd84a], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  { id: 'haunted', name: 'Haunted Manor', swatch: [0x3a2a5a, 0xff8a2a], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  { id: 'reef', name: 'Coral Reef', swatch: [0x2ab8c8, 0xff7a8a], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
 ];
 
 // the cartoon look: brighter skies and light, and the apron colours to match

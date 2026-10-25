@@ -35,6 +35,11 @@ export const TOON: Record<string, Toon> = {
   forest: { sky: 0x9ad8a0, fog: [0xb8e4b8, 40, 110], hemi: [0xf0fff0, 0x3a6a3a, 1.8], sun: [0xfffbe0, 1.9], floor: 0x5a9248, lane: 0x74ae5a, edge: 0x447636, line: 0xe8f8c8, apron: 0x3a6a30, wall: 0x8a5a34, cap: 0x6ac04a },
   river: { sky: 0xffba7a, fog: [0xffc896, 40, 110], hemi: [0xffe8d0, 0x5a4a7a, 1.8], sun: [0xffc080, 2.0], floor: 0xa87446, lane: 0xc28c58, edge: 0x8a5a34, line: 0xfff0c8, apron: 0x3a6aaa, wall: 0x6a4428, cap: 0xffd27a },
   cyber: { sky: 0x3a1268, fog: [0x3a1268, 40, 110], hemi: [0xe0c8ff, 0x3a1450, 1.8], sun: [0xffb0e8, 1.7], floor: 0x2e1a4a, lane: 0x442a6c, edge: 0x22123a, line: 0xff4ae0, apron: 0x1a0c30, wall: 0x2a1a44, cap: 0x2bf0ff, capGlow: true },
+  desert: { sky: 0xffc88a, fog: [0xffd8a8, 44, 120], hemi: [0xfff4e0, 0xb86a3a, 1.9], sun: [0xfff0d0, 2.3], floor: 0xe8a868, lane: 0xf6c488, edge: 0xc8844a, line: 0xfff4d8, apron: 0xd8904e, wall: 0xb8643a, cap: 0xf6d8a0 },
+  candy: { sky: 0xffd0ea, fog: [0xffe0f0, 44, 120], hemi: [0xffffff, 0xd88ab8, 1.9], sun: [0xffffff, 2.1], floor: 0xffa8d4, lane: 0xffc8e4, edge: 0xf088c0, line: 0xffffff, apron: 0x8ad8ff, wall: 0xffffff, cap: 0xff5a9a },
+  cloud: { sky: 0x9ad8ff, fog: [0xd8f0ff, 44, 130], hemi: [0xffffff, 0xb8d8f0, 2.0], sun: [0xffffff, 2.2], floor: 0xe8f4ff, lane: 0xffffff, edge: 0xc8e0f8, line: 0xffc83a, apron: 0xf4faff, wall: 0xffd84a, cap: 0xffffff },
+  haunted: { sky: 0x4a3a7a, fog: [0x5a4a88, 40, 110], hemi: [0xe0d8ff, 0x3a2a4a, 1.8], sun: [0xd8d0ff, 1.7], floor: 0x4a3e5a, lane: 0x5e5072, edge: 0x362c44, line: 0xff9a3a, apron: 0x2a2236, wall: 0x2e2638, cap: 0xff9a3a, capGlow: true },
+  reef: { sky: 0x2ab0c8, fog: [0x3ac0d4, 36, 100], hemi: [0xd8fff8, 0x2a6a8a, 1.9], sun: [0xe8fff8, 1.9], floor: 0xf0d8a0, lane: 0xfae6b8, edge: 0xd8bc84, line: 0xffffff, apron: 0x1a8aa8, wall: 0xff7a8a, cap: 0xffe0a0 },
   soccer: { sky: 0x8cd2ff, fog: [0xc0e4ff, 46, 130], hemi: [0xffffff, 0x4a8a3a, 1.9], sun: [0xffffff, 2.1], floor: 0x3aa046, lane: 0x48b454, edge: 0x2e8a3a, line: 0xffffff, apron: 0x2f8036, wall: 0xffffff, cap: 0xe8312f },
 };
 
@@ -186,6 +191,93 @@ export function paintToonFloor(c: CanvasRenderingContext2D, id: string, CW: numb
       }
       break;
     }
+    case 'desert': {
+      // a sun
+      c.fillStyle = '#ffb83a';
+      c.beginPath();
+      c.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      for (let k = 0; k < 10; k++) {
+        const a = (k * Math.PI) / 5;
+        c.beginPath();
+        c.moveTo(cx + Math.cos(a) * r * 0.68, cy + Math.sin(a) * r * 0.68);
+        c.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        c.stroke();
+      }
+      break;
+    }
+    case 'candy': {
+      // a lollipop swirl
+      c.fillStyle = '#ffffff';
+      c.beginPath();
+      c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = '#ff5a9a';
+      c.lineWidth = 16;
+      c.beginPath();
+      for (let a = 0; a < Math.PI * 6; a += 0.1) c.lineTo(cx + Math.cos(a) * (a / (Math.PI * 6)) * r, cy + Math.sin(a) * (a / (Math.PI * 6)) * r);
+      c.stroke();
+      break;
+    }
+    case 'cloud': {
+      // a star
+      c.fillStyle = '#ffd84a';
+      c.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const a = -Math.PI / 2 + (k * Math.PI) / 5;
+        const rr = k % 2 ? r * 0.45 : r;
+        c.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      c.closePath();
+      c.fill();
+      c.strokeStyle = '#ffffff';
+      c.stroke();
+      break;
+    }
+    case 'haunted': {
+      // a jack-o'-lantern face
+      c.fillStyle = '#ff9a3a';
+      c.beginPath();
+      c.ellipse(cx, cy, r, r * 0.8, 0, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = '#2a2236';
+      for (const sx of [-1, 1]) {
+        c.beginPath();
+        c.moveTo(cx + sx * r * 0.5, cy - r * 0.1);
+        c.lineTo(cx + sx * r * 0.22, cy - r * 0.1);
+        c.lineTo(cx + sx * r * 0.36, cy - r * 0.42);
+        c.closePath();
+        c.fill();
+      }
+      c.beginPath();
+      c.moveTo(cx - r * 0.55, cy + r * 0.2);
+      for (let k = 0; k <= 6; k++) c.lineTo(cx - r * 0.55 + (k * r * 1.1) / 6, cy + r * (k % 2 ? 0.32 : 0.2) + r * 0.12);
+      c.lineTo(cx + r * 0.4, cy + r * 0.55);
+      c.lineTo(cx - r * 0.4, cy + r * 0.55);
+      c.closePath();
+      c.fill();
+      break;
+    }
+    case 'reef': {
+      // a scallop shell
+      c.fillStyle = '#ffb08a';
+      c.beginPath();
+      c.moveTo(cx, cy + r * 0.7);
+      c.arc(cx, cy + r * 0.2, r, Math.PI * 1.15, Math.PI * 1.85);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = '#ffffff';
+      c.stroke();
+      for (let k = 1; k < 6; k++) {
+        const a = Math.PI * 1.15 + (k * Math.PI * 0.7) / 6;
+        c.beginPath();
+        c.moveTo(cx, cy + r * 0.7);
+        c.lineTo(cx + Math.cos(a) * r, cy + r * 0.2 + Math.sin(a) * r);
+        c.stroke();
+      }
+      break;
+    }
     case 'soccer': {
       // the pitch markings
       c.lineWidth = 7;
@@ -300,6 +392,54 @@ const stand: Make = () => {
   return grp(...parts);
 };
 
+const cactus: Make = () => {
+  const gr = lam(0x4aa04a);
+  const arm = (sx: number, y: number) => grp(mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.8, 7), gr, sx * 0.5, y, 0), mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.0, 7), gr, sx * 0.8, y + 0.4, 0));
+  const a1 = arm(1, 1.6);
+  a1.children[0].rotation.z = Math.PI / 2;
+  const a2 = arm(-1, 2.2);
+  a2.children[0].rotation.z = Math.PI / 2;
+  return grp(mesh(new THREE.CylinderGeometry(0.4, 0.44, 3.4, 8), gr, 0, 1.7, 0), mesh(new THREE.SphereGeometry(0.4, 8, 6), gr, 0, 3.4, 0), a1, a2);
+};
+const skull: Make = () => grp(mesh(new THREE.SphereGeometry(0.6, 10, 8), lam(0xfff6e0), 0, 0.5, 0), mesh(new THREE.BoxGeometry(0.6, 0.3, 0.5), lam(0xfff6e0), 0, 0.15, -0.2), mesh(new THREE.ConeGeometry(0.12, 0.9, 6), lam(0xfff6e0), 0.6, 0.95, 0), mesh(new THREE.ConeGeometry(0.12, 0.9, 6), lam(0xfff6e0), -0.6, 0.95, 0));
+const lolly: Make = () => grp(mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.4, 6), lam(0xffffff), 0, 1.7, 0), mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.3, 16), lam(0xff5a9a), 0, 3.8, 0), mesh(new THREE.TorusGeometry(0.62, 0.16, 6, 16), lam(0xffffff), 0, 3.8, 0));
+const gumdrop: Make = () => grp(mesh(new THREE.SphereGeometry(1.0, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), lam([0x7ad8ff, 0xffd84a, 0x8ae86a][Math.floor(Math.random() * 3)]), 0, 0, 0));
+const cloudPuff: Make = () => {
+  const w = lam(0xffffff);
+  return put(grp(mesh(new THREE.SphereGeometry(1.2, 10, 8), w, 0, 0, 0), mesh(new THREE.SphereGeometry(0.9, 10, 8), w, 1.1, -0.2, 0.2), mesh(new THREE.SphereGeometry(0.85, 10, 8), w, -1.1, -0.25, -0.1), mesh(new THREE.SphereGeometry(0.7, 10, 8), w, 0.3, 0.6, 0.3)), 0, 1.6, 0);
+};
+const pumpkin: Make = () => grp(mesh(new THREE.SphereGeometry(0.8, 10, 8), lam(0xff8a2a), 0, 0.65, 0), mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.4, 6), lam(0x4a8a3a), 0, 1.5, 0), mesh(new THREE.BoxGeometry(0.5, 0.14, 0.05), glow(0xffe060), 0, 0.5, -0.78));
+const deadTree: Make = () => {
+  const b = lam(0x2a2236);
+  const br = (x: number, y: number, rz: number, h: number) => {
+    const m = mesh(new THREE.CylinderGeometry(0.07, 0.12, h, 5), b, x, y, 0);
+    m.rotation.z = rz;
+    return m;
+  };
+  return grp(mesh(new THREE.CylinderGeometry(0.2, 0.34, 3.6, 6), b, 0, 1.8, 0), br(0.5, 3.4, -0.8, 1.6), br(-0.5, 3.0, 0.9, 1.4), br(0.3, 4.0, -0.3, 1.2));
+};
+const coral: Make = () => {
+  const c = lam([0xff7a8a, 0xffb04a, 0xb87aff][Math.floor(Math.random() * 3)]);
+  const parts: THREE.Object3D[] = [];
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2;
+    const m = mesh(new THREE.CylinderGeometry(0.14, 0.2, 1.8 + (k % 2) * 0.8, 6), c, Math.cos(a) * 0.4, 1.0, Math.sin(a) * 0.4);
+    m.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
+    parts.push(m, mesh(new THREE.SphereGeometry(0.24, 6, 5), c, Math.cos(a) * 0.75, 1.9 + (k % 2) * 0.4, Math.sin(a) * 0.75));
+  }
+  return grp(...parts);
+};
+const seaweed: Make = () => {
+  const gr = lam(0x3ab86a);
+  const parts: THREE.Object3D[] = [];
+  for (let k = 0; k < 4; k++) {
+    const m = mesh(new THREE.BoxGeometry(0.22, 1.0, 0.1), gr, Math.sin(k) * 0.2, 0.5 + k * 0.9, 0);
+    m.rotation.z = (k % 2 ? 1 : -1) * 0.25;
+    parts.push(m);
+  }
+  return grp(...parts);
+};
+
 /** what stands along each side of the table, by arena */
 const SIDES: Record<string, Make[]> = {
   space: [antenna, crate, crate],
@@ -311,6 +451,11 @@ const SIDES: Record<string, Make[]> = {
   river: [lantern, post, lantern],
   cyber: [neonPillar, neonPillar, neonPillar],
   soccer: [floodlight, stand, floodlight],
+  desert: [cactus, skull, cactus],
+  candy: [lolly, gumdrop, lolly],
+  cloud: [cloudPuff, cloudPuff, cloudPuff],
+  haunted: [deadTree, pumpkin, deadTree],
+  reef: [coral, seaweed, coral],
 };
 
 /** the big piece on the horizon, filling the sky behind the far rail */
@@ -362,6 +507,35 @@ function backdrop(id: string): THREE.Object3D {
       parts.push(mesh(new THREE.ConeGeometry(1.3, 1.2, 10), lam(0xe8463a), 0, 9.8, 0));
       parts.push(mesh(new THREE.SphereGeometry(6, 12, 8), lam(0x5ab84a), -4, -3.5, 2));
       return put(grp(...parts), 14, 0, -44);
+    }
+    case 'desert': {
+      const mesa = (x: number, w: number, h: number, col: number) => grp(mesh(new THREE.BoxGeometry(w, h, 6), lam(col), x, h / 2, 0), mesh(new THREE.BoxGeometry(w + 0.6, 0.8, 6.4), lam(0xd8643a), x, h, 0));
+      return put(grp(mesa(-16, 9, 9, 0xc8744a), mesa(2, 12, 12, 0xd8844e), mesa(17, 7, 7, 0xc06a40)), 0, 0, -48);
+    }
+    case 'candy': {
+      const tiers = [0xffd0ea, 0xffffff, 0xff8ac0];
+      const parts: THREE.Object3D[] = [];
+      for (let k = 0; k < 3; k++) parts.push(mesh(new THREE.CylinderGeometry(9 - k * 2.6, 9 - k * 2.6, 3.4, 20), lam(tiers[k]), 0, 1.7 + k * 3.4, 0));
+      parts.push(mesh(new THREE.SphereGeometry(1.4, 12, 10), lam(0xe8312f), 0, 11.2, 0));
+      return put(grp(...parts), 14, 0, -48);
+    }
+    case 'cloud': {
+      const isle = (x: number, y: number, s: number) => grp(mesh(new THREE.ConeGeometry(3 * s, 4 * s, 7), lam(0x9a7a5a), x, y - 2 * s, 0), mesh(new THREE.CylinderGeometry(3 * s, 3 * s, 0.6 * s, 10), lam(0x6ac04a), x, y + 0.3 * s, 0), mesh(new THREE.ConeGeometry(0.8 * s, 2.4 * s, 6), lam(0x3a9a4a), x + 0.6 * s, y + 1.6 * s, 0));
+      return put(grp(isle(-14, 10, 1.2), isle(10, 14, 1.5), isle(22, 7, 0.8)), 0, 0, -48);
+    }
+    case 'haunted': {
+      const dark = lam(0x2a2236);
+      const win = glow(0xffd860);
+      const parts: THREE.Object3D[] = [mesh(new THREE.BoxGeometry(14, 9, 6), dark, 0, 4.5, 0), mesh(new THREE.ConeGeometry(9, 5, 4), dark, 0, 11.5, 0), mesh(new THREE.BoxGeometry(3, 15, 3), dark, 8, 7.5, 0), mesh(new THREE.ConeGeometry(2.6, 4, 4), dark, 8, 17, 0)];
+      for (const [x, y] of [[-4, 3], [0, 3], [4, 3], [-4, 6.5], [4, 6.5], [8, 11]]) parts.push(mesh(new THREE.BoxGeometry(1.2, 1.6, 0.1), win, x, y, 3.06 + (x === 8 ? -1.5 : 0)));
+      parts.push(mesh(new THREE.CircleGeometry(4, 24), glow(0xfff4c8), -14, 15, -4));
+      return put(grp(...parts), 10, 0, -48);
+    }
+    case 'reef': {
+      const hull = lam(0x6a4428);
+      const ship = grp(mesh(new THREE.BoxGeometry(16, 4, 5), hull, 0, 2, 0), mesh(new THREE.CylinderGeometry(0.4, 0.4, 12, 6), hull, -2, 8, 0), mesh(new THREE.BoxGeometry(5, 3.5, 0.2), lam(0xe8dcc0), -2, 9, 0.4));
+      ship.rotation.z = 0.25;
+      return put(grp(ship, mesh(new THREE.SphereGeometry(8, 12, 8), lam(0x1e7a94), -16, -4, 4)), 14, 0, -48);
     }
     case 'soccer': {
       const crowd = [0xe8312f, 0x2f63e8, 0xffc23d, 0xffffff, 0x1aa860];
