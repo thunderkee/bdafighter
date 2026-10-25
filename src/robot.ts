@@ -490,45 +490,45 @@ const PATTERNS22: Record<string, [BallTex, ArmourTex]> = {
 const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFace?: boolean; hound?: boolean; fit?: [number, number, number]; look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; tune?: Tune[]; ball: number; palette: Partial<Palette>; glow?: number; matte?: boolean }> = {
   // Each 2.2 is its 2.1 with only what gives the reference away changed.
   // Seraph (Astray Red Frame): the 2.1 design as it is, in the 2.2 colours (navy for the red frame)
-  angel: { crest: 'vfin', look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0x5af0ff, palette: { body: 0xf2f2f2, trim: 0x223a6a, accent: 0xe08a3a, joint: 0x1e2a44, eye: 0x5af0ff } },
+  angel: { crest: 'vfin', look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0x4aa8f0, palette: { body: 0xf4f3ef, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0x5af0ff } },
   // Wyvern: the 2.1 combiner as it is, in the 2.2 gunmetal and orange (no zord-coloured limbs)
-  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', darkFace: true, look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, ball: 0xff8a3a, palette: { body: 0x4a5058, trim: 0x1c1e22, accent: 0xff7a1a, joint: 0x2a2c30, eye: 0xffd23e } },
+  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', darkFace: true, look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, ball: 0xee7b4c, palette: { body: 0x5c6478, trim: 0x1f1c2a, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Pioneer: a police robot that turns into a car: black-and-white with a riot visor and a light
   // bar, a windshield on its chest, the doors on its back, wheels on its shoulders and shins
-  pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x5ab8ff, palette: { body: 0xf2f2f2, trim: 0x16161a, accent: 0x2a6aff, joint: 0x22252c, eye: 0x7ff0ff } },
+  pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x2f5fe0, palette: { body: 0xf4f3ef, trim: 0x1f1c2a, accent: 0x2f5fe0, joint: 0x1f1c2a, eye: 0x5af0ff } },
   // Liberty (Tallgeese): a diving-helmet head for the plume helm, a rail rifle for the Dober gun,
   // tank treads (swapped with Violet's mantis legs)
-  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], treads: true, pose: 'aim' }, ball: 0xc88aff, palette: { body: 0x6a3f7a, trim: 0xdcc9a0, accent: 0xffb02e, joint: 0x2a2230, eye: 0x7affb0 } },
+  liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], treads: true, pose: 'aim' }, ball: 0x22b8a8, palette: { body: 0x22b8a8, trim: 0xf2ead8, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0x7affb0 } },
   // Mandrill (Blastoise): no shell on its back; MODOK-style, a giant mandrill head is its body,
   // red-nosed and blue-cheeked, small arms and legs beneath and the twin cannons over its shoulders
-  monoceros: { name: 'Mandrill', twin: true, look: { frame: 'squat', head: 'mandrill', shoulder: 'wedge', gun: 'shellCannon', back: ['boosters'], modok: true, lean: -0.06 }, ball: 0xff6a5a, palette: { body: 0x5a5040, trim: 0x2a6ad8, accent: 0xd8262b, joint: 0x1e1a14, eye: 0xffb02e } },
+  monoceros: { name: 'Mandrill', twin: true, look: { frame: 'squat', head: 'mandrill', shoulder: 'wedge', gun: 'shellCannon', back: ['boosters'], modok: true, lean: -0.06 }, ball: 0xee5466, palette: { body: 0xc88a52, trim: 0x2f5fe0, accent: 0xee5466, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Crimson Baron (Zaku): a flying-ace head for the mono-eye, plain shoulders for the shield
   // and spikes, and crimson for the teal
-  baron: { look: { frame: 'heavy', head: 'aviator', shoulder: 'heavy', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xffd06a, palette: { body: 0xb8282a, trim: 0x3a2a1a, accent: 0xf2e6c8, joint: 0x2a2420, eye: 0xffd06a } },
+  baron: { look: { frame: 'heavy', head: 'aviator', shoulder: 'heavy', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xf4c25b, palette: { body: 0xc8323a, trim: 0x2a2734, accent: 0xf2ead8, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Bastion (the Punisher): no skull; a mantis in leaf green: a mantis head, four walker legs, a
   // long abdomen behind, and scythe forearms: a shot is both scythes slashing in at once, the
   // marble forming where they cross
-  bastion: { look: { frame: 'heavy', head: 'mantis', shoulder: 'spike', gun: 'mantisScythe', back: ['cape'], spider: true, abdomen: true, menace: true, pose: 'aim', lean: -0.18 }, ball: 0xffe05a, palette: { body: 0x5a9a3a, trim: 0x2e4a22, accent: 0xf2e05a, joint: 0x1a2416, eye: 0xff5a3a } },
+  bastion: { look: { frame: 'heavy', head: 'mantis', shoulder: 'spike', gun: 'mantisScythe', back: ['cape'], spider: true, abdomen: true, menace: true, pose: 'aim', lean: -0.18 }, ball: 0x8ad83a, palette: { body: 0x8ad83a, trim: 0x3fae5a, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Nightshade: ivory for the purple, and one floating tail instead of legs
-  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, wisp: true, bigCape: true }, ball: 0xff4a5a, glow: 0xff3a4a, palette: { body: 0xe8e2d6, trim: 0x1a1418, accent: 0xff3a4a, joint: 0x2a2428, eye: 0xff3a4a } },
+  nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, wisp: true, bigCape: true }, ball: 0xff6a9a, glow: 0xff3a4a, palette: { body: 0x3e2a6a, trim: 0x1f1c2a, accent: 0xff6a9a, joint: 0x1f1c2a, eye: 0xff7ad8 } },
   // Unit Violet (EVA Unit-08): a silverback gorilla instead: an ape's head for the horned EVA
   // head, a squat hunched frame for the long legs, huge palm-blaster hands, violet with silver
   // (big now: a towering hunched silverback, near-black violet, a silver back and burning red eyes)
-  violet: { special: { alternate: true, hand: 0.45 }, fit: [1.38, 1.38, 1.38], look: { frame: 'gorilla', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', menace: true, lean: -0.46 }, ball: 0xb06aff, glow: 0xff3a1a, palette: { body: 0x2a1a48, trim: 0xc8ccd6, accent: 0xff4a2a, joint: 0x0e0a16, eye: 0xff2a14 } },
+  violet: { special: { alternate: true, hand: 0.45 }, fit: [1.38, 1.38, 1.38], look: { frame: 'gorilla', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', menace: true, lean: -0.46 }, ball: 0x7a4ad8, glow: 0xff3a1a, palette: { body: 0x4a2f9a, trim: 0xb8bfcc, accent: 0xee5466, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Leo King (Metabee): Fang Liger 2.1's head on a short neck for the beetle dome, no X legs or
   // shell skirt, a royal cape
-  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xffc84a, palette: { body: 0x9a1c24, trim: 0x2a1a1a, accent: 0xe8b83a, joint: 0x1e1416, eye: 0xffe14d } },
+  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xe8b43a, palette: { body: 0xee5466, trim: 0xe8b43a, accent: 0xf2ead8, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Tyrant King (Megatron): a hellhound head for the bucket helm, wolf heads on both fists for
   // the T-rex fist, no silver ribcage; black and blood red
-  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xff5a2a, glow: 0xff3a1a, palette: { body: 0x1e1c22, trim: 0x5a1418, accent: 0x8a8e96, joint: 0x101014, eye: 0xff3a1a } },
+  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xc8323a, glow: 0xff3a1a, palette: { body: 0x2a2734, trim: 0xc8323a, accent: 0xb8bfcc, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Rex Saur: frost blue for the desert sand, a stegosaurus's plates down its back
-  rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall', 'plates'], ball: 0x8ad8ff, palette: { body: 0x8ab8d8, trim: 0x2a3a4a, accent: 0xff5a3a, joint: 0x1a2430, eye: 0xffe14d } },
+  rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall', 'plates'], ball: 0x4aa8f0, palette: { body: 0x4aa8f0, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Fang Liger (a Zoids liger): a black-and-gold war hound instead, plated all over, a visor over
   // its eyes and a blaster on each flank, firing left and right in turn
-  liger: { special: { ricochet: 0.35, alternate: true, hand: 0.4 }, hound: true, fit: [1.3, 1.3, 1.3], ball: 0xffd23e, palette: { body: 0x2a2a30, trim: 0xd8a83a, accent: 0xd8a83a, joint: 0x16161a, eye: 0x5af0ff } },
+  liger: { special: { ricochet: 0.35, alternate: true, hand: 0.4 }, hound: true, fit: [1.3, 1.3, 1.3], ball: 0xe8b43a, palette: { body: 0x2a2734, trim: 0xe8b43a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0x5af0ff } },
   // Ember Lizard (Charmander): red, an axolotl's gill fronds fanned from its cheeks, and no flame
   // on its tail
-  ember: { special: { wobble: Math.PI / 6 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff8a7a, palette: { body: 0xd8342a, trim: 0xf2c0a8, accent: 0xff7a9a, joint: 0x6a1410, eye: 0x141018 } },
+  ember: { special: { wobble: Math.PI / 6 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff6a9a, palette: { body: 0xff6a9a, trim: 0xf2ead8, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0x7affb0 } },
 };
 // each unit's stats come from its profile (the Unit Lab can still change them)
 for (const o of ORIGINALS) o.traits ??= PROFILES[o.id]?.traits;
