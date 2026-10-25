@@ -700,6 +700,11 @@ export class ShooterMesh {
   wingL = new THREE.Group();
   wingR = new THREE.Group();
   private stride = 0;
+  /** the legs' resting sideways tilt (for the side-step and the braced stance) */
+  private restLegsZ: number[] = [];
+  /** last position down the table, for the forward march, and how much of it is on */
+  private lastY: number | null = null;
+  private fwd = 0;
   /** rest pose of animated parts (Unit Lab designs can tilt them); animation is added on top */
   private rest = { turretX: 0, turretY: 0, turretZ: 0, jaw: 0, slash: 0, legs: [] as number[], flame: new THREE.Vector3(1, 1, 1) };
   /** how far into the defence stance it is (0 none, 1 braced behind the shield) */
@@ -5294,12 +5299,34 @@ export class ShooterMesh {
       this.flame.scale.set(fs.x * f, fs.y * (0.8 + Math.random() * 0.5), fs.z * f);
     }
 
-    // walk cycle while sliding along the rail
-    const moving = Math.min(1, Math.abs(s.vx) / 3);
-    this.stride += dt * 14 * moving;
+    // walking, three ways:
+    // - sideways along the rail: a side-step shuffle (legs scissor out and in, feet lifting,
+    //   the body swaying into the step)
+    // - forward (stepping up off the rail, and back): a march, legs swinging fore and aft,
+    //   leaning into it
+    // - behind the shield: braced, feet planted wide and knees bent (no stride)
+    if (this.restLegsZ.length !== this.legs.length) this.restLegsZ = this.legs.map((l) => l.rotation.z);
+    const side = Math.min(1, Math.abs(s.vx) / 3);
+    const vy = dt > 0 && this.lastY !== null ? (s.y - this.lastY) / dt : 0;
+    this.lastY = s.y;
+    const fwdRaw = Math.min(1, Math.abs(vy) / 3);
+    this.fwd += (fwdRaw - this.fwd) * Math.min(1, dt * 10);
+    const fwd = this.fwd;
+    const brace = guard;
+    const moving = Math.max(side, fwd) * (1 - brace * 0.85);
+    this.stride += dt * (side > fwd ? 16 : 12) * moving;
     // alternate legs (diagonal pairs on four-legged beasts)
-    this.legs.forEach((l, i) => (l.rotation.x = (this.rest.legs[i] ?? 0) + Math.sin(this.stride + (i % 2) * Math.PI) * 0.5 * moving));
-    this.turret.rotation.z = this.rest.turretZ + (s.team === 0 ? -1 : 1) * Math.sign(s.vx) * moving * 0.06;
+    this.legs.forEach((l, i) => {
+      const ph = Math.sin(this.stride + (i % 2) * Math.PI);
+      const out = Math.sign(l.position.x) || (i % 2 ? 1 : -1);
+      const lift = Math.max(0, ph);
+      l.rotation.x = (this.rest.legs[i] ?? 0) + ph * 0.55 * fwd * (1 - brace) - lift * 0.22 * side - brace * 0.18;
+      l.rotation.z = (this.restLegsZ[i] ?? 0) + ph * 0.3 * side * (1 - brace) + out * brace * 0.24;
+    });
+    const dir = s.team === 0 ? -1 : 1;
+    this.turret.rotation.z = this.rest.turretZ + dir * Math.sign(s.vx) * side * 0.06 + Math.sin(this.stride) * 0.05 * side;
+    // leaning into a forward march (on top of the shield's hunch)
+    this.turret.rotation.x -= fwd * 0.12 * Math.sign(vy * (s.team === 0 ? 1 : -1) || 1);
     if (this.treadPlates.length) {
       // the tracks roll with the ground speed: plates slide along (wrapping every plate pitch),
       // the top run one way and the bottom run the other, and the wheels turn
@@ -5315,7 +5342,8 @@ export class ShooterMesh {
     }
     // tanks glide, they don't bob
     this.dangle.forEach((l, i) => (l.rotation.x = (i ? 0.2 : -0.14) + Math.sin(time * 1.6 + i * 1.3) * 0.08 - s.vx * 0.03 * (s.team === 0 ? 1 : -1)));
-    const bob = this.hoverLift ? Math.sin(time * 1.5) * 0.07 : this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * 0.05 * moving;
+    // (a side-step hops a little higher than a march)
+    const bob = this.hoverLift ? Math.sin(time * 1.5) * 0.07 : this.treadPlates.length ? 0 : Math.abs(Math.sin(this.stride)) * (0.04 + 0.04 * side) * moving;
 
     // wings breathe at idle, flare open while firing
     const flare = s.firing ? 0.18 : 0;
@@ -5342,7 +5370,7 @@ export class ShooterMesh {
     this.glowCol.setHex(this.ball);
     for (const m of this.mats) m.emissive.setRGB(Math.min(1, f + this.glowCol.r * glow), Math.min(1, f + this.glowCol.g * glow), Math.min(1, f + this.glowCol.b * glow));
     const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
-    this.root.position.y = bob + hurt - this.guard * 0.08;
+    this.root.position.y = bob + hurt - this.guard * 0.14;
 
     // shudder while flashing from a hit; a super hit also rocks it backwards
     const jolt = s.flash > 0 ? (s.stagger > 0 ? 0.16 : 0.07) : 0;
