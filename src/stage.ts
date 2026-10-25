@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ARENA } from './config';
+import { TOON, paintToonFloor, toonRails, toonScenery } from './toonstage';
 
 // Themed stages. Each one is data (colours, lighting) plus a scenery builder,
 // an ambient particle style, moving props, and a matching puck model.
@@ -178,6 +179,12 @@ export const STAGES: StageDef[] = [
   },
 ];
 
+// the cartoon look: brighter skies and light, and the apron colours to match
+for (const st of STAGES) {
+  const t = TOON[st.id];
+  if (t) Object.assign(st, { sky: t.sky, fog: t.fog, hemi: t.hemi, sun: t.sun, apron: t.apron, floor: t.floor, floorLine: t.line });
+}
+
 export const stageById = (id: string) => STAGES.find((s) => s.id === id) ?? STAGES[0];
 
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
@@ -214,6 +221,8 @@ export class Stage {
     this.def = stageById(id);
     this.buildFloor();
     this.buildRails();
+    // a few big cartoon props round the table and one piece on the horizon
+    if (TOON[this.def.id]) toonScenery(this.group, this.def.id);
     // the floor and rails are built for the current table width; the scenery is laid out for the standard one
     // only the table itself: the scenery, backdrop and ambient particles outside the field are
     // left out, which keeps the frame cheap (set SCENERY to bring them back)
@@ -353,8 +362,9 @@ export class Stage {
       return [Math.min(y0, y1), Math.abs(y1 - y0)] as const;
     };
 
-    // every arena has its own ground; only the soccer pitch keeps the sports markings
-    switch (d.pattern) {
+    // every arena has its own ground: the cartoon floors, flat with one bold motif
+    if (TOON[d.id]) paintToonFloor(c, d.id, CW, CH, px, py, m);
+    else switch (d.pattern) {
       case 'grid': {
         // spaceship deck: big bolted plates with bevelled seams, hazard bands at the rails,
         // a hexagonal hatch at the centre and running lights down the sides
@@ -733,7 +743,7 @@ export class Stage {
     const tex = new THREE.CanvasTexture(cvs);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
-    const glowy = d.pattern === 'grid' || d.pattern === 'neon';
+    const glowy = !TOON[d.id] && (d.pattern === 'grid' || d.pattern === 'neon');
     const mat = glowy
       ? new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: d.pattern === 'neon' ? 0.6 : 0.35 })
       : new THREE.MeshLambertMaterial({ map: tex });
@@ -775,6 +785,8 @@ export class Stage {
 
   private buildRails() {
     const d = this.def;
+    // the cartoon bumpers
+    if (TOON[d.id]) return toonRails(this.group, d.id);
     const L = ARENA.length;
     const t = ARENA.wallThickness;
     const railMat = new THREE.MeshLambertMaterial({ color: d.rail });
