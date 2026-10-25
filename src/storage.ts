@@ -107,7 +107,7 @@ export interface SaveData {
   /** XP each fighter has earned (by unit id) */
   fighterXp?: Record<string, number>;
   /** each fighter's equipped cosmetics (paint, marbles, eyes, nameplate) */
-  equip?: Record<string, Partial<Record<'plate' | 'marble' | 'paint' | 'eyes', string>>>;
+  equip?: Record<string, Partial<Record<'plate' | 'marble' | 'paint' | 'eyes' | 'hat' | 'back' | 'shoulder', string>>>;
   /** an arcade run in progress, to pick up after the app was closed: the stage to play next */
   arcadeRun?: ArcadeRun;
   /** each fighter's own arcade run in progress (by unit id) */

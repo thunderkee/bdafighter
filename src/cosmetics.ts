@@ -6,7 +6,7 @@ import type { BallTex } from './patterns';
  * skins, paint jobs and eye colours), each one adapted to that fighter. Nothing here changes
  * how a fighter plays.
  */
-export type Slot = 'plate' | 'marble' | 'paint' | 'eyes';
+export type Slot = 'plate' | 'marble' | 'paint' | 'eyes' | 'hat' | 'back' | 'shoulder';
 export interface Reward {
   lv: number;
   slot: Slot;
@@ -26,7 +26,7 @@ export const REWARDS: Reward[] = [
   { lv: 10, slot: 'paint', id: 'legend', name: 'Legend Gold paint' },
 ];
 
-export const SLOT_NAME: Record<Slot, string> = { paint: 'Paint', marble: 'Marbles', eyes: 'Eyes', plate: 'Nameplate' };
+export const SLOT_NAME: Record<Slot, string> = { paint: 'Paint', marble: 'Marbles', eyes: 'Eyes', plate: 'Nameplate', hat: 'Head', back: 'Back', shoulder: 'Shoulders' };
 
 /** what a fighter has equipped: one choice per slot (none is its standard look) */
 export type Equip = Partial<Record<Slot, string>>;
@@ -62,8 +62,10 @@ export function skinned(id: string, equip: Equip | undefined): CharacterDef {
   if (paint) Object.assign(palette, paint(def.palette));
   if (equip.eyes && EYES[equip.eyes] !== undefined) palette.eye = EYES[equip.eyes];
   const mb = equip.marble ? MARBLES[equip.marble] : undefined;
-  return { ...def, palette, ball: mb?.ball ?? def.ball, ballTex: mb?.tex ?? def.ballTex };
+  const gear = { hat: equip.hat, back: equip.back, shoulder: equip.shoulder };
+  const anyGear = gear.hat || gear.back || gear.shoulder;
+  return { ...def, palette, ball: mb?.ball ?? def.ball, ballTex: mb?.tex ?? def.ballTex, gear: anyGear ? gear : undefined };
 }
 
 /** a short key for an equip, to tell when a model needs rebuilding */
-export const equipKey = (e: Equip | undefined) => (e ? `${e.paint ?? ''}|${e.marble ?? ''}|${e.eyes ?? ''}` : '');
+export const equipKey = (e: Equip | undefined) => (e ? `${e.paint ?? ''}|${e.marble ?? ''}|${e.eyes ?? ''}|${e.hat ?? ''}|${e.back ?? ''}|${e.shoulder ?? ''}` : '');

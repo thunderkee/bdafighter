@@ -7,6 +7,7 @@ import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
 import { TOSS_TIME, TWIN_X, type Special } from './config';
+import { attachParts, type AddonSlot } from './addons';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -37,6 +38,8 @@ interface Palette {
 export interface CharacterDef {
   id: string;
   name: string;
+  /** customizer add-ons bolted on (a hat, a back piece, shoulder pieces) */
+  gear?: Partial<Record<AddonSlot, string>>;
   /** this unit's marble colour */
   ball: number;
   palette: Palette;
@@ -768,6 +771,8 @@ export class ShooterMesh {
     this.id = def.id;
     this.ball = marbleColor;
     this.build(def, marbleColor);
+    // the customizer's add-ons, fitted to this fighter's upper body
+    if (def.gear) attachParts(this.turret, def.gear, def.palette);
     // a design with no legs flies: it bobs in the air like the floating units
     if (def.blueprint && !this.legs.length && !this.hoverLift && !this.treadPlates.length && !def.look21?.treads) this.hoverLift = 0.001;
     // a taller torso: the chest's own plates stretch, the parts on it (head, arms) just ride up

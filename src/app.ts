@@ -21,6 +21,7 @@ import * as store from './storage';
 import { CEL } from './cel';
 import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
 import { REWARDS, SLOT_NAME, equipKey, skinned, type Equip, type Slot } from './cosmetics';
+import { ADDONS } from './addons';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -1475,7 +1476,14 @@ export function boot() {
   const showStyle = (id: string) => {
     const e = equipOf(id);
     const slots: Slot[] = ['paint', 'marble', 'eyes', 'plate'];
-    $('pv-style').innerHTML = slots
+    // the customizer: add-on parts for any fighter, free to swap
+    const gearRows = (['hat', 'back', 'shoulder'] as const)
+      .map((slot) => {
+        const pill = (v: string, label: string) => `<button class="style-opt${(e[slot] ?? '') === v ? ' on' : ''}" data-slot="${slot}" data-v="${v}">${label}</button>`;
+        return `<div class="style-row"><span>${SLOT_NAME[slot]}</span><div>${pill('', 'None')}${ADDONS[slot].map((a) => pill(a.id, a.name)).join('')}</div></div>`;
+      })
+      .join('');
+    $('pv-style').innerHTML = `<p class="style-sub">PARTS</p>` + gearRows + `<p class="style-sub">REWARDS</p>` + slots
       .map((slot) => {
         const opts = REWARDS.filter((r) => r.slot === slot);
         const pill = (v: string, label: string, ok: boolean, lv?: number) =>

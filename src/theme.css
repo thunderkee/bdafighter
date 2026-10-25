@@ -5139,3 +5139,10 @@ html {
 .peek img.portrait {
   filter: drop-shadow(2px 0 0 #1b1916) drop-shadow(-2px 0 0 #1b1916) drop-shadow(0 2px 0 #1b1916) drop-shadow(0 -2px 0 #1b1916);
 }
+.style-pick .style-sub {
+  margin: 4px 0 0;
+  font: 400 10px var(--display);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: left;
+}
