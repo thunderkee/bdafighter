@@ -491,8 +491,8 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   // Each 2.2 is its 2.1 with only what gives the reference away changed.
   // Seraph (Astray Red Frame): the 2.1 design as it is, in the 2.2 colours (navy for the red frame)
   angel: { crest: 'vfin', look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0x4aa8f0, palette: { body: 0xf4f3ef, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0x5af0ff } },
-  // Wyvern: the 2.1 combiner as it is, in the 2.2 gunmetal and orange (no zord-coloured limbs)
-  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', darkFace: true, look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, ball: 0xee7b4c, palette: { body: 0x5c6478, trim: 0x1f1c2a, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0xffd84a } },
+  // Wyvern: back to its 2.1 self (the red combiner with zord-coloured limbs)
+  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
   // Pioneer: a police robot that turns into a car: black-and-white with a riot visor and a light
   // bar, a windshield on its chest, the doors on its back, wheels on its shoulders and shins
   pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x2f5fe0, palette: { body: 0xf4f3ef, trim: 0x1f1c2a, accent: 0x2f5fe0, joint: 0x1f1c2a, eye: 0x5af0ff } },
