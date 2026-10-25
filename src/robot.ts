@@ -768,6 +768,8 @@ export class ShooterMesh {
     this.id = def.id;
     this.ball = marbleColor;
     this.build(def, marbleColor);
+    // a design with no legs flies: it bobs in the air like the floating units
+    if (def.blueprint && !this.legs.length && !this.hoverLift && !this.treadPlates.length) this.hoverLift = 0.001;
     // a taller torso: the chest's own plates stretch, the parts on it (head, arms) just ride up
     const chestH = def.look21 ? FRAMES21[def.look21.frame]?.chestH : undefined;
     if (chestH && !def.blueprint) {
