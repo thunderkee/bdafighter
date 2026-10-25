@@ -501,7 +501,7 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], treads: true, pose: 'aim' }, ball: 0x22b8a8, palette: { body: 0x22b8a8, trim: 0xf2ead8, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0x7affb0 } },
   // Mandrill (Blastoise): no shell on its back; MODOK-style, a giant mandrill head is its body,
   // red-nosed and blue-cheeked, small arms and legs beneath and the twin cannons over its shoulders
-  monoceros: { name: 'Mandrill', twin: true, look: { frame: 'squat', head: 'mandrill', shoulder: 'wedge', gun: 'shellCannon', back: ['boosters'], modok: true, lean: -0.06 }, ball: 0xee5466, palette: { body: 0x8a9448, trim: 0x2f5fe0, accent: 0xee5466, joint: 0x1f1c2a, eye: 0xffd84a } },
+  monoceros: { name: 'Mandrill', twin: true, look: { frame: 'squat', head: 'mandrill', shoulder: 'wedge', gun: 'shellCannon', back: ['boosters'], modok: true, lean: -0.06 }, ball: 0xf4c25b, palette: { body: 0x5a7ab8, trim: 0xee5466, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Crimson Baron (Zaku): a flying-ace head for the mono-eye, plain shoulders for the shield
   // and spikes, and crimson for the teal
   baron: { look: { frame: 'heavy', head: 'aviator', shoulder: 'heavy', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xf4c25b, palette: { body: 0xc8323a, trim: 0x2a2734, accent: 0xf2ead8, joint: 0x1f1c2a, eye: 0xffd84a } },
@@ -520,7 +520,7 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xe8b43a, palette: { body: 0xee5466, trim: 0xe8b43a, accent: 0xf2ead8, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Tyrant King (Megatron): a hellhound head for the bucket helm, wolf heads on both fists for
   // the T-rex fist, no silver ribcage; black and blood red
-  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0x8ad83a, glow: 0x7affb0, palette: { body: 0x24402e, trim: 0x8ad83a, accent: 0xb8bfcc, joint: 0x1f1c2a, eye: 0x7affb0 } },
+  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xc8323a, glow: 0xff3a1a, palette: { body: 0x24305e, trim: 0xc8323a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Rex Saur: frost blue for the desert sand, a stegosaurus's plates down its back
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall', 'plates'], ball: 0x4aa8f0, palette: { body: 0x4aa8f0, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Fang Liger (a Zoids liger): a black-and-gold war hound instead, plated all over, a visor over
