@@ -248,7 +248,7 @@ export const STORIES: Record<string, Story> = {
     personality: 'Cheerful, curious, a little chaotic',
     quote: 'Ooh, what does THIS button do?',
     story:
-      'The smallest fighter in the League a pink axolotl hatched in the hot springs under the Lava Forge, and its head never stops turning to look at everything. Blossom is everyone’s favourite underdog, except Rex Saur’s. Its marbles go wherever its head happens to be looking, and that’s usually somewhere surprising.',
+      'The smallest fighter in the League a peach-orange axolotl hatched in the hot springs under the Lava Forge, and its head never stops turning to look at everything. Blossom is everyone’s favourite underdog, except Rex Saur’s. Its marbles go wherever its head happens to be looking, and that’s usually somewhere surprising.',
     rival: 'rex',
   },
 };

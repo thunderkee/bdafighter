@@ -5135,3 +5135,7 @@ html {
 .car-band {
   max-height: 56%;
 }
+/* the side peeks in cel ink too */
+.peek img.portrait {
+  filter: drop-shadow(2px 0 0 #1b1916) drop-shadow(-2px 0 0 #1b1916) drop-shadow(0 2px 0 #1b1916) drop-shadow(0 -2px 0 #1b1916);
+}

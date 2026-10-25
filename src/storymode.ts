@@ -238,7 +238,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       { who: 'ember', text: 'Ooh, what does THIS button do?' },
     ],
     chapters: [
-      { foe: 'monoceros', arena: 'city', before: [{ who: 'monoceros', text: 'A tiny lizard. In MY lab. Touching MY buttons.' }, { who: 'ember', text: 'This one is pink! Pink is the best one!' }] },
+      { foe: 'monoceros', arena: 'city', before: [{ who: 'monoceros', text: 'A tiny lizard. In MY lab. Touching MY buttons.' }, { who: 'ember', text: 'This one is orange! Orange is the best one!' }] },
       { foe: 'bastion', arena: 'forest', before: [{ who: 'bastion', text: '…' }, { who: 'ember', text: 'Hi! You’re very quiet. Do you want to be friends?' }] },
       { foe: 'rex', arena: 'snow', before: [{ who: 'rex', text: 'You. The little one. You never stop talking.' }, { who: 'ember', text: 'Grandpa Rex! Let’s play!' }] },
     ],

@@ -72,7 +72,8 @@ function render(id: string, bust = false) {
   cam.top = (half * h) / w;
   cam.bottom = (-half * h) / w;
   cam.updateProjectionMatrix();
-  if (bust) celify(scene!, true);
+  // (every portrait in the cel look, like the fighters everywhere else)
+  celify(scene!, true);
   renderer!.render(scene!, cam);
   const url = renderer!.domElement.toDataURL('image/png');
   scene!.remove(mesh.root);
