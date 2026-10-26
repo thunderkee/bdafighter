@@ -5146,3 +5146,17 @@ html {
   color: rgba(255, 255, 255, 0.6);
   text-align: left;
 }
+/* the button pad closer to the edges: half the side and bottom space (the safe area kept) */
+body.buttons #pad {
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 7px);
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 15px;
+}
+@media (max-width: 480px) {
+  body.buttons #pad {
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-bottom: 11px;
+  }
+}
