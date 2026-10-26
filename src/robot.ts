@@ -523,7 +523,8 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xe8b43a, palette: { body: 0xee5466, trim: 0xe8b43a, accent: 0xf2ead8, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Tyrant King (Megatron): a hellhound head for the bucket helm, wolf heads on both fists for
   // the T-rex fist, no silver ribcage; black and blood red
-  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xc8323a, glow: 0xff3a1a, palette: { body: 0x24305e, trim: 0xc8323a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0xff3a2a } },
+  // (on Fang Liger's four-legged body now, as big as it)
+  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, fit: [1.3, 1.3, 1.3], look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xc8323a, glow: 0xff3a1a, palette: { body: 0x24305e, trim: 0xc8323a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Rex Saur: sky blue, a clean back (no stegosaurus plates)
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall'], ball: 0x4aa8f0, palette: { body: 0x4aa8f0, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Fang Liger (a Zoids liger): a black-and-gold war hound instead, plated all over, a visor over
