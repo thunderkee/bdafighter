@@ -108,7 +108,7 @@ export interface LooseBall {
 }
 
 /** B-Daman mode: the table tilts to both ends, and the B-Daspirit gauge */
-export const BDA = { tilt: 5, friction: 1.6, grab: 0.8, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
+export const BDA = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
 export interface Missile {
   id: number;
@@ -706,7 +706,8 @@ export class Game {
   private stepLoose(dt: number) {
     if (!this.bdaman) return;
     const hw = ARENA.width / 2 - 0.25;
-    const rail = ARENA.railY - 0.15;
+    // (they gather in a tray just in front of the rail; a robot has to slide over to touch one)
+    const rail = ARENA.railY - 0.85;
     for (let i = this.loose.length - 1; i >= 0; i--) {
       const b = this.loose[i];
       // (the table tilts down to both ends from the middle)
@@ -726,7 +727,7 @@ export class Game {
       }
       for (const s of this.shooters) {
         if (!s.alive || s.ammo >= s.stats.capacity) continue;
-        if (Math.abs(b.x - s.x) < BDA.grab && Math.abs(b.y - s.y) < BDA.grab + 0.3) {
+        if (Math.abs(b.x - s.x) < BDA.grab + 0.25 && Math.abs(b.y - s.y) < 1.15) {
           s.ammo = Math.min(s.stats.capacity, s.ammo + 1);
           this.addSpirit(s, BDA.pick);
           this.fx.push({ type: 'grab', x: b.x, y: b.y, slot: s.slot });

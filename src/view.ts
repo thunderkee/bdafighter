@@ -242,6 +242,7 @@ export class View {
   realismOn = true;
   private powerMeshes: THREE.Mesh[] = [];
   private looseMesh!: THREE.InstancedMesh;
+  private looseRing!: THREE.InstancedMesh;
   private tmpObj = new THREE.Object3D();
   private trails = new Map<number, { x: number; y: number }[]>();
   private glows: Glow[] = [];
@@ -414,7 +415,11 @@ export class View {
     }) as unknown as [THREE.InstancedMesh, THREE.InstancedMesh];
     for (let i = 0; i < MATCH.marblePool; i++) this.marbleRot.push(new THREE.Quaternion());
     // B-Daman mode: the loose marbles lying on the table (plain white glass, anyone's to grab)
-    this.looseMesh = new THREE.InstancedMesh(marbleGeo, new THREE.MeshPhysicalMaterial({ color: 0xf2f0ea, map: swirl, roughness: 0.15, clearcoat: 1 }), 64);
+    this.looseMesh = new THREE.InstancedMesh(marbleGeo, new THREE.MeshPhysicalMaterial({ color: 0xffe08a, emissive: 0x6a4a00, map: swirl, roughness: 0.15, clearcoat: 1 }), 64);
+    this.looseRing = new THREE.InstancedMesh(new THREE.RingGeometry(0.75, 1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd84a, transparent: true, opacity: 0.85, depthWrite: false }), 64);
+    this.looseRing.frustumCulled = false;
+    this.looseRing.count = 0;
+    this.scene.add(this.looseRing);
     this.looseMesh.castShadow = true;
     this.looseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.looseMesh.frustumCulled = false;
@@ -878,7 +883,7 @@ export class View {
     this.stage.update(wdt, this.worldTime);
     // loose marbles (B-Daman mode), rolling as they go
     const loose = (this.game as { loose?: { x: number; y: number; vx: number; vy: number }[] }).loose ?? [];
-    const lr = 0.264;
+    const lr = 0.3;
     const n = Math.min(64, loose.length);
     for (let i = 0; i < n; i++) {
       const b = loose[i];
@@ -887,9 +892,16 @@ export class View {
       this.tmpObj.scale.setScalar(lr);
       this.tmpObj.updateMatrix();
       this.looseMesh.setMatrixAt(i, this.tmpObj.matrix);
+      this.tmpObj.position.set(b.x, 0.03, -b.y);
+      this.tmpObj.rotation.set(0, 0, 0);
+      this.tmpObj.scale.setScalar(0.5 + Math.sin(this.time * 6 + i) * 0.06);
+      this.tmpObj.updateMatrix();
+      this.looseRing.setMatrixAt(i, this.tmpObj.matrix);
     }
     this.looseMesh.count = n;
     this.looseMesh.instanceMatrix.needsUpdate = true;
+    this.looseRing.count = n;
+    this.looseRing.instanceMatrix.needsUpdate = true;
     // pinball bumpers flash as they kick
     const pb = (this.game as { pinBumpers?: { glow: number }[] }).pinBumpers;
     if (pb) this.stage.setBumperGlow(pb.map((b) => b.glow));

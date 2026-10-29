@@ -1198,6 +1198,7 @@ export function boot() {
     story = null;
     bdaMode = false;
     document.body.classList.remove('bdaman');
+    $('loose-count').classList.add('hidden');
     showRunOffer();
     screen = 'title';
     show('title');
@@ -2576,6 +2577,12 @@ export function boot() {
       hpBox[i].classList.toggle('low', frac < 0.25);
       hpNum[i].textContent = Math.ceil(frac * 100) + '%';
       spFill[i].style.width = (s.shield / SHIELD.max) * 100 + '%';
+      if (bdaMode && i === 0) {
+        const mine = game.loose.filter((b) => Math.sign(b.y) === Math.sign(player.railY)).length;
+        $('loose-n').textContent = String(mine);
+        $('loose-count').classList.toggle('hidden', flow !== 'round');
+        $('loose-count').classList.toggle('some', mine > 0);
+      }
       if (bdaMode) {
         spiritFill[i].style.width = s.spirit + '%';
         spiritBox[i].classList.toggle('full', s.spirit >= 100);

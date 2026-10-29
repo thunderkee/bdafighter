@@ -5344,3 +5344,43 @@ body.bdaman #pad .pad-fire.single {
   paint-order: stroke fill;
   text-shadow: 0 4px 0 var(--line);
 }
+/* B-Daman mode: how many loose marbles lie on your side, to go and grab */
+#loose-count {
+  position: absolute;
+  z-index: 6;
+  left: 12px;
+  top: calc(max(12px, env(safe-area-inset-top)) + 118px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 3px solid var(--line);
+  border-radius: 99px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--line);
+  pointer-events: none;
+  opacity: 0.6;
+}
+#loose-count.hidden {
+  display: none;
+}
+#loose-count b {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: radial-gradient(circle at 35% 30%, #fff 0 12%, #ffe08a 14%, #e8b43a 70%);
+  font: 400 15px var(--display);
+  color: var(--line);
+}
+#loose-count span {
+  font: 400 9px/1.15 var(--display);
+  letter-spacing: 0.06em;
+  color: var(--line);
+}
+#loose-count.some {
+  opacity: 1;
+  animation: badge-pulse 1s ease-in-out infinite;
+}
