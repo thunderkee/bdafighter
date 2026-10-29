@@ -5160,3 +5160,187 @@ body.buttons #pad {
     padding-bottom: 11px;
   }
 }
+
+/* ================= B-Daman mode ================= */
+#home-cards .mode-card[data-art='bdaman'] {
+  background: linear-gradient(135deg, #ff8a3a, #d8323a);
+}
+.mode-card[data-art='bdaman'] .card-art em {
+  font-size: 48px;
+  -webkit-text-stroke: 0;
+}
+/* the B-Daspirit gauge under each health bar (only in this mode) */
+.spirit {
+  display: none;
+  position: relative;
+  height: 11px;
+  margin-top: 3px;
+  border: 2px solid var(--line);
+  border-radius: 99px;
+  background: #2a2734;
+  overflow: hidden;
+}
+body.bdaman .spirit {
+  display: block;
+}
+.spirit .fill {
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #4aa8f0, #5af0ff);
+  transition: width 0.2s;
+}
+.spirit b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 400 7px var(--display);
+  letter-spacing: 0.14em;
+  color: #fff;
+  -webkit-text-stroke: 2px var(--line);
+  paint-order: stroke fill;
+}
+.spirit.full .fill {
+  background: linear-gradient(90deg, #ffd84a, #ff7a3a, #ffd84a);
+  background-size: 200% 100%;
+  animation: spirit-flow 0.8s linear infinite;
+}
+.spirit.full {
+  box-shadow: 0 0 10px #ffb24a;
+}
+@keyframes spirit-flow {
+  to {
+    background-position: 200% 0;
+  }
+}
+/* the SPECIAL button over FIRE: dim until the gauge is full, then it burns */
+#special-btn {
+  display: none;
+}
+body.bdaman #special-btn {
+  display: block;
+  width: 100%;
+  height: 40px;
+  margin-bottom: 8px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: #4a4658;
+  color: rgba(255, 255, 255, 0.55);
+  font: 400 15px var(--display);
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 0 var(--line);
+  pointer-events: auto;
+}
+body.bdaman #special-btn.ready {
+  background: linear-gradient(#ffd84a, #ff7a3a);
+  color: #fff;
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+  animation: badge-pulse 0.9s ease-in-out infinite;
+}
+body.bdaman #pad .pad-fire.single {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+/* (gestures: it floats on the right) */
+#hud > #special-btn {
+  position: absolute;
+  right: 14px;
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 120px);
+  width: 120px;
+}
+/* the spirit shot's cinematic banner: speed lines, a slash of colour with the face and the move */
+#special-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+  overflow: hidden;
+}
+#special-fx.hidden {
+  display: none;
+}
+.sfx-lines {
+  position: absolute;
+  inset: -20%;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.0) 0deg 4deg, rgba(255, 255, 255, 0.55) 4deg 5deg);
+  -webkit-mask: radial-gradient(circle, transparent 28%, #000 60%);
+  mask: radial-gradient(circle, transparent 28%, #000 60%);
+  animation: sfx-spin 1.6s linear;
+}
+@keyframes sfx-spin {
+  to {
+    rotate: 20deg;
+  }
+}
+.sfx-band {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  top: 42%;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14%;
+  background: linear-gradient(90deg, #ff7a3a, #ffd84a);
+  border-top: 5px solid var(--line);
+  border-bottom: 5px solid var(--line);
+  rotate: -8deg;
+  transform-origin: center;
+}
+#special-fx.foe .sfx-band {
+  background: linear-gradient(90deg, #d8323a, #8a4cf0);
+  rotate: 8deg;
+}
+#special-fx.go .sfx-band {
+  animation: sfx-slash 1.6s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes sfx-slash {
+  0% {
+    translate: 110% 0;
+  }
+  18%,
+  82% {
+    translate: 0 0;
+  }
+  100% {
+    translate: -110% 0;
+  }
+}
+.sfx-face {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border: 4px solid #fff;
+  border-radius: 18px;
+  background: #2a2723;
+  overflow: hidden;
+  box-shadow: 0 4px 0 var(--line);
+}
+.sfx-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  padding: 0;
+  background: none;
+}
+.sfx-band span {
+  display: block;
+  font: 400 13px var(--display);
+  letter-spacing: 0.12em;
+  color: #fff;
+  -webkit-text-stroke: 3px var(--line);
+  paint-order: stroke fill;
+}
+.sfx-band b {
+  display: block;
+  font: 400 clamp(26px, 8vw, 40px) / 1 var(--display);
+  color: #fff;
+  -webkit-text-stroke: 7px var(--line);
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 var(--line);
+}

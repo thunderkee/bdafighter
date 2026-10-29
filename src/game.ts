@@ -94,7 +94,21 @@ export interface Marble {
   lastGate: number;
   /** upward kick from the latest impact; the view turns it into a little hop */
   hop: number;
+  /** a spirit shot's bend: sideways push per second (0 = straight) */
+  curve?: number;
 }
+
+/** a marble lying loose on the table (B-Daman mode): it rolls back to its end, to be picked up */
+export interface LooseBall {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+/** B-Daman mode: the table tilts to both ends, and the B-Daspirit gauge */
+export const BDA = { tilt: 5, friction: 1.6, grab: 0.8, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
 export interface Missile {
   id: number;
@@ -180,6 +194,9 @@ export type Fx =
   | { type: 'clack'; x: number; y: number; intensity: number }
   | { type: 'drop-destroyed'; x: number; y: number; team: Team; item: ItemType; h?: number }
   | { type: 'parry'; x: number; y: number; slot: number }
+  | { type: 'special'; slot: number; dir: number }
+  | { type: 'spirit-ready'; slot: number }
+  | { type: 'grab'; x: number; y: number; slot: number }
   | { type: 'catch'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
@@ -257,6 +274,11 @@ export class Shooter {
   dealt = 0;
   /** hits landed toward the next super shot (0..SUPER_HITS) */
   charge = 0;
+  /** B-Daman mode: the B-Daspirit gauge (0..BDA.spiritMax), and seconds with an empty magazine */
+  spirit = 0;
+  dryT = 0;
+  /** which way a spirit shot will bend (-1, 0, 1), set when it's called */
+  specialDir = 0;
   /** the next marble fired will be a super shot */
   superReady = false;
   /** seconds of knock-back stagger after taking a super hit */
@@ -390,6 +412,9 @@ export class Shooter {
     this.recoil = 0;
     this.shots = this.hits = this.dealt = 0;
     this.charge = 0;
+    this.spirit = 0;
+    this.dryT = 0;
+    this.specialDir = 0;
     this.superReady = false;
     this.stagger = 0;
     this.item = null;
@@ -465,6 +490,8 @@ export interface MatchOptions {
   allyCharge?: boolean;
   /** balls fired per trigger pull, both robots (1-5) */
   burst: number;
+  /** B-Daman mode: no auto reload (marbles roll back to be picked up), the B-Daspirit gauge and special shots */
+  bdaman?: boolean;
 }
 
 export class Game {
@@ -634,6 +661,93 @@ export class Game {
 
   /** the table width changed (setArenaWidth): move the walls to the new edges */
   // ---------- the pinball board (newer arenas) ----------
+  // ---------- B-Daman mode ----------
+  bdaman = false;
+  loose: LooseBall[] = [];
+  private looseId = 0;
+  private noLoose = new Set<Marble>();
+  /** a spirit shot waiting on its cinematic: whose, and which way it bends */
+  pendingSpecial: { slot: number; dir: number } | null = null;
+
+  /** call a spirit shot (the gauge full): the app plays its cinematic, then releases it */
+  beginSpecial(s: Shooter, dir: number) {
+    if (!this.bdaman || this.pendingSpecial || s.spirit < BDA.spiritMax || !s.alive || this.phase !== 'fight') return false;
+    s.spirit = 0;
+    s.specialDir = Math.sign(dir);
+    s.firing = false;
+    this.pendingSpecial = { slot: s.slot, dir: s.specialDir };
+    this.fx.push({ type: 'special', slot: s.slot, dir: s.specialDir });
+    return true;
+  }
+  /** the cinematic is done: the spirit shot leaves (a giant marble, bending if a direction was held) */
+  releaseSpecial() {
+    const p = this.pendingSpecial;
+    this.pendingSpecial = null;
+    if (!p) return;
+    const s = this.shooters[p.slot];
+    if (!s.alive) return;
+    const aim = s.aim;
+    // (a curve shot starts out wide the other way and bends back in)
+    s.aim = aim - p.dir * 0.32;
+    s.superReady = true;
+    const before = this.marbles.filter((m) => m.active).map((m) => m.idx);
+    this.fire(s, true);
+    s.aim = aim;
+    const shot = this.marbles.find((m) => m.active && !before.includes(m.idx) && m.owner === s.slot);
+    if (shot) shot.curve = p.dir * BDA.curve * s.forward;
+  }
+  private addSpirit(s: Shooter, n: number) {
+    if (!this.bdaman || !s.alive) return;
+    const was = s.spirit;
+    s.spirit = Math.min(BDA.spiritMax, s.spirit + n);
+    if (was < BDA.spiritMax && s.spirit >= BDA.spiritMax) this.fx.push({ type: 'spirit-ready', slot: s.slot });
+  }
+  /** loose marbles roll back toward their end of the table; a robot walking over one grabs it */
+  private stepLoose(dt: number) {
+    if (!this.bdaman) return;
+    const hw = ARENA.width / 2 - 0.25;
+    const rail = ARENA.railY - 0.15;
+    for (let i = this.loose.length - 1; i >= 0; i--) {
+      const b = this.loose[i];
+      // (the table tilts down to both ends from the middle)
+      b.vy += Math.sign(b.y || 0.01) * BDA.tilt * dt;
+      const f = Math.exp(-BDA.friction * dt);
+      b.vx *= f;
+      b.vy *= f;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      if (Math.abs(b.x) > hw) {
+        b.x = Math.sign(b.x) * hw;
+        b.vx = -b.vx * 0.4;
+      }
+      if (Math.abs(b.y) > rail) {
+        b.y = Math.sign(b.y) * rail;
+        b.vy = 0;
+      }
+      for (const s of this.shooters) {
+        if (!s.alive || s.ammo >= s.stats.capacity) continue;
+        if (Math.abs(b.x - s.x) < BDA.grab && Math.abs(b.y - s.y) < BDA.grab + 0.3) {
+          s.ammo = Math.min(s.stats.capacity, s.ammo + 1);
+          this.addSpirit(s, BDA.pick);
+          this.fx.push({ type: 'grab', x: b.x, y: b.y, slot: s.slot });
+          this.loose.splice(i, 1);
+          break;
+        }
+      }
+    }
+    // never stuck: a robot with an empty magazine and nothing rolling its way gets a few back
+    for (const s of this.shooters) {
+      if (!s.alive) continue;
+      const coming = this.loose.some((b) => Math.sign(b.y) === Math.sign(s.railY));
+      s.dryT = s.ammo < 1 && !coming ? s.dryT + dt : 0;
+      if (s.dryT > BDA.dryWait) {
+        s.dryT = 0;
+        s.ammo = Math.min(s.stats.capacity, s.ammo + BDA.dryRefill);
+        this.fx.push({ type: 'reload', slot: s.slot });
+      }
+    }
+  }
+
   /** the board in play: its pop bumpers (for the view's flashes), current zones and portals */
   board: Board | null = null;
   pinBumpers: PinBumper[] = [];
@@ -844,6 +958,9 @@ export class Game {
   }
 
   reset(playerStats: ShooterStats, opts: MatchOptions) {
+    this.bdaman = !!opts.bdaman;
+    this.loose = [];
+    this.pendingSpecial = null;
     // each team splits its rail into lanes so pack-mates never stand on each other
     const lanes = (n: number) => {
       const span = ARENA.railHalfWidth * 2;
@@ -997,6 +1114,13 @@ export class Game {
     }
 
     this.stepBoard(dt);
+    this.stepLoose(dt);
+    // spirit shots bend as they fly
+    for (const m of this.marbles) {
+      if (!m.active || !m.curve) continue;
+      const v = m.body.linvel();
+      m.body.setLinvel({ x: v.x + m.curve * dt, y: v.y }, true);
+    }
     // slow-mo steps the same number of times with a smaller time slice, so motion stays smooth
     if (this.world.timestep !== dt) this.world.timestep = dt;
     this.world.step(this.events);
@@ -1043,6 +1167,7 @@ export class Game {
   private parry(pr: { s: Shooter; attacker: Shooter; damage: number; kind: MarbleKind; x: number; y: number }) {
     const { s, attacker } = pr;
     this.fx.push({ type: 'parry', x: pr.x, y: pr.y, slot: s.slot });
+    this.addSpirit(s, BDA.parry);
     sfx.play('superhit', s.slot === 0 ? 1 : 0.6);
     this.hitstop = Math.max(this.hitstop, 0.12);
     s.shieldIdle = 0;
@@ -1081,6 +1206,10 @@ export class Game {
   private damage(target: Shooter, attacker: Shooter, amount: number, src: { marble?: number; missile?: number } = {}) {
     target.health = Math.max(0, target.health - amount);
     target.sinceHurt = 0;
+    if (attacker.team !== target.team) {
+      this.addSpirit(attacker, BDA.hit);
+      this.addSpirit(target, BDA.hurt);
+    }
     attacker.dealt += amount;
     attacker.sinceHit = 0;
     if (target.health > 0) return;
@@ -1476,13 +1605,14 @@ export class Game {
     if (s.reload > 0) {
       s.reload -= adt;
       if (s.reload <= 0) {
-        s.ammo = s.stats.capacity;
+        // (B-Daman mode: no reload, the magazine refills from marbles picked up off the table)
+        if (!this.bdaman) s.ammo = s.stats.capacity;
         this.fx.push({ type: 'reload', slot: s.slot });
         if (s.slot === 0) sfx.play('reload');
       }
     } else if (!s.firing || !canAct) {
       s.idle += adt;
-      if (s.idle > 0.45 && s.ammo < s.stats.capacity) {
+      if (!this.bdaman && s.idle > 0.45 && s.ammo < s.stats.capacity) {
         s.ammo = Math.min(s.stats.capacity, s.ammo + (adt * s.stats.capacity) / (s.stats.reloadTime * 1.6));
       }
     }
@@ -1712,6 +1842,7 @@ export class Game {
     m.owner = s.slot;
     m.kind = o.kind;
     m.weave = o.weave ?? 1;
+    m.curve = 0;
     m.lastGate = -1;
     m.hop = 0;
     m.age = 0;
@@ -1920,6 +2051,13 @@ export class Game {
 
   private despawn(m: Marble) {
     if (!m.active) return;
+    // B-Daman mode: a marble that stops (or hits something) on the table stays there as a loose one
+    const kept = !this.noLoose.delete(m);
+    if (this.bdaman && kept && this.phase !== 'over') {
+      const p = m.body.translation();
+      const v = m.body.linvel();
+      if (Math.abs(p.y) < ARENA.length / 2 && Math.abs(p.x) < ARENA.width / 2) this.loose.push({ id: this.looseId++, x: p.x, y: p.y, vx: v.x * 0.15, vy: v.y * 0.15 });
+    }
     m.active = false;
     m.body.setLinvel({ x: 0, y: 0 }, false);
     m.body.setTranslation({ x: 0, y: -100 - m.idx }, false);
@@ -1959,6 +2097,9 @@ export class Game {
           if (!heavy && s.ammo < s.stats.capacity) {
             s.ammo = Math.min(s.stats.capacity, s.ammo + CATCH.ammo);
             this.fx.push({ type: 'catch', x: p.x, y: p.y, slot: s.slot });
+            this.addSpirit(s, BDA.catch);
+            // (caught: it's in the magazine already, it doesn't drop loose as well)
+            this.noLoose.add(m);
             if (s.slot === 0) sfx.play('reload', 0.7);
           }
           return;

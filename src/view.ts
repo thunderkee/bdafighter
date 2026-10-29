@@ -241,6 +241,8 @@ export class View {
   /** settings: realism (marble hops/spin/shadows, stage particles, full pixel density) */
   realismOn = true;
   private powerMeshes: THREE.Mesh[] = [];
+  private looseMesh!: THREE.InstancedMesh;
+  private tmpObj = new THREE.Object3D();
   private trails = new Map<number, { x: number; y: number }[]>();
   private glows: Glow[] = [];
   private markers: Marker[] = [];
@@ -259,7 +261,7 @@ export class View {
   private pinMeshes: { root: THREE.Group; cap: THREE.MeshBasicMaterial }[] = [];
   private coverFlash: number[] = [];
   /** scripted camera: the VS intro or a replay */
-  cine: { kind: 'intro' | 'replay'; t: number; shot: number; slot: number; by?: number } | null = null;
+  cine: { kind: 'intro' | 'replay' | 'special'; t: number; shot: number; slot: number; by?: number } | null = null;
   /** each side's marble colour, from its robot */
   /** what each slot's model was built in (your fighter's paint), to rebuild when it changes */
   private skinKey: string[] = [];
@@ -268,7 +270,7 @@ export class View {
   /** 'duo' is local two-player versus: the whole table from above, player 1 at the bottom;
    *  'split' is two-player split screen: player 1's chase view in the bottom half, player 2's in
    *  the top half, turned round to face them across the phone */
-  cameraMode: 'far' | 'mid' | 'near' | 'first' | 'duo' | 'split' = 'mid';
+  cameraMode: 'far' | 'mid' | 'near' | 'first' | 'duo' | 'split' | 'bdaman' = 'mid';
   /** player 2's camera, for split screen */
   camera2 = new THREE.PerspectiveCamera(54, 1, 0.1, 140);
   private cam2Base = new THREE.Vector3();
@@ -411,6 +413,13 @@ export class View {
       return mesh;
     }) as unknown as [THREE.InstancedMesh, THREE.InstancedMesh];
     for (let i = 0; i < MATCH.marblePool; i++) this.marbleRot.push(new THREE.Quaternion());
+    // B-Daman mode: the loose marbles lying on the table (plain white glass, anyone's to grab)
+    this.looseMesh = new THREE.InstancedMesh(marbleGeo, new THREE.MeshPhysicalMaterial({ color: 0xf2f0ea, map: swirl, roughness: 0.15, clearcoat: 1 }), 64);
+    this.looseMesh.castShadow = true;
+    this.looseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.looseMesh.frustumCulled = false;
+    this.looseMesh.count = 0;
+    this.scene.add(this.looseMesh);
 
     // super and dragon balls: unlit, over-bright cores so they read as glowing
     const powerGeo = new THREE.SphereGeometry(1, 20, 14);
@@ -867,6 +876,20 @@ export class View {
     this.glows.length = 0;
     this.handleFx();
     this.stage.update(wdt, this.worldTime);
+    // loose marbles (B-Daman mode), rolling as they go
+    const loose = (this.game as { loose?: { x: number; y: number; vx: number; vy: number }[] }).loose ?? [];
+    const lr = 0.264;
+    const n = Math.min(64, loose.length);
+    for (let i = 0; i < n; i++) {
+      const b = loose[i];
+      this.tmpObj.position.set(b.x, lr, -b.y);
+      this.tmpObj.rotation.set(-b.y / lr, 0, b.x / lr);
+      this.tmpObj.scale.setScalar(lr);
+      this.tmpObj.updateMatrix();
+      this.looseMesh.setMatrixAt(i, this.tmpObj.matrix);
+    }
+    this.looseMesh.count = n;
+    this.looseMesh.instanceMatrix.needsUpdate = true;
     // pinball bumpers flash as they kick
     const pb = (this.game as { pinBumpers?: { glow: number }[] }).pinBumpers;
     if (pb) this.stage.setBumperGlow(pb.map((b) => b.glow));
@@ -1870,6 +1893,11 @@ export class View {
         this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, 3.8, -p.y + 3.9);
         this.lookGoal.set(follow(0.7, 2.3) + lean * 3.5, 0.5, -p.y - 8.5);
         break;
+      case 'bdaman':
+        // the B-Daman anime angle: low, behind and off to one side of your robot, the table running away
+        this.camGoal.set(follow(0.85, 3.2) + 2.1 - lean * 0.5, 2.3, -p.y + 3.6);
+        this.lookGoal.set(follow(0.5, 1.8) - 0.6 + lean * 3, 0.7, -p.y - 9.5);
+        break;
       case 'first':
         // cockpit: eye level on the robot, looking down the aim line
         this.camGoal.set(p.x, 1.8, -p.y - 0.1);
@@ -1972,7 +2000,22 @@ export class View {
     const e = { x: pack.reduce((a, s) => a + s.x, 0) / Math.max(1, pack.length), y: pack[0]?.y ?? ARENA.railY };
     const er = 3.4 * this.modelScale(pack[0]?.slot ?? 1) + (pack.length - 1) * 1.6;
     let shot = 0;
-    if (c.kind === 'intro') {
+    if (c.kind === 'special') {
+      // the spirit shot: a low close-up on the face of the robot calling it, pushing in, then a cut
+      // to over its shoulder, looking down the table where the shot is about to go
+      const s = this.game.shooters[c.slot];
+      const f = s.forward;
+      const r = this.modelScale(c.slot);
+      if (c.t < 0.85) {
+        const push = 1 - c.t * 0.35;
+        this.camGoal.set(s.x + 0.9 * r, 1.0 * r, -(s.y + f * 2.6 * r * push));
+        this.lookGoal.set(s.x, 0.95 * r, -s.y);
+      } else {
+        shot = 1;
+        this.camGoal.set(s.x - 1.6 * r, 2.4 * r, -(s.y - f * 4.2 * r));
+        this.lookGoal.set(s.x + 0.4, 0.6, -(s.y + f * 8));
+      }
+    } else if (c.kind === 'intro') {
       if (c.t < 1.7) {
         // orbit in front of your robot (or your whole pack), further out for the big beasts
         const own = this.game.shooters.filter((s) => s.team === 0 && s.active);

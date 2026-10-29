@@ -129,6 +129,8 @@ export function boot() {
   let duo = false;
   /** story mode: whose story, which chapter (0-based), and the chapter's match settings */
   let story: { hero: string; ch: number; cfg: Partial<store.Settings> } | null = null;
+  /** B-Daman mode: marbles picked up off the table, the B-Daspirit gauge and spirit shots */
+  let bdaMode = false;
   /** the settings a match plays by: yours, with an arcade stage's (or local versus') rules on top */
   const S = (): store.Settings =>
     tut
@@ -140,7 +142,9 @@ export function boot() {
         ? { ...saveData.settings, ...arcade.cfg }
         : duo
           ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
-          : saveData.settings;
+          : bdaMode
+            ? { ...saveData.settings, pack: 1, playerPack: 1, items: false, gates: false }
+            : saveData.settings;
   // the table width is fixed for the session: walls and scenery are built for it
   setArenaWidth(S().arenaWidth);
   /** the table width the walls and scenery are built for right now */
@@ -403,6 +407,8 @@ export function boot() {
   const hpBox = [document.querySelector<HTMLElement>('.hp.player')!, document.querySelector<HTMLElement>('.hp.enemy')!];
   const hpNum = [$('player-hp-num'), $('enemy-hp-num')];
   const duoHp = [document.querySelector<HTMLElement>('#duo-hp .p1 b')!, document.querySelector<HTMLElement>('#duo-hp .p2 b')!];
+  const spiritFill = [document.querySelector<HTMLElement>('.spirit.player .fill')!, document.querySelector<HTMLElement>('.spirit.enemy .fill')!];
+  const spiritBox = [document.querySelector<HTMLElement>('.spirit.player')!, document.querySelector<HTMLElement>('.spirit.enemy')!];
   const spFill = [document.querySelector<HTMLElement>('.sp.player .fill')!, document.querySelector<HTMLElement>('.sp.enemy .fill')!];
   const spBox = [document.querySelector<HTMLElement>('.sp.player')!, document.querySelector<HTMLElement>('.sp.enemy')!];
   const chip = [1, 1];
@@ -531,7 +537,7 @@ export function boot() {
   };
 
   // ---------- match flow: intro -> rounds (best of 3) -> replays -> finale ----------
-  type Flow = 'intro' | 'round' | 'replay' | 'finale';
+  type Flow = 'intro' | 'round' | 'replay' | 'finale' | 'special';
   let flow: Flow = 'round';
   let flowT = 0;
   let roundNo = 1;
@@ -577,9 +583,11 @@ export function boot() {
       duration: st.roundTime ?? 60,
       burst: st.burst ?? 1,
       cpuCharge: st.cpuCharge ?? true,
+      bdaman: bdaMode,
       allyCharge: st.allyCharge ?? true,
       boss: boss() ? { slots: boss()!.units.map((_, k) => 1 + k), size: boss()!.size } : undefined,
     });
+    game.loose.length = 0;
     game.shooters.forEach((sh, i) => {
       if (sh.active && carry[i]) sh.item = carry[i];
     });
@@ -624,7 +632,10 @@ export function boot() {
     const st = S();
     // local versus: the table from above for both players, their own labels and controls
     document.body.classList.toggle('duo', duo);
-    const cam = duo ? 'split' : st.camera;
+    const cam = duo ? 'split' : bdaMode ? 'bdaman' : st.camera;
+    document.body.classList.toggle('bdaman', bdaMode);
+    // (the special button sits over FIRE on the pad; with gestures it floats on the HUD)
+    if (bdaMode) (S().layout === 'buttons' ? document.querySelector('#pad .pad-fire.single')! : $('hud')).prepend($('special-btn'));
     if (view.cameraMode !== cam) {
       view.cameraMode = cam;
       view.resize();
@@ -974,6 +985,7 @@ export function boot() {
     const r = runOf(id);
     if (!r) return;
     story = null;
+    bdaMode = false;
     sfx.unlock();
     selectMode = 'arcade';
     duo = false;
@@ -1039,6 +1051,7 @@ export function boot() {
     if (!story) return;
     const c = pathOf(story.hero).chapters[story.ch];
     const diff = CHAPTER_DIFF[story.ch] ?? 'hard';
+    bdaMode = false;
     story.cfg = { enemyCharacter: unitOfBase(c.foe), stage: c.arena, pack: 1, playerPack: 1, items: true, roundTime: 60, difficulty: diff, ...store.DIFFICULTY[diff] };
     arcade = null;
     duo = false;
@@ -1183,6 +1196,8 @@ export function boot() {
     // (the run stays saved: Continue on the title picks it back up)
     arcade = null;
     story = null;
+    bdaMode = false;
+    document.body.classList.remove('bdaman');
     showRunOffer();
     screen = 'title';
     show('title');
@@ -1191,7 +1206,61 @@ export function boot() {
   };
 
   /** Per-frame timeline for the intro, the replay and the finale. */
+  // ---------- B-Daman mode: the spirit shot ----------
+  const MOVE_NAMES: Record<string, string> = {
+    angel: 'ZERO EXCALIBUR', dragon: 'DINO FORCE CANNON', pioneer: 'SIREN BUSTER', liberty: 'DEEP DIVE RAIL', monoceros: 'GENIUS TWIN BLAST', baron: 'CRIMSON LOOP DIVE', bastion: 'SCYTHE CROSS',
+    nightshade: 'ECLIPSE FALL', violet: 'SILVERBACK QUAKE', kabuto: 'ROYAL ROAR', tyrant: 'HELLHOUND CERBERUS', rex: 'FROST BITE', liger: 'FANG RICOCHET', ember: 'BLOSSOM BURST',
+  };
+  let specialTap = false;
+  let lastFire = false;
+  $('special-btn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    specialTap = true;
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyX' && bdaMode) specialTap = true;
+  });
+  /** each tick: the SPECIAL button, or a direction held as FIRE goes down, once the gauge is full */
+  const pollSpecial = () => {
+    if (!bdaMode || flow !== 'round' || duo) return;
+    const dir = Math.sign(player.moveAxis) || (Math.abs(player.vx) > 1.5 ? Math.sign(player.vx) : 0);
+    const combo = player.firing && !lastFire && dir !== 0;
+    lastFire = player.firing;
+    if ((specialTap || combo) && player.spirit >= 100) game.beginSpecial(player, dir);
+    specialTap = false;
+  };
+  const sfxEl = $('special-fx');
+  const startSpecial = (slot: number) => {
+    flow = 'special';
+    flowT = 0;
+    const s = game.shooters[slot];
+    const id = unitIds()[slot] ?? saveData.settings.character;
+    view.cine = { kind: 'special', t: 0, shot: -1, slot };
+    $('sfx-who').textContent = `${characterById(id).name.toUpperCase()}${s.team === 0 ? '' : ' // CPU'}`;
+    $('sfx-name').textContent = (MOVE_NAMES[baseOf(id)] ?? 'SPIRIT SHOT') + '!';
+    $('sfx-face').innerHTML = `<i data-portrait="${id}" data-crop="bust"></i>`;
+    fillPortraits($('sfx-face'));
+    sfxEl.classList.toggle('foe', s.team !== 0);
+    sfxEl.classList.remove('hidden');
+    replay(sfxEl, 'go');
+    sfx.play('charge');
+    if (S().vibrate) buzz([30, 40, 60]);
+  };
   const updateFlow = (dt: number) => {
+    if (flow === 'special') {
+      flowT += dt;
+      if (flowT >= 1.6) {
+        sfxEl.classList.add('hidden');
+        view.cine = null;
+        flow = 'round';
+        game.releaseSpecial();
+        sfx.play('super');
+        view.shake(0.7);
+        if (S().vibrate) buzz(90);
+      }
+      return;
+    }
     flowT += dt;
     if (flow === 'intro') {
       const cards = [introEl.querySelector('.p1')!, introEl.querySelector('.p2')!, introEl.querySelector('.intro-vs')!];
@@ -1248,11 +1317,23 @@ export function boot() {
   const quickMatch = () => {
     sfx.unlock();
     story = null;
+    bdaMode = false;
     selectMode = 'versus';
     arcade = null;
     duo = false;
     startMatch();
   };
+  // B-Daman mode: a one-on-one with your fighter, marbles to pick up, the B-Daspirit gauge
+  $('bda-btn').addEventListener('click', () => {
+    sfx.unlock();
+    story = null;
+    arcade = null;
+    duo = false;
+    selectMode = 'versus';
+    bdaMode = true;
+    startMatch();
+    setTimeout(() => showToast('GRAB MARBLES THAT ROLL BACK // FILL B-DASPIRIT, THEN SPECIAL', 0xffc23d), 900);
+  });
   $('play-btn').addEventListener('click', (e) => {
     if ((e.target as Element).closest('.card-custom')) openSelect('versus');
     else quickMatch();
@@ -1332,7 +1413,7 @@ export function boot() {
     CEL.on = st.cel !== false;
     $('fps').classList.toggle('hidden', !st.showFps);
     // (local versus keeps its overhead view for the whole match)
-    const cam = duo && screen !== 'title' ? 'split' : st.camera;
+    const cam = duo && screen !== 'title' ? 'split' : bdaMode && screen !== 'title' ? 'bdaman' : st.camera;
     if (view.cameraMode !== cam) {
       view.cameraMode = cam;
       view.resize();
@@ -1792,6 +1873,7 @@ export function boot() {
   const openSelect = (mode: 'versus' | 'arcade' | 'duo' | 'home') => {
     sfx.unlock();
     story = null;
+    bdaMode = false;
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
     const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && isBossUnit(id));
@@ -2017,6 +2099,7 @@ export function boot() {
     arcade = null;
     duo = false;
     story = null;
+    bdaMode = false;
     tut = { i: 0, t: 0, moved: 0, lastX: 0, shots0: 0, hits0: 0, charged: false, shield: 0, done: false };
     startMatch();
     tut.lastX = player.x;
@@ -2207,6 +2290,7 @@ export function boot() {
           const rate = (slot: number) => (game.slowT > 0 && game.slowOwner === slot ? SLOWMO.owner / SLOWMO.world : 1);
           input.update(sdt * rate(0));
           duoInput.update(sdt * rate(0));
+          pollSpecial();
           // (in local versus player 2 drives the opponent instead of its AI)
           ais.forEach((a, i) => ((duo && i === 0) || (tut && !tutStepNow().ai) ? null : a.update(sdt * rate(i + 1))));
           const before = game.phase;
@@ -2227,6 +2311,11 @@ export function boot() {
       recorder.addFx(game.fx);
       // fx the HUD cares about; the view consumes the list afterwards
       for (const f of game.fx) {
+        if (f.type === 'special') startSpecial(f.slot);
+        if (f.type === 'spirit-ready' && f.slot === 0) {
+          showToast('B-DASPIRIT FULL // SPECIAL READY', 0xffc23d);
+          sfx.play('charge');
+        }
         if (f.type === 'eliminated') {
           if (slotTeam(f.slot) === 1) showToast(`UNIT DOWN // ${game.aliveEnemies().length} LEFT`, 0xffc23d);
           else if (f.slot === 0) showToast('YOU ARE DOWN // PACK FIGHTS ON', 0xff3e5e);
@@ -2487,6 +2576,11 @@ export function boot() {
       hpBox[i].classList.toggle('low', frac < 0.25);
       hpNum[i].textContent = Math.ceil(frac * 100) + '%';
       spFill[i].style.width = (s.shield / SHIELD.max) * 100 + '%';
+      if (bdaMode) {
+        spiritFill[i].style.width = s.spirit + '%';
+        spiritBox[i].classList.toggle('full', s.spirit >= 100);
+        if (i === 0) $('special-btn').classList.toggle('ready', s.spirit >= 100);
+      }
       spBox[i].classList.toggle('broken', s.shieldLock > 0);
       // super meters: pips fill per hit, glow when the next shot is a super
       superPips[i].forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));

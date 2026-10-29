@@ -36,6 +36,7 @@
           <div class="side player">
             <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
             <div class="sp player"><div class="fill"></div></div>
+            <div class="spirit player" aria-hidden="true"><div class="fill"></div><b>B-DASPIRIT</b></div>
             <div class="side-info">
               <div class="portrait"><canvas id="face-player"></canvas></div>
               <div class="meta">
@@ -53,6 +54,7 @@
           <div class="side enemy">
             <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
             <div class="sp enemy"><div class="fill"></div></div>
+            <div class="spirit enemy" aria-hidden="true"><div class="fill"></div><b>B-DASPIRIT</b></div>
             <div class="side-info">
               <div class="portrait"><canvas id="face-enemy"></canvas></div>
               <div class="meta">
@@ -121,6 +123,7 @@
           <!-- group 1: the fighting keys, special weapon (once picked up) and fire -->
           <div class="pad-actions" id="pad-actions">
           <div class="pad-fire single">
+            <button class="pad-btn special" id="special-btn" aria-label="Special move">SPECIAL</button>
             <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>
           </div>
           <div class="pad-fire triple">
@@ -208,6 +211,7 @@
         <nav class="home-cards" id="home-cards">
           <button id="tut-card" class="mode-card" data-art="tutorial"><i class="new-badge">NEW</i><i class="card-art"><em>🎯</em></i><span class="card-text"><b>Tutorial</b><small>Move, shoot, shield and parry in a minute</small></span><span class="card-go">START ▶</span></button>
           <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Your fighter, straight into a match</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
+          <button id="bda-btn" class="mode-card" data-art="bdaman"><i class="card-art"><em>💥</em></i><span class="card-text"><b>B-Daman</b><small>Grab your marbles, fill B-Daspirit, unleash a special</small></span><span class="card-go">PLAY ▶</span></button>
           <button id="story-btn" class="mode-card" data-art="story"><i class="card-art"><em>📖</em></i><span class="card-text"><b>Story</b><small id="story-sub">Your fighter’s path through the League</small></span><span class="card-go" id="story-go">PLAY ▶</span></button>
           <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small id="arcade-sub">A ladder of stages and four bosses</small></span><span class="card-go" id="arcade-go">PLAY ▶</span><span class="card-custom card-new-run hidden" role="button">New run</span></button>
           <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
@@ -581,6 +585,11 @@
         <button id="settings-done" class="key orange">DONE</button>
       </div>
 
+      <!-- B-Daman mode: the spirit shot's cinematic banner -->
+      <div id="special-fx" class="hidden">
+        <i class="sfx-lines"></i>
+        <div class="sfx-band"><i class="sfx-face" id="sfx-face"></i><div><span id="sfx-who"></span><b id="sfx-name">SPIRIT SHOT!</b></div></div>
+      </div>
       <!-- story mode: who says what before each chapter -->
       <div id="story-dlg" class="hidden">
         <header class="dlg-head"><span id="dlg-ch"></span><b id="dlg-title"></b></header>
