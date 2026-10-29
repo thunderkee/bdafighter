@@ -408,8 +408,6 @@ export function boot() {
   const hpBox = [document.querySelector<HTMLElement>('.hp.player')!, document.querySelector<HTMLElement>('.hp.enemy')!];
   const hpNum = [$('player-hp-num'), $('enemy-hp-num')];
   const duoHp = [document.querySelector<HTMLElement>('#duo-hp .p1 b')!, document.querySelector<HTMLElement>('#duo-hp .p2 b')!];
-  const spiritFill = [document.querySelector<HTMLElement>('.spirit.player .fill')!, document.querySelector<HTMLElement>('.spirit.enemy .fill')!];
-  const spiritBox = [document.querySelector<HTMLElement>('.spirit.player')!, document.querySelector<HTMLElement>('.spirit.enemy')!];
   const spFill = [document.querySelector<HTMLElement>('.sp.player .fill')!, document.querySelector<HTMLElement>('.sp.enemy .fill')!];
   const spBox = [document.querySelector<HTMLElement>('.sp.player')!, document.querySelector<HTMLElement>('.sp.enemy')!];
   const chip = [1, 1];
@@ -1231,6 +1229,8 @@ export function boot() {
     specialTap = false;
   };
   const sfxEl = $('special-fx');
+  /** how long the spirit shot's cinematic runs before the shot leaves */
+  const SPECIAL_CINE = 2.8;
   const startSpecial = (slot: number) => {
     flow = 'special';
     flowT = 0;
@@ -1250,7 +1250,7 @@ export function boot() {
   const updateFlow = (dt: number) => {
     if (flow === 'special') {
       flowT += dt;
-      if (flowT >= 1.6) {
+      if (flowT >= SPECIAL_CINE) {
         sfxEl.classList.add('hidden');
         view.cine = null;
         flow = 'round';
@@ -2586,9 +2586,11 @@ export function boot() {
       hpNum[i].textContent = Math.ceil(frac * 100) + '%';
       spFill[i].style.width = (s.shield / SHIELD.max) * 100 + '%';
       if (bdaMode) {
-        spiritFill[i].style.width = s.spirit + '%';
-        spiritBox[i].classList.toggle('full', s.spirit >= 100);
-        if (i === 0) $('special-btn').classList.toggle('ready', s.spirit >= 100);
+        // (the gauge is the SPECIAL button itself: it fills from the bottom)
+        if (i === 0) {
+          $('special-btn').style.setProperty('--p', String(Math.min(100, s.spirit)));
+          $('special-btn').classList.toggle('ready', s.spirit >= 100);
+        }
       }
       spBox[i].classList.toggle('broken', s.shieldLock > 0);
       // super meters: pips fill per hit, glow when the next shot is a super

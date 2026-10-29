@@ -5180,8 +5180,9 @@ body.buttons #pad {
   background: #2a2734;
   overflow: hidden;
 }
+/* (the gauge lives in the SPECIAL button now) */
 body.bdaman .spirit {
-  display: block;
+  display: none;
 }
 .spirit .fill {
   height: 100%;
@@ -5383,4 +5384,22 @@ body.bdaman #pad .pad-fire.single {
 #loose-count.some {
   opacity: 1;
   animation: badge-pulse 1s ease-in-out infinite;
+}
+
+/* the SPECIAL button fills up from the bottom as B-Daspirit builds */
+body.bdaman #special-btn {
+  --p: 0;
+  background: linear-gradient(to top, #4aa8f0 0, #5af0ff calc(var(--p) * 1%), #4a4658 calc(var(--p) * 1%));
+  color: #fff;
+  -webkit-text-stroke: 3px var(--line);
+  paint-order: stroke fill;
+}
+body.bdaman #special-btn.ready {
+  background: linear-gradient(#ffd84a, #ff7a3a);
+}
+#special-fx.go .sfx-band {
+  animation-duration: 2.8s;
+}
+.sfx-lines {
+  animation-duration: 2.8s;
 }

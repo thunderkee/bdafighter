@@ -123,6 +123,8 @@ export interface LooseBall {
 
 /** B-Daman mode: the table tilts to both ends, and the B-Daspirit gauge */
 export const BOX = { marbles: 8, half: 0.42, hp: 3, respawn: 3, broken: 7, ahead: 2.8 };
+/** the spirit shot: a big steel ball that homes in; a shield breaks under it (and still lets a sting through) */
+export const SPIRIT = { speed: 12, turn: 3.4, damage: 24, sting: 0.22, radius: 1.0, clash: 1.5, life: 6 };
 export const BDA = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
 export interface Missile {
@@ -137,6 +139,8 @@ export interface Missile {
   age: number;
   /** seconds of coasting after a hit before it turns back in */
   recover: number;
+  /** B-Daman mode: a spirit shot, a giant homing steel ball that lands once and hard */
+  spirit?: boolean;
 }
 
 export interface Gate {
@@ -214,6 +218,8 @@ export type Fx =
   | { type: 'grab'; x: number; y: number; slot: number }
   | { type: 'box'; x: number; y: number; team: Team }
   | { type: 'box-broken'; x: number; y: number; team: Team }
+  | { type: 'spirit-hit'; x: number; y: number; slot: number; shielded: boolean }
+  | { type: 'spirit-clash'; x: number; y: number; a: [number, number]; b: [number, number] }
   | { type: 'catch'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
@@ -706,15 +712,12 @@ export class Game {
     if (!p) return;
     const s = this.shooters[p.slot];
     if (!s.alive) return;
-    const aim = s.aim;
-    // (a curve shot starts out wide the other way and bends back in)
-    s.aim = aim - p.dir * 0.32;
-    s.superReady = true;
-    const before = this.marbles.filter((m) => m.active).map((m) => m.idx);
-    this.fire(s, true);
-    s.aim = aim;
-    const shot = this.marbles.find((m) => m.active && !before.includes(m.idx) && m.owner === s.slot);
-    if (shot) shot.curve = p.dir * BDA.curve * s.forward;
+    // a curve shot sets off wide the other way, then homes back in
+    const d = s.dir(-p.dir * 0.6);
+    this.missiles.push({ id: this.missileId++, team: s.team, owner: s.slot, x: s.x, y: s.y + d.y * 1.2, heading: Math.atan2(d.y, d.x), hits: 0, age: 0, recover: 0.12, spirit: true });
+    s.kickT = 0;
+    s.heavyT = 0;
+    this.fx.push({ type: 'super-fire', slot: s.slot });
   }
   private addSpirit(s: Shooter, n: number) {
     if (!this.bdaman || !s.alive) return;
@@ -1300,11 +1303,25 @@ export class Game {
         let diff = want - m.heading;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
-        const turn = MISSILE.turnRate * dt;
+        const turn = (m.spirit ? SPIRIT.turn : MISSILE.turnRate) * dt;
         m.heading += Math.max(-turn, Math.min(turn, diff));
       }
-      m.x += Math.cos(m.heading) * MISSILE.speed * dt;
-      m.y += Math.sin(m.heading) * MISSILE.speed * dt;
+      const sp = m.spirit ? SPIRIT.speed : MISSILE.speed;
+      m.x += Math.cos(m.heading) * sp * dt;
+      m.y += Math.sin(m.heading) * sp * dt;
+      // two spirit shots meet: they smash together and both fly up off the table
+      if (m.spirit) {
+        const o = this.missiles.find((q) => q !== m && q.spirit && q.team !== m.team && Math.hypot(q.x - m.x, q.y - m.y) < SPIRIT.clash);
+        if (o) {
+          this.fx.push({ type: 'spirit-clash', x: (m.x + o.x) / 2, y: (m.y + o.y) / 2, a: [m.x, m.y], b: [o.x, o.y] });
+          this.hitstop = Math.max(this.hitstop, 0.2);
+          sfx.play('slam', 1);
+          this.missiles.splice(this.missiles.indexOf(o), 1);
+          this.missiles.splice(this.missiles.indexOf(m), 1);
+          i = Math.min(i, this.missiles.length);
+          continue;
+        }
+      }
       // bounce off the side walls and keep within the table ends
       const hw = ARENA.width / 2 - 0.3;
       if (Math.abs(m.x) > hw) {
@@ -1316,7 +1333,23 @@ export class Game {
         m.y = Math.sign(m.y) * hl;
         m.heading = -m.heading;
       }
-      if (target.alive && m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
+      if (m.spirit && target.alive && m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < SPIRIT.radius + target.halfWidth * 0.5) {
+        // the spirit shot lands once: through a shield it breaks it and still stings
+        const amount = SPIRIT.damage * (attacker.stats.damage / BASE_STATS.damage);
+        const shielded = target.shieldUp;
+        if (shielded) this.breakShield(target);
+        const dealt = shielded ? amount * SPIRIT.sting : amount;
+        target.flash = 0.4;
+        target.stagger = Math.max(target.stagger, shielded ? 0.4 : 0.9);
+        this.hitstop = Math.max(this.hitstop, 0.22);
+        this.fx.push({ type: 'spirit-hit', x: m.x, y: m.y, slot: target.slot, shielded });
+        this.fx.push({ type: 'hit', x: m.x, y: m.y, team: target.team, slot: target.slot, amount: dealt, power: 'super' });
+        sfx.play('slam', 1);
+        this.missiles.splice(i, 1);
+        this.damage(target, attacker, dealt, { missile: m.id });
+        continue;
+      }
+      if (!m.spirit && target.alive && m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
         const amount = MISSILE.damage * (attacker.stats.damage / BASE_STATS.damage);
         m.hits++;
         // bounce back out and come round again
@@ -1330,7 +1363,7 @@ export class Game {
           this.damage(target, attacker, amount, { missile: m.id });
         }
       }
-      if (m.hits >= MISSILE.hits || m.age > MISSILE.life) {
+      if (m.hits >= MISSILE.hits || m.age > (m.spirit ? SPIRIT.life : MISSILE.life)) {
         this.fx.push({ type: 'missile-end', x: m.x, y: m.y, team: m.team });
         this.missiles.splice(i, 1);
       }

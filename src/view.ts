@@ -280,6 +280,8 @@ export class View {
   private dropMeshes = new Map<number, DropMesh>();
   private gateMeshes = new Map<number, GateMesh>();
   private missileMeshes = new Map<number, { root: THREE.Group; ball: THREE.Object3D }>();
+  /** steel balls thrown up off the table by a clash: they fly, tumble and fall away */
+  private flyers: { o: THREE.Object3D; v: THREE.Vector3; t: number }[] = [];
   private missileTrails = new Map<number, { x: number; y: number }[]>();
   private ko: KoState | null = null;
   /** opponents knocked out mid-round, blowing apart while the rest fight on */
@@ -653,6 +655,42 @@ export class View {
     const g = this.game;
     for (const f of g.fx) {
       switch (f.type) {
+        case 'spirit-hit': {
+          // the spirit shot lands: a blast, two shockwave rings, a long shake
+          const sp = this.project(f.x, f.y, 0.6);
+          this.burst(f.x, f.y, 0xffd84a, 90, 15, { h: 0.8 });
+          this.burst(f.x, f.y, 0xff6a2a, 60, 11, { h: 0.6 });
+          this.burst(f.x, f.y, 0xffffff, 40, 9, { h: 1 });
+          for (const [life, size] of [[0.5, 4.5], [0.8, 8]] as const) {
+            const fx = this.takeShotFx(true);
+            fx.mesh.position.set(f.x, 0.06, -f.y);
+            fx.mat.color.setHex(f.shielded ? 0x8ae8ff : 0xffd84a);
+            fx.t = 0;
+            fx.life = life;
+            fx.size = size;
+          }
+          this.shake(1.6);
+          this.fx2d?.ring(sp.x, sp.y, hex(0xffe066), true);
+          this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
+          this.fx2d?.flash([255, 236, 170], 0.5);
+          break;
+        }
+        case 'spirit-clash': {
+          // two spirit shots meet: a flash, and both steel balls are thrown up off the table
+          this.burst(f.x, f.y, 0xffffff, 80, 14, { h: 0.8 });
+          this.burst(f.x, f.y, 0xffd84a, 50, 10, { h: 0.8 });
+          this.shake(1.3);
+          const sp = this.project(f.x, f.y, 0.6);
+          this.fx2d?.flash([255, 255, 255], 0.55);
+          this.fx2d?.ring(sp.x, sp.y, hex(0xffffff), true);
+          for (const [x, y] of [f.a, f.b]) {
+            const mm = this.makeMissile(0);
+            mm.root.scale.setScalar(2.6);
+            mm.root.position.set(x, STEEL_R * 2.6, -y);
+            this.flyers.push({ o: mm.root, v: new THREE.Vector3((x - f.x) * 3 + (Math.random() - 0.5) * 2, 14 + Math.random() * 4, -(y - f.y) * 3), t: 0 });
+          }
+          break;
+        }
         case 'hit': {
           const color = f.team === 0 ? COLORS.player : COLORS.enemy;
           const sp = this.project(f.x, f.y, 0.6);
@@ -1734,6 +1772,18 @@ export class View {
 
   /** Homing steel balls: a polished ball with a glowing seam, rolling and spinning as it hunts, throwing sparks. */
   private updateMissiles(dt: number) {
+    for (let i = this.flyers.length - 1; i >= 0; i--) {
+      const f = this.flyers[i];
+      f.t += dt;
+      f.v.y -= 22 * dt;
+      f.o.position.addScaledVector(f.v, dt);
+      f.o.rotation.x += dt * 9;
+      f.o.rotation.z += dt * 7;
+      if (f.t > 2.2) {
+        this.scene.remove(f.o);
+        this.flyers.splice(i, 1);
+      }
+    }
     const live = new Set<number>();
     for (const m of this.game.missiles) {
       live.add(m.id);
@@ -1742,7 +1792,14 @@ export class View {
         mm = this.makeMissile(m.team);
         this.missileMeshes.set(m.id, mm);
       }
-      mm.root.position.set(m.x, STEEL_R, -m.y);
+      // (a spirit shot is a giant glowing steel ball)
+      const big = (m as { spirit?: boolean }).spirit ? 2.6 : 1;
+      mm.root.scale.setScalar(big);
+      mm.root.position.set(m.x, STEEL_R * big, -m.y);
+      if (big > 1) {
+        this.burst(m.x - Math.cos(m.heading) * 0.6, m.y - Math.sin(m.heading) * 0.6, m.team === 0 ? 0xffd84a : 0xff5a5a, 3, 2.2, { h: 0.4, size: 0.12 });
+        if (Math.random() < 0.5) this.burst(m.x, m.y, 0xffffff, 1, 3, { h: 0.6, size: 0.08 });
+      }
       // rolls along its heading (-z in its own frame), and spins like a top on top of that
       mm.root.rotation.y = Math.atan2(-Math.cos(m.heading), Math.sin(m.heading));
       mm.ball.rotation.x -= (MISSILE.speed / STEEL_R) * dt;
@@ -1753,7 +1810,7 @@ export class View {
       trail.unshift(sp);
       if (trail.length > 12) trail.length = 12;
       this.missileTrails.set(m.id, trail);
-      this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(m.x, m.y, 0.22), color: hex(ITEMS.missile.color), trail: trail.slice(1) });
+      this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(m.x, m.y, 0.22 * big * (big > 1 ? 1.4 : 1)), color: big > 1 ? (m.team === 0 ? hex(0xffd84a) : hex(0xff5a5a)) : hex(ITEMS.missile.color), trail: trail.slice(1) });
     }
     for (const [id, mm] of this.missileMeshes) {
       if (live.has(id)) continue;
@@ -2073,12 +2130,20 @@ export class View {
       const s = this.game.shooters[c.slot];
       const f = s.forward;
       const r = this.modelScale(c.slot);
-      if (c.t < 0.85) {
+      if (c.t < 0.9) {
+        // 1: a low push-in on its face
         const push = 1 - c.t * 0.35;
         this.camGoal.set(s.x + 0.9 * r, 1.0 * r, -(s.y + f * 2.6 * r * push));
         this.lookGoal.set(s.x, 0.95 * r, -s.y);
-      } else {
+      } else if (c.t < 1.9) {
+        // 2: a sweeping low orbit round it as it powers up
         shot = 1;
+        const a = (c.t - 0.9) * 2.2 - 0.9;
+        this.camGoal.set(s.x + Math.sin(a) * 3.2 * r, 0.7 * r, -(s.y + f * Math.cos(a) * 3.2 * r));
+        this.lookGoal.set(s.x, 0.8 * r, -s.y);
+      } else {
+        // 3: over its shoulder, down the table to where the shot goes
+        shot = 2;
         this.camGoal.set(s.x - 1.6 * r, 2.4 * r, -(s.y - f * 4.2 * r));
         this.lookGoal.set(s.x + 0.4, 0.6, -(s.y + f * 8));
       }
