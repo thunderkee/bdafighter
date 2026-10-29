@@ -632,7 +632,7 @@ export function boot() {
     const st = S();
     // local versus: the table from above for both players, their own labels and controls
     document.body.classList.toggle('duo', duo);
-    const cam = duo ? 'split' : bdaMode ? 'bdaman' : st.camera;
+    const cam = duo ? 'split' : st.camera;
     document.body.classList.toggle('bdaman', bdaMode);
     // (the special button sits over FIRE on the pad; with gestures it floats on the HUD)
     if (bdaMode) (S().layout === 'buttons' ? document.querySelector('#pad .pad-fire.single')! : $('hud')).prepend($('special-btn'));
@@ -1413,7 +1413,7 @@ export function boot() {
     CEL.on = st.cel !== false;
     $('fps').classList.toggle('hidden', !st.showFps);
     // (local versus keeps its overhead view for the whole match)
-    const cam = duo && screen !== 'title' ? 'split' : bdaMode && screen !== 'title' ? 'bdaman' : st.camera;
+    const cam = duo && screen !== 'title' ? 'split' : st.camera;
     if (view.cameraMode !== cam) {
       view.cameraMode = cam;
       view.resize();
