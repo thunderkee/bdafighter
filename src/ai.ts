@@ -82,6 +82,7 @@ export class AIController {
 
     this.updateMovement(dt);
     this.updateItem(dt);
+    this.updateAdvance(dt);
     // B-Daman mode: the gauge full, a spirit shot once lined up (bending one way or the other, sometimes)
     if (g.bdaman && me.spirit >= 100 && Math.abs(this.foe.x - me.x) < 1.6 && Math.random() < dt * 1.2) g.beginSpecial(me, Math.random() < 0.4 ? 0 : Math.random() < 0.5 ? -1 : 1);
     this.updateShield(dt);
@@ -271,6 +272,30 @@ export class AIController {
   private angleTo(x: number, y: number) {
     const me = this.me;
     return Math.atan2(x - me.x, (y - me.y) * me.forward);
+  }
+
+  /** stepping up toward the middle (like the player can): short pushes when it's healthy and loaded,
+   *  back to the rail when it's hurt, low on marbles or behind its shield */
+  private advT = 0;
+  private advWait = 1 + Math.random() * 2;
+  private updateAdvance(dt: number) {
+    const me = this.me;
+    const g = this.game;
+    const healthy = me.health / me.maxHealth > 0.35;
+    // (not mid-reload, and in B-Daman mode not heading for its ammo box)
+    const loaded = me.reload <= 0 && me.ammo >= 1 && !(g.bdaman && g.boxes.some((b) => b.team === me.team) && me.ammo < me.stats.capacity * 0.6);
+    if (this.advT > 0) {
+      this.advT -= dt;
+      me.advancing = this.advT > 0 && healthy && loaded && !me.shielding;
+      return;
+    }
+    me.advancing = false;
+    this.advWait -= dt;
+    if (this.advWait <= 0) {
+      this.advWait = 1.5 + Math.random() * 2.5;
+      // (sharper opponents press forward more often)
+      if (healthy && loaded && Math.random() < 0.6 + this.profile.lead * 0.3) this.advT = 1.5 + Math.random() * 2;
+    }
   }
 
   private updateMovement(dt: number) {
