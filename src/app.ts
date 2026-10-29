@@ -19,6 +19,7 @@ import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
 import { CEL } from './cel';
+import { BOARDS } from './pinball';
 import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
 import { REWARDS, SLOT_NAME, equipKey, skinned, type Equip, type Slot } from './cosmetics';
 import { ADDONS } from './addons';
@@ -143,7 +144,7 @@ export function boot() {
         : duo
           ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
           : bdaMode
-            ? { ...saveData.settings, pack: 1, playerPack: 1, items: false, gates: false }
+            ? { ...saveData.settings, pack: 1, playerPack: 1, items: false, gates: false, pucks: 0, covers: 0, pins: 0, stage: BOARDS[saveData.settings.stage] ? 'space' : saveData.settings.stage }
             : saveData.settings;
   // the table width is fixed for the session: walls and scenery are built for it
   setArenaWidth(S().arenaWidth);
@@ -663,7 +664,7 @@ export function boot() {
     view.setCharacters(unitIds(), duo ? undefined : mine(unitIds()[0]));
     fitTable(st);
     // the newer arenas bring their pinball board
-    game.setBoard(st.stage);
+    game.setBoard(bdaMode ? null : st.stage);
     roundNo = 1;
     roundWins[0] = roundWins[1] = 0;
     totals.dealt = totals.shots = totals.hits = 0;
@@ -1333,7 +1334,7 @@ export function boot() {
     selectMode = 'versus';
     bdaMode = true;
     startMatch();
-    setTimeout(() => showToast('GRAB MARBLES THAT ROLL BACK // FILL B-DASPIRIT, THEN SPECIAL', 0xffc23d), 900);
+    setTimeout(() => showToast('RUN LOW, SLIDE INTO THE AMMO BOX // FILL B-DASPIRIT, THEN SPECIAL', 0xffc23d), 900);
   });
   $('play-btn').addEventListener('click', (e) => {
     if ((e.target as Element).closest('.card-custom')) openSelect('versus');
@@ -2313,6 +2314,14 @@ export function boot() {
       // fx the HUD cares about; the view consumes the list afterwards
       for (const f of game.fx) {
         if (f.type === 'special') startSpecial(f.slot);
+        if (f.type === 'box' && f.team === 0) {
+          showToast('AMMO BOX // SLIDE INTO IT', 0x5af0ff);
+          sfx.play('whoosh');
+        }
+        if (f.type === 'grab' && f.slot === 0) {
+          sfx.play('reload');
+          if (S().vibrate) buzz([15, 30, 15]);
+        }
         if (f.type === 'spirit-ready' && f.slot === 0) {
           showToast('B-DASPIRIT FULL // SPECIAL READY', 0xffc23d);
           sfx.play('charge');
@@ -2577,12 +2586,6 @@ export function boot() {
       hpBox[i].classList.toggle('low', frac < 0.25);
       hpNum[i].textContent = Math.ceil(frac * 100) + '%';
       spFill[i].style.width = (s.shield / SHIELD.max) * 100 + '%';
-      if (bdaMode && i === 0) {
-        const mine = game.loose.filter((b) => Math.sign(b.y) === Math.sign(player.railY)).length;
-        $('loose-n').textContent = String(mine);
-        $('loose-count').classList.toggle('hidden', flow !== 'round');
-        $('loose-count').classList.toggle('some', mine > 0);
-      }
       if (bdaMode) {
         spiritFill[i].style.width = s.spirit + '%';
         spiritBox[i].classList.toggle('full', s.spirit >= 100);

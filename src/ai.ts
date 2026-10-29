@@ -315,14 +315,11 @@ export class AIController {
     }
 
     // go and grab a crate dropping on our rail
-    // B-Daman mode: running low, go and pick up the marbles that rolled back to this end
-    if (g.bdaman && me.ammo < Math.max(3, me.stats.capacity * 0.5)) {
-      let best: { x: number } | null = null;
-      for (const b of g.loose) if (Math.sign(b.y) === Math.sign(me.railY) && Math.abs(b.y - me.railY) < 2.2 && (!best || Math.abs(b.x - me.x) < Math.abs(best.x - me.x))) best = b;
-      if (best) {
-        me.moveTarget = best.x;
-        return;
-      }
+    // B-Daman mode: an ammo box on this side and the magazine low, go and get it
+    const box = g.bdaman ? g.boxes.find((bx) => bx.team === me.team) : undefined;
+    if (box && me.ammo < me.stats.capacity * 0.6) {
+      me.moveTarget = box.x;
+      return;
     }
     const drop = g.drops.find((d) => d.team === me.team && d.x >= me.lane[0] - 0.5 && d.x <= me.lane[1] + 0.5);
     if (drop && !me.item && drop.h < 6) {

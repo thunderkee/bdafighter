@@ -98,6 +98,16 @@ export interface Marble {
   curve?: number;
 }
 
+/** B-Daman mode: a clear box of 8 marbles in front of a rail; sliding into it fills the magazine */
+export interface AmmoBox {
+  id: number;
+  x: number;
+  y: number;
+  team: Team;
+  /** seconds since it dropped in (for the landing bounce) */
+  age: number;
+}
+
 /** a marble lying loose on the table (B-Daman mode): it rolls back to its end, to be picked up */
 export interface LooseBall {
   id: number;
@@ -108,6 +118,7 @@ export interface LooseBall {
 }
 
 /** B-Daman mode: the table tilts to both ends, and the B-Daspirit gauge */
+export const BOX = { marbles: 8, half: 0.42, low: 0.4, delay: 1.2 };
 export const BDA = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
 export interface Missile {
@@ -197,6 +208,7 @@ export type Fx =
   | { type: 'special'; slot: number; dir: number }
   | { type: 'spirit-ready'; slot: number }
   | { type: 'grab'; x: number; y: number; slot: number }
+  | { type: 'box'; x: number; y: number; team: Team }
   | { type: 'catch'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
@@ -664,6 +676,9 @@ export class Game {
   // ---------- B-Daman mode ----------
   bdaman = false;
   loose: LooseBall[] = [];
+  boxes: AmmoBox[] = [];
+  private boxId = 0;
+  private boxWait: [number, number] = [0, 0];
   private looseId = 0;
   private noLoose = new Set<Marble>();
   /** a spirit shot waiting on its cinematic: whose, and which way it bends */
@@ -704,47 +719,41 @@ export class Game {
   }
   /** loose marbles roll back toward their end of the table; a robot walking over one grabs it */
   private stepLoose(dt: number) {
-    if (!this.bdaman) return;
-    const hw = ARENA.width / 2 - 0.25;
-    // (they gather in a tray just in front of the rail; a robot has to slide over to touch one)
-    const rail = ARENA.railY - 0.85;
-    for (let i = this.loose.length - 1; i >= 0; i--) {
-      const b = this.loose[i];
-      // (the table tilts down to both ends from the middle)
-      b.vy += Math.sign(b.y || 0.01) * BDA.tilt * dt;
-      const f = Math.exp(-BDA.friction * dt);
-      b.vx *= f;
-      b.vy *= f;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      if (Math.abs(b.x) > hw) {
-        b.x = Math.sign(b.x) * hw;
-        b.vx = -b.vx * 0.4;
+    if (!this.bdaman || this.phase !== 'fight') return;
+    for (const b of this.boxes) b.age += dt;
+    for (const team of [0, 1] as Team[]) {
+      const side = this.shooters.filter((s) => s.team === team && s.alive);
+      if (!side.length) continue;
+      const me = side[0];
+      const box = this.boxes.find((b) => b.team === team);
+      // running low and no box yet: one drops in, a little way along the rail from you
+      if (!box) {
+        if (me.ammo <= me.stats.capacity * BOX.low) {
+          this.boxWait[team] += dt;
+          if (this.boxWait[team] >= BOX.delay) {
+            this.boxWait[team] = 0;
+            const hw = ARENA.railHalfWidth - 0.6;
+            // (close enough to stay on screen, far enough that you have to move for it)
+            const off = 1.3 + Math.random() * 0.8;
+            let x = me.x + (Math.random() < 0.5 ? -1 : 1) * off;
+            if (Math.abs(x) > hw) x = me.x - Math.sign(x - me.x) * off;
+            x = Math.max(-hw, Math.min(hw, x));
+            this.boxes.push({ id: this.boxId++, x, y: me.railY + me.forward * 2.8, team, age: 0 });
+            this.fx.push({ type: 'box', x, y: me.railY, team });
+          }
+        } else this.boxWait[team] = 0;
+        continue;
       }
-      if (Math.abs(b.y) > rail) {
-        b.y = Math.sign(b.y) * rail;
-        b.vy = 0;
-      }
-      for (const s of this.shooters) {
-        if (!s.alive || s.ammo >= s.stats.capacity) continue;
-        if (Math.abs(b.x - s.x) < BDA.grab + 0.25 && Math.abs(b.y - s.y) < 1.15) {
-          s.ammo = Math.min(s.stats.capacity, s.ammo + 1);
-          this.addSpirit(s, BDA.pick);
-          this.fx.push({ type: 'grab', x: b.x, y: b.y, slot: s.slot });
-          this.loose.splice(i, 1);
+      // slide into it: the magazine fills
+      for (const s of side) {
+        if (Math.abs(s.x - box.x) < BOX.half + 0.55 && box.age > 0.25) {
+          s.ammo = Math.min(s.stats.capacity, s.ammo + BOX.marbles);
+          s.reload = 0;
+          this.addSpirit(s, BDA.pick * 3);
+          this.fx.push({ type: 'grab', x: box.x, y: box.y, slot: s.slot });
+          this.boxes.splice(this.boxes.indexOf(box), 1);
           break;
         }
-      }
-    }
-    // never stuck: a robot with an empty magazine and nothing rolling its way gets a few back
-    for (const s of this.shooters) {
-      if (!s.alive) continue;
-      const coming = this.loose.some((b) => Math.sign(b.y) === Math.sign(s.railY));
-      s.dryT = s.ammo < 1 && !coming ? s.dryT + dt : 0;
-      if (s.dryT > BDA.dryWait) {
-        s.dryT = 0;
-        s.ammo = Math.min(s.stats.capacity, s.ammo + BDA.dryRefill);
-        this.fx.push({ type: 'reload', slot: s.slot });
       }
     }
   }
@@ -961,6 +970,8 @@ export class Game {
   reset(playerStats: ShooterStats, opts: MatchOptions) {
     this.bdaman = !!opts.bdaman;
     this.loose = [];
+    this.boxes = [];
+    this.boxWait = [0, 0];
     this.pendingSpecial = null;
     // each team splits its rail into lanes so pack-mates never stand on each other
     const lanes = (n: number) => {
@@ -2054,7 +2065,7 @@ export class Game {
     if (!m.active) return;
     // B-Daman mode: a marble that stops (or hits something) on the table stays there as a loose one
     const kept = !this.noLoose.delete(m);
-    if (this.bdaman && kept && this.phase !== 'over') {
+    if (false && this.bdaman && kept && this.phase !== 'over') {
       const p = m.body.translation();
       const v = m.body.linvel();
       if (Math.abs(p.y) < ARENA.length / 2 && Math.abs(p.x) < ARENA.width / 2) this.loose.push({ id: this.looseId++, x: p.x, y: p.y, vx: v.x * 0.15, vy: v.y * 0.15 });

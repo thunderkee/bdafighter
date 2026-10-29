@@ -242,6 +242,33 @@ export class View {
   realismOn = true;
   private powerMeshes: THREE.Mesh[] = [];
   private looseMesh!: THREE.InstancedMesh;
+  private boxMeshes = new Map<number, THREE.Group>();
+  /** a clear box with 8 marbles in it (2 x 2 x 2) */
+  private makeAmmoBox() {
+    const g = new THREE.Group();
+    const S = 0.84;
+    const glass = new THREE.MeshPhysicalMaterial({ color: 0xdff4ff, transparent: true, opacity: 0.32, roughness: 0.05, transmission: 0, depthWrite: false, side: THREE.DoubleSide });
+    glass.userData.noCel = true;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(S, S, S), glass);
+    box.position.y = S / 2;
+    box.renderOrder = 2;
+    g.add(box);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(S, S, S)), new THREE.LineBasicMaterial({ color: 0x1b1916 }));
+    edges.position.y = S / 2;
+    g.add(edges);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(S + 0.06, 0.08, S + 0.06), new THREE.MeshLambertMaterial({ color: 0x5af0ff }));
+    lid.position.y = S;
+    g.add(lid);
+    const ball = new THREE.SphereGeometry(0.17, 14, 10);
+    const cols = [0xff6a5a, 0x4aa8f0, 0xf4c25b, 0x8ad83a];
+    let k = 0;
+    for (const x of [-0.2, 0.2]) for (const y of [0.2, 0.58]) for (const z of [-0.2, 0.2]) {
+      const m = new THREE.Mesh(ball, new THREE.MeshPhysicalMaterial({ color: cols[k++ % 4], roughness: 0.1, clearcoat: 1 }));
+      m.position.set(x, y, z);
+      g.add(m);
+    }
+    return g;
+  }
   private looseRing!: THREE.InstancedMesh;
   private tmpObj = new THREE.Object3D();
   private trails = new Map<number, { x: number; y: number }[]>();
@@ -881,6 +908,27 @@ export class View {
     this.glows.length = 0;
     this.handleFx();
     this.stage.update(wdt, this.worldTime);
+    // ammo boxes (B-Daman mode): a clear crate of 8 marbles, dropping in with a bounce
+    const boxes = (this.game as { boxes?: { id: number; x: number; y: number; age: number }[] }).boxes ?? [];
+    for (const [id, g] of this.boxMeshes) {
+      if (!boxes.some((b) => b.id === id)) {
+        this.scene.remove(g);
+        this.boxMeshes.delete(id);
+      }
+    }
+    for (const b of boxes) {
+      let g = this.boxMeshes.get(b.id);
+      if (!g) {
+        g = this.makeAmmoBox();
+        this.boxMeshes.set(b.id, g);
+        this.scene.add(g);
+      }
+      const t = Math.min(1, b.age / 0.45);
+      const drop = (1 - t) * 5;
+      const bounce = t < 1 ? 0 : Math.abs(Math.sin(b.age * 3)) * 0.06;
+      g.position.set(b.x, drop + bounce, -b.y);
+      g.rotation.y = Math.sin(b.age * 1.4) * 0.25;
+    }
     // loose marbles (B-Daman mode), rolling as they go
     const loose = (this.game as { loose?: { x: number; y: number; vx: number; vy: number }[] }).loose ?? [];
     const lr = 0.3;
