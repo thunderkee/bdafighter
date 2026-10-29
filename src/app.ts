@@ -1214,7 +1214,6 @@ export function boot() {
     nightshade: 'ECLIPSE FALL', violet: 'SILVERBACK QUAKE', kabuto: 'ROYAL ROAR', tyrant: 'HELLHOUND CERBERUS', rex: 'FROST BITE', liger: 'FANG RICOCHET', ember: 'BLOSSOM BURST',
   };
   let specialTap = false;
-  let lastFire = false;
   $('special-btn').addEventListener('pointerdown', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1223,13 +1222,12 @@ export function boot() {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyX' && bdaMode) specialTap = true;
   });
-  /** each tick: the SPECIAL button, or a direction held as FIRE goes down, once the gauge is full */
+  /** each tick: only the SPECIAL button (or X) calls the spirit shot, when you choose; a direction
+   *  held as you press it bends the shot that way */
   const pollSpecial = () => {
     if (!bdaMode || flow !== 'round' || duo) return;
     const dir = Math.sign(player.moveAxis) || (Math.abs(player.vx) > 1.5 ? Math.sign(player.vx) : 0);
-    const combo = player.firing && !lastFire && dir !== 0;
-    lastFire = player.firing;
-    if ((specialTap || combo) && player.spirit >= 100) game.beginSpecial(player, dir);
+    if (specialTap && player.spirit >= 100) game.beginSpecial(player, dir);
     specialTap = false;
   };
   const sfxEl = $('special-fx');
@@ -1334,7 +1332,7 @@ export function boot() {
     selectMode = 'versus';
     bdaMode = true;
     startMatch();
-    setTimeout(() => showToast('RUN LOW, SLIDE INTO THE AMMO BOX // FILL B-DASPIRIT, THEN SPECIAL', 0xffc23d), 900);
+    setTimeout(() => showToast('SLIDE INTO YOUR AMMO BOX TO RELOAD // SHOOT THEIRS TO BREAK IT // SPECIAL WHEN YOU CHOOSE', 0xffc23d), 900);
   });
   $('play-btn').addEventListener('click', (e) => {
     if ((e.target as Element).closest('.card-custom')) openSelect('versus');
@@ -2314,9 +2312,10 @@ export function boot() {
       // fx the HUD cares about; the view consumes the list afterwards
       for (const f of game.fx) {
         if (f.type === 'special') startSpecial(f.slot);
-        if (f.type === 'box' && f.team === 0) {
-          showToast('AMMO BOX // SLIDE INTO IT', 0x5af0ff);
-          sfx.play('whoosh');
+        if (f.type === 'box-broken') {
+          showToast(f.team === 0 ? 'YOUR AMMO BOX IS BROKEN!' : 'ENEMY AMMO BOX BROKEN!', f.team === 0 ? 0xff3e5e : 0xffc23d);
+          sfx.play('slam');
+          view.shake(0.3);
         }
         if (f.type === 'grab' && f.slot === 0) {
           sfx.play('reload');

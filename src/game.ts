@@ -106,6 +106,10 @@ export interface AmmoBox {
   team: Team;
   /** seconds since it dropped in (for the landing bounce) */
   age: number;
+  /** hits left before an opponent's marbles break it */
+  hp: number;
+  /** seconds of hit flash */
+  flash: number;
 }
 
 /** a marble lying loose on the table (B-Daman mode): it rolls back to its end, to be picked up */
@@ -118,7 +122,7 @@ export interface LooseBall {
 }
 
 /** B-Daman mode: the table tilts to both ends, and the B-Daspirit gauge */
-export const BOX = { marbles: 8, half: 0.42, low: 0.4, delay: 1.2 };
+export const BOX = { marbles: 8, half: 0.42, hp: 3, respawn: 3, broken: 7, ahead: 2.8 };
 export const BDA = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
 export interface Missile {
@@ -209,6 +213,7 @@ export type Fx =
   | { type: 'spirit-ready'; slot: number }
   | { type: 'grab'; x: number; y: number; slot: number }
   | { type: 'box'; x: number; y: number; team: Team }
+  | { type: 'box-broken'; x: number; y: number; team: Team }
   | { type: 'catch'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
@@ -719,39 +724,59 @@ export class Game {
   }
   /** loose marbles roll back toward their end of the table; a robot walking over one grabs it */
   private stepLoose(dt: number) {
-    if (!this.bdaman || this.phase !== 'fight') return;
-    for (const b of this.boxes) b.age += dt;
+    if (!this.bdaman || this.phase === 'over') return;
+    for (const b of this.boxes) {
+      b.age += dt;
+      b.flash = Math.max(0, b.flash - dt);
+    }
     for (const team of [0, 1] as Team[]) {
       const side = this.shooters.filter((s) => s.team === team && s.alive);
       if (!side.length) continue;
       const me = side[0];
       const box = this.boxes.find((b) => b.team === team);
-      // running low and no box yet: one drops in, a little way along the rail from you
+      // every side keeps a box on the table; a used or broken one comes back after a while
       if (!box) {
-        if (me.ammo <= me.stats.capacity * BOX.low) {
-          this.boxWait[team] += dt;
-          if (this.boxWait[team] >= BOX.delay) {
-            this.boxWait[team] = 0;
-            const hw = ARENA.railHalfWidth - 0.6;
-            // (close enough to stay on screen, far enough that you have to move for it)
-            const off = 1.3 + Math.random() * 0.8;
-            let x = me.x + (Math.random() < 0.5 ? -1 : 1) * off;
-            if (Math.abs(x) > hw) x = me.x - Math.sign(x - me.x) * off;
-            x = Math.max(-hw, Math.min(hw, x));
-            this.boxes.push({ id: this.boxId++, x, y: me.railY + me.forward * 2.8, team, age: 0 });
-            this.fx.push({ type: 'box', x, y: me.railY, team });
-          }
-        } else this.boxWait[team] = 0;
+        this.boxWait[team] -= dt;
+        if (this.boxWait[team] <= 0) {
+          const hw = ARENA.railHalfWidth - 0.6;
+          // (somewhere you have to move for, but not far)
+          const off = 1.3 + Math.random() * 1.4;
+          let x = me.x + (Math.random() < 0.5 ? -1 : 1) * off;
+          if (Math.abs(x) > hw) x = me.x - Math.sign(x - me.x) * off;
+          x = Math.max(-hw, Math.min(hw, x));
+          this.boxes.push({ id: this.boxId++, x, y: me.railY + me.forward * BOX.ahead, team, age: 0, hp: BOX.hp, flash: 0 });
+          this.fx.push({ type: 'box', x, y: me.railY, team });
+        }
         continue;
       }
-      // slide into it: the magazine fills
+      // the opponent's marbles break it: each one that reaches it is spent and knocks a hit off
+      for (const m of this.marbles) {
+        if (!m.active || m.team === team || this.toDespawn.has(m) || box.age < 0.45) continue;
+        const p = m.body.translation();
+        if (Math.abs(p.x - box.x) < BOX.half + m.radius && Math.abs(p.y - box.y) < BOX.half + m.radius) {
+          this.toDespawn.add(m);
+          box.hp -= m.kind === 'normal' ? 1 : BOX.hp;
+          box.flash = 0.2;
+          this.fx.push({ type: 'spark', x: p.x, y: p.y, intensity: 1 });
+          if (box.hp <= 0) {
+            this.boxes.splice(this.boxes.indexOf(box), 1);
+            this.boxWait[team] = BOX.broken;
+            this.fx.push({ type: 'box-broken', x: box.x, y: box.y, team });
+            this.addSpirit(this.shooters[m.owner], BDA.hit);
+            break;
+          }
+        }
+      }
+      if (!this.boxes.includes(box)) continue;
+      // slide into it with room in the magazine: it fills
       for (const s of side) {
-        if (Math.abs(s.x - box.x) < BOX.half + 0.55 && box.age > 0.25) {
+        if (s.ammo < s.stats.capacity && Math.abs(s.x - box.x) < BOX.half + 0.55 && box.age > 0.45) {
           s.ammo = Math.min(s.stats.capacity, s.ammo + BOX.marbles);
           s.reload = 0;
           this.addSpirit(s, BDA.pick * 3);
           this.fx.push({ type: 'grab', x: box.x, y: box.y, slot: s.slot });
           this.boxes.splice(this.boxes.indexOf(box), 1);
+          this.boxWait[team] = BOX.respawn;
           break;
         }
       }

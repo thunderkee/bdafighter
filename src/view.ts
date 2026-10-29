@@ -927,6 +927,13 @@ export class View {
       const drop = (1 - t) * 5;
       const bounce = t < 1 ? 0 : Math.abs(Math.sin(b.age * 3)) * 0.06;
       g.position.set(b.x, drop + bounce, -b.y);
+      // a hit shakes it and flashes it red; its cracks show how many hits are left
+      const hb = b as { flash?: number; hp?: number };
+      const fl = hb.flash ?? 0;
+      if (fl > 0) g.position.x += Math.sin(b.age * 80) * 0.06;
+      const glassM = (g.children[0] as THREE.Mesh).material as THREE.MeshPhysicalMaterial;
+      glassM.color.setHex(fl > 0 ? 0xff5a5a : (hb.hp ?? 3) <= 1 ? 0xffc8a0 : 0xdff4ff);
+      glassM.opacity = fl > 0 ? 0.6 : 0.32;
       g.rotation.y = Math.sin(b.age * 1.4) * 0.25;
     }
     // loose marbles (B-Daman mode), rolling as they go
