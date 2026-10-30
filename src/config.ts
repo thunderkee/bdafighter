@@ -118,6 +118,24 @@ export const BALANCE: Record<string, number> = {
   violet: 0.78,
   dragon: 0.67,
 };
+/** the same for B-Daman mode (Versus), tuned from its own round robins: ammo from the box and
+ *  specials even fighters out differently, so it keeps its own scale */
+export const BALANCE_BDA: Record<string, number> = {
+  pioneer: 1.67,
+  ember: 1.65,
+  nightshade: 1.46,
+  rex: 1.44,
+  angel: 1.38,
+  bastion: 1.16,
+  monoceros: 1.1,
+  kabuto: 1.1,
+  liberty: 1.02,
+  tyrant: 1.0,
+  baron: 0.99,
+  liger: 0.92,
+  violet: 0.81,
+  dragon: 0.68,
+};
 /** signature magazines that break the type's rule: the Baron's drum */
 export const MAG_OF: Record<string, number> = { baron: 14 };
 /**

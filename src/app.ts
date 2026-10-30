@@ -1,4 +1,4 @@
-import { AI_PROFILES, ARENA, BALANCE, MAG_BDA, MAG_BDA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
+import { AI_PROFILES, ARENA, BALANCE, BALANCE_BDA, MAG_BDA, MAG_BDA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, SPIRIT_MOVES, STEP, chargeLevel, slotTeam, type Shooter, type SpiritKind } from './game';
@@ -170,7 +170,7 @@ export function boot() {
       marbleRadius: stats.marbleRadius * mb.radius,
       marbleMass: stats.marbleMass * mb.mass,
       muzzleSpeed: stats.muzzleSpeed * mb.speed,
-      damage: stats.damage * mb.damage * (BALANCE[mb.key] ?? 1),
+      damage: stats.damage * mb.damage * ((bdaMode ? BALANCE_BDA : BALANCE)[mb.key] ?? 1),
       bounce: mb.bounce,
       capacity: S().magPer === false ? stats.capacity : mb.mag,
       reloadTime: stats.reloadTime * mb.reload,
@@ -1340,26 +1340,20 @@ export function boot() {
 
   // Versus from home: straight into a match with your fighter, your last rival and arena;
   // Customise walks the steps instead
-  const quickMatch = () => {
+  // (Versus plays by B-Daman rules: the ammo box, the B-Daspirit gauge and specials)
+  const bdaHint = () => setTimeout(() => showToast('SLIDE INTO YOUR AMMO BOX TO RELOAD // SHOOT THEIRS TO BREAK IT // SPECIAL WHEN YOU CHOOSE', 0xffc23d), 900);
+  const quickMatch = (classic = false) => {
     sfx.unlock();
     story = null;
-    bdaMode = false;
+    bdaMode = !classic;
     selectMode = 'versus';
     arcade = null;
     duo = false;
     startMatch();
+    if (!classic) bdaHint();
   };
-  // B-Daman mode: a one-on-one with your fighter, marbles to pick up, the B-Daspirit gauge
-  $('bda-btn').addEventListener('click', () => {
-    sfx.unlock();
-    story = null;
-    arcade = null;
-    duo = false;
-    selectMode = 'versus';
-    bdaMode = true;
-    startMatch();
-    setTimeout(() => showToast('SLIDE INTO YOUR AMMO BOX TO RELOAD // SHOOT THEIRS TO BREAK IT // SPECIAL WHEN YOU CHOOSE', 0xffc23d), 900);
-  });
+  // Classic: the original rules, a magazine that reloads itself and no specials
+  $('bda-btn').addEventListener('click', () => quickMatch(true));
   $('play-btn').addEventListener('click', (e) => {
     if ((e.target as Element).closest('.card-custom')) openSelect('versus');
     else quickMatch();
@@ -1914,7 +1908,8 @@ export function boot() {
   const openSelect = (mode: 'versus' | 'arcade' | 'duo' | 'home') => {
     sfx.unlock();
     story = null;
-    bdaMode = false;
+    // (a customised Versus match is B-Daman too)
+    bdaMode = mode === 'versus';
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
     const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && isBossUnit(id));
@@ -1971,6 +1966,7 @@ export function boot() {
     arcade = null;
     duo = selectMode === 'duo';
     startMatch();
+    if (bdaMode) bdaHint();
   });
 
   // settings tabs
