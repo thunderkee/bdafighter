@@ -5000,6 +5000,19 @@ html {
 #story-dlg.hidden {
   display: none;
 }
+/* a story scene on the table: the arena shows through, the words at the bottom */
+#story-dlg.staged,
+#story-dlg.staged[data-side] {
+  background: linear-gradient(rgba(0, 0, 0, 0.28), transparent 22%, transparent 58%, rgba(0, 0, 0, 0.45));
+}
+#story-dlg.staged .dlg-face {
+  display: none;
+}
+/* (someone who isn't on this table still shows as a face, smaller) */
+#story-dlg.staged.offstage .dlg-face {
+  display: block;
+  width: min(36vw, 150px);
+}
 #story-dlg[data-side='them'] {
   background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.045) 0 4px, transparent 5px) 0 0 / 34px 34px, linear-gradient(#f0525e, #b8243a);
 }

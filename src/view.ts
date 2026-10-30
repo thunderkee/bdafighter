@@ -290,7 +290,7 @@ export class View {
   private pinMeshes: { root: THREE.Group; cap: THREE.MeshBasicMaterial }[] = [];
   private coverFlash: number[] = [];
   /** scripted camera: the VS intro or a replay */
-  cine: { kind: 'intro' | 'replay' | 'special'; t: number; shot: number; slot: number; by?: number } | null = null;
+  cine: { kind: 'talk' | 'intro' | 'replay' | 'special'; t: number; shot: number; slot: number; by?: number } | null = null;
   /** each side's marble colour, from its robot */
   /** what each slot's model was built in (your fighter's paint), to rebuild when it changes */
   private skinKey: string[] = [];
@@ -2295,6 +2295,23 @@ export class View {
         const u = Math.max(0, Math.min(1, (c.t - 0.6) / 0.4)) * (1 - Math.max(0, Math.min(1, (c.t - 1.8) / 0.3)));
         this.camGoal.y += u * 0.6 * r;
         this.lookGoal.y += u * 0.55 * r;
+      }
+    } else if (c.kind === 'talk') {
+      // a story scene: in front of whoever is talking, a slow push in (yours from your right,
+      // theirs from their left, so the cuts read as a conversation); the narrator gets the arena
+      const s = c.slot >= 0 ? this.game.shooters[c.slot] : undefined;
+      follow = 2.6;
+      if (s) {
+        const r = this.modelScale(c.slot);
+        const f = s.forward;
+        const side = s.team === 0 ? 1 : -1;
+        const push = Math.min(1, c.t / 4);
+        this.camGoal.set(s.x + side * (2.0 - push * 0.3) * r, (1.45 - push * 0.1) * r, -(s.y + f * (4.4 - push * 0.8) * r));
+        this.lookGoal.set(s.x - side * 0.2 * r, 1.1 * r, -s.y);
+      } else {
+        // high above your end, looking down the whole table at both fighters, drifting
+        this.camGoal.set(Math.sin(c.t * 0.35) * 3, 10, -p.y + 9);
+        this.lookGoal.set(0, 0, 0);
       }
     } else if (c.kind === 'intro') {
       if (c.t < 1.7) {

@@ -546,7 +546,7 @@ export function boot() {
   };
 
   // ---------- match flow: intro -> rounds (best of 3) -> replays -> finale ----------
-  type Flow = 'intro' | 'round' | 'replay' | 'finale' | 'special';
+  type Flow = 'talk' | 'intro' | 'round' | 'replay' | 'finale' | 'special';
   let flow: Flow = 'round';
   let flowT = 0;
   let roundNo = 1;
@@ -637,7 +637,9 @@ export function boot() {
     view.setStage(st.stage, rebuilt);
   };
 
-  const startMatch = () => {
+  /** a story scene played out on the table before the match (its intro comes after) */
+  type Scene = { head: string; title: string; lines: Line[]; then: () => void };
+  const startMatch = (scene?: Scene) => {
     sfx.unlock();
     // a new match starts empty-handed; the next arcade stage keeps your unused item
     carry = carryStage ? [carry[0] ?? null] : [];
@@ -721,7 +723,21 @@ export function boot() {
     screen = 'playing';
     paused = false;
     showRounds();
-    // VS intro
+    hud.classList.add('hidden');
+    controls(false);
+    if (scene) {
+      // the story's talk, on the table: the camera goes to whoever is speaking
+      flow = 'talk';
+      flowT = 0;
+      introEl.classList.add('hidden');
+      view.cine = { kind: 'talk', t: 0, shot: 0, slot: -1 };
+      talk(story?.hero ?? st.character, scene.head, scene.title, scene.lines, scene.then, true);
+      return;
+    }
+    beginIntro();
+  };
+  /** the VS intro (straight after the match is set up, or after a story scene) */
+  const beginIntro = () => {
     flow = 'intro';
     flowT = 0;
     introStep.fill(false);
@@ -1027,6 +1043,8 @@ export function boot() {
   let dlgAt = 0;
   let dlgDone: (() => void) | null = null;
   let dlgHero = '';
+  /** played out on the table (the camera on the speaker) rather than over a backdrop */
+  let dlgStaged = false;
   /** one line of the talk: the speaker's face (yours on the left, theirs on the right) */
   const dlgShow = () => {
     const l = dlgLines[dlgAt];
@@ -1035,9 +1053,15 @@ export function boot() {
     dlg.dataset.side = narr ? 'narrator' : baseOf(id) === baseOf(dlgHero) ? 'you' : 'them';
     $('dlg-who').textContent = narr ? '' : characterById(id).name;
     $('dlg-text').textContent = l.text;
+    // on the table: the camera cuts to the speaker (the narrator gets the wide shot); someone who
+    // isn't in this fight still shows as a face
+    const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && baseOf(unitIds()[k]) === baseOf(id));
+    if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt, slot };
     const face = $('dlg-face');
-    face.innerHTML = narr ? '' : `<i data-portrait="${id}" data-crop="bust"></i>`;
-    if (!narr) fillPortraits(face);
+    const showFace = !narr && (!dlgStaged || slot < 0);
+    dlg.classList.toggle('offstage', dlgStaged && showFace);
+    face.innerHTML = showFace ? `<i data-portrait="${id}" data-crop="bust"></i>` : '';
+    if (showFace) fillPortraits(face);
     replay($('dlg-text'), 'dlg-in');
     replay(face, 'dlg-pop');
   };
@@ -1047,15 +1071,17 @@ export function boot() {
     dlgDone = null;
     done?.();
   };
-  const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void) => {
+  const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void, staged = false) => {
     dlgHero = hero;
     dlgLines = lines;
     dlgAt = 0;
     dlgDone = then;
+    dlgStaged = staged;
+    dlg.classList.toggle('staged', staged);
     $('dlg-ch').textContent = head;
     $('dlg-title').textContent = title;
     for (const k of SCREENS) $(k).classList.add('hidden');
-    showHero();
+    if (!staged) showHero();
     dlg.classList.remove('hidden');
     sfx.play('whoosh');
     dlgShow();
@@ -1066,11 +1092,12 @@ export function boot() {
     if (++dlgAt >= dlgLines.length) dlgEnd();
     else dlgShow();
   });
-  /** a chapter's fight: the opponent on their home turf, a little harder each time */
-  const fightChapter = () => {
+  /** a chapter's fight: the opponent on their home turf, a little harder each time (a scene
+   *  first plays out on that table, when there is one) */
+  const fightChapter = (scene?: Scene, ch = story?.ch ?? 0) => {
     if (!story) return;
-    const c = pathOf(story.hero).chapters[story.ch];
-    const diff = CHAPTER_DIFF[story.ch] ?? 'hard';
+    const c = pathOf(story.hero).chapters[ch];
+    const diff = CHAPTER_DIFF[ch] ?? 'hard';
     // (story fights play by B-Daman rules)
     bdaMode = true;
     story.cfg = { enemyCharacter: unitOfBase(c.foe), stage: c.arena, pack: 1, playerPack: 1, items: true, roundTime: 60, difficulty: diff, ...store.DIFFICULTY[diff] };
@@ -1078,15 +1105,15 @@ export function boot() {
     duo = false;
     selectMode = 'versus';
     fitTable(S());
-    startMatch();
+    startMatch(scene);
   };
-  /** talk, then fight (the story's opening comes before the first chapter) */
+  /** talk on the table, then fight (the story's opening comes before the first chapter) */
   const playChapter = () => {
     if (!story) return;
     const p = pathOf(story.hero);
     const c = p.chapters[story.ch];
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
-    talk(story.hero, `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, c.title.toUpperCase(), lines, fightChapter);
+    fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, title: c.title.toUpperCase(), lines, then: beginIntro });
   };
   const playStory = () => {
     sfx.unlock();
@@ -1132,21 +1159,22 @@ export function boot() {
     if (!story) return;
     const p = pathOf(story.hero);
     if (!storyWon) return fightChapter();
-    // what the win leads to, first (then the next chapter, or the ending)
+    // what the win leads to, first, back on that chapter's table (then the next chapter, or the ending)
     const won = p.chapters[story.ch - 1];
     if (won?.after.length && !afterShown) {
       afterShown = true;
-      return talk(story.hero, `CHAPTER ${story.ch} CLEAR`, won.title.toUpperCase(), won.after, storyNext);
+      return fightChapter({ head: `CHAPTER ${story.ch} CLEAR`, title: won.title.toUpperCase(), lines: won.after, then: storyNext }, story.ch - 1);
     }
     afterShown = false;
     if (story.ch < p.chapters.length) return playChapter();
-    // the ending, and a bonus for finishing
+    // the ending (on the last chapter's table), and a bonus for finishing
     const hero = story.hero;
-    talk(hero, 'THE END', p.title.toUpperCase(), p.ending, () => {
+    fightChapter({ head: 'THE END', title: p.title.toUpperCase(), lines: p.ending, then: () => {
+      view.cine = null;
       saveData = store.save({ fighterXp: { ...(saveData.fighterXp ?? {}), [hero]: xpOf(hero) + STORY_BONUS } });
       quitArcade();
       showToast(`STORY COMPLETE // +${STORY_BONUS} XP`, 0xffc23d);
-    });
+    } }, p.chapters.length - 1);
   };
 
   // ---------- the tower: who you've beaten, who's next, and who waits at the top ----------
