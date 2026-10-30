@@ -43,6 +43,8 @@ export const DROP = {
   hp: 2,
 };
 
+/** Smart Lock: the robot it's locked onto moves this much slower */
+export const LOCK = { moveMul: 0.64 };
 /** multi shot: marbles per volley, fan half-angle, damage scale, fire-interval scale */
 export const MULTI = { count: 6, fan: 0.32, damage: 0.6, interval: 2 };
 /** slow-mo user's shots become boost balls: bigger, heavier, a touch faster, harder hitting */

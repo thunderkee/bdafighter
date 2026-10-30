@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d';
 import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, TOSS_TIME, TWIN_X, type ShooterStats } from './config';
 import { BOARDS, KICK, PORTAL_R, type Board } from './pinball';
 import { bounce, bounds, shapeOf, type Shape } from './shapes';
-import { COVER, COVER_X, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, PIN, PIN_SPOTS, SHIELD, PARRY, SLOWMO, WIPER, X5, type GateType, type ItemType, BOOST_BALL, CATCH, TRICK } from './items';
+import { COVER, COVER_X, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, PIN, PIN_SPOTS, SHIELD, PARRY, SLOWMO, WIPER, X5, type GateType, type ItemType, BOOST_BALL, CATCH, TRICK, LOCK } from './items';
 import * as sfx from './audio';
 
 // Collision groups: membership in the high 16 bits, filter in the low 16.
@@ -1391,12 +1391,16 @@ export class Game {
   /** what landed the round-ending hit (for the replay: show that shot being fired) */
   koSource: { by: number; marble?: number; missile?: number } | null = null;
 
-  private damage(target: Shooter, attacker: Shooter, amount: number, src: { marble?: number; missile?: number } = {}) {
+  private damage(target: Shooter, attacker: Shooter, amount: number, src: { marble?: number; missile?: number; spirit?: number } = {}) {
     target.health = Math.max(0, target.health - amount);
     target.sinceHurt = 0;
     if (attacker.team !== target.team) {
-      this.addSpirit(attacker, BDA.hit);
-      this.addSpirit(target, BDA.hurt);
+      // a spirit shot fills nothing for its owner (or a spread's balls would fill the next
+      // special); the one hit by it gains in step with its power, as for one big shot
+      // (a heavy marble lands fewer, bigger hits: each fills more, a light one's less)
+      const weight = src.marble === undefined ? 1 : Math.max(0.7, Math.min(1.6, Math.sqrt(attacker.stats.marbleMass / BASE_STATS.marbleMass)));
+      if (src.spirit === undefined) this.addSpirit(attacker, BDA.hit * weight);
+      this.addSpirit(target, BDA.hurt * (src.spirit ?? 1));
     }
     attacker.dealt += amount;
     attacker.sinceHit = 0;
@@ -1572,7 +1576,7 @@ export class Game {
         this.fx.push({ type: 'hit', x: m.x, y: m.y, team: target.team, slot: target.slot, amount: dealt, power: 'super' });
         sfx.play('slam', 1);
         this.missiles.splice(i, 1);
-        this.damage(target, attacker, dealt, { missile: m.id });
+        this.damage(target, attacker, dealt, { missile: m.id, spirit: power });
         continue;
       }
       if (!m.spirit && target.alive && m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
@@ -1817,7 +1821,9 @@ export class Game {
     const hi = ARENA.railHalfWidth;
     // (frozen by a frost ball: slow until it thaws)
     s.chillT = Math.max(0, s.chillT - dt);
-    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1) * (s.chillT > 0 ? 0.4 : 1);
+    // (a robot an opponent's Smart Lock is on drags its feet)
+    const locked = this.shooters.some((o) => o.team !== s.team && o.alive && o.lockT > 0 && o.lockSlot === s.slot);
+    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1) * (s.chillT > 0 ? 0.4 : 1) * (locked ? LOCK.moveMul : 1);
     const prevX = s.x;
     if (canAct || this.phase === 'countdown') {
       if (s.moveTarget !== null) {

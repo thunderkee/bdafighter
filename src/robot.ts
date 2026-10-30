@@ -5381,6 +5381,8 @@ export class ShooterMesh {
     this.root.position.set(s.x, 0, -s.y);
     // the turret faces -z for the player and +z for the opponent
     this.root.rotation.y = s.team === 0 ? 0 : Math.PI;
+    // (level again: a special's pose adds a barrel roll on top each frame, which must not stay)
+    this.root.rotation.z = 0;
     this.turret.rotation.y = this.rest.turretY + (s.team === 0 ? -s.aim : s.aim);
     // defence: braced behind the shield (crouched, hunched forward, both guards up)
     this.guard += ((s.shieldUp ? 1 : 0) - this.guard) * Math.min(1, dt * 12);
