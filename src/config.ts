@@ -120,6 +120,12 @@ export const BALANCE: Record<string, number> = {
 };
 /** signature magazines that break the type's rule: the Baron's drum */
 export const MAG_OF: Record<string, number> = { baron: 14 };
+/**
+ * B-Daman mode magazines: the ammo box fills the magazine right up, so each type's is sized for
+ * about the same punch per box (10 standard marbles' worth); the Baron's drum stays the biggest
+ */
+export const MAG_BDA: Record<MarbleType, number> = { light: 12, standard: 10, heavy: 7, bouncy: 11 };
+export const MAG_BDA_OF: Record<string, number> = { baron: 12 };
 
 /**
  * Signature tricks some units have:

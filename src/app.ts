@@ -1,4 +1,4 @@
-import { AI_PROFILES, ARENA, BALANCE, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
+import { AI_PROFILES, ARENA, BALANCE, MAG_BDA, MAG_BDA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, SPIRIT_MOVES, STEP, chargeLevel, slotTeam, type Shooter, type SpiritKind } from './game';
@@ -158,7 +158,9 @@ export function boot() {
     const c = characterById(id);
     const key = (c.base ?? c.id).replace(/-\d+$/, '');
     const type = MARBLE_OF[key] ?? 'standard';
-    return { type, key, ...MARBLES[type], mag: MAG_OF[key] ?? MARBLES[type].mag };
+    // (B-Daman mode sizes them for its full refills from the ammo box)
+    const mag = bdaMode ? (MAG_BDA_OF[key] ?? MAG_BDA[type]) : (MAG_OF[key] ?? MARBLES[type].mag);
+    return { type, key, ...MARBLES[type], mag };
   };
   const withTraits = <S extends ShooterStats>(stats: S, id: string): S => {
     const t = characterById(id).traits;
