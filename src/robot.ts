@@ -686,6 +686,12 @@ export function playableId(id: string) {
   return CHARACTERS.some((x) => x.id === v22) ? v22 : playable()[0].id;
 }
 
+/** each fighter's own power-up pose for its B-Daman special (anyone else surges) */
+const POSES: Record<string, 'blade' | 'roar' | 'gunner' | 'sniper' | 'twins' | 'loop' | 'cross' | 'shadow' | 'pound' | 'royal' | 'hounds' | 'freeze' | 'pounce' | 'bloom'> = {
+  angel: 'blade', dragon: 'roar', pioneer: 'gunner', liberty: 'sniper', monoceros: 'twins', baron: 'loop', bastion: 'cross',
+  nightshade: 'shadow', violet: 'pound', kabuto: 'royal', tyrant: 'hounds', rex: 'freeze', liger: 'pounce', ember: 'bloom',
+};
+
 export class ShooterMesh {
   root = new THREE.Group();
   /** model scale on top of the animation (an arcade boss stands taller) */
@@ -5185,9 +5191,9 @@ export class ShooterMesh {
 
   /**
    * The B-Daman spirit shot's power-up, played through its cinematic on top of the normal stance
-   * (t: seconds in): it crouches to gather itself, springs up off the floor and turns a full
-   * circle with its arms (or sword, or jaws, or wings) thrown up, glowing brighter, then lands
-   * wide and leans back into the wind-up it holds until the shot leaves.
+   * (t: seconds in). Every fighter has its own (see POSES): a swordsman raises its blade to the
+   * sky, a beast stomps and roars, the biplane loops, the gorilla beats its chest and slams down...
+   * each ending leaning back into the wind-up it holds until the shot leaves.
    */
   specialPose(t: number, team: number) {
     const ease = (u: number) => {
@@ -5195,39 +5201,178 @@ export class ShooterMesh {
       return c * c * (3 - 2 * c);
     };
     const span = (a: number, b: number) => ease((t - a) / (b - a));
-    const crouch = t < 0.75 ? span(0, 0.45) * (1 - span(0.5, 0.75)) : 0;
-    const rise = span(0.6, 1.0) * (1 - span(1.8, 2.1));
-    const spin = span(0.7, 1.75);
-    const power = span(0.55, 0.95) * (1 - span(2.0, 2.4));
+    const hold = (a: number, b: number, c: number, d: number) => span(a, b) * (1 - span(c, d));
+    const bump = (a: number, b: number) => (t > a && t < b ? Math.sin(((t - a) / (b - a)) * Math.PI) : 0);
+    // channels: lift, turns (spin about up, roll about forward), lean (+ back), crouch, sideways
+    // sway, forward lunge, shiver; arms up / spread wide / crossed / beating in turn, a sword
+    // raised, jaws open; and the glow's colour
+    const c = { lift: 0, spin: 0, roll: 0, lean: 0, crouch: 0, sway: 0, lunge: 0, shiver: 0, up: 0, wide: 0, cross: 0, beat: 0, sword: 0, jaw: 0, look: 0, glow: this.ball };
+    switch (POSES[this.id.replace(/-\d+$/, '')] ?? 'surge') {
+      case 'blade':
+        // the sword raised high to the sky and held, rising a little on its power
+        c.sword = hold(0.2, 0.7, 2.2, 2.55) * 1.7;
+        c.up = hold(0.3, 0.8, 2.2, 2.5) * 0.5;
+        c.lift = hold(0.5, 1.1, 2.1, 2.5) * 0.35;
+        c.lean = hold(0.3, 0.8, 2.0, 2.4) * 0.14;
+        c.spin = bump(0.9, 2.1) * 0.06;
+        c.look = hold(0.3, 0.8, 2.0, 2.4);
+        break;
+      case 'roar':
+        // two heavy stomps, then a roar thrown forward with the jaws wide
+        c.lift = bump(0.25, 0.55) * 0.35 + bump(0.8, 1.1) * 0.35;
+        c.crouch = bump(0.5, 0.75) + bump(1.05, 1.3);
+        c.jaw = hold(1.3, 1.45, 2.3, 2.5);
+        c.lean = -hold(1.3, 1.5, 2.2, 2.45) * 0.3;
+        c.shiver = hold(1.35, 1.5, 2.2, 2.4) * 0.05;
+        c.wide = hold(1.3, 1.5, 2.2, 2.5) * 0.6;
+        break;
+      case 'gunner':
+        // weaving side to side, sweeping its aim back and forth, guns up front
+        c.sway = Math.sin(t * 7) * 0.28 * hold(0.2, 0.5, 1.9, 2.2);
+        c.spin = Math.sin(t * 13) * 0.05 * hold(0.2, 0.5, 1.9, 2.2);
+        c.crouch = hold(0.1, 0.4, 2.2, 2.5) * 0.35;
+        c.cross = hold(0.2, 0.5, 2.2, 2.5) * 0.3;
+        break;
+      case 'sniper':
+        // down on one knee, dead still, focusing
+        c.crouch = hold(0.15, 0.55, 2.4, 2.75) * 0.75;
+        c.lean = -hold(0.15, 0.55, 2.2, 2.6) * 0.14;
+        c.look = -hold(0.3, 0.8, 2.2, 2.6) * 0.6;
+        c.cross = hold(0.3, 0.7, 2.3, 2.6) * 0.4;
+        break;
+      case 'twins':
+        // arms flung out wide, two fast turns
+        c.wide = hold(0.3, 0.7, 2.0, 2.3);
+        c.spin = span(0.5, 1.9) * 2;
+        c.lift = hold(0.4, 0.8, 1.8, 2.1) * 0.3;
+        break;
+      case 'loop':
+        // climbs high and turns a barrel roll
+        c.lift = hold(0.3, 0.9, 1.9, 2.4) * 1.2;
+        c.roll = span(0.8, 1.8);
+        c.lean = bump(0.3, 1.0) * 0.25;
+        break;
+      case 'cross':
+        // the arms crossed in an X in front, then thrown out wide as it springs up
+        c.cross = hold(0.2, 0.6, 1.35, 1.55);
+        c.wide = hold(1.4, 1.6, 2.2, 2.5);
+        c.crouch = hold(0.2, 0.6, 1.3, 1.5) * 0.55;
+        c.lift = bump(1.35, 2.05) * 0.45;
+        break;
+      case 'shadow': {
+        // flickering left, right, left like a shadow, low to the floor
+        const u = Math.max(0, Math.min(1, (t - 0.35) / 1.7));
+        const tri = Math.abs(((u * 3) % 2) - 1) * 2 - 1;
+        c.sway = tri * 0.65 * hold(0.3, 0.45, 1.9, 2.1);
+        c.crouch = hold(0.2, 0.5, 2.1, 2.4) * 0.45;
+        c.shiver = hold(0.3, 0.5, 1.9, 2.1) * 0.03;
+        c.spin = tri * 0.04 * hold(0.3, 0.45, 1.9, 2.1);
+        break;
+      }
+      case 'pound':
+        // beats its chest, leaps, and slams down
+        c.beat = hold(0.2, 0.35, 1.25, 1.4) * Math.sin(t * 17);
+        c.lift = bump(1.35, 2.0) * 0.9;
+        c.up = hold(1.3, 1.5, 1.9, 2.05);
+        c.crouch = bump(1.95, 2.3) * 1.1 + bump(1.15, 1.4) * 0.5;
+        c.shiver = bump(1.95, 2.3) * 0.06;
+        break;
+      case 'royal':
+        // rears up tall and proud, arms raised, turning slowly
+        c.lean = hold(0.4, 1.0, 1.9, 2.3) * 0.32;
+        c.lift = hold(0.4, 1.0, 1.9, 2.3) * 0.3;
+        c.up = hold(0.4, 0.9, 2.0, 2.4);
+        c.spin = span(0.6, 1.9);
+        c.look = hold(0.4, 1.0, 1.9, 2.3);
+        break;
+      case 'hounds':
+        // three snapping lunges, one for each head
+        for (const a of [0.35, 0.9, 1.45]) {
+          const b = bump(a, a + 0.38);
+          c.lean -= b * 0.28;
+          c.lunge += b * 0.45;
+          c.jaw += b;
+        }
+        c.crouch = hold(0.1, 0.3, 2.0, 2.3) * 0.3;
+        break;
+      case 'freeze':
+        // hunched, shivering as the frost builds round it
+        c.crouch = hold(0.15, 0.6, 2.2, 2.5) * 0.5;
+        c.shiver = hold(0.3, 0.7, 2.1, 2.3) * 0.045;
+        c.cross = hold(0.3, 0.7, 2.1, 2.4) * 0.8;
+        c.jaw = bump(1.6, 2.2);
+        c.glow = 0x8ae8ff;
+        break;
+      case 'pounce':
+        // prowls low from side to side, then leaps forward
+        c.crouch = hold(0.15, 0.45, 1.4, 1.6) * 0.75;
+        c.sway = Math.sin(t * 4.5) * 0.3 * hold(0.2, 0.5, 1.3, 1.5);
+        c.lift = bump(1.45, 2.15) * 1.0;
+        c.lunge = bump(1.45, 2.15) * 0.6;
+        c.lean = -bump(1.45, 2.15) * 0.3;
+        c.jaw = hold(1.5, 1.7, 2.1, 2.3);
+        break;
+      case 'bloom':
+        // arms opening like petals, a slow float upward and one graceful turn
+        c.wide = hold(0.3, 0.9, 2.0, 2.4);
+        c.up = hold(0.6, 1.2, 2.0, 2.4) * 0.5;
+        c.lift = hold(0.4, 1.2, 2.0, 2.4) * 0.6;
+        c.spin = span(0.5, 2.0);
+        c.look = hold(0.4, 1.0, 2.0, 2.4) * 0.6;
+        c.glow = 0x6aff9a;
+        break;
+      default:
+        // surge: crouch, spring up into a spin with everything thrown up
+        c.crouch = t < 0.75 ? span(0, 0.45) * (1 - span(0.5, 0.75)) : 0;
+        c.lift = hold(0.6, 1.0, 1.8, 2.1) * 0.55;
+        c.spin = span(0.7, 1.75);
+        c.up = hold(0.55, 0.95, 2.0, 2.4);
+        c.look = c.up;
+    }
+    const power = Math.max(c.up, c.wide, c.cross, c.sword > 0 ? 1 : 0, Math.abs(c.beat), 0.4);
     const wind = span(1.95, 2.45);
     const back = team === 0 ? 1 : -1;
     const pulse = 0.5 + 0.5 * Math.sin(t * 22);
-    this.root.position.y += rise * 0.55 - crouch * 0.08;
-    this.root.rotation.y += spin * Math.PI * 2;
-    // hunched into the crouch, then rocked back into the wind-up
-    this.root.rotation.x += back * (wind * 0.24 - crouch * 0.22);
-    this.root.scale.y *= 1 - crouch * 0.14 + rise * 0.04;
-    this.turret.rotation.x += power * 0.28 - crouch * 0.15;
-    // arms thrown up, a sword raised high, jaws wide in a roar, wings spread
-    if (this.armR) this.armR.rotation.x = 1.25 * power - 1.3 * (1 - this.raise.r) * (1 - power);
-    if (this.armL) this.armL.rotation.x = 1.25 * power - 1.3 * (1 - this.raise.l) * (1 - power);
-    this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) + power * 2.2 + wind * 0.6));
+    const jit = () => (Math.random() * 2 - 1) * c.shiver;
+    this.root.position.y += c.lift - c.crouch * 0.08;
+    this.root.position.x += (team === 0 ? 1 : -1) * c.sway + jit();
+    this.root.position.z += -back * c.lunge + jit();
+    this.root.rotation.y += c.spin * Math.PI * 2;
+    this.root.rotation.z += c.roll * Math.PI * 2 * back;
+    this.root.rotation.x += back * (c.lean + wind * 0.24 - c.crouch * 0.2);
+    this.root.scale.y *= 1 - c.crouch * 0.16;
+    this.turret.rotation.x += c.look * 0.3 - c.crouch * 0.12;
+    // the arms: thrown up, spread wide, crossed in front, or beating in turn
+    const arm = (a: THREE.Object3D | null, side: number, lowered: number) => {
+      if (!a) return;
+      const sgn = Math.sign(a.position.x) || side;
+      const beat = c.beat * side;
+      a.rotation.x = 1.25 * c.up + 0.2 * c.wide + beat * 0.9 - 1.3 * lowered * Math.max(0, 1 - c.up - c.cross - c.wide - Math.abs(c.beat));
+      a.rotation.z += sgn * (c.wide * 1.1 - c.cross * 0.7);
+    };
+    arm(this.armR, 1, 1 - this.raise.r);
+    arm(this.armL, -1, 1 - this.raise.l);
+    this.punchArms.forEach((a, i) => {
+      a.rotation.x = (this.punchRest[i] ?? 0) + c.up * 2.2 + c.cross * 1.2 + c.beat * (i % 2 ? -1 : 1) * 1.1 + wind * 0.6;
+      a.rotation.z += (Math.sign(a.position.x) || 1) * (c.wide * 0.9 - c.cross * 0.5);
+    });
     if (this.slashArm) {
-      this.slashArm.rotation.x = this.rest.slash + power * 0.9 + wind * 0.5;
+      this.slashArm.rotation.x = this.rest.slash + (c.sword || power * 0.6) * 0.9 + wind * 0.5;
       this.slashArm.rotation.z = -0.25 - power * 0.3;
     }
-    if (this.slashArmL) this.slashArmL.rotation.x = this.rest.slash + power * 0.9 + wind * 0.5;
-    if (this.jaw) this.jaw.rotation.x = this.rest.jaw + (this.jawOpen || 0.55) * power;
-    if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + (this.jawOpen || 0.55) * power;
+    if (this.slashArmL) this.slashArmL.rotation.x = this.rest.slash + power * 0.8 + wind * 0.5;
+    const gape = Math.min(1, c.jaw) * (this.jawOpen || 0.6);
+    if (this.jaw) this.jaw.rotation.x = this.rest.jaw + gape;
+    if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + gape;
     this.wingR.rotation.y -= power * 0.5;
     this.wingL.rotation.y += power * 0.5;
     this.wingR.rotation.z += power * 0.35;
     this.wingL.rotation.z -= power * 0.35;
     // feet planted wide as it powers up
-    this.legs.forEach((l) => (l.rotation.z += (Math.sign(l.position.x) || 1) * power * 0.18));
-    // glowing in its ball colour, brighter and brighter, pulsing at the peak
+    this.legs.forEach((l) => (l.rotation.z += (Math.sign(l.position.x) || 1) * power * 0.15));
+    // glowing brighter and brighter, pulsing at the peak
     const glow = Math.min(0.85, 0.15 + span(0, 2.4) * 0.5 + power * pulse * 0.25);
-    this.glowCol.setHex(this.ball);
+    this.glowCol.setHex(c.glow);
     for (const m of this.mats) m.emissive.setRGB(this.glowCol.r * glow, this.glowCol.g * glow, this.glowCol.b * glow);
   }
 
