@@ -1997,6 +1997,16 @@ export class View {
     }
     // you went down (knocked out of a pack fight, or the round's KO): rise into the sky
     const you = this.game.shooters[0];
+    if (this.ko && this.ko.slot === 0 && this.ko.mode === 'explode' && this.ko.t < 1.35) {
+      // you lost the match: first watch your robot blow apart up close, then the climb away
+      this.camGoal.set(you.x + 2.2, 2.4, -you.y - 5.6);
+      this.lookGoal.set(you.x, 0.9, -you.y);
+      const k = 1 - Math.exp(-dt * 3.5);
+      this.camBase.lerp(this.camGoal, k);
+      this.camLook.lerp(this.lookGoal, k);
+      this.deathT = 0;
+      return;
+    }
     if ((this.ko && this.ko.slot === 0) || (!this.ko && you.active && you.out)) {
       this.ascend(dt, you);
       return;

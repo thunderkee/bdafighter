@@ -761,6 +761,7 @@ export function boot() {
     flow = 'replay';
     flowT = 0;
     strikeT = 0;
+    document.body.classList.remove('cine-on');
     finalRound = final;
     replayGame = new ReplayGame(recorder, game);
     view.resetMatch();
@@ -1241,6 +1242,8 @@ export function boot() {
     const s = game.shooters[slot];
     const id = unitIds()[slot] ?? saveData.settings.character;
     view.cine = { kind: 'special', t: 0, shot: -1, slot };
+    // the HUD and the controls step aside for the whole cinematic, strike shot included
+    document.body.classList.add('cine-on');
     $('sfx-who').textContent = `${characterById(id).name.toUpperCase()}${s.team === 0 ? '' : ' // CPU'}`;
     $('sfx-name').textContent = (MOVE_NAMES[baseOf(id)] ?? 'SPIRIT SHOT') + '!';
     $('sfx-face').innerHTML = `<i data-portrait="${id}" data-crop="bust"></i>`;
@@ -1283,11 +1286,13 @@ export function boot() {
       replayGame.advance(dt);
       if (replayGame.done) endReplay();
     } else if (flow === 'finale') {
-      if (flowT > 1.6 && lastCount !== -9) {
+      // (a loss holds on your robot blowing apart before the camera climbs away)
+      const lost = !duo && matchWinner === 1;
+      if (flowT > (lost ? 2.8 : 1.6) && lastCount !== -9) {
         lastCount = -9;
         showBanner(duo ? (matchWinner === -1 ? 'DRAW' : `PLAYER ${matchWinner + 1} WINS`) : matchWinner === 0 ? 'YOU WIN' : matchWinner === 1 ? 'YOU LOSE' : 'DRAW', true);
       }
-      if (flowT > 4.6) endMatch();
+      if (flowT > (lost ? 5.8 : 4.6)) endMatch();
     }
   };
 
@@ -2018,6 +2023,7 @@ export function boot() {
     view.game = game;
     view.cine = null;
     strikeT = 0;
+    document.body.classList.remove('cine-on');
     controls(false);
     input.release();
     hud.classList.add('hidden');
@@ -2289,7 +2295,10 @@ export function boot() {
         const timeScale = strikeT > 0 ? STRIKE.scale : game.phase === 'ko' ? 0.3 : game.slowT > 0 ? SLOWMO.world : 1;
         if (strikeT > 0) {
           strikeT -= dt;
-          if (strikeT <= 0 && view.cine?.kind === 'special') view.cine = null;
+          if (strikeT <= 0) {
+            if (view.cine?.kind === 'special') view.cine = null;
+            document.body.classList.remove('cine-on');
+          }
         }
         acc += dt;
         let steps = 0;

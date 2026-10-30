@@ -5403,3 +5403,9 @@ body.bdaman #special-btn.ready {
 .sfx-lines {
   animation-duration: 2.8s;
 }
+
+/* the spirit shot's cinematic (and its strike shot): the HUD and controls step aside */
+body.cine-on #hud,
+body.cine-on #pad {
+  visibility: hidden;
+}
