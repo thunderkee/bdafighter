@@ -2228,6 +2228,10 @@ export function boot() {
       view,
       faces,
       start: startMatch,
+      /** B-Daman mode on or off for the next start() */
+      bda(on: boolean) {
+        bdaMode = on;
+      },
       /** arcade, for testing the ladder without playing every match */
       arcade: {
         run: () => arcade,
@@ -2254,6 +2258,8 @@ export function boot() {
           if (playerBrain) playerBrain(STEP);
           else input.update(STEP);
           for (const a of ais) a.update(STEP);
+          // (no cinematic here: a spirit shot leaves at once)
+          if (game.pendingSpecial) game.releaseSpecial();
           game.step(STEP);
           game.hitstop = 0;
         }
