@@ -8,7 +8,8 @@ import { ShooterMesh, characterById, studioEnv, type CharacterDef } from './robo
 import { Post } from './post';
 import { ballTexture } from './patterns';
 import { Stage } from './stage';
-import { GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
+import { bounce } from './shapes';
+import { DROP, GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 
 /** place an object (and return it) */
 const at3 = <T extends THREE.Object3D>(o: T, x: number, y: number, z: number) => {
@@ -73,8 +74,6 @@ interface GateMesh {
 
 interface DropMesh {
   root: THREE.Group;
-  chute: THREE.Group;
-  beam: THREE.Mesh;
   marker: THREE.Mesh;
 }
 
@@ -1247,7 +1246,7 @@ export class View {
     const w = this.host.clientWidth;
     for (const d of g.drops) {
       if (d.team !== 0) continue;
-      const sp = this.project(d.x, -ARENA.railY, d.h + 0.32);
+      const sp = this.project(d.x, d.y, d.h + 0.32);
       const margin = 26;
       const edge = sp.x < margin ? -1 : sp.x > w - margin ? 1 : 0;
       this.markers.push({ x: Math.max(margin, Math.min(w - margin, sp.x)), y: edge ? Math.min(sp.y, this.host.clientHeight * 0.72) : sp.y, color: hex(ITEMS[d.type].color), edge });
@@ -1370,7 +1369,7 @@ export class View {
     });
   }
 
-  /** Crates under parachutes, a beacon beam and a landing marker. */
+  /** Item crates on the table (they drop in like the ammo box) and a marker ring round each. */
   private updateDrops() {
     const live = new Set<number>();
     for (const d of this.game.drops) {
@@ -1380,22 +1379,27 @@ export class View {
         dm = this.makeDrop(d);
         this.dropMeshes.set(d.id, dm);
       }
-      const y = d.team === 0 ? ARENA.railY : -ARENA.railY;
-      const sway = d.h > 0 ? Math.sin(this.time * 2 + d.id) * 0.15 : 0;
-      dm.root.position.set(d.x + sway, d.h + 0.32, y);
-      dm.root.rotation.y = this.time * (d.h > 0 ? 0.6 : 1.5);
-      dm.chute.visible = d.h > 0.2;
-      dm.beam.visible = d.h > 0;
-      dm.beam.position.set(d.x, 6, y);
+      // (it lands out on the table in front of its side's rail; view z is the game's -y)
+      const y = -d.y;
+      // (it drops in like the ammo box, then sits with a little bob)
+      const age = DROP.landedLife - d.life;
+      const t = Math.min(1, age / DROP.land);
+      const bob = t < 1 ? 0 : Math.abs(Math.sin(age * 3)) * 0.06;
+      dm.root.position.set(d.x, (1 - t) * 5 + bob + 0.32, y);
+      // a hit knocks it: a quick squash, and cracked (smaller) once it's down to its last hit
+      const hurt = d.hp < DROP.hp ? 0.86 : 1;
+      dm.root.scale.setScalar(hurt * (1 + d.flash * 1.2));
+      // (set down at a slight angle, like it was put there)
+      dm.root.rotation.y = ((d.id * 37) % 10) * 0.08 - 0.4;
       dm.marker.position.set(d.x, 0.04, y);
       const pulse = 1 + Math.sin(this.time * 6) * 0.12;
       dm.marker.scale.set(pulse, 1, pulse);
       // blink before vanishing
-      dm.root.visible = d.h > 0 || d.life > 2 || Math.sin(this.time * 20) > 0;
+      dm.root.visible = d.life > 2 || Math.sin(this.time * 20) > 0;
     }
     for (const [id, dm] of this.dropMeshes) {
       if (live.has(id)) continue;
-      this.scene.remove(dm.root, dm.beam, dm.marker);
+      this.scene.remove(dm.root, dm.marker);
       this.dropMeshes.delete(id);
     }
   }
@@ -1999,33 +2003,12 @@ export class View {
       [0.08, 0.66, 0.66],
       [0.66, 0.66, 0.08],
     ]) root.add(new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), glow));
-    const chute = new THREE.Group();
-    const canopy = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }),
-    );
-    canopy.scale.set(0.9, 0.5, 0.9);
-    canopy.position.y = 1.5;
-    chute.add(canopy);
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xdfe8ff });
-    for (let k = 0; k < 4; k++) {
-      const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
-      const line = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 1.3, 4), lineMat);
-      line.position.set(Math.cos(a) * 0.42, 0.95, Math.sin(a) * 0.42);
-      line.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35);
-      chute.add(line);
-    }
-    root.add(chute);
-    const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.25, 0.25, 12, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.14, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
-    );
     const marker = new THREE.Mesh(
       new THREE.RingGeometry(0.55, 0.75, 32).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }),
     );
-    this.scene.add(root, beam, marker);
-    return { root, chute, beam, marker };
+    this.scene.add(root, marker);
+    return { root, marker };
   }
 
   /**
@@ -2520,19 +2503,29 @@ export class View {
     let x = s.x + d.x * 0.95 + d.y * side;
     let y = s.y + d.y * 0.95 - d.x * side;
     let dx = d.x;
-    const dy = d.y;
+    let dy = d.y;
     const stepLen = 0.6;
     let bounces = 0;
     let n = 0;
+    const shape = this.game.shape;
     for (let i = 0; i < AIM_DOTS; i++) {
       x += dx * stepLen;
       y += dy * stepLen;
-      if (Math.abs(x) > half) {
+      // (a shaped board: off its angled walls)
+      const off = shape ? bounce(shape, x, y, dx, dy, s.stats.marbleRadius) : null;
+      if (off) {
+        if (bounces >= 1) break;
+        x = off.x;
+        dx = off.dx;
+        dy = off.dy;
+        bounces++;
+      } else if (!shape && Math.abs(x) > half) {
         if (bounces >= 1) break;
         x = Math.sign(x) * half * 2 - x;
         dx = -dx;
         bounces++;
       }
+      if (y < -ARENA.length / 2) break;
       if (y > ARENA.length / 2) break;
       const fade = 1 - i / AIM_DOTS;
       this.tmpV.set(x, 0.03, -y);

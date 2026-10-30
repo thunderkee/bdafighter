@@ -219,7 +219,8 @@ export class AIController {
     }
     const r = Math.random();
     const pr = this.profile;
-    if (r < pr.bankChance) this.aimMode = 'bank';
+    // (its bank maths assumes straight walls: on a shaped board it shoots direct)
+    if (r < pr.bankChance && !this.game.shape) this.aimMode = 'bank';
     else if (r < pr.bankChance + pr.bumpChance && this.game.activePucks().length) {
       this.aimMode = 'bump';
       this.bumpIdx = Math.floor(Math.random() * this.game.activePucks().length);
@@ -241,7 +242,7 @@ export class AIController {
 
     if (this.aimMode === 'deny') {
       const d = this.game.drops.find((dd) => dd.team === foe.team);
-      if (d) return this.angleTo(d.x, foe.y) + this.aimNoise;
+      if (d) return this.angleTo(d.x, d.y) + this.aimNoise;
     }
     if (this.aimMode === 'gate') {
       const g = this.game.gates.find((gg) => gg.charges > 0);

@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ARENA } from './config';
 import { TOON, paintToonFloor, toonBoard, toonRails, toonScenery } from './toonstage';
+import { maxHalf, shapeOf, type Shape } from './shapes';
 
 // Themed stages. Each one is data (colours, lighting) plus a scenery builder,
 // an ambient particle style, moving props, and a matching puck model.
 // Physics is identical on every stage; only the look changes.
 
-export type StageId = 'space' | 'beach' | 'lava' | 'snow' | 'city' | 'forest' | 'river' | 'cyber' | 'soccer' | 'desert' | 'candy' | 'cloud' | 'haunted' | 'reef';
+export type StageId = 'space' | 'beach' | 'lava' | 'snow' | 'city' | 'forest' | 'river' | 'cyber' | 'soccer' | 'desert' | 'candy' | 'cloud' | 'haunted' | 'reef' | 'sandglass' | 'crystal' | 'serpent';
 
 interface StageDef {
   id: StageId;
@@ -182,6 +183,10 @@ export const STAGES: StageDef[] = [
   { id: 'candy', name: 'Candy Land', swatch: [0xffb8dc, 0x7ad8ff], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
   { id: 'cloud', name: 'Cloud Kingdom', swatch: [0xdff2ff, 0xffd84a], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
   { id: 'haunted', name: 'Haunted Manor', swatch: [0x3a2a5a, 0xff8a2a], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  // the shaped boards: no pieces inside, only a different outline (see shapes.ts)
+  { id: 'sandglass', name: 'Sandglass Pass', swatch: [0xf0c27a, 0x7a4428], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  { id: 'crystal', name: 'Crystal Court', swatch: [0x5e52c8, 0x9af0ff], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  { id: 'serpent', name: 'Serpent Run', swatch: [0x3e8e5a, 0xf4c25b], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
   { id: 'reef', name: 'Coral Reef', swatch: [0x2ab8c8, 0xff7a8a], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
 ];
 
@@ -192,6 +197,16 @@ for (const st of STAGES) {
 }
 
 export const stageById = (id: string) => STAGES.find((s) => s.id === id) ?? STAGES[0];
+
+/** a shaped board's floor: its outline, with the floor texture laid across it as on a plain one */
+function outlineGeometry(s: Shape, W: number, L: number) {
+  const outline = new THREE.Shape([...s.right, ...[...s.left].reverse()].map(([x, y]) => new THREE.Vector2(x, y)));
+  const geo = new THREE.ShapeGeometry(outline);
+  const pos = geo.attributes.position;
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + W / 2) / W, (pos.getY(i) + L / 2) / L);
+  return geo;
+}
 
 const css = (c: number) => '#' + c.toString(16).padStart(6, '0');
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -355,7 +370,9 @@ export class Stage {
 
   private buildFloor() {
     const d = this.def;
-    const W = ARENA.width;
+    // (a shaped board's floor is as wide as its widest point, cut to its outline below)
+    const shape = shapeOf(d.id);
+    const W = shape ? maxHalf(shape) * 2 : ARENA.width;
     const L = ARENA.length;
     const cvs = document.createElement('canvas');
     cvs.width = 512;
@@ -767,7 +784,7 @@ export class Stage {
     const mat = glowy
       ? new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: d.pattern === 'neon' ? 0.6 : 0.35 })
       : new THREE.MeshLambertMaterial({ map: tex });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, L), mat);
+    const floor = new THREE.Mesh(shape ? outlineGeometry(shape, W, L) : new THREE.PlaneGeometry(W, L), mat);
     floor.rotation.x = -Math.PI / 2;
     this.group.add(floor);
 

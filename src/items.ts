@@ -30,12 +30,17 @@ export const DROP = {
   first: 8,
   /** gap between drops */
   every: [11, 15] as [number, number],
-  startHeight: 11,
-  fallSpeed: 2.6,
-  /** seconds a landed crate waits before vanishing */
-  landedLife: 8,
+  /** item crates appear on the table like the ammo box: a quick drop-in, this long */
+  land: 0.45,
+  /** seconds a crate waits before vanishing */
+  landedLife: 12,
   /** how close (x) a robot must be to grab it */
   reach: 0.95,
+  /** it lands this far in front of its side's rail (random), like the ammo box */
+  ahead: [1.8, 4.2] as [number, number],
+  /** its half size, and the opposing marbles it takes to break it */
+  half: 0.42,
+  hp: 2,
 };
 
 /** multi shot: marbles per volley, fan half-angle, damage scale, fire-interval scale */

@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier2d';
 import { AIM_LIMIT, ARENA, BASE_STATS, MATCH, TOSS_TIME, TWIN_X, type ShooterStats } from './config';
 import { BOARDS, KICK, PORTAL_R, type Board } from './pinball';
+import { bounce, bounds, shapeOf, type Shape } from './shapes';
 import { COVER, COVER_X, DRAGON, DROP, GATE, GATES, GATE_TYPES, HEAL, ITEMS, ITEM_TYPES, MISSILE, MULTI, PIN, PIN_SPOTS, SHIELD, PARRY, SLOWMO, WIPER, X5, type GateType, type ItemType, BOOST_BALL, CATCH, TRICK } from './items';
 import * as sfx from './audio';
 
@@ -235,10 +236,15 @@ export interface Drop {
   team: Team;
   type: ItemType;
   x: number;
+  /** where on the table it lands: in front of that side's rail, like the ammo box */
+  y: number;
   /** height above the floor; 0 = landed */
   h: number;
   /** seconds left once landed */
   life: number;
+  /** hits left before the other side's marbles break it, and a flash when one lands */
+  hp: number;
+  flash: number;
 }
 
 /** effects for the view/HUD; `slot` is the robot concerned (0 = player) */
@@ -976,7 +982,26 @@ export class Game {
     }
   }
 
+  /** a shaped board's outline (null: the plain straight-sided table) */
+  shape: Shape | null = null;
+  private stageShape: string | null = null;
+  /** put this arena's outline on the table: shaped boards get their own side walls */
+  setShape(stage: string | null) {
+    const sh = shapeOf(stage);
+    if (!sh && !this.shape) return;
+    this.stageShape = stage;
+    this.shape = sh;
+    this.resizeArena();
+  }
+  /** the open span across the table at this y */
+  spanAt(y: number): [number, number] {
+    return this.shape ? bounds(this.shape, y) : [-ARENA.width / 2, ARENA.width / 2];
+  }
+
   resizeArena() {
+    // (a new table width re-scales the outline too)
+    if (this.shape) this.shape = shapeOf(this.stageShape);
+
     for (const c of this.arenaColliders) {
       this.tags.delete(c.handle);
       this.world.removeCollider(c, false);
@@ -989,7 +1014,21 @@ export class Game {
     const hw = ARENA.width / 2;
     const t = ARENA.wallThickness;
     const ground = (this.ground ??= this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed()));
+    // a shaped board: each side wall follows its outline
+    for (const wall of this.shape ? [this.shape.right, this.shape.left] : []) {
+      const c = this.world.createCollider(
+        RAPIER.ColliderDesc.polyline(new Float32Array(wall.flat())).setRestitution(0.86).setFriction(0).setCollisionGroups(GROUPS.wall),
+        ground,
+      );
+      this.tags.set(c.handle, { kind: 'wall' });
+      this.arenaColliders.push(c);
+    }
     for (const side of [-1, 1]) {
+      if (this.shape) {
+        const fence = this.world.createCollider(RAPIER.ColliderDesc.cuboid(hw, 0.1).setTranslation(0, side * ARENA.bumpFenceY).setCollisionGroups(GROUPS.fence), ground);
+        this.arenaColliders.push(fence);
+        continue;
+      }
       const wall = this.world.createCollider(
         RAPIER.ColliderDesc.cuboid(t / 2, ARENA.length / 2)
           .setTranslation(side * (hw + t / 2), 0)
@@ -1483,11 +1522,17 @@ export class Game {
           i = this.missiles.indexOf(m);
         }
       }
-      // bounce off the side walls and keep within the table ends
+      // bounce off the side walls (a shaped board's angled ones too) and keep within the table ends
       const hw = ARENA.width / 2 - 0.3;
-      if (Math.abs(m.x) > hw) {
-        m.x = Math.sign(m.x) * hw;
-        m.heading = Math.PI - m.heading;
+      const off = this.shape ? bounce(this.shape, m.x, m.y, Math.cos(m.heading), Math.sin(m.heading), 0.3) : null;
+      if (off || (!this.shape && Math.abs(m.x) > hw)) {
+        if (off) {
+          m.x = off.x;
+          m.heading = Math.atan2(off.dy, off.dx);
+        } else {
+          m.x = Math.sign(m.x) * hw;
+          m.heading = Math.PI - m.heading;
+        }
         // a ricochet has banked: now it homes in
         if (m.bank) {
           m.bank = false;
@@ -1796,7 +1841,8 @@ export class Game {
     // (with covers up on this side, it stops just behind them rather than inside one)
     const behind = this.covers.some((c) => c.active && c.hp > 0 && Math.sign(c.y) === Math.sign(s.railY)) ? ARENA.railY - COVER.y - COVER.halfDepth - 0.75 : ADVANCE.depth;
     // (on a pinball board it stops short of the bumpers)
-    const clear = this.board ? 4.4 : ADVANCE.depth;
+    // (on a shaped board, it stays where the table is still full width)
+    const clear = this.board ? 4.4 : this.shape ? ARENA.railY - 8.1 : ADVANCE.depth;
     const advGoal = s.advancing && !s.shielding && (canAct || this.phase === 'countdown') ? Math.min(ADVANCE.depth, behind, clear) : 0;
     const advStep = ADVANCE.speed * adt;
     s.advOff += Math.max(-advStep, Math.min(advStep, advGoal - s.advOff));
@@ -1965,10 +2011,11 @@ export class Game {
     }
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
-      if (d.h > 0) d.h = Math.max(0, d.h - DROP.fallSpeed * dt);
-      else d.life -= dt;
-      // grab it once it's low enough to reach, if a robot on that rail has free hands
-      const s = d.h < 1.2 ? this.shooters.find((r) => r.team === d.team && r.alive && !r.item && Math.abs(r.x - d.x) < DROP.reach) : undefined;
+      d.life -= dt;
+      d.flash = Math.max(0, d.flash - dt);
+      // once it has landed, slide into line with it (free hands) to grab it, like the ammo box
+      const landed = DROP.landedLife - d.life > DROP.land;
+      const s = landed ? this.shooters.find((r) => r.team === d.team && r.alive && !r.item && Math.abs(r.x - d.x) < DROP.reach) : undefined;
       if (s) {
         s.item = d.type;
         this.drops.splice(i, 1);
@@ -1976,8 +2023,8 @@ export class Game {
         if (s.slot === 0) sfx.play('charge');
         continue;
       }
-      // the other side can shoot a low crate to deny it
-      if (d.h < 1.0 && this.shotDown(d)) {
+      // the other side can shoot it apart to deny it
+      if (landed && this.shotDown(d)) {
         this.drops.splice(i, 1);
         continue;
       }
@@ -1985,16 +2032,23 @@ export class Game {
     }
   }
 
-  /** True if an opposing marble hit this crate (the marble is spent). */
+  /** True once opposing marbles have broken this crate (each one that reaches it is spent). */
   private shotDown(d: Drop) {
-    const y = d.team === 0 ? -ARENA.railY : ARENA.railY;
     for (const m of this.marbles) {
       if (!m.active || m.team === d.team || this.toDespawn.has(m)) continue;
       const p = m.body.translation();
-      const reach = 0.36 + m.radius;
-      if (Math.abs(p.x - d.x) > reach || Math.abs(p.y - y) > reach) continue;
-      if (m.kind === 'normal') this.toDespawn.add(m);
-      this.fx.push({ type: 'drop-destroyed', x: d.x, y, team: d.team, item: d.type });
+      const reach = DROP.half + m.radius;
+      if (Math.abs(p.x - d.x) > reach || Math.abs(p.y - d.y) > reach) continue;
+      this.toDespawn.add(m);
+      // (a power ball smashes it outright)
+      d.hp -= m.kind === 'normal' ? 1 : DROP.hp;
+      d.flash = 0.2;
+      this.fx.push({ type: 'spark', x: p.x, y: p.y, intensity: 1 });
+      if (d.hp > 0) {
+        sfx.play('bump', 0.6);
+        continue;
+      }
+      this.fx.push({ type: 'drop-destroyed', x: d.x, y: d.y, team: d.team, item: d.type });
       sfx.play('bump', 1);
       return true;
     }
@@ -2023,11 +2077,19 @@ export class Game {
         break;
       }
     }
-    // land it within reach of a live robot on that rail
+    // land it somewhere random on that side, in front of a live robot's stretch of rail (clear of
+    // the ammo box), where the other side can shoot at it
     const owners = this.shooters.filter((s) => s.team === team && s.alive);
     const o = owners[Math.floor(Math.random() * owners.length)] ?? this.player;
-    const x = o.lane[0] + 0.3 + Math.random() * Math.max(0.1, o.lane[1] - o.lane[0] - 0.6);
-    this.drops.push({ id: this.dropId++, team, type, x, h: DROP.startHeight, life: DROP.landedLife });
+    const box = this.boxes.find((b) => b.team === team);
+    const span = () => o.lane[0] + 0.3 + Math.random() * Math.max(0.1, o.lane[1] - o.lane[0] - 0.6);
+    let x = span();
+    for (let k = 0; k < 6 && box && Math.abs(x - box.x) < 1.4; k++) x = span();
+    const y = o.railY + o.forward * (DROP.ahead[0] + Math.random() * (DROP.ahead[1] - DROP.ahead[0]));
+    // (on a shaped board, inside the walls where it lands)
+    const [lo, hi] = this.spanAt(y);
+    x = Math.max(lo + 0.7, Math.min(hi - 0.7, x));
+    this.drops.push({ id: this.dropId++, team, type, x, y, h: 0, life: DROP.landedLife, hp: DROP.hp, flash: 0 });
   }
 
   /** Activate the held item. Returns false when there's nothing to use. */

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ARENA } from './config';
 import { BOARDS, PORTAL_R } from './pinball';
+import { bounds, maxHalf, shapeOf, type Pt } from './shapes';
 
 /**
  * The cartoon arenas: flat floors with a bright play lane and one bold motif, chunky capped
@@ -41,6 +42,10 @@ export const TOON: Record<string, Toon> = {
   cloud: { sky: 0x9ad8ff, fog: [0xd8f0ff, 44, 130], hemi: [0xffffff, 0xb8d8f0, 2.0], sun: [0xffffff, 2.2], floor: 0xe8f4ff, lane: 0xffffff, edge: 0xc8e0f8, line: 0xf4c25b, apron: 0xf4faff, wall: 0xf4c25b, cap: 0xf4f3ef },
   haunted: { sky: 0x4a3a7a, fog: [0x5a4a88, 40, 110], hemi: [0xe0d8ff, 0x3a2a4a, 1.8], sun: [0xd8d0ff, 1.7], floor: 0x4a3e5a, lane: 0x5e5072, edge: 0x362c44, line: 0xee7b4c, apron: 0x2a2236, wall: 0x2a2734, cap: 0xee7b4c, capGlow: true },
   reef: { sky: 0x2ab0c8, fog: [0x3ac0d4, 36, 100], hemi: [0xd8fff8, 0x2a6a8a, 1.9], sun: [0xe8fff8, 1.9], floor: 0xf0d8a0, lane: 0xfae6b8, edge: 0xd8bc84, line: 0xf2ead8, apron: 0x1a8aa8, wall: 0xee5466, cap: 0xf4c25b },
+  // the shaped boards: only their outline is different
+  sandglass: { sky: 0xffb070, fog: [0xffc48a, 44, 120], hemi: [0xfff0dc, 0xa8582a, 1.9], sun: [0xfff0d0, 2.3], floor: 0xf0c27a, lane: 0xf8dcaa, edge: 0xd89e5a, line: 0x7a3a1a, apron: 0x9a4a2a, wall: 0x7a4428, cap: 0xf4c25b },
+  crystal: { sky: 0x4a3aa8, fog: [0x5a4ab8, 40, 110], hemi: [0xe8e0ff, 0x2a2060, 1.9], sun: [0xe0e8ff, 1.9], floor: 0x5e52c8, lane: 0x7c70e0, edge: 0x463aa0, line: 0x9af0ff, apron: 0x1a1446, wall: 0x2a2266, cap: 0x9af0ff, capGlow: true },
+  serpent: { sky: 0x8ad8b8, fog: [0xa8e4c8, 40, 110], hemi: [0xf0fff4, 0x2a6a4a, 1.8], sun: [0xfffbe0, 2.0], floor: 0x3e8e5a, lane: 0x52aa6e, edge: 0x2e7046, line: 0xf4c25b, apron: 0x1e6a9a, wall: 0x2e4a2a, cap: 0xf4c25b },
   soccer: { sky: 0x8cd2ff, fog: [0xc0e4ff, 46, 130], hemi: [0xffffff, 0x4a8a3a, 1.9], sun: [0xffffff, 2.1], floor: 0x3aa046, lane: 0x48b454, edge: 0x2e8a3a, line: 0xf4f3ef, apron: 0x2f8036, wall: 0xf4f3ef, cap: 0xee5466 },
 };
 
@@ -55,13 +60,28 @@ export function paintToonFloor(c: CanvasRenderingContext2D, id: string, CW: numb
   c.fillStyle = hex(t.floor);
   c.fillRect(0, 0, CW, CH);
   // darker bands along the walls, the bright lane where the fight is
-  const band = CW * 0.12;
-  c.fillStyle = hex(t.edge);
-  c.fillRect(0, 0, band, CH);
-  c.fillRect(CW - band, 0, band, CH);
+  const sh = shapeOf(id);
   const lane = CW * 0.56;
-  c.fillStyle = hex(t.lane);
-  c.fillRect((CW - lane) / 2, 0, lane, CH);
+  if (sh) {
+    // (a shaped board: the bands and the lane follow its walls, row by row)
+    for (let row = 0; row < CH; row += 3) {
+      const y = ARENA.length / 2 - ((row + 1.5) / CH) * ARENA.length;
+      const [lo, hi] = bounds(sh, y);
+      const w = hi - lo;
+      c.fillStyle = hex(t.edge);
+      c.fillRect(px(lo), row, w * 0.12 * m, 3);
+      c.fillRect(px(hi) - w * 0.12 * m, row, w * 0.12 * m, 3);
+      c.fillStyle = hex(t.lane);
+      c.fillRect(px((lo + hi) / 2) - w * 0.28 * m, row, w * 0.56 * m, 3);
+    }
+  } else {
+    const band = CW * 0.12;
+    c.fillStyle = hex(t.edge);
+    c.fillRect(0, 0, band, CH);
+    c.fillRect(CW - band, 0, band, CH);
+    c.fillStyle = hex(t.lane);
+    c.fillRect((CW - lane) / 2, 0, lane, CH);
+  }
   // end zones: a band across each end, in front of the rails
   for (const side of [-1, 1]) {
     const y0 = py(side * (ARENA.railY - 1.2));
@@ -192,6 +212,52 @@ export function paintToonFloor(c: CanvasRenderingContext2D, id: string, CW: numb
       }
       break;
     }
+    case 'sandglass': {
+      // an hourglass
+      c.beginPath();
+      c.moveTo(cx - r * 0.7, cy - r);
+      c.lineTo(cx + r * 0.7, cy - r);
+      c.lineTo(cx - r * 0.7, cy + r);
+      c.lineTo(cx + r * 0.7, cy + r);
+      c.closePath();
+      c.globalAlpha = 0.3;
+      c.fill();
+      c.globalAlpha = 1;
+      c.stroke();
+      break;
+    }
+    case 'crystal': {
+      // a cut gem
+      c.beginPath();
+      c.moveTo(cx, cy - r);
+      c.lineTo(cx + r * 0.75, cy - r * 0.2);
+      c.lineTo(cx, cy + r);
+      c.lineTo(cx - r * 0.75, cy - r * 0.2);
+      c.closePath();
+      c.globalAlpha = 0.3;
+      c.fill();
+      c.globalAlpha = 1;
+      c.stroke();
+      c.beginPath();
+      c.moveTo(cx - r * 0.75, cy - r * 0.2);
+      c.lineTo(cx + r * 0.75, cy - r * 0.2);
+      c.stroke();
+      break;
+    }
+    case 'serpent': {
+      // a snake's S, down the middle
+      c.lineWidth = 14;
+      c.beginPath();
+      for (let k = 0; k <= 40; k++) {
+        const a = (k / 40) * Math.PI * 2;
+        c.lineTo(cx + Math.sin(a) * r * 0.8, cy - r * 1.4 + (k / 40) * r * 2.8);
+      }
+      c.stroke();
+      c.beginPath();
+      c.arc(cx, cy - r * 1.4, 12, 0, Math.PI * 2);
+      c.fill();
+      break;
+    }
     case 'desert': {
       // a sun
       c.fillStyle = '#ffb83a';
@@ -315,6 +381,37 @@ export function toonRails(g: THREE.Group, id: string) {
   const body = lam(t.wall);
   const cap = t.capGlow ? glow(t.cap) : lam(t.cap);
   const seam = lam(new THREE.Color(t.wall).multiplyScalar(0.7).getHex());
+  const sh = shapeOf(id);
+  if (sh) {
+    // a shaped board: padded blocks laid along each piece of its outline, capped like the rest
+    const lay = (a: Pt, b: Pt, side: number) => {
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-3) return;
+      // (pushed out by half its thickness, so the inside face is where the physics wall is)
+      const nx = (side * dy) / len;
+      const ny = (-side * dx) / len;
+      const mx = (a[0] + b[0]) / 2 + nx * (th / 2);
+      const my = (a[1] + b[1]) / 2 + ny * (th / 2);
+      // (view z is the game's -y)
+      const yaw = Math.atan2(dx, -dy);
+      const block = new THREE.Mesh(new THREE.BoxGeometry(th + 0.08, 0.62, len + 0.12), body);
+      block.position.set(mx, 0.31, -my);
+      block.rotation.y = yaw;
+      const top = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, Math.max(0.05, len - 0.1), 4, 10), cap);
+      // (lying along the block: tipped flat, then turned with it)
+      top.rotation.order = 'YXZ';
+      top.rotation.set(Math.PI / 2, yaw, 0);
+      top.position.set(mx, 0.66, -my);
+      const s2 = new THREE.Mesh(new THREE.BoxGeometry(th + 0.12, 0.5, 0.08), seam);
+      s2.position.set(a[0] + nx * (th / 2), 0.3, -(a[1] + ny * (th / 2)));
+      s2.rotation.y = yaw;
+      g.add(block, top, s2);
+    };
+    for (const [wall, side] of [[sh.right, 1], [sh.left, -1]] as const) for (let i = 1; i < wall.length; i++) lay(wall[i - 1], wall[i], side);
+    return;
+  }
   for (const side of [-1, 1]) {
     const x = side * (ARENA.width / 2 + th / 2);
     const rail = new THREE.Mesh(new THREE.BoxGeometry(th + 0.08, 0.62, L), body);
@@ -457,10 +554,24 @@ const SIDES: Record<string, Make[]> = {
   cloud: [cloudPuff, cloudPuff, cloudPuff],
   haunted: [deadTree, pumpkin, deadTree],
   reef: [coral, seaweed, coral],
+  sandglass: [rockSpire, cactus, rockSpire],
+  crystal: [() => crystalSpire(), () => crystalSpire(), () => crystalSpire()],
+  serpent: [roundTree, mushroom, roundTree],
 };
+
+/** a cluster of glowing crystals (Crystal Court) */
+function crystalSpire() {
+  const o = grp(mesh(new THREE.OctahedronGeometry(1.1, 0), glow(0x9af0ff), 0, 2.2, 0), mesh(new THREE.OctahedronGeometry(0.7, 0), glow(0xc8a8ff), 0.9, 1.2, 0.3), mesh(new THREE.OctahedronGeometry(0.5, 0), lam(0x6a5ad8), -0.7, 0.8, -0.2));
+  (o.children[0] as THREE.Mesh).scale.set(0.6, 1.8, 0.6);
+  (o.children[1] as THREE.Mesh).scale.set(0.6, 1.6, 0.6);
+  return o;
+}
 
 /** the big piece on the horizon, filling the sky behind the far rail */
 function backdrop(id: string): THREE.Object3D {
+  // (the shaped boards borrow a neighbour's horizon)
+  const borrow: Record<string, string> = { sandglass: 'desert', crystal: 'cyber', serpent: 'forest' };
+  if (borrow[id]) return backdrop(borrow[id]);
   switch (id) {
     case 'space': {
       const planet = mesh(new THREE.SphereGeometry(7, 20, 14), lam(0xff9a5a), 0, 0, 0);
@@ -634,7 +745,9 @@ export function toonBoard(g: THREE.Group, id: string) {
 /** the scenery round the table: three props a side and the horizon piece */
 export function toonScenery(g: THREE.Group, id: string) {
   const makes = SIDES[id] ?? [];
-  const W = ARENA.width;
+  // (beside a shaped board's widest point)
+  const sh = shapeOf(id);
+  const W = sh ? maxHalf(sh) * 2 : ARENA.width;
   makes.forEach((make, k) => {
     for (const side of [-1, 1]) {
       const z = -8 + k * 7 + (side > 0 ? 1.5 : -1.5);

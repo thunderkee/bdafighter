@@ -20,6 +20,7 @@ import * as music from './music';
 import * as store from './storage';
 import { CEL } from './cel';
 import { BOARDS } from './pinball';
+import { SHAPES } from './shapes';
 import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
 import { REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, type Equip, type Slot } from './cosmetics';
 import { kitOf } from './kits';
@@ -144,7 +145,8 @@ export function boot() {
         : duo
           ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
           : bdaMode
-            ? { ...saveData.settings, pack: 1, playerPack: 1, items: false, gates: false, pucks: 0, covers: 0, pins: 0, stage: BOARDS[saveData.settings.stage] ? 'space' : saveData.settings.stage }
+            ? // (B-Daman: one on one, a clean table; item crates land on the table like the ammo box)
+              { ...saveData.settings, pack: 1, playerPack: 1, gates: false, pucks: 0, covers: 0, pins: 0, stage: BOARDS[saveData.settings.stage] ? 'space' : saveData.settings.stage }
             : saveData.settings;
   // the table width is fixed for the session: walls and scenery are built for it
   setArenaWidth(S().arenaWidth);
@@ -312,7 +314,7 @@ export function boot() {
       roundTime: 60,
       stage: pick(arenas.length ? arenas : STAGES.map((st) => st.id)),
       arenaWidth: pick(['small', 'normal', 'large'] as const),
-      // a clean table: no pucks, pins, walls or gates, just you, them and the air drops
+      // a clean table: no pucks, pins, walls or gates, just you, them and the item crates
       pucks: 0,
       pins: 0,
       covers: 0,
@@ -326,7 +328,7 @@ export function boot() {
   /** one stage in a line: opponent, difficulty, arena */
   const describeStage = (c: Partial<store.Settings>, stage: number) => {
     const foe = characterById(c.enemyCharacter ?? 'dragon').name.toUpperCase() + ((c.pack ?? 1) > 1 ? ` +${(c.pack ?? 1) - 1}` : '');
-    const rules = [WIDTH_NAME[c.arenaWidth ?? 'normal'] + ' TABLE', c.covers ? `${c.covers} COVER` : '', c.pins ? `${c.pins} PINS` : '', c.pucks ? `${c.pucks} PUCKS` : '', c.items ? 'AIR DROPS' : '', c.gates ? 'GATES' : '']
+    const rules = [WIDTH_NAME[c.arenaWidth ?? 'normal'] + ' TABLE', c.covers ? `${c.covers} COVER` : '', c.pins ? `${c.pins} PINS` : '', c.pucks ? `${c.pucks} PUCKS` : '', c.items ? 'ITEM CRATES' : '', c.gates ? 'GATES' : '']
       .filter(Boolean)
       .join(' · ');
     return {
@@ -572,6 +574,7 @@ export function boot() {
   /** held items nobody used: they come along into the next round (and yours into the next arcade stage) */
   let carry: (ItemType | null)[] = [];
   let carryStage = false;
+  const shaped = (stage: string) => !!SHAPES[stage];
   /** fresh table for the next round: health, ammo, marbles, items, gates */
   const setupRound = () => {
     resetFeel();
@@ -582,11 +585,12 @@ export function boot() {
       allies: packAllies(),
       tactics: [st.allyTactic ?? 'nearest', st.enemyTactic ?? 'nearest'],
       playerHealth: MATCH.maxHealth * healthTrait(st.character) * PACK_SCALE[allySize() - 1].health,
-      pucks: st.pucks,
-      covers: st.covers,
-      pins: st.pins,
+      // (a shaped board is only its outline: no pucks, cover walls, pins or gates on it)
+      pucks: shaped(st.stage) ? 0 : st.pucks,
+      covers: shaped(st.stage) ? 0 : st.covers,
+      pins: shaped(st.stage) ? 0 : st.pins,
       items: st.items,
-      gates: st.gates,
+      gates: shaped(st.stage) ? false : st.gates,
       duration: st.roundTime ?? 60,
       burst: st.burst ?? 1,
       cpuCharge: st.cpuCharge ?? true,
@@ -674,6 +678,8 @@ export function boot() {
     fitTable(st);
     // the newer arenas bring their pinball board
     game.setBoard(bdaMode ? null : st.stage);
+    // a shaped board brings its own side walls (and nothing inside the table)
+    game.setShape(st.stage);
     roundNo = 1;
     roundWins[0] = roundWins[1] = 0;
     totals.dealt = totals.shots = totals.hits = 0;
@@ -1012,7 +1018,7 @@ export function boot() {
   };
   $('run-continue').addEventListener('click', () => resumeRun());
 
-  // ---------- story mode: three chapters for each fighter, talk before every fight ----------
+  // ---------- story mode: six chapters for each fighter, talk before every fight and after each win ----------
   const unitOfBase = (b: string) => playable().find((u) => baseOf(u.id) === b)?.id ?? `${b}-22`;
   const pathOf = (id: string) => STORY_PATHS[baseOf(id)];
   const chOf = (id: string) => saveData.storyCh?.[id] ?? 0;
@@ -1080,7 +1086,7 @@ export function boot() {
     const p = pathOf(story.hero);
     const c = p.chapters[story.ch];
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
-    talk(story.hero, `CHAPTER ${story.ch + 1} OF ${p.chapters.length}`, `VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, lines, fightChapter);
+    talk(story.hero, `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, c.title.toUpperCase(), lines, fightChapter);
   };
   const playStory = () => {
     sfx.unlock();
@@ -1117,12 +1123,22 @@ export function boot() {
     }
     $('result-sub').textContent = `STORY // ${p.title.toUpperCase()}`;
     storyWon = w === 0;
+    afterShown = false;
   };
   let storyWon = false;
+  /** the cleared chapter's aftermath has played (the next tap goes on) */
+  let afterShown = false;
   const storyNext = () => {
     if (!story) return;
     const p = pathOf(story.hero);
     if (!storyWon) return fightChapter();
+    // what the win leads to, first (then the next chapter, or the ending)
+    const won = p.chapters[story.ch - 1];
+    if (won?.after.length && !afterShown) {
+      afterShown = true;
+      return talk(story.hero, `CHAPTER ${story.ch} CLEAR`, won.title.toUpperCase(), won.after, storyNext);
+    }
+    afterShown = false;
     if (story.ch < p.chapters.length) return playChapter();
     // the ending, and a bonus for finishing
     const hero = story.hero;
