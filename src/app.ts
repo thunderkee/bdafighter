@@ -1553,11 +1553,14 @@ export function boot() {
     else if (mb.type === 'light') out.push(['🪶', 'Light marbles']);
     else if (mb.type === 'bouncy') out.push(['🏀', 'Bouncy marbles']);
     if (out.length < 2) out.unshift(['⚖', 'All-rounder']);
-    const mag = S().magPer === false ? magazine() : mb.mag;
+    // (its classic magazine, whichever mode was played last)
+    const mag = S().magPer === false ? magazine() : (MAG_OF[mb.key] ?? MARBLES[mb.type].mag);
+    // (and its B-Daman magazine, which the ammo box fills right up)
+    const bda = MAG_BDA_OF[mb.key] ?? MAG_BDA[mb.type];
     return `<div class="badges">${out
       .slice(0, 3)
       .map(([i, l]) => `<span class="badge"><i>${i}</i>${l}</span>`)
-      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load</p>${specialCard(id)}`;
+      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load · ${bda} in B-Daman</p>${specialCard(id)}`;
   };
   const markSteps = () => {
     const order: Step[] = selectMode === 'arcade' || selectMode === 'home' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];
