@@ -1,10 +1,11 @@
 import { characterById, type CharacterDef } from './robot';
 import type { BallTex } from './patterns';
+import { kitOf } from './kits';
 
 /**
  * Cosmetic rewards: every fighter earns the same track as it levels up (a nameplate, marble
- * skins, paint jobs and eye colours), each one adapted to that fighter. Nothing here changes
- * how a fighter plays.
+ * skins, eye colours, and its own three paint jobs from its kit). Its head, back and shoulder
+ * parts (also from its kit) are free to wear. Nothing here changes how a fighter plays.
  */
 export type Slot = 'plate' | 'marble' | 'paint' | 'eyes' | 'hat' | 'back' | 'shoulder';
 export interface Reward {
@@ -17,13 +18,14 @@ export interface Reward {
 export const REWARDS: Reward[] = [
   { lv: 2, slot: 'plate', id: 'bronze', name: 'Bronze nameplate' },
   { lv: 3, slot: 'marble', id: 'pearl', name: 'Pearl marbles' },
-  { lv: 4, slot: 'paint', id: 'midnight', name: 'Midnight paint' },
+  // (paint:N is the fighter's own Nth paint job, see rewardsOf)
+  { lv: 4, slot: 'paint', id: 'paint:0', name: 'Paint job' },
   { lv: 5, slot: 'eyes', id: 'gold', name: 'Gold eyes' },
   { lv: 6, slot: 'marble', id: 'galaxy', name: 'Galaxy marbles' },
-  { lv: 7, slot: 'paint', id: 'arctic', name: 'Arctic paint' },
+  { lv: 7, slot: 'paint', id: 'paint:1', name: 'Paint job' },
   { lv: 8, slot: 'marble', id: 'lava', name: 'Lava marbles' },
   { lv: 9, slot: 'plate', id: 'gold', name: 'Gold nameplate' },
-  { lv: 10, slot: 'paint', id: 'legend', name: 'Legend Gold paint' },
+  { lv: 10, slot: 'paint', id: 'paint:2', name: 'Paint job' },
 ];
 
 export const SLOT_NAME: Record<Slot, string> = { paint: 'Paint', marble: 'Marbles', eyes: 'Eyes', plate: 'Nameplate', hat: 'Head', back: 'Back', shoulder: 'Shoulders' };
@@ -31,21 +33,15 @@ export const SLOT_NAME: Record<Slot, string> = { paint: 'Paint', marble: 'Marble
 /** what a fighter has equipped: one choice per slot (none is its standard look) */
 export type Equip = Partial<Record<Slot, string>>;
 
-const mix = (a: number, b: number, t: number) => {
-  const ch = (s: number) => Math.round(((a >> s) & 255) * (1 - t) + ((b >> s) & 255) * t);
-  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-};
-
-type Pal = CharacterDef['palette'];
-/** paint jobs: built from the fighter's own colours, so each one still looks like itself */
-const PAINTS: Record<string, (p: Pal) => Partial<Pal>> = {
-  // its colours sunk into the night, the accent left glowing
-  midnight: (p) => ({ body: mix(p.body, 0x12121a, 0.72), trim: mix(p.trim, 0x08080c, 0.6), joint: 0x0c0c10, wing: mix(p.wing ?? p.body, 0x12121a, 0.72), wingTip: p.accent }),
-  // snow white and ice blue, its accent kept
-  arctic: (p) => ({ body: 0xf2f8ff, trim: 0x3a8ee0, joint: 0x4a5a6c, wing: 0xf2f8ff, wingTip: 0x3a8ee0, accent: mix(p.accent, 0x8ae8ff, 0.5) }),
-  // the champion's gold
-  legend: () => ({ body: 0xe8b83a, trim: 0x2a1a0a, accent: 0xfff2c0, joint: 0x5a3a10, wing: 0xe8b83a, wingTip: 0x2a1a0a }),
-};
+/** the reward track as this fighter sees it: its own paint jobs named (none for a custom unit) */
+export function rewardsOf(id: string): Reward[] {
+  const kit = kitOf(characterById(id));
+  return REWARDS.flatMap((r) => {
+    if (!r.id.startsWith('paint:')) return [r];
+    const pj = kit?.paint[Number(r.id.slice(6))];
+    return pj ? [{ ...r, id: pj.id, name: `${pj.name} paint` }] : [];
+  });
+}
 const MARBLES: Record<string, { ball: number; tex: BallTex }> = {
   pearl: { ball: 0xf4ece0, tex: 'ring' },
   galaxy: { ball: 0x7a5aff, tex: 'galaxy' },
@@ -58,11 +54,14 @@ export function skinned(id: string, equip: Equip | undefined): CharacterDef {
   const def = characterById(id);
   if (!equip) return def;
   const palette = { ...def.palette };
-  const paint = equip.paint ? PAINTS[equip.paint] : undefined;
-  if (paint) Object.assign(palette, paint(def.palette));
+  const kit = kitOf(def);
+  const pj = equip.paint ? kit?.paint.find((k) => k.id === equip.paint) : undefined;
+  if (pj) Object.assign(palette, pj.palette);
   if (equip.eyes && EYES[equip.eyes] !== undefined) palette.eye = EYES[equip.eyes];
   const mb = equip.marble ? MARBLES[equip.marble] : undefined;
-  const gear = { hat: equip.hat, back: equip.back, shoulder: equip.shoulder };
+  // its own parts (an id saved from before, or from another fighter, finds nothing and is left off)
+  const part = (slot: 'hat' | 'back' | 'shoulder') => kit?.[slot].find((k) => k.id === equip[slot]);
+  const gear = { hat: part('hat'), back: part('back'), shoulder: part('shoulder') };
   const anyGear = gear.hat || gear.back || gear.shoulder;
   return { ...def, palette, ball: mb?.ball ?? def.ball, ballTex: mb?.tex ?? def.ballTex, gear: anyGear ? gear : undefined };
 }

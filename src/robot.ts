@@ -7,7 +7,7 @@ import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
 import { TOSS_TIME, TWIN_X, type Special } from './config';
-import { attachParts, type AddonSlot } from './addons';
+import { attachParts, type AddonSlot, type PartSpec } from './addons';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -39,7 +39,7 @@ export interface CharacterDef {
   id: string;
   name: string;
   /** customizer add-ons bolted on (a hat, a back piece, shoulder pieces) */
-  gear?: Partial<Record<AddonSlot, string>>;
+  gear?: Partial<Record<AddonSlot, PartSpec>>;
   /** this unit's marble colour */
   ball: number;
   palette: Palette;
