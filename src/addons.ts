@@ -7,6 +7,14 @@ import * as THREE from 'three';
  * they're called and their colours are its own (see kits.ts); this is the shape library.
  */
 export type AddonSlot = 'hat' | 'back' | 'shoulder';
+/** where a fighter wears one slot: a spot (a shoulder's is the right one), a size, and whether
+ *  it sits on the body rather than the upper body */
+export interface Anchor {
+  p: [number, number, number];
+  s: number;
+  body?: boolean;
+}
+export type Fit = Partial<Record<AddonSlot, Anchor>>;
 /** a part: a shape from the library, in two colours (main and second; the fighter's own if left out) */
 export interface PartSpec {
   shape: string;
@@ -343,8 +351,8 @@ function shoulder({ shape, a, b }: PartSpec, p: Pal): THREE.Object3D {
       break;
     // a glowing orb floating above
     case 'orb':
-      g.add(at(mesh(new THREE.SphereGeometry(0.09, 12, 8), glowMat(A)), 0.04, 0.22, 0));
-      g.add(at(mesh(new THREE.TorusGeometry(0.12, 0.015, 6, 16), mat(B)), 0.04, 0.22, 0, Math.PI / 2));
+      g.add(at(mesh(new THREE.SphereGeometry(0.09, 12, 8), glowMat(A)), 0, 0.15, 0));
+      g.add(at(mesh(new THREE.TorusGeometry(0.12, 0.015, 6, 16), mat(B)), 0, 0.15, 0, Math.PI / 2));
       break;
     // a blade fin standing up
     case 'blade':
@@ -407,11 +415,46 @@ function shoulder({ shape, a, b }: PartSpec, p: Pal): THREE.Object3D {
 }
 
 /**
- * Bolt the chosen parts onto a built fighter: measured from its turret (the upper body that
- * aims and leans), so the parts move with it.
+ * Bolt the chosen parts onto a built fighter: where its fit says (see kits.ts), or else where
+ * its upper body (the turret, which aims and leans, so the parts move with it) is measured to be.
  */
-export function attachParts(turret: THREE.Object3D, parts: Partial<Record<AddonSlot, PartSpec>>, pal: Pal) {
+export function attachParts(turret: THREE.Object3D, root: THREE.Object3D, parts: Partial<Record<AddonSlot, PartSpec>>, pal: Pal, fit?: Fit) {
   if (!parts.hat && !parts.back && !parts.shoulder) return;
+  const build = { hat, back, shoulder };
+  // the measured spots, for any slot the fit leaves out
+  const auto = measure(turret);
+  // (a stretched torso: the parts keep their own shape, their spots stretch with it)
+  const sy = turret.scale.y;
+  const groups = new Map<THREE.Object3D, THREE.Group>();
+  const kitOn = (host: THREE.Object3D) => {
+    let g = groups.get(host);
+    if (!g) {
+      g = new THREE.Group();
+      g.name = 'parts';
+      if (host === turret) g.scale.y = 1 / sy;
+      host.add(g);
+      groups.set(host, g);
+    }
+    return g;
+  };
+  for (const slot of ['hat', 'back', 'shoulder'] as const) {
+    const spec = parts[slot];
+    if (!spec) continue;
+    const a = fit?.[slot] ?? auto?.[slot];
+    if (!a) continue;
+    const host = a.body ? root : turret;
+    const ky = host === turret ? sy : 1;
+    for (const side of slot === 'shoulder' ? [-1, 1] : [1]) {
+      const o = build[slot](spec, pal);
+      o.scale.set(side * a.s, a.s, a.s);
+      o.position.set(side * a.p[0], a.p[1] * ky, a.p[2]);
+      kitOn(host).add(o);
+    }
+  }
+}
+
+/** a best guess at where a fighter with no fit wears its parts, from its upper body's shape */
+function measure(turret: THREE.Object3D): Fit | null {
   // the upper body's shape, in the turret's own space
   turret.updateWorldMatrix(true, true);
   const inv = turret.matrixWorld.clone().invert();
@@ -425,26 +468,19 @@ export function attachParts(turret: THREE.Object3D, parts: Partial<Record<AddonS
     boxes.push(b);
     all.union(b);
   });
-  if (all.isEmpty()) return;
+  if (all.isEmpty()) return null;
   // the core: the middle column of the upper body (arms, guns and blades left out), and its height
   const cx = (b: THREE.Box3) => (b.min.x + b.max.x) / 2;
+  const vol = (b: THREE.Box3) => (b.max.x - b.min.x) * (b.max.y - b.min.y) * (b.max.z - b.min.z);
   const core = new THREE.Box3();
   for (const b of boxes) if (Math.abs(cx(b)) < 0.36 && b.max.x - b.min.x < 1.6) core.union(b);
   const C = core.isEmpty() ? all : core;
   const H = C.max.y - C.min.y;
-  const k = Math.max(0.7, Math.min(1.6, H / 1.3));
-  const kit = new THREE.Group();
-  kit.name = 'parts';
-  // top of the head: the highest part of the core
-  if (parts.hat) {
-    const top = new THREE.Box3();
-    for (const b of boxes) if (Math.abs(cx(b)) < 0.36 && b.max.y > C.max.y - H * 0.28) top.union(b);
-    const src = top.isEmpty() ? C : top;
-    const o = hat(parts.hat, pal);
-    o.scale.setScalar(k);
-    o.position.set(cx(src), src.max.y - 0.04 * k, (src.min.z + src.max.z) / 2);
-    kit.add(o);
-  }
+  const k = Math.max(0.7, Math.min(1.3, H / 1.3));
+  // the head: the biggest solid piece near the top of the core (thin crests and antennas left out)
+  let head: THREE.Box3 | null = null;
+  for (const b of boxes) if (Math.abs(cx(b)) < 0.36 && b.max.y > C.max.y - H * 0.4 && (!head || vol(b) > vol(head))) head = b;
+  const hb = head ?? C;
   // the chest band of the core: a pack on its back
   const chest = new THREE.Box3();
   for (const b of boxes) {
@@ -452,32 +488,16 @@ export function attachParts(turret: THREE.Object3D, parts: Partial<Record<AddonS
     if (Math.abs(cx(b)) < 0.36 && cy > C.min.y + H * 0.2 && cy < C.min.y + H * 0.62) chest.union(b);
   }
   const band = chest.isEmpty() ? C : chest;
-  if (parts.back) {
-    const o = back(parts.back, pal);
-    o.scale.setScalar(k);
-    o.position.set(0, (band.min.y + band.max.y) / 2 + 0.05 * k, band.max.z - 0.02);
-    kit.add(o);
+  // a shoulder: the biggest piece out to the side at chest height, its top
+  let sh: THREE.Box3 | null = null;
+  for (const b of boxes) {
+    const cy = (b.min.y + b.max.y) / 2;
+    if (cx(b) < 0.3 || cx(b) > 1.0 || cy < band.min.y || cy > hb.min.y + 0.1) continue;
+    if (!sh || vol(b) > vol(sh)) sh = b;
   }
-  // shoulders: the outer top corners of the chest (the widest pieces at that height, short of the arms' ends)
-  if (parts.shoulder) {
-    let sx = 0;
-    let sy = band.max.y;
-    for (const b of boxes) {
-      const cy = (b.min.y + b.max.y) / 2;
-      if (cy < band.min.y || cy > C.min.y + H * 0.78 || Math.abs(cx(b)) > 0.85) continue;
-      const w = Math.max(Math.abs(b.min.x), Math.abs(b.max.x));
-      if (w > sx) {
-        sx = w;
-        sy = Math.max(sy, b.max.y);
-      }
-    }
-    sx = Math.max(sx, (band.max.x - band.min.x) / 2) * 0.9;
-    for (const s of [-1, 1]) {
-      const o = shoulder(parts.shoulder, pal);
-      o.scale.set(s * k, k, k);
-      o.position.set(s * sx, sy - 0.02 * k, (band.min.z + band.max.z) / 2);
-      kit.add(o);
-    }
-  }
-  turret.add(kit);
+  return {
+    hat: { p: [cx(hb), hb.max.y - 0.03, (hb.min.z + hb.max.z) / 2], s: k },
+    back: { p: [0, (band.min.y + band.max.y) / 2 + 0.05 * k, band.max.z - 0.02], s: k },
+    shoulder: sh ? { p: [cx(sh), sh.max.y - 0.02, (sh.min.z + sh.max.z) / 2], s: k * 0.9 } : { p: [(band.max.x - band.min.x) / 2, band.max.y, 0], s: k * 0.9 },
+  };
 }

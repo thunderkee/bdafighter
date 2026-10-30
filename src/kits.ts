@@ -1,4 +1,4 @@
-import type { AddonSlot, PartSpec } from './addons';
+import type { AddonSlot, Fit, PartSpec } from './addons';
 import type { CharacterDef } from './robot';
 
 /**
@@ -78,7 +78,7 @@ export const KITS: Record<string, Kit> = {
   // Nightshade: the hooded wisp
   nightshade: {
     hat: [P('hood', 'Shadow Hood', 'hood', 0x3e2a6a, 0xff6a9a), P('horns', 'Imp Horns', 'horns', 0x1f1c2a), P('halo', 'Dark Halo', 'halo', 0xff3a4a)],
-    back: [P('cape', 'Night Cloak', 'cape', 0x1f1c2a, 0xff6a9a), P('crystals', 'Soul Shards', 'crystals', 0xff6a9a, 0xb07aff), P('feathers', 'Raven Wings', 'feathers', 0x24222a, 0x3e2a6a)],
+    back: [P('moonring', 'Moon Ring', 'thrusters', 0xff6a9a, 0x1f1c2a), P('crystals', 'Soul Shards', 'crystals', 0xff6a9a, 0xb07aff), P('feathers', 'Raven Wings', 'feathers', 0x24222a, 0x3e2a6a)],
     shoulder: [P('orb', 'Wisp Orbs', 'orb', 0xff6a9a, 0x1f1c2a), P('flames', 'Ghost Fire', 'flames', 0xb07aff, 0xff6a9a), P('spikes', 'Bone Spikes', 'spikes', 0xf2ead8)],
     paint: [paint('moon', 'Moonlit', 0xb8c8e8, 0x2a3458, 0x8ae8ff, 0x1a2034, 0xffffff), paint('crimson', 'Crimson Shade', 0x6a1a2a, 0x1f1c2a, 0xffd84a, 0x140a10, 0xffd84a), paint('void', 'Void', 0x14121a, 0x3a3448, 0x5af0ff, 0x08080c, 0x5af0ff)],
   },
@@ -129,3 +129,26 @@ export const KITS: Record<string, Kit> = {
 const baseOf = (def: CharacterDef) => (def.base ?? def.id).replace(/-\d+$/, '');
 /** a fighter's own wardrobe (none for a fighter outside the roster) */
 export const kitOf = (def: CharacterDef): Kit | undefined => KITS[baseOf(def)];
+
+/**
+ * Where each fighter wears its parts, measured off its model: the top of its head, the middle
+ * of its back, the top of its right shoulder (mirrored for the left), and a size for each.
+ * In its upper body's space (the turret), except a four-legged hound's back and shoulders,
+ * which sit on its body (its head alone turns).
+ */
+export const FITS: Record<string, Fit> = {
+  angel: { hat: { p: [0, 1.15, -0.13], s: 1.05 }, back: { p: [0, 0.45, 0.6], s: 1.1 }, shoulder: { p: [0.72, 0.76, 0], s: 1 } },
+  dragon: { hat: { p: [0, 1.19, -0.12], s: 1.05 }, back: { p: [0, 0.5, 0.84], s: 1.1 }, shoulder: { p: [0.77, 0.79, 0], s: 1.05 } },
+  pioneer: { hat: { p: [0, 1.26, -0.03], s: 1 }, back: { p: [0, 0.5, 0.62], s: 1 }, shoulder: { p: [0.61, 0.7, 0], s: 0.9 } },
+  liberty: { hat: { p: [0, 1.16, -0.03], s: 1 }, back: { p: [0, 0.45, 0.88], s: 1.05 }, shoulder: { p: [0.77, 0.72, 0], s: 1 } },
+  monoceros: { hat: { p: [0, 0.97, -0.05], s: 1.3 }, back: { p: [0, 0.5, 0.62], s: 1.2 }, shoulder: { p: [0.84, 0.66, 0], s: 1.1 } },
+  baron: { hat: { p: [0, 1.14, 0.02], s: 0.9 }, back: { p: [0, 0.6, 0.45], s: 0.9 }, shoulder: { p: [0.8, 0.64, -0.13], s: 0.9 } },
+  bastion: { hat: { p: [0, 1.29, -0.35], s: 0.9 }, back: { p: [0, 0.5, 0.62], s: 1.05 }, shoulder: { p: [0.8, 0.77, 0], s: 1 } },
+  nightshade: { hat: { p: [0, 1.35, -0.01], s: 1 }, back: { p: [0, 0.55, 0.8], s: 1 }, shoulder: { p: [0.66, 0.78, 0], s: 0.95 } },
+  violet: { hat: { p: [0, 0.8, -0.02], s: 1.05 }, back: { p: [0, 0.45, 0.66], s: 1.3 }, shoulder: { p: [0.85, 0.66, 0], s: 1.2 } },
+  kabuto: { hat: { p: [0, 1.31, -0.14], s: 0.75 }, back: { p: [0, 0.45, 0.58], s: 0.95 }, shoulder: { p: [0.59, 0.69, 0], s: 0.9 } },
+  tyrant: { hat: { p: [0, 0.2, -0.1], s: 0.65 }, back: { p: [0, 0.92, 0.1], s: 0.75, body: true }, shoulder: { p: [0.27, 1.0, -0.3], s: 0.7, body: true } },
+  rex: { hat: { p: [0, 0.5, -1.08], s: 0.6 }, back: { p: [0, 0.46, 0.15], s: 0.7 }, shoulder: { p: [0.3, 0.36, -0.16], s: 0.7 } },
+  liger: { hat: { p: [0, 0.18, -0.14], s: 0.6 }, back: { p: [0, 0.92, 0.1], s: 0.75, body: true }, shoulder: { p: [0.27, 1.0, -0.3], s: 0.7, body: true } },
+  ember: { hat: { p: [0, 0.92, -0.04], s: 0.9 }, back: { p: [0, 0.4, 0.32], s: 0.8 }, shoulder: { p: [0.3, 0.45, 0], s: 0.7 } },
+};

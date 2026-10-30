@@ -8,6 +8,7 @@ import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
 import { TOSS_TIME, TWIN_X, type Special } from './config';
 import { attachParts, type AddonSlot, type PartSpec } from './addons';
+import { FITS } from './kits';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -778,8 +779,6 @@ export class ShooterMesh {
     this.id = def.id;
     this.ball = marbleColor;
     this.build(def, marbleColor);
-    // the customizer's add-ons, fitted to this fighter's upper body
-    if (def.gear) attachParts(this.turret, def.gear, def.palette);
     // a design with no legs flies: it bobs in the air like the floating units
     if (def.blueprint && !this.legs.length && !this.hoverLift && !this.treadPlates.length && !def.look21?.treads) this.hoverLift = 0.001;
     // a taller torso: the chest's own plates stretch, the parts on it (head, arms) just ride up
@@ -788,6 +787,8 @@ export class ShooterMesh {
       this.turret.scale.y *= chestH;
       for (const c of this.turret.children) if (!(c as THREE.Mesh).isMesh) c.scale.y /= chestH;
     }
+    // the customizer's add-ons, fitted to this fighter (after the torso's stretch, so they don't stretch with it)
+    if (def.gear) attachParts(this.turret, this.root, def.gear, def.palette, FITS[(def.base ?? def.id).replace(/-\d+$/, '')]);
     if (def.fit) {
       this.fit.set(...def.fit);
       this.root.scale.copy(this.fit);

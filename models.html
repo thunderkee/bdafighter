@@ -3,6 +3,8 @@
 <body><script type="module">
 import * as THREE from 'three';
 import { ShooterMesh, characterById } from '/src/robot.ts';
+import { skinned } from '/src/cosmetics.ts';
+import { KITS } from '/src/kits.ts';
 const q = new URLSearchParams(location.search);
 const ids = (q.get('ids') ?? 'angel,dragon,pioneer,liberty,monoceros,baron,bastion,nightshade,violet,kabuto,tyrant,rex,liger,ember').split(',');
 const view = q.get('view') ?? 'angle';
@@ -11,10 +13,13 @@ const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2a3550);
 scene.add(new THREE.HemisphereLight(0xdfe4ff, 0x2a1d4a, 1.6)); const sun = new THREE.DirectionalLight(0xffffff, 1.9); sun.position.set(-4, 12, -6); scene.add(sun);
 const cols = +(q.get('cols') ?? 7);
-ids.forEach((id, i) => { const d = characterById(id); const s = new ShooterMesh(id, d.ball, d); const c = i % cols, row = Math.floor(i / cols); s.root.position.set((c - (cols - 1) / 2) * 2.1, -row * 2.4, 0); scene.add(s.root); });
+// ?kit=N: each fighter in its own Nth set of parts
+const kitN = q.get('kit');
+const dressed = (id) => { const k = KITS[characterById(id).id.replace(/-\d+$/, '')]; return kitN === null || !k ? characterById(id) : skinned(id, { hat: k.hat[+kitN].id, back: k.back[+kitN].id, shoulder: k.shoulder[+kitN].id }); };
+ids.forEach((id, i) => { const d = dressed(id); const s = new ShooterMesh(id, d.ball, d); const c = i % cols, row = Math.floor(i / cols); s.root.position.set((c - (cols - 1) / 2) * 2.1, -row * 2.4, 0); scene.add(s.root); });
 const rows = Math.ceil(ids.length / cols);
 const w = cols * 2.1 * 1.02; const a = H / W;
-const hh = Math.max((w / 2) * a, rows * 1.25);
+const hh = Math.max((w / 2) * a, rows * 1.25) * +(q.get("zoom") ?? 1);
 const ww = hh / a;
 const cam = new THREE.OrthographicCamera(-ww, ww, hh, -hh, 0.1, 100);
 const d = { angle: [-0.7, 0.3, -1], front: [0, 0.1, -1], back: [0.2, 0.25, 1], side: [-1, 0.1, 0] }[view];
