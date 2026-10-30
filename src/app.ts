@@ -2372,6 +2372,13 @@ export function boot() {
           sfx.play('reload');
           if (S().vibrate) buzz([15, 30, 15]);
         }
+        // a spirit clash that one side came through: who won it, and how much is left
+        if (f.type === 'spirit-clash' && f.team !== undefined && f.at && !duo) {
+          const pct = Math.max(1, Math.round((f.left ?? 0) * 100));
+          floatText(f.at[0], f.at[1] + 0.8, `${pct}% LEFT`, f.team === 0 ? 'clash' : 'clash foe');
+          callout(f.team === 0 ? 'OVERPOWERED!' : 'OVERPOWERED BY THEM!', f.team === 0 ? 'gold' : 'red');
+          if (S().vibrate) buzz([30, 40, 50]);
+        } else if (f.type === 'spirit-clash' && !duo) callout('CLASH! EVEN', 'cyan');
         if (f.type === 'spirit-ready' && f.slot === 0) {
           showToast('B-DASPIRIT FULL // SPECIAL READY', 0xffc23d);
           sfx.play('charge');

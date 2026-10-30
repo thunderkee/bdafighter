@@ -690,14 +690,25 @@ export class View {
           break;
         }
         case 'spirit-clash': {
-          // two spirit shots meet: a flash, and both steel balls are thrown up off the table
+          // two spirit shots meet: a flash, and the broken steel ball is thrown up off the table
+          // (both, when they cancel)
           this.burst(f.x, f.y, 0xffffff, 80, 14, { h: 0.8 });
           this.burst(f.x, f.y, 0xffd84a, 50, 10, { h: 0.8 });
-          this.shake(1.3);
+          this.shake(f.team === undefined ? 1.3 : 1.8);
           const sp = this.project(f.x, f.y, 0.6);
           this.fx2d?.flash([255, 255, 255], 0.55);
           this.fx2d?.ring(sp.x, sp.y, hex(0xffffff), true);
-          for (const [x, y] of [f.a, f.b]) {
+          if (f.team !== undefined && f.at) {
+            // a trade: the one that came through blazes in its side's colour as it pushes on
+            const c = f.team === 0 ? COLORS.player : COLORS.enemy;
+            this.burst(f.at[0], f.at[1], c, 90, 16, { h: 0.8 });
+            this.burst(f.at[0], f.at[1], 0xffffff, 30, 8, { h: 0.8 });
+            const ws = this.project(f.at[0], f.at[1], 0.6);
+            this.fx2d?.ring(ws.x, ws.y, hex(c), true);
+            this.fx2d?.star(ws.x, ws.y, [255, 255, 255], true);
+            this.fx2d?.flash(f.team === 0 ? [255, 245, 200] : [255, 90, 80], 0.35);
+          }
+          for (const [x, y] of [f.a, f.b].filter((_, k) => f.broke[k])) {
             const mm = this.makeMissile(0);
             mm.root.scale.setScalar(2.6);
             mm.root.position.set(x, STEEL_R * 2.6, -y);

@@ -163,6 +163,8 @@ export interface Missile {
   recover: number;
   /** B-Daman mode: a spirit shot, a giant homing steel ball that lands once and hard */
   spirit?: boolean;
+  /** its weight when two spirit shots meet (a spread's balls weigh less than their damage) */
+  clash?: number;
   /** which move it belongs to, and its own tuning (sizes and multipliers of SPIRIT) */
   sk?: SpiritKind;
   size?: number;
@@ -255,7 +257,7 @@ export type Fx =
   | { type: 'box-broken'; x: number; y: number; team: Team }
   | { type: 'spirit-split'; x: number; y: number; team: Team }
   | { type: 'spirit-hit'; x: number; y: number; slot: number; shielded: boolean; power: number; sk: SpiritKind }
-  | { type: 'spirit-clash'; x: number; y: number; a: [number, number]; b: [number, number] }
+  | { type: 'spirit-clash'; x: number; y: number; a: [number, number]; b: [number, number]; broke: [boolean, boolean]; team?: Team; left?: number; at?: [number, number] }
   | { type: 'catch'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
   | { type: 'super-ready'; slot: number }
@@ -818,6 +820,10 @@ export class Game {
       default:
         shot();
     }
+    // in a clash a lone shot counts in full, each ball of a spread at 70%: one big special
+    // isn't worn away by a handful of small ones
+    const mine = this.missiles.filter((m) => m.spirit && m.owner === s.slot && m.clash === undefined);
+    for (const m of mine) m.clash = (m.dmg ?? 1) * (mine.length > 1 ? 0.7 : 1);
     s.kickT = 0;
     s.heavyT = 0;
     this.fx.push({ type: 'super-fire', slot: s.slot });
@@ -1429,9 +1435,10 @@ export class Game {
       if (m.flight !== undefined) m.h = Math.sin(Math.min(1, m.age / m.flight) * Math.PI) * 4.5;
       // a split ball breaks into three as it closes in
       if (m.sk === 'split' && m.size === 1.05 && Math.hypot(target.x - m.x, target.y - m.y) < 6.5) {
-        for (const off of [-0.55, 0.55]) this.missiles.push({ ...m, id: this.missileId++, heading: m.heading + off, size: 0.7, dmg: 0.42, recover: 0.2 });
+        for (const off of [-0.55, 0.55]) this.missiles.push({ ...m, id: this.missileId++, heading: m.heading + off, size: 0.7, dmg: 0.42, clash: 0.42 * 0.7, recover: 0.2 });
         m.size = 0.7;
         m.dmg = 0.42;
+        m.clash = 0.42 * 0.7;
         this.fx.push({ type: 'spirit-split', x: m.x, y: m.y, team: m.team });
         sfx.play('pop', 1.2);
       }
@@ -1442,18 +1449,30 @@ export class Game {
       if (m.spirit && !high(m)) {
         const o = this.missiles.find((q) => q !== m && q.spirit && !(q.delay! > 0) && !high(q) && q.team !== m.team && Math.hypot(q.x - m.x, q.y - m.y) < SPIRIT.clash * Math.max(0.6, ((m.size ?? 1) + (q.size ?? 1)) / 2));
         if (o) {
-          this.fx.push({ type: 'spirit-clash', x: (m.x + o.x) / 2, y: (m.y + o.y) / 2, a: [m.x, m.y], b: [o.x, o.y] });
-          this.hitstop = Math.max(this.hitstop, 0.2);
-          sfx.play('slam', 1);
-          const pm = m.dmg ?? 1;
-          const po = o.dmg ?? 1;
+          const pm = m.clash ?? m.dmg ?? 1;
+          const po = o.clash ?? o.dmg ?? 1;
           const left = Math.abs(pm - po);
           const win = left < 0.12 ? null : pm > po ? m : o;
           if (win) {
-            const was = win.dmg ?? 1;
-            win.dmg = left;
+            const was = win.clash ?? win.dmg ?? 1;
+            win.clash = left;
+            win.dmg = (win.dmg ?? 1) * (left / was);
             win.size = Math.max(0.45, (win.size ?? 1) * Math.sqrt(left / was));
           }
+          this.fx.push({
+            type: 'spirit-clash',
+            x: (m.x + o.x) / 2,
+            y: (m.y + o.y) / 2,
+            a: [m.x, m.y],
+            b: [o.x, o.y],
+            broke: [win !== m, win !== o],
+            team: win?.team,
+            left: win ? left / (win === m ? pm : po) : undefined,
+            at: win ? [win.x, win.y] : undefined,
+          });
+          // (a trade holds the moment a little longer, so you see who came through)
+          this.hitstop = Math.max(this.hitstop, win ? 0.3 : 0.2);
+          sfx.play('slam', 1);
           if (win !== o) this.missiles.splice(this.missiles.indexOf(o), 1);
           if (win !== m) {
             this.missiles.splice(this.missiles.indexOf(m), 1);

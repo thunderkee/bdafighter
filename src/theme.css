@@ -3250,6 +3250,19 @@ body.duo #enemy-tag {
   text-shadow: 0 2px 0 #001a2a;
   letter-spacing: 0.12em;
 }
+/* a spirit clash one side came through: how much of its shot is left */
+#dmg-layer .dmg.clash {
+  font-size: 20px;
+  color: #ffe066;
+  -webkit-text-stroke-color: #3a2200;
+  text-shadow: 0 3px 0 #3a2200;
+  letter-spacing: 0.08em;
+}
+#dmg-layer .dmg.clash.foe {
+  color: #ff7a8a;
+  -webkit-text-stroke-color: #3a0010;
+  text-shadow: 0 3px 0 #3a0010;
+}
 #settings .install-row.hidden {
   display: none;
 }
