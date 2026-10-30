@@ -690,6 +690,56 @@ export function playableId(id: string) {
 /** each fighter's own power-up pose for its B-Daman special (anyone else surges) */
 /** how a story line is said: its gesture (see talkPose) */
 export type TalkMood = 'say' | 'shout' | 'ask' | 'quiet';
+/**
+ * Each fighter's way of talking in a story scene: its pace (speech speed), stance (hunch, a
+ * lean: + back, - in; chin: + up), habit (a bounce, a side to side sway, a float, a head
+ * shake, an insect's head-cock), how big its gestures are, and its move when it shouts.
+ */
+interface TalkStyle {
+  pace: number;
+  hunch: number;
+  lean: number;
+  chin: number;
+  bounce: number;
+  sway: number;
+  float: number;
+  shake: number;
+  cock: number;
+  energy: number;
+  shout: 'arms' | 'sword' | 'stomp' | 'point' | 'beat' | 'snap' | 'spin' | 'pounce' | 'rise' | 'regal';
+}
+const TALK_PLAIN: TalkStyle = { pace: 1, hunch: 0, lean: 0, chin: 0, bounce: 0, sway: 0, float: 0, shake: 0, cock: 0, energy: 1, shout: 'arms' };
+const style = (o: Partial<TalkStyle>): TalkStyle => ({ ...TALK_PLAIN, ...o });
+const TALK: Record<string, TalkStyle> = {
+  // Seraph: calm and upright, measured; the sword goes up when it means it
+  angel: style({ pace: 0.85, chin: 0.05, energy: 0.7, shout: 'sword' }),
+  // Wyvern: heavy, a gruff pace; stomps twice and roars
+  dragon: style({ pace: 0.8, hunch: 0.08, energy: 1.1, shout: 'stomp' }),
+  // Pioneer: the marshal, brisk; a hand up like a stop sign
+  pioneer: style({ pace: 1.15, lean: -0.03, energy: 1, shout: 'point' }),
+  // Liberty: stands tall and barely moves; leans in, firm
+  liberty: style({ pace: 0.75, lean: 0.04, chin: 0.06, energy: 0.5 }),
+  // Mandrill: the genius ranting, arms everywhere, swaying, talking fast
+  monoceros: style({ pace: 1.35, sway: 0.8, energy: 1.5, shout: 'arms' }),
+  // Crimson Baron: the swaggering ace, a sway in its step and a twirl for a flourish
+  baron: style({ pace: 1.1, sway: 0.6, lean: 0.05, energy: 1.2, shout: 'spin' }),
+  // Bastion: the silent mantis; still, a cock of the head, scythes crossed when it shouts
+  bastion: style({ pace: 0.6, cock: 1, energy: 0.4, shout: 'beat' }),
+  // Nightshade: floats, slow and soft; rises up when it raises its voice
+  nightshade: style({ pace: 0.8, float: 1, sway: 0.3, energy: 0.6, shout: 'rise' }),
+  // Unit Violet: the hunched silverback; beats its chest
+  violet: style({ pace: 0.9, hunch: 0.15, lean: -0.05, energy: 1.2, shout: 'beat' }),
+  // Leo King: chin up, leaning back, royal; one grand gesture
+  kabuto: style({ pace: 0.85, lean: 0.07, chin: 0.12, energy: 0.8, shout: 'regal' }),
+  // Tyrant King: leans in, menacing and slow; lunges and snaps its jaws
+  tyrant: style({ pace: 0.7, lean: -0.08, hunch: 0.05, energy: 0.9, shout: 'snap' }),
+  // Rex Saur: the grumpy old timer, crouched, shaking its head; stomps
+  rex: style({ pace: 0.75, hunch: 0.12, shake: 0.7, energy: 0.9, shout: 'stomp' }),
+  // Fang Liger: prowls side to side, low; pounces
+  liger: style({ pace: 1, hunch: 0.15, sway: 1, energy: 1, shout: 'pounce' }),
+  // Blossom: the kid, bouncing on its toes, quick and excited; a happy spin
+  ember: style({ pace: 1.4, bounce: 1, energy: 1.4, shout: 'spin' }),
+};
 const POSES: Record<string, 'blade' | 'roar' | 'gunner' | 'sniper' | 'twins' | 'loop' | 'cross' | 'shadow' | 'pound' | 'royal' | 'hounds' | 'freeze' | 'pounce' | 'bloom'> = {
   angel: 'blade', dragon: 'roar', pioneer: 'gunner', liberty: 'sniper', monoceros: 'twins', baron: 'loop', bastion: 'cross',
   nightshade: 'shadow', violet: 'pound', kabuto: 'royal', tyrant: 'hounds', rex: 'freeze', liger: 'pounce', ember: 'bloom',
@@ -5380,13 +5430,16 @@ export class ShooterMesh {
   }
 
   /**
-   * A story scene: the robot talking (t: seconds into its line) or listening. Talking, its jaw
-   * (or its head, for one without a jaw) works in a syllable rhythm, with a gesture for the
-   * line: a shout throws its arms up with a hop and a lean in, a question tilts its head and
-   * opens its arms, a trailing-off line drops its head, and plain talk beats its hands as it
-   * goes. Listening, it breathes and now and then nods. Laid over sync's pose each frame.
+   * A story scene: the robot talking (t: seconds into its line) or listening, in its own style
+   * (see TALK): its pace, its stance, its habit (a bounce, a sway, a float, a head shake) and
+   * its move when it shouts. Talking, its jaw (or its head, for one without a jaw) works in a
+   * syllable rhythm, with a gesture for the line: a shout gets the fighter's own move, a
+   * question tilts its head and opens its arms, a trailing-off line drops its head, and plain
+   * talk beats its hands as it goes. Listening, it breathes, keeps its habit (quieter) and now
+   * and then nods. Laid over sync's pose each frame.
    */
   talkPose(t: number, mood: TalkMood, speaking: boolean, team: number) {
+    const st = TALK[this.id.replace(/-\d+$/, '')] ?? TALK_PLAIN;
     const ease = (u: number) => {
       const c = Math.max(0, Math.min(1, u));
       return c * c * (3 - 2 * c);
@@ -5394,62 +5447,121 @@ export class ShooterMesh {
     const span = (a: number, b: number) => ease((t - a) / (b - a));
     const bump = (a: number, b: number) => (t > a && t < b ? Math.sin(((t - a) / (b - a)) * Math.PI) : 0);
     const back = team === 0 ? 1 : -1;
-    // (everyone breathes)
-    let crouch = (Math.sin(t * 2.2) * 0.5 + 0.5) * 0.05;
-    let lift = 0;
-    let lean = 0;
+    // its stance and habit, quieter while it listens
+    const on = speaking ? 1 : 0.45;
+    let crouch = (Math.sin(t * 2.2) * 0.5 + 0.5) * 0.05 + st.hunch;
+    let lift = st.float * (0.5 + 0.5 * Math.sin(t * 1.8)) * 0.35 + st.bounce * Math.abs(Math.sin(t * 6)) * 0.12 * on;
+    let lean = st.lean;
     let tilt = 0;
-    let look = 0;
+    let look = st.chin;
     let up = 0;
     let wide = 0;
     let beat = 0;
+    let point = 0;
     let jaw = 0;
+    let sword = 0;
+    let lunge = 0;
+    let spin = 0;
+    const sway = st.sway * Math.sin(t * 2.6) * 0.25 * on;
+    const shake = st.shake * Math.sin(t * 7) * 0.12 * on;
     if (speaking) {
-      // syllables: quick open-close, in phrases
-      const say = Math.abs(Math.sin(t * 9.5)) * (0.55 + 0.45 * Math.sin(t * 2.3)) * (1 - span(3.2, 3.8) * 0.6);
+      // syllables: quick open-close, in phrases, at the fighter's own pace
+      const say = Math.abs(Math.sin(t * 9.5 * st.pace)) * (0.55 + 0.45 * Math.sin(t * 2.3 * st.pace)) * (1 - span(3.2, 3.8) * 0.6);
       jaw = say * 0.9;
-      look = say * (this.jaw ? 0.03 : 0.09);
+      look += say * (this.jaw ? 0.03 : 0.09);
       const into = span(0.05, 0.4);
+      const e = st.energy;
       switch (mood) {
         case 'shout':
-          up = into * (0.7 + Math.sin(t * 5) * 0.1);
-          lean = -into * 0.16;
-          lift = bump(0.05, 0.4) * 0.28;
-          crouch += bump(0.35, 0.6) * 0.3;
+          switch (st.shout) {
+            case 'sword':
+              sword = into * 1.4;
+              up = into * 0.3;
+              lean = st.lean - into * 0.08;
+              break;
+            case 'stomp':
+              lift += bump(0.05, 0.3) * 0.3 + bump(0.45, 0.7) * 0.3;
+              crouch += bump(0.28, 0.45) * 0.5 + bump(0.68, 0.85) * 0.5;
+              jaw = Math.max(jaw, into * 1.2);
+              wide = into * 0.5;
+              break;
+            case 'point':
+              point = into;
+              lean = st.lean - into * 0.12;
+              break;
+            case 'beat':
+              beat = Math.sin(t * 15) * into;
+              up = into * 0.35;
+              crouch += into * 0.15;
+              break;
+            case 'snap':
+              lunge = bump(0.05, 0.5) * 0.35;
+              lean = st.lean - bump(0.05, 0.5) * 0.25;
+              jaw = Math.max(jaw, bump(0.1, 0.45) * 1.3);
+              break;
+            case 'spin':
+              spin = span(0.05, 0.6);
+              lift += bump(0.05, 0.6) * 0.25;
+              wide = into * 0.6;
+              break;
+            case 'pounce':
+              crouch += bump(0, 0.35) * 0.6;
+              lunge = bump(0.3, 0.75) * 0.45;
+              lift += bump(0.3, 0.75) * 0.3;
+              break;
+            case 'rise':
+              lift += into * 0.45;
+              wide = into * 0.6;
+              break;
+            case 'regal':
+              up = into * 0.45;
+              wide = into * 0.6;
+              look += into * 0.12;
+              lean = st.lean + into * 0.06;
+              break;
+            default:
+              up = into * (0.7 + Math.sin(t * 5) * 0.1);
+              lean = st.lean - into * 0.16;
+              lift += bump(0.05, 0.4) * 0.28;
+              crouch += bump(0.35, 0.6) * 0.3;
+          }
           break;
         case 'ask':
-          tilt = into * 0.2;
-          wide = into * 0.5;
+          tilt = into * 0.2 * e;
+          wide = into * 0.5 * e;
           look += into * 0.12;
           break;
         case 'quiet':
           look -= into * 0.35;
           crouch += into * 0.25;
-          lean = into * 0.06;
+          lean = st.lean + into * 0.06;
           break;
         default:
-          beat = Math.sin(t * 3.4) * 0.35 * into;
-          wide = into * 0.15;
-          lean = -into * 0.05;
+          beat = Math.sin(t * 3.4 * st.pace) * 0.35 * into * e;
+          wide = into * 0.15 * e;
+          lean = st.lean - into * 0.05;
       }
     } else {
       // listening: a small nod every few seconds
-      look = Math.pow(Math.max(0, Math.sin(t * 1.4 + team)), 10) * 0.14;
+      look += Math.pow(Math.max(0, Math.sin(t * 1.4 + team)), 10) * 0.14;
     }
     this.root.position.y += lift - crouch * 0.08;
+    this.root.position.x += sway * back;
+    this.root.position.z += -back * lunge;
     this.root.rotation.x += back * (lean - crouch * 0.15);
+    this.root.rotation.y += shake + spin * Math.PI * 2;
     // (the head's tilt rides on the body's roll, which sync levels every frame)
-    this.root.rotation.z += tilt * back;
+    this.root.rotation.z += (tilt + st.cock * Math.sin(t * 0.9) * 0.12) * back;
     this.root.scale.y *= 1 - crouch * 0.12;
     this.turret.rotation.x += look * 0.3;
     const arm = (a: THREE.Object3D | null, side: number) => {
       if (!a) return;
-      a.rotation.x += 1.2 * up + beat * side * 0.7 + wide * 0.3;
+      a.rotation.x += 1.2 * up + beat * side * 0.7 + wide * 0.3 + (side === 1 ? point * 1.3 : 0);
     };
     arm(this.armR, 1);
     arm(this.armL, -1);
-    this.punchArms.forEach((a, i) => (a.rotation.x += up * 1.6 + beat * (i % 2 ? -1 : 1) * 0.8 + wide * 0.4));
-    if (this.slashArm) this.slashArm.rotation.x += up * 0.9 + Math.abs(beat) * 0.4;
+    this.punchArms.forEach((a, i) => (a.rotation.x += up * 1.6 + beat * (i % 2 ? -1 : 1) * 0.8 + wide * 0.4 + (i === 0 ? point * 1.6 : 0)));
+    if (this.slashArm) this.slashArm.rotation.x += sword * 0.9 + up * 0.9 + Math.abs(beat) * 0.4;
     const gape = Math.min(1, jaw) * (this.jawOpen || 0.6);
     if (this.jaw) this.jaw.rotation.x = this.rest.jaw + gape;
     if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + gape;
