@@ -124,7 +124,7 @@ export interface LooseBall {
 /** B-Daman mode: the table tilts to both ends, and the B-Daspirit gauge */
 export const BOX = { marbles: 8, half: 0.42, hp: 3, respawn: 3, broken: 7, ahead: 2.8 };
 /** the spirit shot: a big steel ball that homes in; a shield breaks under it (and still lets a sting through) */
-export const SPIRIT = { speed: 12, turn: 3.4, damage: 24, sting: 0.22, radius: 1.0, clash: 1.5, life: 6 };
+export const SPIRIT = { speed: 12, turn: 3.4, damage: 24, sting: 0.1, radius: 1.0, clash: 1.5, life: 6 };
 /**
  * Every fighter's spirit shot is its own move. A shot is one or more steel balls, each with its
  * own size, speed, homing, damage share and quirk (weaving, diving, splitting, ricocheting...).
@@ -147,7 +147,7 @@ export const SPIRIT_MOVES: Record<SpiritKind, { label: string; desc: string }> =
   frost: { label: 'Frost Ball', desc: 'Freezes the target, slowing it for a while' },
   quake: { label: 'Quake Ball', desc: 'A heavy ball whose shockwave stuns the target' },
 };
-export const BDA = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
+export const BDA = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 8, hurt: 4.5, parry: 12, catch: 4.5, pick: 1.5, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
 export interface Missile {
   id: number;
@@ -1474,7 +1474,7 @@ export class Game {
         const amount = SPIRIT.damage * power * (attacker.stats.damage / BASE_STATS.damage);
         const shielded = target.shieldUp;
         if (shielded) this.breakShield(target);
-        const dealt = shielded ? amount * (m.sk === 'rail' ? 0.6 : SPIRIT.sting) : amount;
+        const dealt = shielded ? amount * (m.sk === 'rail' ? 0.35 : SPIRIT.sting) : amount;
         target.flash = 0.4;
         target.stagger = Math.max(target.stagger, (shielded ? 0.4 : 0.9) * Math.min(1, 0.4 + power));
         this.hitstop = Math.max(this.hitstop, Math.min(0.22, 0.04 + power * 0.16));
