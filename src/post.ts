@@ -48,8 +48,8 @@ class InkPass extends Pass {
     this.quad = new FullScreenQuad(this.mat);
   }
   setSize(w: number, h: number) {
-    // (w and h are device pixels: a line about two and a half wide)
-    this.mat.uniforms.texel.value.set(2.5 / w, 2.5 / h);
+    // (w and h are device pixels: a line a little over three wide)
+    this.mat.uniforms.texel.value.set(3.3 / w, 3.3 / h);
   }
   render(renderer: THREE.WebGLRenderer, writeBuffer: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget) {
     const u = this.mat.uniforms;
