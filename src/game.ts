@@ -33,7 +33,7 @@ const SUPER = { radius: 2.2, mass: 40, speed: 1.15, damage: 4 };
  * `per` seconds one more ball leaves the magazine into the charge (up to `max`). Letting go
  * fires one ball that many times the size and power. You move at `moveMul` speed meanwhile.
  */
-export const CHARGE = { hold: 0.2, per: 0.2, max: 5, moveMul: 0.45 };
+export const CHARGE = { hold: 0.16, per: 0.16, max: 5, moveMul: 0.45 };
 /** 0..1: how far a shooter's charge has built (0 while not charging) */
 export const chargeLevel = (s: { chargeHold: number }) => (s.chargeHold < CHARGE.hold ? 0 : Math.min(1, (s.chargeHold - CHARGE.hold) / (CHARGE.per * CHARGE.max)));
 /** player + up to three opponents */
@@ -1941,7 +1941,7 @@ export class Game {
         s.chargeHold += adt;
         if (s.chargeHold >= CHARGE.hold) {
           s.burstQueue = 0;
-          // one ball per `per` seconds after the threshold: a 1.2 s hold stores 5
+          // one ball per `per` seconds after the threshold: a 0.96 s hold stores 5
           const want = Math.min(CHARGE.max, Math.floor((s.chargeHold - CHARGE.hold) / CHARGE.per + 1e-6));
           while (s.stored < want && s.ammo >= 1) {
             s.ammo -= 1;
