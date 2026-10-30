@@ -943,6 +943,7 @@ export function boot() {
   const startArcade = () => {
     // a fighter with a run of its own picks it back up
     if (runOf(saveData.settings.character)) return resumeRun();
+    bdaMode = true;
     runOwner = saveData.settings.character;
     const plan = rollPlan();
     arcade = { stage: 1, cleared: 0, cfg: plan[0], plan };
@@ -997,7 +998,8 @@ export function boot() {
     const r = runOf(id);
     if (!r) return;
     story = null;
-    bdaMode = false;
+    // (arcade plays by B-Daman rules too)
+    bdaMode = true;
     sfx.unlock();
     selectMode = 'arcade';
     duo = false;
@@ -1063,7 +1065,8 @@ export function boot() {
     if (!story) return;
     const c = pathOf(story.hero).chapters[story.ch];
     const diff = CHAPTER_DIFF[story.ch] ?? 'hard';
-    bdaMode = false;
+    // (story fights play by B-Daman rules)
+    bdaMode = true;
     story.cfg = { enemyCharacter: unitOfBase(c.foe), stage: c.arena, pack: 1, playerPack: 1, items: true, roundTime: 60, difficulty: diff, ...store.DIFFICULTY[diff] };
     arcade = null;
     duo = false;
@@ -1908,8 +1911,8 @@ export function boot() {
   const openSelect = (mode: 'versus' | 'arcade' | 'duo' | 'home') => {
     sfx.unlock();
     story = null;
-    // (a customised Versus match is B-Daman too)
-    bdaMode = mode === 'versus';
+    // (a customised Versus match is B-Daman too, and so is an arcade run)
+    bdaMode = mode === 'versus' || mode === 'arcade';
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
     const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && isBossUnit(id));
