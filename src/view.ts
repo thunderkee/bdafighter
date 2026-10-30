@@ -2268,16 +2268,17 @@ export class View {
       const f = s.forward;
       const r = this.modelScale(c.slot);
       if (c.t < 0.9) {
-        // 1: a low push-in on its face
-        const push = 1 - c.t * 0.35;
-        this.camGoal.set(s.x + 0.9 * r, 1.0 * r, -(s.y + f * 2.6 * r * push));
-        this.lookGoal.set(s.x, 0.95 * r, -s.y);
+        // 1: a slow push in from the front three-quarters, far enough out to frame the whole
+        // robot as it springs into its power-up pose
+        const push = 1 - c.t * 0.12;
+        this.camGoal.set(s.x + 2.2 * r, 1.5 * r, -(s.y + f * 4.6 * r * push));
+        this.lookGoal.set(s.x, 1.0 * r, -s.y);
       } else if (c.t < 1.9) {
-        // 2: a sweeping low orbit round it as it powers up
+        // 2: a wide, slow orbit round it as it powers up (the whole pose in shot, jumps and all)
         shot = 1;
-        const a = (c.t - 0.9) * 2.2 - 0.9;
-        this.camGoal.set(s.x + Math.sin(a) * 3.2 * r, 0.7 * r, -(s.y + f * Math.cos(a) * 3.2 * r));
-        this.lookGoal.set(s.x, 0.8 * r, -s.y);
+        const a = (c.t - 0.9) * 1.4 - 0.7;
+        this.camGoal.set(s.x + Math.sin(a) * 5.2 * r, 1.6 * r, -(s.y + f * Math.cos(a) * 5.2 * r));
+        this.lookGoal.set(s.x, 1.05 * r, -s.y);
       } else if (c.t >= 2.8) {
         // 4: the strike, in slow motion: close in front and to the side, so its move (a sword's
         // slash, a maw's blast, a punch) throws the steel ball out right past the camera
@@ -2291,14 +2292,15 @@ export class View {
       } else {
         // 3: over its shoulder, down the table to where the shot goes
         shot = 2;
-        this.camGoal.set(s.x - 1.6 * r, 2.4 * r, -(s.y - f * 4.2 * r));
-        this.lookGoal.set(s.x + 0.4, 0.6, -(s.y + f * 8));
+        // (looking only a little way ahead, so the robot and its pose stay in the middle of the shot)
+        this.camGoal.set(s.x - 1.5 * r, 2.5 * r, -(s.y - f * 5.0 * r));
+        this.lookGoal.set(s.x + 0.2 * r, 0.9 * r, -(s.y + f * 2.4 * r));
       }
       // (the camera lifts with the robot as it springs up into its power-up pose)
       if (c.t < 2.8) {
         const u = Math.max(0, Math.min(1, (c.t - 0.6) / 0.4)) * (1 - Math.max(0, Math.min(1, (c.t - 1.8) / 0.3)));
-        this.camGoal.y += u * 0.45 * r;
-        this.lookGoal.y += u * 0.5 * r;
+        this.camGoal.y += u * 0.6 * r;
+        this.lookGoal.y += u * 0.55 * r;
       }
     } else if (c.kind === 'intro') {
       if (c.t < 1.7) {

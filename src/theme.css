@@ -5280,7 +5280,8 @@ body.bdaman #pad .pad-fire.single {
   position: absolute;
   left: -10%;
   right: -10%;
-  top: 42%;
+  /* low on the screen, clear of the fighter's power-up pose above it */
+  bottom: 9%;
   height: 120px;
   display: flex;
   align-items: center;
