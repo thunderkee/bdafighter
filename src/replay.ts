@@ -155,6 +155,8 @@ export class ReplayGame {
   /** frame where the winner fired the round-ending shot (-1 if unknown, e.g. time-up) and who fired it */
   shotAt = -1;
   by = -1;
+  /** the round-ending marble or missile, for the camera to ride with */
+  focus: { marble?: number; missile?: number } | null = null;
   /** slots that were down before the round ended: hidden for the whole replay */
   private gone = new Set<number>();
   /** current frame and the KO frame, for the replay camera */
@@ -187,10 +189,12 @@ export class ReplayGame {
       while (j > 0 && j > ko - 300 && inFlight(j - 1)) j--;
       this.shotAt = j;
       this.by = src.by;
+      this.focus = { marble: src.marble, missile: src.missile };
     }
-    // from just before the winner's shot (or ~2.2 s before the KO) to ~0.4 s after it
+    // from just before the winner's shot (or ~2.2 s before the KO) to ~0.8 s after it, so
+    // the loser's fall plays out
     this.i = Math.max(0, this.shotAt >= 0 ? this.shotAt - 40 : ko - 132);
-    this.end = Math.min(rec.frames.length - 1, ko + 24);
+    this.end = Math.min(rec.frames.length - 1, ko + 50);
     this.koAt = ko;
     // robots already knocked out of a pack fight stay out of the replay entirely
     for (const sh of real.shooters) if (sh.active && sh.out) this.gone.add(sh.slot);

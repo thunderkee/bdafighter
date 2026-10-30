@@ -760,6 +760,7 @@ export function boot() {
     if (!recorder.frames.length) return endReplay(final, loser);
     flow = 'replay';
     flowT = 0;
+    strikeT = 0;
     finalRound = final;
     replayGame = new ReplayGame(recorder, game);
     view.resetMatch();
@@ -1231,6 +1232,9 @@ export function boot() {
   const sfxEl = $('special-fx');
   /** how long the spirit shot's cinematic runs before the shot leaves */
   const SPECIAL_CINE = 2.8;
+  /** then the strike itself: the shot leaves in slow motion, framed close on the robot's move */
+  const STRIKE = { time: 1.2, scale: 0.28 };
+  let strikeT = 0;
   const startSpecial = (slot: number) => {
     flow = 'special';
     flowT = 0;
@@ -1252,8 +1256,9 @@ export function boot() {
       flowT += dt;
       if (flowT >= SPECIAL_CINE) {
         sfxEl.classList.add('hidden');
-        view.cine = null;
+        // (the cinematic carries on into its strike shot while the game runs slow)
         flow = 'round';
+        strikeT = STRIKE.time;
         game.releaseSpecial();
         sfx.play('super');
         view.shake(0.7);
@@ -2012,6 +2017,7 @@ export function boot() {
     replayGame = null;
     view.game = game;
     view.cine = null;
+    strikeT = 0;
     controls(false);
     input.release();
     hud.classList.add('hidden');
@@ -2280,7 +2286,11 @@ export function boot() {
         game.hitstop -= dt;
       } else {
         // KO slow-mo, or the Slow-Mo item (the whole match at half speed)
-        const timeScale = game.phase === 'ko' ? 0.3 : game.slowT > 0 ? SLOWMO.world : 1;
+        const timeScale = strikeT > 0 ? STRIKE.scale : game.phase === 'ko' ? 0.3 : game.slowT > 0 ? SLOWMO.world : 1;
+        if (strikeT > 0) {
+          strikeT -= dt;
+          if (strikeT <= 0 && view.cine?.kind === 'special') view.cine = null;
+        }
         acc += dt;
         let steps = 0;
         while (acc >= STEP && steps < 5) {

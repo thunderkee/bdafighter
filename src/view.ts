@@ -1010,6 +1010,7 @@ export class View {
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
+    this.replayFall(dt);
     this.updateKo(dt);
     this.updateCharge(dt);
     this.updateRobotFx(dt);
@@ -1025,6 +1026,10 @@ export class View {
 
     // marbles + visual rolling
     const counts = [0, 0];
+    // replay: the deciding ball stays solid and every other marble fades back
+    const focus = this.cine?.kind === 'replay' ? (g as unknown as { focus?: { marble?: number } | null }).focus?.marble : undefined;
+    this.dimMarbles(focus !== undefined);
+    if (this.heroMarble) this.heroMarble.visible = false;
     let powerCount = 0;
     this.streaks.length = 0;
     const seen = new Set<number>();
@@ -1078,6 +1083,16 @@ export class View {
       this.tmpS.setScalar(m.radius);
       this.tmpM.compose(this.tmpV, q, this.tmpS);
       const mesh = this.marbleMesh[m.team];
+      if (m.idx === focus) {
+        const hero = this.heroFor(m.team);
+        hero.visible = true;
+        hero.position.copy(this.tmpV);
+        hero.quaternion.copy(q);
+        hero.scale.setScalar(m.radius * 1.15);
+        const sp = this.project(p.x, p.y, m.radius + h);
+        if (!this.leavingBarrel(m)) this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(p.x, p.y, m.radius) * 1.3, color: hex(this.teamBall[m.team]), trail: [] });
+        continue;
+      }
       mesh.setMatrixAt(counts[m.team]++, this.tmpM);
       // fast marbles get a ThorVG motion streak
       if (this.fxOn && speed > 11 && !this.leavingBarrel(m)) {
@@ -2114,6 +2129,85 @@ export class View {
     return k;
   }
 
+  private heroMarble: THREE.Mesh | null = null;
+  private heroTeam = -1;
+  /** a solid copy of a team's marble, for the replay's deciding ball */
+  private heroFor(team: number) {
+    if (this.heroMarble && this.heroTeam === team) return this.heroMarble;
+    if (this.heroMarble) {
+      this.scene.remove(this.heroMarble);
+      (this.heroMarble.material as THREE.Material).dispose();
+    }
+    const src = this.marbleMesh[team as 0 | 1];
+    const color = (src.material as THREE.MeshPhysicalMaterial).color;
+    const mat = new THREE.MeshPhysicalMaterial({ color, map: this.swirlTex, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.04, emissive: color.clone().multiplyScalar(0.35) });
+    this.heroMarble = new THREE.Mesh(src.geometry, mat);
+    this.heroMarble.renderOrder = 3;
+    this.heroTeam = team;
+    this.scene.add(this.heroMarble);
+    return this.heroMarble;
+  }
+  private dimmed = false;
+  /** fade every marble back (the replay's focus on its one deciding ball) or bring them back */
+  private dimMarbles(on: boolean) {
+    if (on === this.dimmed) return;
+    this.dimmed = on;
+    for (const mesh of this.marbleMesh) {
+      const mat = mesh.material as THREE.MeshPhysicalMaterial;
+      mat.transparent = on;
+      mat.opacity = on ? 0.22 : 1;
+      mat.depthWrite = !on;
+      mat.needsUpdate = true;
+    }
+    if (!on && this.heroMarble) this.heroMarble.visible = false;
+  }
+
+  /** the replay's deciding marble or missile, where it is on this frame */
+  private replayBall() {
+    if (this.cine?.kind !== 'replay') return null;
+    const f = (this.game as unknown as { focus?: { marble?: number; missile?: number } | null }).focus;
+    if (!f) return null;
+    if (f.marble !== undefined) {
+      const m = this.game.marbles.find((x) => x.idx === f.marble && x.active);
+      return m ? m.body.translation() : null;
+    }
+    const ms = this.game.missiles.find((x) => x.id === f.missile);
+    return ms ? { x: ms.x, y: ms.y } : null;
+  }
+
+  /** seconds since the replay's deciding hit landed (-1 before it) */
+  private fallT = -1;
+  /** Replay: the deciding hit knocks the loser off its feet, over backwards and flat on its back. */
+  private replayFall(dt: number) {
+    const c = this.cine;
+    const rg = this.game as unknown as { frame?: number; ko?: number };
+    if (c?.kind !== 'replay' || c.by === undefined || c.by < 0 || rg.ko === undefined || (rg.frame ?? 0) < rg.ko) {
+      this.fallT = -1;
+      return;
+    }
+    const was = Math.max(0, this.fallT);
+    this.fallT = was + dt;
+    const t = this.fallT;
+    const l = this.game.shooters[c.slot];
+    const sm = this.shooters[c.slot];
+    if (!sm || sm.broken) return;
+    const DROP = 0.55;
+    const p = Math.min(1, t / DROP);
+    // lifted and thrown back, then a small bounce as it lands flat
+    const a = t < DROP ? 1.5 * p * p : 1.5 - 0.16 * Math.abs(Math.sin((t - DROP) * 8)) * Math.exp(-(t - DROP) * 4);
+    const back = l.team === 0 ? 1 : -1;
+    sm.root.rotation.x = back * a;
+    sm.root.position.z += back * (1 - (1 - p) ** 2) * 1.2;
+    sm.root.position.y = Math.sin(p * Math.PI) * 0.45;
+    if (was < DROP && t >= DROP) {
+      const ly = l.y + (l.team === 0 ? -1.2 : 1.2);
+      this.burst(l.x, ly, 0xc8c2b8, 26, 5, { h: 0.2 });
+      this.burst(l.x, ly, 0xffd27a, 12, 7, { h: 0.5 });
+      this.shake(0.7);
+      sfx.play('slam');
+    }
+  }
+
   /** Scripted shots: orbit each fighter for the VS intro; a sweeping side cam for replays. */
   private cinematic(dt: number) {
     const c = this.cine!;
@@ -2124,6 +2218,8 @@ export class View {
     const e = { x: pack.reduce((a, s) => a + s.x, 0) / Math.max(1, pack.length), y: pack[0]?.y ?? ARENA.railY };
     const er = 3.4 * this.modelScale(pack[0]?.slot ?? 1) + (pack.length - 1) * 1.6;
     let shot = 0;
+    // how quickly the camera settles on its goal (a chase shot keeps up with the ball)
+    let follow = 4;
     if (c.kind === 'special') {
       // the spirit shot: a low close-up on the face of the robot calling it, pushing in, then a cut
       // to over its shoulder, looking down the table where the shot is about to go
@@ -2141,6 +2237,16 @@ export class View {
         const a = (c.t - 0.9) * 2.2 - 0.9;
         this.camGoal.set(s.x + Math.sin(a) * 3.2 * r, 0.7 * r, -(s.y + f * Math.cos(a) * 3.2 * r));
         this.lookGoal.set(s.x, 0.8 * r, -s.y);
+      } else if (c.t >= 2.8) {
+        // 4: the strike, in slow motion: close in front and to the side, so its move (a sword's
+        // slash, a maw's blast, a punch) throws the steel ball out right past the camera
+        shot = 3;
+        const u = Math.min(1, (c.t - 2.8) / 1.2);
+        // (from the side away from its ammo box, so the crate never fills the shot)
+        const box = (this.game as { boxes?: { x: number; team: number }[] }).boxes?.find((b) => b.team === s.team);
+        const side = box ? (box.x > s.x ? -1 : 1) : 1;
+        this.camGoal.set(s.x + side * (2.6 - u * 0.3) * r, (1.05 + u * 0.2) * r, -(s.y + f * (3.4 + u * 0.6) * r));
+        this.lookGoal.set(s.x + side * 0.3 * r, 0.95 * r, -(s.y + f * 1.1 * r));
       } else {
         // 3: over its shoulder, down the table to where the shot goes
         shot = 2;
@@ -2169,34 +2275,45 @@ export class View {
         this.lookGoal.set(0, 0, 0);
       }
     } else {
-      // replay: the loser's side, a camera beside and in front of the loser, sweeping slowly
       const l = this.game.shooters[c.slot];
       const rg = this.game as unknown as { frame?: number; shotAt?: number; ko?: number };
-      const winnerShot = c.by !== undefined && c.by >= 0 && (rg.shotAt ?? -1) >= 0;
-      const side = winnerShot ? 1 : Math.sin(c.t * 0.35) > 0 ? 1 : -1;
-      shot = side > 0 ? 0 : 1;
+      const frame = rg.frame ?? 0;
+      const ko = rg.ko ?? frame;
+      const shotAt = rg.shotAt ?? -1;
       const front = l.team === 0 ? -1 : 1;
-      this.camGoal.set(l.x + side * 5.5, 2.8 + Math.sin(c.t * 0.5) * 0.5, -l.y + front * (4.5 + Math.cos(c.t * 0.4) * 1.2));
-      this.lookGoal.set(l.x, 0.9, -l.y + front * 1.5);
-      if (winnerShot) {
-        // first the winner's finishing shot, over its shoulder, then ride the shot across
-        // to the loser so the impact lands on screen
-        const w = this.game.shooters[c.by!];
-        const dy = Math.sign(l.y - w.y) || 1;
-        this.tmpV.set(w.x + 1.5, 1.9, -(w.y - dy * 3.1));
-        const winLook = new THREE.Vector3(w.x * 0.7 + l.x * 0.3, 1.0, -(w.y + dy * 4.5));
-        const start = rg.shotAt! + 8;
-        const u = Math.max(0, Math.min(1, ((rg.frame ?? 0) - start) / Math.max(15, (rg.ko ?? start) - start)));
-        const e = u * u * (3 - 2 * u);
-        this.camGoal.lerpVectors(this.tmpV, this.camGoal.clone(), e);
-        this.lookGoal.lerpVectors(winLook, this.lookGoal.clone(), e);
+      const ball = this.replayBall();
+      if (c.by !== undefined && c.by >= 0 && shotAt >= 0 && frame < shotAt + 4) {
+        // 1: the winner's final move, from in front and to the side so its whole body is in the
+        // shot, easing in as it fires
+        const w = this.game.shooters[c.by];
+        const r = this.modelScale(c.by);
+        const u = Math.max(0, Math.min(1, (frame - (shotAt - 40)) / 44));
+        this.camGoal.set(w.x + (2.7 - u * 0.5) * r, (1.05 + u * 0.15) * r, -(w.y + w.forward * (3.7 - u * 0.7) * r));
+        this.lookGoal.set(w.x, 0.9 * r, -(w.y + w.forward * 0.4 * r));
+      } else if (ball && c.by !== undefined && c.by >= 0 && frame < ko + 2) {
+        // 2: ride with the deciding ball across the table, just behind and above it
+        shot = 1;
+        follow = 12;
+        const dy = Math.sign(l.y - ball.y) || 1;
+        this.camGoal.set(ball.x + 1.1, 1.3, -(ball.y - dy * 2.4));
+        this.lookGoal.set(ball.x * 0.6 + l.x * 0.4, 0.5, -(ball.y + dy * 3));
+      } else if (c.by !== undefined && c.by >= 0) {
+        // 3: the impact, side-on to the loser, so it's knocked over backwards across the frame
         shot = 2;
+        this.camGoal.set(l.x + 5.2, 2.1, -l.y + front * 3);
+        this.lookGoal.set(l.x, 0.6, -l.y - front * 1.5);
+      } else {
+        // no deciding shot (time up): beside and in front of the loser, sweeping slowly
+        const side = Math.sin(c.t * 0.35) > 0 ? 1 : -1;
+        shot = side > 0 ? 0 : 1;
+        this.camGoal.set(l.x + side * 5.5, 2.8 + Math.sin(c.t * 0.5) * 0.5, -l.y + front * (4.5 + Math.cos(c.t * 0.4) * 1.2));
+        this.lookGoal.set(l.x, 0.9, -l.y + front * 1.5);
       }
     }
     // hard cut between shots, smooth within one
     const cut = shot !== c.shot;
     c.shot = shot;
-    const k = cut ? 1 : 1 - Math.exp(-dt * 4);
+    const k = cut ? 1 : 1 - Math.exp(-dt * follow);
     this.camBase.lerp(this.camGoal, k);
     this.camLook.lerp(this.lookGoal, k);
   }
