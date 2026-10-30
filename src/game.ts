@@ -122,7 +122,7 @@ export interface LooseBall {
 }
 
 /** B-Daman mode: the table tilts to both ends, and the B-Daspirit gauge */
-export const BOX = { marbles: 8, half: 0.42, hp: 3, respawn: 3, broken: 7, ahead: 2.8 };
+export const BOX = { half: 0.42, hp: 3, respawn: 3, broken: 7, ahead: 2.8 };
 /** the spirit shot: a big steel ball that homes in; a shield breaks under it (and still lets a sting through) */
 export const SPIRIT = { speed: 12, turn: 3.4, damage: 24, sting: 0.1, radius: 1.0, clash: 1.5, life: 6 };
 /**
@@ -880,10 +880,10 @@ export class Game {
         }
       }
       if (!this.boxes.includes(box)) continue;
-      // slide into it with room in the magazine: it fills
+      // slide into it with room in the magazine: it fills right up
       for (const s of side) {
         if (s.ammo < s.stats.capacity && Math.abs(s.x - box.x) < BOX.half + 0.55 && box.age > 0.45) {
-          s.ammo = Math.min(s.stats.capacity, s.ammo + BOX.marbles);
+          s.ammo = s.stats.capacity;
           s.reload = 0;
           this.addSpirit(s, BDA.pick * 3);
           this.fx.push({ type: 'grab', x: box.x, y: box.y, slot: s.slot });
