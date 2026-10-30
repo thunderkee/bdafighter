@@ -1026,6 +1026,11 @@ export class View {
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
+    // a spirit shot's cinematic: the robot calling it strikes its power-up pose
+    if (this.cine?.kind === 'special' && this.cine.t < 2.8) {
+      const sm = this.shooters[this.cine.slot];
+      if (sm?.root.visible && !sm.broken) sm.specialPose(this.cine.t, g.shooters[this.cine.slot].team);
+    }
     this.replayFall(dt);
     this.updateKo(dt);
     this.updateCharge(dt);
@@ -2288,6 +2293,12 @@ export class View {
         shot = 2;
         this.camGoal.set(s.x - 1.6 * r, 2.4 * r, -(s.y - f * 4.2 * r));
         this.lookGoal.set(s.x + 0.4, 0.6, -(s.y + f * 8));
+      }
+      // (the camera lifts with the robot as it springs up into its power-up pose)
+      if (c.t < 2.8) {
+        const u = Math.max(0, Math.min(1, (c.t - 0.6) / 0.4)) * (1 - Math.max(0, Math.min(1, (c.t - 1.8) / 0.3)));
+        this.camGoal.y += u * 0.45 * r;
+        this.lookGoal.y += u * 0.5 * r;
       }
     } else if (c.kind === 'intro') {
       if (c.t < 1.7) {

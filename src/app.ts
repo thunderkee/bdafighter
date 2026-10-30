@@ -1521,6 +1521,13 @@ export function boot() {
     ['agility', 'Agility'],
   ];
   /** what a fighter is like, in two or three big badges (not a wall of pips) */
+  /** the fighter's B-Daman special: its move name, the kind of shot, what it does */
+  const specialCard = (id: string) => {
+    const base = baseOf(id);
+    const kind = SPIRIT_OF[base] ?? 'single';
+    const mv = SPIRIT_MOVES[kind];
+    return `<div class="sp-move"><span class="sp-tag">★ Special</span><b>${MOVE_NAMES[base] ?? 'SPIRIT SHOT'}</b><span class="sp-kind">${mv.label} · ${mv.desc}</span></div>`;
+  };
   const meters = (id: string) => {
     const t = characterById(id).traits;
     const v = (k: (typeof TRAITS)[number][0]) => Math.max(1, Math.min(5, Math.round(t?.[k] ?? 3)));
@@ -1540,7 +1547,7 @@ export function boot() {
     return `<div class="badges">${out
       .slice(0, 3)
       .map(([i, l]) => `<span class="badge"><i>${i}</i>${l}</span>`)
-      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load</p>`;
+      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load</p>${specialCard(id)}`;
   };
   const markSteps = () => {
     const order: Step[] = selectMode === 'arcade' || selectMode === 'home' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];

@@ -5183,6 +5183,54 @@ export class ShooterMesh {
     });
   }
 
+  /**
+   * The B-Daman spirit shot's power-up, played through its cinematic on top of the normal stance
+   * (t: seconds in): it crouches to gather itself, springs up off the floor and turns a full
+   * circle with its arms (or sword, or jaws, or wings) thrown up, glowing brighter, then lands
+   * wide and leans back into the wind-up it holds until the shot leaves.
+   */
+  specialPose(t: number, team: number) {
+    const ease = (u: number) => {
+      const c = Math.max(0, Math.min(1, u));
+      return c * c * (3 - 2 * c);
+    };
+    const span = (a: number, b: number) => ease((t - a) / (b - a));
+    const crouch = t < 0.75 ? span(0, 0.45) * (1 - span(0.5, 0.75)) : 0;
+    const rise = span(0.6, 1.0) * (1 - span(1.8, 2.1));
+    const spin = span(0.7, 1.75);
+    const power = span(0.55, 0.95) * (1 - span(2.0, 2.4));
+    const wind = span(1.95, 2.45);
+    const back = team === 0 ? 1 : -1;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 22);
+    this.root.position.y += rise * 0.55 - crouch * 0.08;
+    this.root.rotation.y += spin * Math.PI * 2;
+    // hunched into the crouch, then rocked back into the wind-up
+    this.root.rotation.x += back * (wind * 0.24 - crouch * 0.22);
+    this.root.scale.y *= 1 - crouch * 0.14 + rise * 0.04;
+    this.turret.rotation.x += power * 0.28 - crouch * 0.15;
+    // arms thrown up, a sword raised high, jaws wide in a roar, wings spread
+    if (this.armR) this.armR.rotation.x = 1.25 * power - 1.3 * (1 - this.raise.r) * (1 - power);
+    if (this.armL) this.armL.rotation.x = 1.25 * power - 1.3 * (1 - this.raise.l) * (1 - power);
+    this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) + power * 2.2 + wind * 0.6));
+    if (this.slashArm) {
+      this.slashArm.rotation.x = this.rest.slash + power * 0.9 + wind * 0.5;
+      this.slashArm.rotation.z = -0.25 - power * 0.3;
+    }
+    if (this.slashArmL) this.slashArmL.rotation.x = this.rest.slash + power * 0.9 + wind * 0.5;
+    if (this.jaw) this.jaw.rotation.x = this.rest.jaw + (this.jawOpen || 0.55) * power;
+    if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + (this.jawOpen || 0.55) * power;
+    this.wingR.rotation.y -= power * 0.5;
+    this.wingL.rotation.y += power * 0.5;
+    this.wingR.rotation.z += power * 0.35;
+    this.wingL.rotation.z -= power * 0.35;
+    // feet planted wide as it powers up
+    this.legs.forEach((l) => (l.rotation.z += (Math.sign(l.position.x) || 1) * power * 0.18));
+    // glowing in its ball colour, brighter and brighter, pulsing at the peak
+    const glow = Math.min(0.85, 0.15 + span(0, 2.4) * 0.5 + power * pulse * 0.25);
+    this.glowCol.setHex(this.ball);
+    for (const m of this.mats) m.emissive.setRGB(this.glowCol.r * glow, this.glowCol.g * glow, this.glowCol.b * glow);
+  }
+
   sync(s: Shooter, time: number, dt: number) {
     this.root.position.set(s.x, 0, -s.y);
     // the turret faces -z for the player and +z for the opponent
