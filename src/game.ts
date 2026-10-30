@@ -32,7 +32,7 @@ const SUPER = { radius: 2.2, mass: 40, speed: 1.15, damage: 4 };
  * `per` seconds one more ball leaves the magazine into the charge (up to `max`). Letting go
  * fires one ball that many times the size and power. You move at `moveMul` speed meanwhile.
  */
-export const CHARGE = { hold: 0.5, per: 0.5, max: 5, moveMul: 0.45 };
+export const CHARGE = { hold: 0.2, per: 0.2, max: 5, moveMul: 0.45 };
 /** 0..1: how far a shooter's charge has built (0 while not charging) */
 export const chargeLevel = (s: { chargeHold: number }) => (s.chargeHold < CHARGE.hold ? 0 : Math.min(1, (s.chargeHold - CHARGE.hold) / (CHARGE.per * CHARGE.max)));
 /** player + up to three opponents */
@@ -1435,7 +1435,9 @@ export class Game {
         this.fx.push({ type: 'spirit-split', x: m.x, y: m.y, team: m.team });
         sfx.play('pop', 1.2);
       }
-      // two spirit shots meet: they smash together and both fly up off the table (a dive is above it all)
+      // two spirit shots meet: they trade power. The weaker one smashes and flies off the table;
+      // the stronger loses that much, shrinks to match and keeps going (so one ball of a spread
+      // can't cancel a whole single shot). Near-equal ones both go. (A dive is above it all.)
       const high = (q: Missile) => (q.h ?? 0) > 1;
       if (m.spirit && !high(m)) {
         const o = this.missiles.find((q) => q !== m && q.spirit && !(q.delay! > 0) && !high(q) && q.team !== m.team && Math.hypot(q.x - m.x, q.y - m.y) < SPIRIT.clash * Math.max(0.6, ((m.size ?? 1) + (q.size ?? 1)) / 2));
@@ -1443,10 +1445,23 @@ export class Game {
           this.fx.push({ type: 'spirit-clash', x: (m.x + o.x) / 2, y: (m.y + o.y) / 2, a: [m.x, m.y], b: [o.x, o.y] });
           this.hitstop = Math.max(this.hitstop, 0.2);
           sfx.play('slam', 1);
-          this.missiles.splice(this.missiles.indexOf(o), 1);
-          this.missiles.splice(this.missiles.indexOf(m), 1);
-          i = Math.min(i, this.missiles.length);
-          continue;
+          const pm = m.dmg ?? 1;
+          const po = o.dmg ?? 1;
+          const left = Math.abs(pm - po);
+          const win = left < 0.12 ? null : pm > po ? m : o;
+          if (win) {
+            const was = win.dmg ?? 1;
+            win.dmg = left;
+            win.size = Math.max(0.45, (win.size ?? 1) * Math.sqrt(left / was));
+          }
+          if (win !== o) this.missiles.splice(this.missiles.indexOf(o), 1);
+          if (win !== m) {
+            this.missiles.splice(this.missiles.indexOf(m), 1);
+            i = Math.min(i, this.missiles.length);
+            continue;
+          }
+          // (m survives: o's removal may have shifted it down one)
+          i = this.missiles.indexOf(m);
         }
       }
       // bounce off the side walls and keep within the table ends
@@ -1861,7 +1876,7 @@ export class Game {
         s.chargeHold += adt;
         if (s.chargeHold >= CHARGE.hold) {
           s.burstQueue = 0;
-          // one ball per `per` seconds after the threshold: a 3 s hold stores 5
+          // one ball per `per` seconds after the threshold: a 1.2 s hold stores 5
           const want = Math.min(CHARGE.max, Math.floor((s.chargeHold - CHARGE.hold) / CHARGE.per + 1e-6));
           while (s.stored < want && s.ammo >= 1) {
             s.ammo -= 1;

@@ -97,26 +97,26 @@ export const MARBLE_OF: Record<string, MarbleType> = {
 };
 /**
  * Balance: a hidden damage scale per fighter (by base unit), tuned from bot-against-bot round
- * robins (every 2.2 pairing from both sides, 208 fights per fighter) so each wins about half its
- * fights (44-56%); the stat bars on the cards are unchanged.
+ * robins (every 2.2 pairing from both sides, 520 fights per fighter) so each wins about half its
+ * fights (44-56% classic, 47-52% in B-Daman mode); the stat bars on the cards are unchanged.
  * (A fighter whose trick costs it shots, like Pioneer's gun toss or Ember's sweeping head, hits
  * harder; one whose kit already stacks up, like Wyvern's wound-up heavy marbles, hits softer.)
  */
 export const BALANCE: Record<string, number> = {
-  pioneer: 1.75,
-  ember: 1.46,
-  nightshade: 1.42,
-  rex: 1.33,
-  angel: 1.22,
-  tyrant: 1.2,
-  violet: 1.16,
-  monoceros: 1.1,
-  bastion: 1.08,
-  kabuto: 1.02,
-  liberty: 0.94,
-  liger: 0.9,
-  baron: 0.88,
-  dragon: 0.63,
+  pioneer: 1.68,
+  ember: 1.66,
+  nightshade: 1.48,
+  rex: 1.45,
+  angel: 1.41,
+  bastion: 1.15,
+  monoceros: 1.13,
+  kabuto: 1.04,
+  liberty: 1.02,
+  tyrant: 1.02,
+  baron: 0.96,
+  liger: 0.95,
+  violet: 0.78,
+  dragon: 0.67,
 };
 /** signature magazines that break the type's rule: the Baron's drum */
 export const MAG_OF: Record<string, number> = { baron: 14 };

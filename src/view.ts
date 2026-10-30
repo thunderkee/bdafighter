@@ -929,8 +929,8 @@ export class View {
     const yours = !!you && you.alive && you.chargeHold >= CHARGE.hold && !this.cine;
     const lvl = yours ? chargeLevel(you) : 0;
     // dim as it builds, come back fast when it's released; only a touch, so even the darker
-    // arenas never go black (the lights stay at about 70% or more)
-    this.dim += ((yours ? 0.25 + lvl * 0.35 : 0) - this.dim) * Math.min(1, dt * (yours ? 5 : 9));
+    // arenas never go black (the lights stay at about 88% or more)
+    this.dim += ((yours ? 0.1 + lvl * 0.15 : 0) - this.dim) * Math.min(1, dt * (yours ? 5 : 9));
     this.hemi.intensity = this.lightBase[0] * (1 - 0.45 * this.dim);
     this.sun.intensity = this.lightBase[1] * (1 - 0.5 * this.dim);
     g.shooters.forEach((s, i) => {
