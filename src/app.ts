@@ -1056,7 +1056,9 @@ export function boot() {
     // on the table: the camera cuts to the speaker (the narrator gets the wide shot); someone who
     // isn't in this fight still shows as a face
     const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && baseOf(unitIds()[k]) === baseOf(id));
-    if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt, slot };
+    // (how it's said, from the line itself: a shout, a question, trailing off, or plain talk)
+    const mood = /!/.test(l.text) ? 'shout' : /\?\s*$/.test(l.text) ? 'ask' : /^…|…$|\.\.\.$/.test(l.text.trim()) ? 'quiet' : 'say';
+    if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt, slot, mood };
     const face = $('dlg-face');
     const showFace = !narr && (!dlgStaged || slot < 0);
     dlg.classList.toggle('offstage', dlgStaged && showFace);

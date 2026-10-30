@@ -4,7 +4,7 @@ import { CHARGE, MAX_SHOOTERS, chargeLevel, slotTeam, type Drop, type Game, type
 
 /** every robot slot: 0 you, 1-3 opponents, 4-5 your pack-mates */
 const SLOTS = Array.from({ length: MAX_SHOOTERS }, (_, i) => i);
-import { ShooterMesh, characterById, studioEnv, type CharacterDef } from './robot';
+import { ShooterMesh, characterById, studioEnv, type CharacterDef, type TalkMood } from './robot';
 import { Post } from './post';
 import { ballTexture } from './patterns';
 import { Stage } from './stage';
@@ -290,7 +290,7 @@ export class View {
   private pinMeshes: { root: THREE.Group; cap: THREE.MeshBasicMaterial }[] = [];
   private coverFlash: number[] = [];
   /** scripted camera: the VS intro or a replay */
-  cine: { kind: 'talk' | 'intro' | 'replay' | 'special'; t: number; shot: number; slot: number; by?: number } | null = null;
+  cine: { kind: 'talk' | 'intro' | 'replay' | 'special'; t: number; shot: number; slot: number; by?: number; mood?: TalkMood } | null = null;
   /** each side's marble colour, from its robot */
   /** what each slot's model was built in (your fighter's paint), to rebuild when it changes */
   private skinKey: string[] = [];
@@ -1036,6 +1036,14 @@ export class View {
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
+    // a story scene: the one speaking talks and gestures, the other listens
+    if (this.cine?.kind === 'talk') {
+      const c = this.cine;
+      g.shooters.forEach((s, i) => {
+        const sm = this.shooters[i];
+        if (i < 2 && sm?.root.visible && !sm.broken) sm.talkPose(i === c.slot ? c.t : this.time, c.mood ?? 'say', i === c.slot, s.team);
+      });
+    }
     // a spirit shot's cinematic: the robot calling it strikes its power-up pose
     if (this.cine?.kind === 'special' && this.cine.t < 2.8) {
       const sm = this.shooters[this.cine.slot];

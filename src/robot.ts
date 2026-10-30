@@ -688,6 +688,8 @@ export function playableId(id: string) {
 }
 
 /** each fighter's own power-up pose for its B-Daman special (anyone else surges) */
+/** how a story line is said: its gesture (see talkPose) */
+export type TalkMood = 'say' | 'shout' | 'ask' | 'quiet';
 const POSES: Record<string, 'blade' | 'roar' | 'gunner' | 'sniper' | 'twins' | 'loop' | 'cross' | 'shadow' | 'pound' | 'royal' | 'hounds' | 'freeze' | 'pounce' | 'bloom'> = {
   angel: 'blade', dragon: 'roar', pioneer: 'gunner', liberty: 'sniper', monoceros: 'twins', baron: 'loop', bastion: 'cross',
   nightshade: 'shadow', violet: 'pound', kabuto: 'royal', tyrant: 'hounds', rex: 'freeze', liger: 'pounce', ember: 'bloom',
@@ -5375,6 +5377,82 @@ export class ShooterMesh {
     const glow = Math.min(0.85, 0.15 + span(0, 2.4) * 0.5 + power * pulse * 0.25);
     this.glowCol.setHex(c.glow);
     for (const m of this.mats) m.emissive.setRGB(this.glowCol.r * glow, this.glowCol.g * glow, this.glowCol.b * glow);
+  }
+
+  /**
+   * A story scene: the robot talking (t: seconds into its line) or listening. Talking, its jaw
+   * (or its head, for one without a jaw) works in a syllable rhythm, with a gesture for the
+   * line: a shout throws its arms up with a hop and a lean in, a question tilts its head and
+   * opens its arms, a trailing-off line drops its head, and plain talk beats its hands as it
+   * goes. Listening, it breathes and now and then nods. Laid over sync's pose each frame.
+   */
+  talkPose(t: number, mood: TalkMood, speaking: boolean, team: number) {
+    const ease = (u: number) => {
+      const c = Math.max(0, Math.min(1, u));
+      return c * c * (3 - 2 * c);
+    };
+    const span = (a: number, b: number) => ease((t - a) / (b - a));
+    const bump = (a: number, b: number) => (t > a && t < b ? Math.sin(((t - a) / (b - a)) * Math.PI) : 0);
+    const back = team === 0 ? 1 : -1;
+    // (everyone breathes)
+    let crouch = (Math.sin(t * 2.2) * 0.5 + 0.5) * 0.05;
+    let lift = 0;
+    let lean = 0;
+    let tilt = 0;
+    let look = 0;
+    let up = 0;
+    let wide = 0;
+    let beat = 0;
+    let jaw = 0;
+    if (speaking) {
+      // syllables: quick open-close, in phrases
+      const say = Math.abs(Math.sin(t * 9.5)) * (0.55 + 0.45 * Math.sin(t * 2.3)) * (1 - span(3.2, 3.8) * 0.6);
+      jaw = say * 0.9;
+      look = say * (this.jaw ? 0.03 : 0.09);
+      const into = span(0.05, 0.4);
+      switch (mood) {
+        case 'shout':
+          up = into * (0.7 + Math.sin(t * 5) * 0.1);
+          lean = -into * 0.16;
+          lift = bump(0.05, 0.4) * 0.28;
+          crouch += bump(0.35, 0.6) * 0.3;
+          break;
+        case 'ask':
+          tilt = into * 0.2;
+          wide = into * 0.5;
+          look += into * 0.12;
+          break;
+        case 'quiet':
+          look -= into * 0.35;
+          crouch += into * 0.25;
+          lean = into * 0.06;
+          break;
+        default:
+          beat = Math.sin(t * 3.4) * 0.35 * into;
+          wide = into * 0.15;
+          lean = -into * 0.05;
+      }
+    } else {
+      // listening: a small nod every few seconds
+      look = Math.pow(Math.max(0, Math.sin(t * 1.4 + team)), 10) * 0.14;
+    }
+    this.root.position.y += lift - crouch * 0.08;
+    this.root.rotation.x += back * (lean - crouch * 0.15);
+    // (the head's tilt rides on the body's roll, which sync levels every frame)
+    this.root.rotation.z += tilt * back;
+    this.root.scale.y *= 1 - crouch * 0.12;
+    this.turret.rotation.x += look * 0.3;
+    const arm = (a: THREE.Object3D | null, side: number) => {
+      if (!a) return;
+      a.rotation.x += 1.2 * up + beat * side * 0.7 + wide * 0.3;
+    };
+    arm(this.armR, 1);
+    arm(this.armL, -1);
+    this.punchArms.forEach((a, i) => (a.rotation.x += up * 1.6 + beat * (i % 2 ? -1 : 1) * 0.8 + wide * 0.4));
+    if (this.slashArm) this.slashArm.rotation.x += up * 0.9 + Math.abs(beat) * 0.4;
+    const gape = Math.min(1, jaw) * (this.jawOpen || 0.6);
+    if (this.jaw) this.jaw.rotation.x = this.rest.jaw + gape;
+    if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + gape;
   }
 
   sync(s: Shooter, time: number, dt: number) {
