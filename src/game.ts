@@ -125,6 +125,28 @@ export interface LooseBall {
 export const BOX = { marbles: 8, half: 0.42, hp: 3, respawn: 3, broken: 7, ahead: 2.8 };
 /** the spirit shot: a big steel ball that homes in; a shield breaks under it (and still lets a sting through) */
 export const SPIRIT = { speed: 12, turn: 3.4, damage: 24, sting: 0.22, radius: 1.0, clash: 1.5, life: 6 };
+/**
+ * Every fighter's spirit shot is its own move. A shot is one or more steel balls, each with its
+ * own size, speed, homing, damage share and quirk (weaving, diving, splitting, ricocheting...).
+ */
+export type SpiritKind = 'single' | 'twin' | 'triple' | 'cross' | 'barrage' | 'chain' | 'giant' | 'rail' | 'zigzag' | 'dive' | 'split' | 'ricochet' | 'drain' | 'frost' | 'quake';
+export const SPIRIT_MOVES: Record<SpiritKind, { label: string; desc: string }> = {
+  single: { label: 'Steel Ball', desc: 'One heavy homing steel ball' },
+  twin: { label: 'Twin Ball', desc: 'Two steel balls side by side' },
+  triple: { label: 'Triple Ball', desc: 'Three steel balls in a fan' },
+  cross: { label: 'Cross Ball', desc: 'Two balls swing wide and cross onto the target' },
+  barrage: { label: 'Machine Gun', desc: 'A burst of ten small steel balls' },
+  chain: { label: 'Chain Ball', desc: 'Three balls, one after another' },
+  giant: { label: 'Giant Ball', desc: 'One huge slow ball that hits half as hard again' },
+  rail: { label: 'Rail Shot', desc: 'A straight, blinding-fast shot that pierces a shield' },
+  zigzag: { label: 'Zig Zag', desc: 'A ball that weaves side to side' },
+  dive: { label: 'Dive Ball', desc: 'Loops up high over everything and drops on the target' },
+  split: { label: 'Split Ball', desc: 'Splits into three just before it lands' },
+  ricochet: { label: 'Ricochet', desc: 'Bounces off a wall, then homes in' },
+  drain: { label: 'Heal Blast', desc: 'A blast that heals you by most of what it deals' },
+  frost: { label: 'Frost Ball', desc: 'Freezes the target, slowing it for a while' },
+  quake: { label: 'Quake Ball', desc: 'A heavy ball whose shockwave stuns the target' },
+};
 export const BDA = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 11, hurt: 6, parry: 16, catch: 6, pick: 2, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
 export interface Missile {
@@ -141,6 +163,19 @@ export interface Missile {
   recover: number;
   /** B-Daman mode: a spirit shot, a giant homing steel ball that lands once and hard */
   spirit?: boolean;
+  /** which move it belongs to, and its own tuning (sizes and multipliers of SPIRIT) */
+  sk?: SpiritKind;
+  size?: number;
+  dmg?: number;
+  speed?: number;
+  turn?: number;
+  /** held this long before it leaves (a burst's later balls) */
+  delay?: number;
+  /** a dive: its height above the table, and how long its loop lasts */
+  h?: number;
+  flight?: number;
+  /** a ricochet still waiting for its wall bounce */
+  bank?: boolean;
 }
 
 export interface Gate {
@@ -218,7 +253,8 @@ export type Fx =
   | { type: 'grab'; x: number; y: number; slot: number }
   | { type: 'box'; x: number; y: number; team: Team }
   | { type: 'box-broken'; x: number; y: number; team: Team }
-  | { type: 'spirit-hit'; x: number; y: number; slot: number; shielded: boolean }
+  | { type: 'spirit-split'; x: number; y: number; team: Team }
+  | { type: 'spirit-hit'; x: number; y: number; slot: number; shielded: boolean; power: number; sk: SpiritKind }
   | { type: 'spirit-clash'; x: number; y: number; a: [number, number]; b: [number, number] }
   | { type: 'catch'; x: number; y: number; slot: number }
   | { type: 'missile-end'; x: number; y: number; team: Team }
@@ -302,6 +338,10 @@ export class Shooter {
   dryT = 0;
   /** which way a spirit shot will bend (-1, 0, 1), set when it's called */
   specialDir = 0;
+  /** this fighter's own spirit shot */
+  spiritKind: SpiritKind = 'single';
+  /** frozen by a frost ball: moves slowly until this runs out */
+  chillT = 0;
   /** the next marble fired will be a super shot */
   superReady = false;
   /** seconds of knock-back stagger after taking a super hit */
@@ -412,6 +452,7 @@ export class Shooter {
     this.swapT = this.swapN = this.biteN = this.tripleN = 0;
     this.windLeft = 0;
     this.windT = 9;
+    this.chillT = 0;
     this.wobble = this.wobbleN = 0;
     this.lane = lane;
     this.x = (lane[0] + lane[1]) / 2;
@@ -714,7 +755,69 @@ export class Game {
     if (!s.alive) return;
     // a curve shot sets off wide the other way, then homes back in
     const d = s.dir(-p.dir * 0.6);
-    this.missiles.push({ id: this.missileId++, team: s.team, owner: s.slot, x: s.x, y: s.y + d.y * 1.2, heading: Math.atan2(d.y, d.x), hits: 0, age: 0, recover: 0.12, spirit: true });
+    const head = Math.atan2(d.y, d.x);
+    const shot = (o: Partial<Missile> = {}) =>
+      this.missiles.push({ id: this.missileId++, team: s.team, owner: s.slot, x: s.x, y: s.y + d.y * 1.2, heading: head, hits: 0, age: 0, recover: 0.12, spirit: true, sk: s.spiritKind, ...o });
+    const fan = (n: number, spread: number, o: Partial<Missile>) => {
+      for (let k = 0; k < n; k++) {
+        const off = (k - (n - 1) / 2) * spread;
+        shot({ ...o, heading: head + off, x: s.x + off * 1.2, recover: 0.25 });
+      }
+    };
+    switch (s.spiritKind) {
+      case 'twin':
+        fan(2, 0.45, { dmg: 0.62, size: 0.8 });
+        break;
+      case 'triple':
+        fan(3, 0.5, { dmg: 0.46, size: 0.72 });
+        break;
+      case 'cross':
+        // both swing out wide, coast, then turn back in and cross on the way
+        fan(2, 1.9, { dmg: 0.62, size: 0.8, turn: 1.3 });
+        this.missiles.slice(-2).forEach((m) => (m.recover = 0.5));
+        break;
+      case 'barrage':
+        for (let k = 0; k < 10; k++) shot({ dmg: 0.14, size: 0.42, speed: 1.5, turn: 1.4, delay: k * 0.09, heading: head + (Math.random() - 0.5) * 0.35 });
+        break;
+      case 'chain':
+        for (let k = 0; k < 3; k++) shot({ dmg: 0.42, size: 0.75, speed: 1.15, delay: k * 0.32 });
+        break;
+      case 'giant':
+        shot({ dmg: 1.5, size: 1.7, speed: 0.62, turn: 0.6 });
+        break;
+      case 'rail': {
+        // straight at where the target stands now, three times as fast, no homing
+        const t = this.targetFor(s);
+        shot({ dmg: 1.05, size: 0.65, speed: 3, turn: 0, heading: Math.atan2(t.y - s.y, t.x - s.x), recover: 0 });
+        break;
+      }
+      case 'zigzag':
+        shot({ dmg: 1.1, size: 0.9, speed: 0.9 });
+        break;
+      case 'dive': {
+        const t = this.targetFor(s);
+        shot({ dmg: 1.2, size: 0.95, speed: 0.8, turn: 2, h: 0, flight: Math.hypot(t.x - s.x, t.y - s.y) / (SPIRIT.speed * 0.8) });
+        break;
+      }
+      case 'split':
+        shot({ dmg: 1.2, size: 1.05 });
+        break;
+      case 'ricochet':
+        // off toward a side wall first, then home in once it has banked
+        shot({ dmg: 1.25, size: 0.9, speed: 1.2, heading: head + (p.dir || (s.x > 0 ? 1 : -1)) * (s.team === 0 ? 1 : -1) * 1.05, recover: 9, bank: true });
+        break;
+      case 'drain':
+        shot({ dmg: 0.9, size: 1 });
+        break;
+      case 'frost':
+        shot({ dmg: 0.8, size: 1 });
+        break;
+      case 'quake':
+        shot({ dmg: 1.15, size: 1.35, speed: 0.75 });
+        break;
+      default:
+        shot();
+    }
     s.kickT = 0;
     s.heavyT = 0;
     this.fx.push({ type: 'super-fire', slot: s.slot });
@@ -1295,6 +1398,17 @@ export class Game {
       if (!m) continue;
       const attacker = this.shooters[m.owner];
       const target = this.targetFor(attacker);
+      if (m.delay !== undefined && m.delay > 0) {
+        // a burst's later ball: it leaves the robot's muzzle (wherever it has moved to) when its turn comes
+        m.delay -= dt;
+        if (m.delay > 0) continue;
+        m.delay = 0;
+        const d = attacker.dir(0);
+        m.x = attacker.x;
+        m.y = attacker.y + d.y * 1.2;
+        attacker.kickT = 0;
+        sfx.play('fire', 1.4);
+      }
       m.age += dt;
       m.recover = Math.max(0, m.recover - dt);
       // steer toward the target with a capped turn rate
@@ -1303,15 +1417,28 @@ export class Game {
         let diff = want - m.heading;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
-        const turn = (m.spirit ? SPIRIT.turn : MISSILE.turnRate) * dt;
+        const turn = (m.spirit ? SPIRIT.turn * (m.turn ?? 1) : MISSILE.turnRate) * dt;
         m.heading += Math.max(-turn, Math.min(turn, diff));
       }
-      const sp = m.spirit ? SPIRIT.speed : MISSILE.speed;
-      m.x += Math.cos(m.heading) * sp * dt;
-      m.y += Math.sin(m.heading) * sp * dt;
-      // two spirit shots meet: they smash together and both fly up off the table
-      if (m.spirit) {
-        const o = this.missiles.find((q) => q !== m && q.spirit && q.team !== m.team && Math.hypot(q.x - m.x, q.y - m.y) < SPIRIT.clash);
+      const sp = m.spirit ? SPIRIT.speed * (m.speed ?? 1) : MISSILE.speed;
+      // a zig zag weaves across its own line as it homes
+      const weave = m.sk === 'zigzag' ? Math.sin(m.age * 9) * 1.05 : 0;
+      m.x += Math.cos(m.heading + weave) * sp * dt;
+      m.y += Math.sin(m.heading + weave) * sp * dt;
+      // a dive loops up high and comes down on the target
+      if (m.flight !== undefined) m.h = Math.sin(Math.min(1, m.age / m.flight) * Math.PI) * 4.5;
+      // a split ball breaks into three as it closes in
+      if (m.sk === 'split' && m.size === 1.05 && Math.hypot(target.x - m.x, target.y - m.y) < 6.5) {
+        for (const off of [-0.55, 0.55]) this.missiles.push({ ...m, id: this.missileId++, heading: m.heading + off, size: 0.7, dmg: 0.42, recover: 0.2 });
+        m.size = 0.7;
+        m.dmg = 0.42;
+        this.fx.push({ type: 'spirit-split', x: m.x, y: m.y, team: m.team });
+        sfx.play('pop', 1.2);
+      }
+      // two spirit shots meet: they smash together and both fly up off the table (a dive is above it all)
+      const high = (q: Missile) => (q.h ?? 0) > 1;
+      if (m.spirit && !high(m)) {
+        const o = this.missiles.find((q) => q !== m && q.spirit && !(q.delay! > 0) && !high(q) && q.team !== m.team && Math.hypot(q.x - m.x, q.y - m.y) < SPIRIT.clash * Math.max(0.6, ((m.size ?? 1) + (q.size ?? 1)) / 2));
         if (o) {
           this.fx.push({ type: 'spirit-clash', x: (m.x + o.x) / 2, y: (m.y + o.y) / 2, a: [m.x, m.y], b: [o.x, o.y] });
           this.hitstop = Math.max(this.hitstop, 0.2);
@@ -1327,22 +1454,42 @@ export class Game {
       if (Math.abs(m.x) > hw) {
         m.x = Math.sign(m.x) * hw;
         m.heading = Math.PI - m.heading;
+        // a ricochet has banked: now it homes in
+        if (m.bank) {
+          m.bank = false;
+          m.recover = 0.15;
+          sfx.play('wall', 1);
+        }
       }
       const hl = ARENA.length / 2 - 0.5;
       if (Math.abs(m.y) > hl) {
         m.y = Math.sign(m.y) * hl;
         m.heading = -m.heading;
       }
-      if (m.spirit && target.alive && m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < SPIRIT.radius + target.halfWidth * 0.5) {
+      const reach = SPIRIT.radius * Math.max(0.6, m.size ?? 1) + target.halfWidth * 0.5;
+      if (m.spirit && target.alive && (m.recover <= 0 || m.sk === 'rail') && !high(m) && (m.flight === undefined || m.age > m.flight * 0.7) && Math.hypot(target.x - m.x, target.y - m.y) < reach) {
         // the spirit shot lands once: through a shield it breaks it and still stings
-        const amount = SPIRIT.damage * (attacker.stats.damage / BASE_STATS.damage);
+        // (a rail shot pierces: more of it gets through)
+        const power = m.dmg ?? 1;
+        const amount = SPIRIT.damage * power * (attacker.stats.damage / BASE_STATS.damage);
         const shielded = target.shieldUp;
         if (shielded) this.breakShield(target);
-        const dealt = shielded ? amount * SPIRIT.sting : amount;
+        const dealt = shielded ? amount * (m.sk === 'rail' ? 0.6 : SPIRIT.sting) : amount;
         target.flash = 0.4;
-        target.stagger = Math.max(target.stagger, shielded ? 0.4 : 0.9);
-        this.hitstop = Math.max(this.hitstop, 0.22);
-        this.fx.push({ type: 'spirit-hit', x: m.x, y: m.y, slot: target.slot, shielded });
+        target.stagger = Math.max(target.stagger, (shielded ? 0.4 : 0.9) * Math.min(1, 0.4 + power));
+        this.hitstop = Math.max(this.hitstop, Math.min(0.22, 0.04 + power * 0.16));
+        if (m.sk === 'frost') target.chillT = 3.5;
+        if (m.sk === 'quake') {
+          // the shockwave: knocked off balance, it can't fire for a beat
+          target.stagger = Math.max(target.stagger, 1.4);
+          target.reload = Math.max(target.reload, 1.6);
+        }
+        if (m.sk === 'drain' && attacker.alive) {
+          const before = attacker.health;
+          attacker.health = Math.min(attacker.maxHealth, attacker.health + dealt * 0.8);
+          if (attacker.health > before) this.fx.push({ type: 'heal', slot: attacker.slot, amount: attacker.health - before });
+        }
+        this.fx.push({ type: 'spirit-hit', x: m.x, y: m.y, slot: target.slot, shielded, power, sk: m.sk ?? 'single' });
         this.fx.push({ type: 'hit', x: m.x, y: m.y, team: target.team, slot: target.slot, amount: dealt, power: 'super' });
         sfx.play('slam', 1);
         this.missiles.splice(i, 1);
@@ -1589,7 +1736,9 @@ export class Game {
     // the whole rail is open; pack-mates step forward to pass each other
     const lo = -ARENA.railHalfWidth;
     const hi = ARENA.railHalfWidth;
-    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
+    // (frozen by a frost ball: slow until it thaws)
+    s.chillT = Math.max(0, s.chillT - dt);
+    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1) * (s.chillT > 0 ? 0.4 : 1);
     const prevX = s.x;
     if (canAct || this.phase === 'countdown') {
       if (s.moveTarget !== null) {

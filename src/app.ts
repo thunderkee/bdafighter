@@ -1,7 +1,7 @@
 import { AI_PROFILES, ARENA, BALANCE, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
-import { CHARGE, Game, STEP, chargeLevel, slotTeam, type Shooter } from './game';
+import { CHARGE, Game, SPIRIT_MOVES, STEP, chargeLevel, slotTeam, type Shooter, type SpiritKind } from './game';
 import { View } from './view';
 import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
@@ -587,6 +587,9 @@ export function boot() {
       boss: boss() ? { slots: boss()!.units.map((_, k) => 1 + k), size: boss()!.size } : undefined,
     });
     game.loose.length = 0;
+    // every fighter brings its own spirit shot
+    const ids = unitIds();
+    game.shooters.forEach((sh, i) => (sh.spiritKind = SPIRIT_OF[baseOf(ids[i] ?? saveData.settings.character)] ?? 'single'));
     game.shooters.forEach((sh, i) => {
       if (sh.active && carry[i]) sh.item = carry[i];
     });
@@ -1213,6 +1216,11 @@ export function boot() {
     angel: 'ZERO EXCALIBUR', dragon: 'DINO FORCE CANNON', pioneer: 'SIREN BUSTER', liberty: 'DEEP DIVE RAIL', monoceros: 'GENIUS TWIN BLAST', baron: 'CRIMSON LOOP DIVE', bastion: 'SCYTHE CROSS',
     nightshade: 'ECLIPSE FALL', violet: 'SILVERBACK QUAKE', kabuto: 'ROYAL ROAR', tyrant: 'HELLHOUND CERBERUS', rex: 'FROST BITE', liger: 'FANG RICOCHET', ember: 'BLOSSOM BURST',
   };
+  /** each fighter's own spirit shot */
+  const SPIRIT_OF: Record<string, SpiritKind> = {
+    angel: 'triple', dragon: 'giant', pioneer: 'barrage', liberty: 'rail', monoceros: 'twin', baron: 'dive', bastion: 'cross',
+    nightshade: 'zigzag', violet: 'quake', kabuto: 'split', tyrant: 'chain', rex: 'frost', liger: 'ricochet', ember: 'drain',
+  };
   let specialTap = false;
   $('special-btn').addEventListener('pointerdown', (e) => {
     e.preventDefault();
@@ -1244,7 +1252,7 @@ export function boot() {
     view.cine = { kind: 'special', t: 0, shot: -1, slot };
     // the HUD and the controls step aside for the whole cinematic, strike shot included
     document.body.classList.add('cine-on');
-    $('sfx-who').textContent = `${characterById(id).name.toUpperCase()}${s.team === 0 ? '' : ' // CPU'}`;
+    $('sfx-who').textContent = `${characterById(id).name.toUpperCase()}${s.team === 0 ? '' : ' // CPU'} // ${SPIRIT_MOVES[s.spiritKind].label.toUpperCase()}`;
     $('sfx-name').textContent = (MOVE_NAMES[baseOf(id)] ?? 'SPIRIT SHOT') + '!';
     $('sfx-face').innerHTML = `<i data-portrait="${id}" data-crop="bust"></i>`;
     fillPortraits($('sfx-face'));

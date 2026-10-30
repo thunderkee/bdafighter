@@ -657,22 +657,36 @@ export class View {
       switch (f.type) {
         case 'spirit-hit': {
           // the spirit shot lands: a blast, two shockwave rings, a long shake
+          // (scaled by how big a share of the move this ball carries: a machine gun's pellet pops,
+          // a giant ball's landing shakes the room)
+          const k = Math.min(1.5, Math.max(0.2, f.power));
+          const col = f.sk === 'frost' ? 0x8ae8ff : f.sk === 'drain' ? 0x6aff9a : 0xffd84a;
           const sp = this.project(f.x, f.y, 0.6);
-          this.burst(f.x, f.y, 0xffd84a, 90, 15, { h: 0.8 });
-          this.burst(f.x, f.y, 0xff6a2a, 60, 11, { h: 0.6 });
-          this.burst(f.x, f.y, 0xffffff, 40, 9, { h: 1 });
-          for (const [life, size] of [[0.5, 4.5], [0.8, 8]] as const) {
+          this.burst(f.x, f.y, col, Math.round(90 * k), 15 * Math.sqrt(k), { h: 0.8 });
+          this.burst(f.x, f.y, f.sk === 'frost' ? 0xffffff : 0xff6a2a, Math.round(60 * k), 11 * Math.sqrt(k), { h: 0.6 });
+          this.burst(f.x, f.y, 0xffffff, Math.round(40 * k), 9, { h: 1 });
+          for (const [life, size] of (f.sk === 'quake' ? [[0.5, 5], [0.8, 9], [1.1, 13]] : [[0.5, 4.5], [0.8, 8]]) as [number, number][]) {
+            if (k < 0.3 && size > 5) continue;
             const fx = this.takeShotFx(true);
             fx.mesh.position.set(f.x, 0.06, -f.y);
-            fx.mat.color.setHex(f.shielded ? 0x8ae8ff : 0xffd84a);
+            fx.mat.color.setHex(f.shielded ? 0x8ae8ff : col);
             fx.t = 0;
             fx.life = life;
-            fx.size = size;
+            fx.size = size * Math.sqrt(k);
           }
-          this.shake(1.6);
-          this.fx2d?.ring(sp.x, sp.y, hex(0xffe066), true);
-          this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
-          this.fx2d?.flash([255, 236, 170], 0.5);
+          this.shake(1.6 * k);
+          this.fx2d?.ring(sp.x, sp.y, hex(col), k > 0.5);
+          if (k > 0.3) this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
+          if (k > 0.5) this.fx2d?.flash(f.sk === 'frost' ? [200, 240, 255] : f.sk === 'drain' ? [200, 255, 215] : [255, 236, 170], 0.5 * Math.min(1, k));
+          break;
+        }
+        case 'spirit-split': {
+          // a split ball breaks into three
+          this.burst(f.x, f.y, 0xffffff, 30, 8, { h: 0.8 });
+          this.burst(f.x, f.y, f.team === 0 ? 0xffd84a : 0xff5a5a, 24, 6, { h: 0.8 });
+          const sp = this.project(f.x, f.y, 0.8);
+          this.fx2d?.ring(sp.x, sp.y, hex(0xffffff));
+          this.shake(0.3);
           break;
         }
         case 'spirit-clash': {
@@ -1007,6 +1021,8 @@ export class View {
       sm.root.visible = s.active && !s.out;
       sm.size = s.size ?? 1;
       if (sm.root.visible && !sm.broken) sm.sync(s, this.time, dt * this.rate(i));
+      // frozen by a frost ball: ice glitters off it while it thaws
+      if (sm.root.visible && (s.chillT ?? 0) > 0 && Math.random() < 0.5) this.burst(s.x + (Math.random() - 0.5) * 1.4, s.y, Math.random() < 0.5 ? 0x8ae8ff : 0xffffff, 1, 1.2, { h: 0.3 + Math.random() * 1.4, float: true, size: 0.09 });
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
@@ -1807,25 +1823,35 @@ export class View {
         mm = this.makeMissile(m.team);
         this.missileMeshes.set(m.id, mm);
       }
-      // (a spirit shot is a giant glowing steel ball)
-      const big = (m as { spirit?: boolean }).spirit ? 2.6 : 1;
+      // (a spirit shot is a giant glowing steel ball, sized by its move; a burst's queued balls
+      // aren't out yet)
+      const queued = (m.delay ?? 0) > 0;
+      mm.root.visible = !queued;
+      if (queued) continue;
+      const big = m.spirit ? 2.6 * (m.size ?? 1) : 1;
+      const lift = m.h ?? 0;
       mm.root.scale.setScalar(big);
-      mm.root.position.set(m.x, STEEL_R * big, -m.y);
+      mm.root.position.set(m.x, STEEL_R * big + lift, -m.y);
+      // the move's colour: ice for frost, green for a heal blast, the team's otherwise
+      const tint = m.sk === 'frost' ? 0x8ae8ff : m.sk === 'drain' ? 0x6aff9a : m.sk === 'rail' ? 0xffffff : m.team === 0 ? 0xffd84a : 0xff5a5a;
       if (big > 1) {
-        this.burst(m.x - Math.cos(m.heading) * 0.6, m.y - Math.sin(m.heading) * 0.6, m.team === 0 ? 0xffd84a : 0xff5a5a, 3, 2.2, { h: 0.4, size: 0.12 });
-        if (Math.random() < 0.5) this.burst(m.x, m.y, 0xffffff, 1, 3, { h: 0.6, size: 0.08 });
+        const n = Math.max(1, Math.round(3 * (m.size ?? 1)));
+        this.burst(m.x - Math.cos(m.heading) * 0.6, m.y - Math.sin(m.heading) * 0.6, tint, n, 2.2, { h: 0.4 + lift, size: 0.12 * Math.min(1.4, m.size ?? 1) });
+        if (Math.random() < 0.5) this.burst(m.x, m.y, 0xffffff, 1, 3, { h: 0.6 + lift, size: 0.08 });
+        // a dive casts a shadow ring where it will land
+        if (lift > 0.3 && Math.random() < 0.4) this.burst(m.x, m.y, tint, 1, 0.3, { h: 0.05, size: 0.18 });
       }
       // rolls along its heading (-z in its own frame), and spins like a top on top of that
       mm.root.rotation.y = Math.atan2(-Math.cos(m.heading), Math.sin(m.heading));
       mm.ball.rotation.x -= (MISSILE.speed / STEEL_R) * dt;
       mm.ball.rotation.y += 14 * dt;
       if (Math.random() < 0.35) this.burst(m.x - Math.cos(m.heading) * 0.3, m.y - Math.sin(m.heading) * 0.3, 0xffd9a0, 1, 1.2, { h: 0.05, size: 0.05 });
-      const sp = this.project(m.x, m.y, STEEL_R);
+      const sp = this.project(m.x, m.y, STEEL_R * big + lift);
       const trail = this.missileTrails.get(m.id) ?? [];
       trail.unshift(sp);
       if (trail.length > 12) trail.length = 12;
       this.missileTrails.set(m.id, trail);
-      this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(m.x, m.y, 0.22 * big * (big > 1 ? 1.4 : 1)), color: big > 1 ? (m.team === 0 ? hex(0xffd84a) : hex(0xff5a5a)) : hex(ITEMS.missile.color), trail: trail.slice(1) });
+      this.glows.push({ x: sp.x, y: sp.y, r: this.screenRadius(m.x, m.y, 0.22 * big * (big > 1 ? 1.4 : 1)), color: m.spirit ? hex(tint) : hex(ITEMS.missile.color), trail: trail.slice(1) });
     }
     for (const [id, mm] of this.missileMeshes) {
       if (live.has(id)) continue;
