@@ -501,10 +501,16 @@ export function boot() {
     return `<em>LV ${L.lv}</em><i><b style="width:${pct}%"></b></i><small>${L.need ? `${L.into} / ${L.need} XP` : 'MAX'}</small>`;
   };
   // ---------- cosmetics: what each fighter has unlocked and has on ----------
-  const equipOf = (id: string): Equip => saveData.equip?.[id] ?? {};
+  /** a reward is yours at its level (or any time, with Unlock All on) */
+  const unlocked = (id: string, r: (typeof REWARDS)[number]) => !!saveData.unlockAll || levelOf(xpOf(id)).lv >= r.lv;
+  /** what a fighter has on: a reward put on with Unlock All, now locked again, comes off */
+  const equipOf = (id: string): Equip => {
+    const e = { ...(saveData.equip?.[id] ?? {}) };
+    for (const r of rewardsOf(id)) if (e[r.slot] === r.id && !unlocked(id, r)) delete e[r.slot];
+    return e;
+  };
   /** your fighter as it looks in its cosmetics */
   const mine = (id: string) => skinned(id, equipOf(id));
-  const unlocked = (id: string, r: (typeof REWARDS)[number]) => levelOf(xpOf(id)).lv >= r.lv;
   const setEquip = (id: string, slot: Slot, value: string | undefined) => {
     const e = { ...equipOf(id) };
     if (value) e[slot] = value;
@@ -514,7 +520,7 @@ export function boot() {
   /** the nameplate class for a fighter's name chip */
   const plateClass = (id: string) => (equipOf(id).plate ? `plate-${equipOf(id).plate}` : '');
   /** the next reward a fighter is working toward */
-  const nextReward = (id: string) => rewardsOf(id).find((r) => r.lv > levelOf(xpOf(id)).lv);
+  const nextReward = (id: string) => rewardsOf(id).find((r) => !unlocked(id, r));
   const showToast = (text: string, color: number) => {
     toast.textContent = text;
     toast.style.setProperty('--item', hexc(color));
@@ -1498,6 +1504,8 @@ export function boot() {
     b.addEventListener('click', () => {
       saveData = store.save({ unlockAll: b.dataset.value === 'true' });
       showUnlockAll();
+      // (the rewards open and close with it: the title's next-reward line and your fighter's look)
+      applySettings();
     }),
   );
   showUnlockAll();
