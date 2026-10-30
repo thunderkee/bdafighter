@@ -1557,7 +1557,6 @@ export function boot() {
 
   // ---------- select screens: fighter, rival, arena, then the match rules (like a fighting game) ----------
   const preview = new Preview($('preview'));
-  preview.turnable = false;
   preview.cel = true;
   // the arena step: the top of the screen takes the colour of the arena's sky
   preview.onSky = (css) => {
@@ -1841,13 +1840,14 @@ export function boot() {
   $('car-next').addEventListener('click', () => go(1));
   $('peek-prev').addEventListener('click', () => go(-1));
   $('peek-next').addEventListener('click', () => go(1));
-  // swipe the carousel left and right to flip through
+  // swipe the carousel left and right to flip through (a drag on the fighter itself turns it)
   {
     const car = $('carousel');
     let sx: number | null = null;
     let sy = 0;
     car.addEventListener('pointerdown', (e) => {
       if ((e.target as Element).closest('button, .car-info')) return;
+      if ((e.target as Element).closest('#preview') && !$('preview').classList.contains('stage')) return;
       sx = e.clientX;
       sy = e.clientY;
     });

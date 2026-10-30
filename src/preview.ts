@@ -58,6 +58,8 @@ export class Preview {
     // drag left and right to turn the unit (vertical drags still scroll the page)
     host.addEventListener('pointerdown', (e) => {
       if (this.mode !== 'unit' || !this.turnable) return;
+      // (the arrows and peeks laid over it still click)
+      if ((e.target as Element).closest('button')) return;
       this.dragX = e.clientX;
       host.setPointerCapture(e.pointerId);
       host.classList.add('turning');
