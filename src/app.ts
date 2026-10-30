@@ -1596,7 +1596,7 @@ export function boot() {
       .map((slot) => {
         const opts = rewardsOf(id).filter((r) => r.slot === slot);
         const pill = (v: string, label: string, ok: boolean, lv?: number) =>
-          `<button class="style-opt${(e[slot] ?? '') === v ? ' on' : ''}${ok ? '' : ' locked'}" data-slot="${slot}" data-v="${v}" ${ok ? '' : 'disabled'}>${ok ? label : `🔒 LV ${lv}`}</button>`;
+          `<button class="style-opt${(e[slot] ?? '') === v ? ' on' : ''}${ok ? '' : ' locked'}" data-slot="${slot}" data-v="${v}" ${ok ? '' : 'disabled'}>${ok ? label : `🔒 ${label} · LV ${lv}`}</button>`;
         return `<div class="style-row"><span>${SLOT_NAME[slot]}</span><div>${pill('', 'Standard', true)}${opts.map((r) => pill(r.id, r.name.replace(/ (paint|marbles|eyes|nameplate)$/i, ''), unlocked(id, r), r.lv)).join('')}</div></div>`;
       })
       .join('');

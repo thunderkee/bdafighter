@@ -2312,8 +2312,10 @@ export class Game {
           return;
         }
         if (this.block(s, amount, p.x, p.y, heavy)) {
+          // (B-Daman mode: a block still fills the gauge, but only the ammo box refills the magazine)
+          if (this.bdaman && !heavy) this.addSpirit(s, BDA.catch);
           // a regular marble that hits the shield is caught: one more in the magazine
-          if (!heavy && s.ammo < s.stats.capacity) {
+          if (!heavy && !this.bdaman && s.ammo < s.stats.capacity) {
             s.ammo = Math.min(s.stats.capacity, s.ammo + CATCH.ammo);
             this.fx.push({ type: 'catch', x: p.x, y: p.y, slot: s.slot });
             this.addSpirit(s, BDA.catch);
