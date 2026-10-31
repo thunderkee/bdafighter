@@ -5388,6 +5388,9 @@ export class ShooterMesh {
         c.up = hold(0.55, 0.95, 2.0, 2.4);
         c.look = c.up;
     }
+    // played big: every move pushed further (the turns stay whole turns, the timing stays)
+    const X = 1.4;
+    for (const k of ['lift', 'crouch', 'lean', 'sway', 'lunge', 'shiver', 'up', 'wide', 'cross', 'beat', 'sword', 'look'] as const) c[k] *= X;
     const power = Math.max(c.up, c.wide, c.cross, c.sword > 0 ? 1 : 0, Math.abs(c.beat), 0.4);
     const wind = span(1.95, 2.45);
     const back = team === 0 ? 1 : -1;
@@ -5420,7 +5423,7 @@ export class ShooterMesh {
       this.slashArm.rotation.z = -0.25 - power * 0.3;
     }
     if (this.slashArmL) this.slashArmL.rotation.x = this.rest.slash + power * 0.8 + wind * 0.5;
-    const gape = Math.min(1, c.jaw) * (this.jawOpen || 0.6);
+    const gape = Math.min(1, c.jaw) * (this.jawOpen || 0.6) * 1.3;
     if (this.jaw) this.jaw.rotation.x = this.rest.jaw + gape;
     if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + gape;
     this.wingR.rotation.y -= power * 0.5;
