@@ -5196,6 +5196,7 @@ export class ShooterMesh {
     this.rest.turretZ = this.turret.rotation.z;
     if (this.slashArm) this.rest.slash = this.slashArm.rotation.x;
     this.punchRest = this.punchArms.map((a) => a.rotation.x);
+    this.armRest = null;
   }
 
   private markBelly(parent: THREE.Object3D, x: number, y: number, z: number) {
@@ -5248,6 +5249,11 @@ export class ShooterMesh {
    * sky, a beast stomps and roars, the biplane loops, the gorilla beats its chest and slams down...
    * each ending leaning back into the wind-up it holds until the shot leaves.
    */
+  private armRest: THREE.Euler[] | null = null;
+  private posedArms() {
+    return [this.armR, this.armL, ...this.punchArms].filter((a): a is THREE.Object3D => !!a);
+  }
+
   specialPose(t: number, team: number) {
     const ease = (u: number) => {
       const c = Math.max(0, Math.min(1, u));
@@ -5573,6 +5579,10 @@ export class ShooterMesh {
     this.root.rotation.y = s.team === 0 ? 0 : Math.PI;
     // (level again: a special's pose adds a barrel roll on top each frame, which must not stay)
     this.root.rotation.z = 0;
+    // the arms back at rest too: the special and story poses add to them each frame, and
+    // whatever they leave must not stay once the scene is over
+    if (!this.armRest) this.armRest = this.posedArms().map((a) => a.rotation.clone());
+    this.posedArms().forEach((a, i) => a.rotation.copy(this.armRest![i]));
     this.turret.rotation.y = this.rest.turretY + (s.team === 0 ? -s.aim : s.aim);
     // defence: braced behind the shield (crouched, hunched forward, both guards up)
     this.guard += ((s.shieldUp ? 1 : 0) - this.guard) * Math.min(1, dt * 12);
