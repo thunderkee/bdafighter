@@ -743,7 +743,7 @@ export function boot() {
     introStep.fill(false);
     hud.classList.add('hidden');
     introEl.classList.remove('hidden');
-    introEl.querySelectorAll('.in').forEach((el) => el.classList.remove('in'));
+    introEl.querySelectorAll('.in').forEach((el) => el.classList.remove('in', 'out', 'vs'));
     controls(false);
     view.cine = { kind: 'intro', t: 0, shot: -1, slot: 0 };
   };
@@ -1342,6 +1342,10 @@ export function boot() {
         if (!introStep[k] && flowT >= t) {
           introStep[k] = true;
           cards[k].classList.add('in');
+          // your card sits at the top over your fighter's shot (clear of the robot), steps
+          // aside for the challenger's, and comes back below it for the VS
+          if (k === 1) cards[0].classList.add('out');
+          if (k === 2) cards[0].classList.replace('out', 'vs');
           sfx.play(k === 2 ? 'slam' : 'whoosh');
           if (k === 2) view.shake(0.4);
         }

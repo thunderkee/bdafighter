@@ -1262,7 +1262,7 @@ body.buttons #effects {
   opacity: 0;
 }
 .intro-card.p1 {
-  bottom: 18%;
+  top: 14%;
   align-items: flex-start;
   background: linear-gradient(90deg, rgba(10, 80, 140, 0.85), transparent);
   border-left: 4px solid var(--cyan);
@@ -1294,6 +1294,23 @@ body.buttons #effects {
 }
 .intro-card.in.p1 {
   animation: slide-l 0.45s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+}
+.intro-card.in.p1.out {
+  animation: slide-out-l 0.3s ease-in forwards;
+}
+.intro-card.in.p1.vs {
+  top: 58%;
+  animation: slide-l 0.45s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+}
+@keyframes slide-out-l {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
 }
 .intro-card.in.p2 {
   animation: slide-r 0.45s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;

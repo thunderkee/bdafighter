@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leo King Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;800&family=Fragment+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f3efe6; --card: #fffdf8; --ink: #1f1c2a; --muted: #6b6475; --line: #e2dccf; --grid: #ece6d8;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #16141c; --card: #1f1c27; --ink: #f2ede4; --muted: #a29bb0; --line: #332f3d; --grid: #26232f; }
+}
+:root[data-theme="dark"] { --bg: #16141c; --card: #1f1c27; --ink: #f2ede4; --muted: #a29bb0; --line: #332f3d; --grid: #26232f; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 'DM Sans', system-ui, sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 40px 16px 80px; }
+header h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -0.02em; }
+header p { color: var(--muted); margin: 0 0 8px; max-width: 760px; }
+.now { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+.now b { color: var(--ink); }
+.sheet { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin: 0 0 28px; overflow: hidden; }
+.head { display: flex; align-items: baseline; gap: 14px; padding: 18px 24px 0; flex-wrap: wrap; }
+.num { font: 600 13px 'Fragment Mono', monospace; color: var(--muted); }
+.head h2 { margin: 0; font-size: 24px; letter-spacing: -0.01em; }
+.head .tag { color: var(--muted); }
+.views { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 0; padding: 8px 12px 0; }
+.view { position: relative; }
+.view svg { width: 100%; height: auto; display: block; }
+.view span { position: absolute; left: 12px; bottom: 6px; font: 12px 'Fragment Mono', monospace; color: var(--muted); }
+.info { display: grid; grid-template-columns: 220px 1fr 1fr; gap: 24px; padding: 16px 24px 22px; border-top: 1px solid var(--line); }
+.info h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.info ul { margin: 0; padding-left: 18px; }
+.info li { margin: 2px 0; }
+.chips { display: flex; flex-direction: column; gap: 6px; }
+.chip { display: flex; align-items: center; gap: 8px; font: 12px 'Fragment Mono', monospace; }
+.chip i { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #1f1c2a; flex: none; }
+.chip em { font-style: normal; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px; }
+.grid-bg { fill: var(--grid); }
+@media (max-width: 760px) {
+  .views { grid-template-columns: 1fr 1fr; }
+  .views .view:first-child { grid-column: 1 / -1; }
+  .info { grid-template-columns: 1fr; gap: 14px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Leo King: five royal directions</h1>
+    <p>Concept sheets for redesigning Leo King to read as a king at a glance. Each keeps its role: fist cannons that fire alternately, the "royal" special pose, chin up and leaning back. Pick one, or mix parts, and it goes to 3D.</p>
+  </header>
+  <div class="now"><b>Today:</b> red lion head, gold shoulders, fist cannons and a cape, but no crown or royal regalia, so it reads as a warrior more than a king.</div>
+  <div id="sheets"></div>
+</main>
+<script>
+const O = '#1f1c2a';
+const S = `stroke="${O}" stroke-width="3" stroke-linejoin="round"`;
+const r = (x, y, w, h, f, rx = 3, extra = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${f}" ${S} ${extra}/>`;
+const pth = (d, f) => `<path d="${d}" fill="${f}" ${S}/>`;
+const circ = (cx, cy, rr, f) => `<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${f}" ${S}/>`;
+const shine = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#fff" opacity=".35"/>`;
+const mirror = (g) => `<g transform="translate(240 0) scale(-1 1)">${g}</g>`;
+const both = (g) => g + mirror(g);
+
+/* ---------- crowns (centred on x=120, base at y) ---------- */
+const crowns = {
+  classic: (p, y) => `
+    ${pth(`M92 ${y} L92 ${y - 26} L104 ${y - 14} L112 ${y - 32} L120 ${y - 16} L128 ${y - 32} L136 ${y - 14} L148 ${y - 26} L148 ${y} Z`, p.trim)}
+    ${r(90, y - 6, 60, 10, p.trim, 2)}
+    ${circ(112, y - 32, 4, p.gem)}${circ(128, y - 32, 4, p.gem)}${circ(92, y - 26, 3.5, p.gem2)}${circ(148, y - 26, 3.5, p.gem2)}
+    ${circ(120, y - 1, 4, p.gem)}${circ(104, y - 1, 3, p.gem2)}${circ(136, y - 1, 3, p.gem2)}`,
+  circlet: (p, y) => `
+    ${r(96, y - 8, 48, 9, p.trim, 3)}
+    ${pth(`M112 ${y - 8} L120 ${y - 24} L128 ${y - 8} Z`, p.trim)}${circ(120, y - 13, 4, p.gem)}`,
+  helm: (p, y) => `
+    ${pth(`M90 ${y + 2} L90 ${y - 18} L98 ${y - 24} L106 ${y - 16} L114 ${y - 30} L120 ${y - 20} L126 ${y - 30} L134 ${y - 16} L142 ${y - 24} L150 ${y - 18} L150 ${y + 2} Z`, p.trim)}
+    ${pth(`M86 ${y - 10} L70 ${y - 34} L80 ${y - 32} L94 ${y - 14} Z`, p.accent)}${pth(`M154 ${y - 10} L170 ${y - 34} L160 ${y - 32} L146 ${y - 14} Z`, p.accent)}
+    ${r(88, y - 6, 64, 10, p.trim2, 2)}${circ(120, y - 1, 4.5, p.gem)}`,
+  imperial: (p, y) => `
+    ${r(92, y - 22, 56, 22, p.velvet, 4)}
+    ${pth(`M94 ${y - 4} Q94 ${y - 44} 120 ${y - 46} Q146 ${y - 44} 146 ${y - 4}`, 'none')}
+    ${pth(`M120 ${y - 4} L120 ${y - 46}`, 'none')}
+    ${pth(`M108 ${y - 4} Q106 ${y - 40} 120 ${y - 46}`, 'none')}${pth(`M132 ${y - 4} Q134 ${y - 40} 120 ${y - 46}`, 'none')}
+    <path d="M94 ${y - 4} Q94 ${y - 44} 120 ${y - 46} Q146 ${y - 44} 146 ${y - 4}" fill="none" stroke="${p.trim}" stroke-width="5"/>
+    <path d="M120 ${y - 4} L120 ${y - 46} M108 ${y - 4} Q106 ${y - 40} 120 ${y - 46} M132 ${y - 4} Q134 ${y - 40} 120 ${y - 46}" fill="none" stroke="${p.trim}" stroke-width="4"/>
+    ${circ(120, y - 52, 6, p.trim)}${circ(120, y - 52, 3, p.gem)}
+    ${r(88, y - 8, 64, 12, p.trim, 2)}${circ(104, y - 2, 3, p.gem2)}${circ(120, y - 2, 4, p.gem)}${circ(136, y - 2, 3, p.gem2)}
+    ${both(`<circle cx="94" cy="${y - 2}" r="1.6" fill="#fff"/>`)}`,
+};
+
+/* ---------- manes ---------- */
+const manes = {
+  block: (p) => `${r(84, 56, 72, 68, p.mane, 10)}${both(pth('M84 74 L74 82 L84 90 L74 98 L84 106 Z', p.mane))}${pth('M100 124 L120 136 L140 124 Z', p.mane)}`,
+  sun: (p) => {
+    let g = '';
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * Math.PI * 2 - Math.PI / 2;
+      const x1 = 120 + Math.cos(a - 0.17) * 34, y1 = 90 + Math.sin(a - 0.17) * 34;
+      const x2 = 120 + Math.cos(a) * 58, y2 = 90 + Math.sin(a) * 58;
+      const x3 = 120 + Math.cos(a + 0.17) * 34, y3 = 90 + Math.sin(a + 0.17) * 34;
+      g += pth(`M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)} L${x3.toFixed(1)} ${y3.toFixed(1)} Z`, k % 2 ? p.trim : p.mane);
+    }
+    return g + circ(120, 90, 38, p.mane);
+  },
+  fur: (p) => `${pth('M80 70 L88 52 L100 60 L110 46 L120 58 L130 46 L140 60 L152 52 L160 70 L166 92 L156 112 L150 128 L132 124 L120 136 L108 124 L90 128 L84 112 L74 92 Z', p.mane)}
+    ${pth('M86 84 L78 92 L88 98 Z', p.mane2)}${pth('M154 84 L162 92 L152 98 Z', p.mane2)}`,
+  elder: (p) => `${r(86, 58, 68, 60, p.mane, 12)}${pth('M98 108 L104 146 L114 136 L120 154 L126 136 L136 146 L142 108 Z', p.mane)}
+    ${pth('M108 126 L114 140 M132 126 L126 140', 'none')}`,
+};
+
+/* ---------- lion face ---------- */
+const face = (p, stern = 0) => `
+  ${r(100, 70, 40, 44, p.face ?? p.body, 7)}
+  ${pth(`M100 ${84 - stern} L116 ${88} L116 ${80} Z`, O)}${pth(`M140 ${84 - stern} L124 88 L124 80 Z`, O)}
+  <path d="M104 ${85 - stern} L114 88" stroke="${p.eye}" stroke-width="3.5" stroke-linecap="round"/><path d="M136 ${85 - stern} L126 88" stroke="${p.eye}" stroke-width="3.5" stroke-linecap="round"/>
+  ${r(108, 94, 24, 18, p.accent, 5)}${pth('M114 94 L126 94 L120 101 Z', O)}
+  ${pth('M112 110 L114 118 L116 110 Z', '#fff')}${pth('M124 110 L126 118 L128 110 Z', '#fff')}
+  ${shine(103, 73, 10, 4)}`;
+
+/* ---------- body (front) ---------- */
+function bodyFront(p, o = {}) {
+  const robe = o.robe;
+  let g = '';
+  if (!robe) {
+    g += both(`${r(94, 206, 20, 50, p.joint, 2)}${r(90, 226, 28, 32, p.body, 4)}${shine(93, 229, 6, 14)}${r(84, 256, 36, 16, p.trim, 5)}`);
+  }
+  g += r(94, 190, 52, 22, p.joint, 3) + r(90, 186, 60, 11, p.trim, 3) + r(114, 184, 12, 15, p.trim2 ?? p.trim, 3);
+  g += pth('M82 122 L158 122 L150 192 L90 192 Z', p.body) + shine(88, 128, 10, 30);
+  g += pth('M98 130 L142 130 L136 168 L104 168 Z', p.accent);
+  if (o.sash) g += pth('M84 130 L96 122 L156 184 L146 192 Z', p.sash);
+  g += o.emblem ? o.emblem : circ(120, 148, 9, p.trim) + pth('M114 146 L120 140 L126 146 L120 156 Z', p.gem);
+  return g;
+}
+function armsFront(p, o = {}) {
+  const pad = o.pad ?? ((p) => `${r(50, 108, 40, 34, p.trim, 7)}${shine(54, 111, 14, 5)}`);
+  const left = o.leftHand ?? ((p) => `${r(56, 170, 30, 40, p.body, 6)}${r(59, 204, 24, 11, p.trim, 3)}${circ(71, 210, 4, O)}`);
+  return mirror(`${r(62, 136, 18, 40, p.joint, 3)}${(o.rightHand ?? left)(p)}${pad(p)}`) + `${r(62, 136, 18, 40, p.joint, 3)}${left(p)}${pad(p)}`;
+}
+
+/* ---------- capes ---------- */
+const ermine = (x, y, w, h, n = 5) => {
+  let g = r(x, y, w, h, '#f6f2ea', 4);
+  for (let k = 0; k < n; k++) g += `<path d="M${x + 8 + (k * (w - 16)) / Math.max(1, n - 1)} ${y + h / 2 - 4} l-2 6 l2 3 l2 -3 z" fill="${O}"/>`;
+  return g;
+};
+const capeBackFront = (p, len = 250) => pth(`M78 118 L162 118 L182 ${len} L58 ${len} Z`, p.cape);
+
+/* ---------- views ---------- */
+const frame = (inner, h = 300) => `<svg viewBox="0 0 240 ${h}" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="120" cy="${h - 22}" rx="78" ry="9" fill="${O}" opacity=".12"/>${inner}</svg>`;
+
+function designs() {
+  return [
+    {
+      name: 'The Crowned Sovereign', tag: 'The storybook king: crown, ermine cape, sceptre and orb',
+      pal: { body: '#d8364a', trim: '#e8b43a', trim2: '#c98d22', accent: '#f2ead8', joint: '#2a2234', eye: '#ffd84a', mane: '#e8902a', cape: '#8e1838', gem: '#3a7bff', gem2: '#2ec27e' },
+      chips: [['#d8364a', 'Royal red', 'body'], ['#e8b43a', 'Crown gold', 'trim'], ['#e8902a', 'Amber', 'mane'], ['#8e1838', 'Velvet', 'cape'], ['#f6f2ea', 'Ermine', 'cape trim']],
+      look: ['A real five-point crown with gems on the lion head', 'Floor-length velvet cape with an ermine collar', 'Right hand: a sceptre cannon (fires from the jewel)', 'Left hand: an orb cannon', 'The clearest "king" read at small size'],
+      build: ['New: crown, sceptre, orb, ermine collar', 'Reuses: ligerHead, beetle frame, cape (made longer)', 'Fist cannons swap for sceptre and orb; alternate fire unchanged'],
+      front(p) {
+        return capeBackFront(p, 262) + bodyFront(p) + armsFront(p, {
+          rightHand: (p) => `${r(60, 168, 22, 22, p.body, 5)}${r(66, 150, 10, 72, p.trim, 3)}${circ(71, 146, 10, p.gem)}${shine(66, 140, 5, 4)}${r(62, 188, 18, 10, p.trim2, 3)}`,
+          leftHand: (p) => `${r(56, 170, 30, 26, p.body, 6)}${circ(71, 208, 15, p.trim)}${r(56, 205, 30, 6, p.trim2, 2)}${circ(71, 194, 4, p.gem)}${shine(64, 199, 6, 4)}`,
+        }) + ermine(86, 116, 68, 14, 5) + manes.block(p) + face(p) + crowns.classic(p, 62);
+      },
+      side(p) { return sideBase(p, { cape: 262, crown: 'classic', staff: true }); },
+      back(p) { return backBase(p, { cape: 266, crown: 'classic', ermine: true, mane: 'block' }); },
+    },
+    {
+      name: 'The Sun King', tag: 'A radiant mane that is the crown: bright, golden, unmistakable',
+      pal: { body: '#f4efe2', face: '#f7d26a', trim: '#f2b81c', trim2: '#d9951a', accent: '#fff8e0', joint: '#3a2f2a', eye: '#d8364a', mane: '#ffcf3a', cape: '#e8902a', sash: '#d8364a', gem: '#d8364a', gem2: '#ff8a2a' },
+      chips: [['#f4efe2', 'Ivory', 'body'], ['#ffcf3a', 'Sunburst', 'mane'], ['#f2b81c', 'Gold', 'trim'], ['#d8364a', 'Crimson', 'sash, eyes'], ['#e8902a', 'Amber', 'half cape']],
+      look: ['Mane made of sun rays: the silhouette is a crown', 'Ivory armour, gold trim, a crimson sash across the chest', 'Sun-disc chest emblem that glows during the special', 'Short amber half-cape so the rays stay clear from behind', 'Twin sun-disc gauntlet cannons'],
+      build: ['New: ray mane (a ring of wedges), sun-disc emblem, sash, disc gauntlets', 'Reuses: beetle frame, fistCannon (disc added), cape (shortened)', 'Ray mane can spin slowly during the "royal" pose'],
+      front(p) {
+        return capeBackFront(p, 196) + bodyFront(p, { sash: true, emblem: circ(120, 150, 13, p.trim) + circ(120, 150, 6, p.gem) }) + armsFront(p, {
+          leftHand: (p) => `${r(56, 170, 30, 40, p.body, 6)}${circ(71, 186, 11, p.trim)}${circ(71, 186, 4, p.gem)}${r(59, 204, 24, 11, p.trim, 3)}${circ(71, 210, 4, O)}`,
+          pad: (p) => `${r(50, 108, 40, 34, p.trim, 16)}${shine(56, 112, 12, 5)}`,
+        }) + manes.sun(p) + face(p) + crowns.circlet(p, 72);
+      },
+      side(p) { return sideBase(p, { cape: 196, crown: 'circlet', rays: true }); },
+      back(p) { return backBase(p, { cape: 200, crown: 'circlet', mane: 'sun' }); },
+    },
+    {
+      name: 'The Warlord King', tag: 'Won the throne in battle: horned battle-crown, fur mantle, lion pauldrons',
+      pal: { body: '#8e1f2e', face: '#b23040', trim: '#c9962e', trim2: '#9a6e1e', accent: '#e6dcc6', joint: '#1a1720', eye: '#ffd84a', mane: '#4a2c22', mane2: '#2e1a14', cape: '#3a2a2a', gem: '#ff4a3a', gem2: '#ffd84a' },
+      chips: [['#8e1f2e', 'Blood red', 'body'], ['#c9962e', 'Old gold', 'trim'], ['#4a2c22', 'Dark fur', 'mane, mantle'], ['#e6dcc6', 'Bone', 'horns, chest'], ['#1a1720', 'Iron', 'joints']],
+      look: ['Battle-crown fused to the helmet, with bone horns', 'Shaggy dark fur mane that runs into a fur mantle', 'Lion-head shoulder pads with open jaws', 'Oversized war-gauntlet cannons: the heaviest-looking king', 'Scarred, stern brow: the bruiser option'],
+      build: ['New: battle-crown helm, lion pauldrons, fur mantle, big gauntlets', 'Reuses: beetle frame, stepped shoulder base', 'Darker palette: needs a brighter eye and gem glow for contrast in play'],
+      front(p) {
+        const lionPad = (p) => `${r(46, 104, 46, 40, p.trim, 8)}${r(52, 118, 34, 20, p.body, 5)}${pth('M56 132 L60 140 L64 132 Z', '#fff')}${pth('M74 132 L78 140 L82 132 Z', '#fff')}<path d="M58 124 L64 126 M80 124 L74 126" stroke="${p.eye}" stroke-width="3" stroke-linecap="round"/>${shine(50, 107, 14, 5)}`;
+        return pth('M74 116 L166 116 L176 214 L64 214 Z', p.cape) + bodyFront(p, { emblem: pth('M112 142 L120 136 L128 142 L124 156 L116 156 Z', p.trim) }) + armsFront(p, {
+          leftHand: (p) => `${r(50, 164, 42, 52, p.body, 7)}${r(50, 164, 42, 12, p.trim, 4)}${r(55, 206, 32, 13, p.trim, 3)}${circ(71, 212, 5, O)}${shine(54, 180, 6, 18)}`,
+          pad: lionPad,
+        }) + manes.fur(p) + face(p, 5) + `<path d="M130 76 L136 92" stroke="${p.accent}" stroke-width="2.5"/>` + crowns.helm(p, 64);
+      },
+      side(p) { return sideBase(p, { cape: 214, crown: 'helm', fur: true, big: true }); },
+      back(p) { return backBase(p, { cape: 220, crown: 'helm', mane: 'fur', fur: true }); },
+    },
+    {
+      name: 'The High Monarch', tag: 'The wise old ruler: imperial crown, white mane-beard, long robe and a staff',
+      pal: { body: '#5b3a9e', face: '#d8b06a', trim: '#e8b43a', trim2: '#c98d22', accent: '#f2ead8', joint: '#232043', eye: '#7ad8ff', mane: '#ecebf2', cape: '#3e2672', velvet: '#c2283e', gem: '#d8364a', gem2: '#3a7bff', robe: '#5b3a9e' },
+      chips: [['#5b3a9e', 'Royal purple', 'robe, body'], ['#e8b43a', 'Gold', 'crown, staff'], ['#ecebf2', 'Silver-white', 'mane, beard'], ['#c2283e', 'Ruby velvet', 'crown cap'], ['#7ad8ff', 'Sky', 'eyes']],
+      look: ['Tall imperial crown with arches and a velvet cap', 'Silver-white mane that runs into a beard: age and wisdom', 'Floor-length robe with an ermine hem; no legs showing', 'Two-handed staff cannon topped with a jewel', 'The tallest, most stately silhouette in the roster'],
+      build: ['New: imperial crown, beard mane, robe skirt, staff', 'Reuses: ligerHead (recoloured), cape', 'Hovers slightly, like Nightshade, so the robe hides the walk', 'Alternate fire: jewel, then the staff\'s foot'],
+      front(p) {
+        const robe = pth('M88 186 L152 186 L170 266 L70 266 Z', p.robe) + ermine(68, 258, 104, 14, 7) + `<path d="M120 190 L120 262" stroke="${p.trim}" stroke-width="5"/>`;
+        return capeBackFront(p, 268) + robe + bodyFront(p, { robe: true }) + armsFront(p, {
+          rightHand: (p) => `${r(62, 172, 22, 22, p.body, 5)}${r(67, 120, 10, 146, p.trim, 3)}${circ(72, 114, 11, p.gem2)}${pth('M62 120 L72 100 L82 120 Z', 'none')}${shine(67, 108, 5, 4)}`,
+          leftHand: (p) => `${r(58, 170, 26, 26, p.body, 6)}${r(60, 192, 22, 10, p.trim, 3)}`,
+          pad: (p) => `${r(52, 110, 38, 30, p.robe, 12)}${r(52, 128, 38, 8, p.trim, 2)}`,
+        }) + ermine(88, 116, 64, 12, 5) + manes.elder(p) + face(p, 2) + crowns.imperial(p, 64);
+      },
+      side(p) { return sideBase(p, { cape: 268, crown: 'imperial', robe: true, staff: true, beard: true }); },
+      back(p) { return backBase(p, { cape: 270, crown: 'imperial', mane: 'elder', robe: true }); },
+    },
+    {
+      name: 'The Throne King', tag: 'Never stands for anyone: fights from a hovering throne whose arms are the cannons',
+      pal: { body: '#d8364a', trim: '#e8b43a', trim2: '#c98d22', accent: '#f2ead8', joint: '#2a2234', eye: '#ffd84a', mane: '#e8902a', cape: '#8e1838', throne: '#3a2a52', cushion: '#8e1838', gem: '#3a7bff', gem2: '#2ec27e' },
+      chips: [['#3a2a52', 'Night purple', 'throne'], ['#d8364a', 'Royal red', 'body'], ['#e8b43a', 'Gold', 'crown, trim'], ['#8e1838', 'Velvet', 'cushion, cape'], ['#8ae8ff', 'Thruster blue', 'hover glow']],
+      look: ['Seated on a hovering throne with a tall gold-trimmed back', 'The throne\'s armrests end in lion-head cannons', 'Crown and cape draped over the throne back', 'Slides along the rail on thrusters, like a tank', 'The most unusual silhouette: a boss feel'],
+      build: ['New: throne (back, seat, armrest cannons, thrusters), seated pose', 'Reuses: ligerHead, crown from design 1, hover lift', 'Biggest job: the special pose "royal" needs a throne version (rises, spins the throne)'],
+      front(p) {
+        const g = r(64, 40, 112, 170, p.throne, 10) + r(72, 48, 96, 154, p.trim, 8, 'fill-opacity="0"') + pth('M120 26 L132 44 L108 44 Z', p.trim) + circ(120, 34, 4, p.gem)
+          + pth('M70 120 L170 120 L174 150 L66 150 Z', p.cape)
+          + r(60, 196, 120, 26, p.throne, 6) + r(70, 190, 100, 14, p.cushion, 5)
+          + both(`${r(40, 150, 30, 56, p.throne, 6)}${r(34, 140, 40, 16, p.trim, 4)}${r(36, 196, 36, 22, p.trim, 6)}${circ(54, 207, 6, O)}${pth('M42 196 L48 188 L54 196 Z', p.trim2)}`)
+          + both(`${r(68, 222, 22, 14, p.trim2, 3)}<path d="M72 240 L79 262 L86 240" fill="#8ae8ff" opacity=".85" stroke="${O}" stroke-width="2.5"/>`);
+        const seated = both(`${r(92, 196, 24, 20, p.body, 4)}${r(94, 212, 20, 26, p.joint, 3)}${r(88, 232, 30, 12, p.trim, 4)}`)
+          + r(90, 180, 60, 14, p.trim, 3) + pth('M84 116 L156 116 L150 184 L90 184 Z', p.body) + pth('M98 124 L142 124 L136 160 L104 160 Z', p.accent) + circ(120, 140, 8, p.trim)
+          + both(`${r(66, 132, 18, 34, p.joint, 3)}${r(62, 160, 28, 22, p.body, 6)}${r(54, 108, 38, 30, p.trim, 7)}`);
+        return g + seated + manes.block(p) + face(p) + crowns.classic(p, 62);
+      },
+      side(p) {
+        return `${r(150, 40, 24, 170, p.throne, 6)}${pth('M162 26 L172 44 L152 44 Z', p.trim)}${r(70, 190, 104, 26, p.throne, 6)}${r(66, 150, 70, 18, p.throne, 5)}${r(54, 146, 30, 26, p.trim, 6)}${circ(60, 159, 6, O)}
+          ${r(84, 112, 56, 72, p.body, 6)}${r(96, 176, 44, 18, p.body, 4)}${r(76, 186, 26, 46, p.joint, 3)}${r(66, 226, 38, 14, p.trim, 4)}
+          ${r(84, 58, 66, 64, p.mane, 10)}${r(78, 72, 34, 40, p.body, 6)}${r(70, 92, 18, 16, p.accent, 4)}<path d="M92 84 L102 86" stroke="${p.eye}" stroke-width="3.5" stroke-linecap="round"/>
+          ${pth('M90 62 L90 38 L102 50 L112 32 L122 50 L134 38 L134 62 Z', p.trim)}${r(88, 56, 48, 10, p.trim, 2)}
+          ${pth('M146 120 L170 120 L178 196 L150 196 Z', p.cape)}
+          <path d="M86 216 L92 242 L98 216 M146 216 L152 242 L158 216" fill="#8ae8ff" opacity=".85" stroke="${O}" stroke-width="2.5"/>`;
+      },
+      back(p) {
+        return `${r(64, 40, 112, 170, p.throne, 10)}${pth('M120 26 L132 44 L108 44 Z', p.trim)}${pth('M78 60 L162 60 L168 196 L72 196 Z', p.cape)}${ermine(76, 54, 88, 14, 6)}
+          ${circ(120, 120, 22, p.trim)}${pth('M110 120 L120 106 L130 120 L120 134 Z', p.gem)}
+          ${r(60, 196, 120, 26, p.throne, 6)}${both(`${r(34, 140, 40, 16, p.trim, 4)}${r(40, 150, 30, 56, p.throne, 6)}`)}
+          ${pth('M92 40 L92 14 L104 26 L112 8 L120 24 L128 8 L136 26 L148 14 L148 40 Z', p.trim)}${r(90, 34, 60, 10, p.trim, 2)}
+          ${both(`<path d="M72 230 L79 254 L86 230" fill="#8ae8ff" opacity=".85" stroke="${O}" stroke-width="2.5"/>`)}`;
+      },
+    },
+  ];
+}
+
+/* side and back for the standing designs */
+function sideBase(p, o) {
+  let g = '';
+  if (o.cape) g += pth(`M118 118 L146 118 L170 ${o.cape} L128 ${o.cape} Z`, p.cape);
+  if (o.robe) g += pth('M92 186 L148 186 L160 266 L82 266 Z', p.robe) + ermine(80, 258, 82, 12, 5);
+  else g += `${r(104, 206, 22, 50, p.joint, 2)}${r(100, 226, 30, 32, p.body, 4)}${r(92, 256, 44, 16, p.trim, 5)}`;
+  g += r(98, 186, 48, 22, p.joint, 3) + r(94, 184, 54, 10, p.trim, 3);
+  g += pth('M96 122 L146 122 L142 192 L100 192 Z', p.body) + pth('M96 130 L84 134 L88 168 L100 168 Z', p.accent);
+  if (o.fur) g += pth('M96 112 L150 112 L156 140 L90 140 Z', p.mane);
+  // arm (forward)
+  if (o.staff) g += r(84, 120, 10, o.robe ? 146 : 104, p.trim, 3) + circ(89, 114, 10, o.robe ? p.gem2 : p.gem);
+  g += r(108, 136, 18, 40, p.joint, 3) + (o.big ? r(80, 164, 52, 34, p.body, 7) + r(74, 168, 12, 24, p.trim, 3) : r(84, 166, 46, 26, p.body, 6) + r(76, 170, 12, 18, p.trim, 3));
+  g += r(104, 106, 36, 34, p.trim, 8);
+  // head in profile, facing left
+  if (o.rays) {
+    for (let k = 0; k < 7; k++) {
+      const a = -Math.PI / 2 + (k / 6) * Math.PI;
+      const x2 = 132 + Math.cos(a) * 52, y2 = 90 + Math.sin(a) * 52;
+      g += pth(`M${(132 + Math.cos(a - 0.2) * 30).toFixed(1)} ${(90 + Math.sin(a - 0.2) * 30).toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)} L${(132 + Math.cos(a + 0.2) * 30).toFixed(1)} ${(90 + Math.sin(a + 0.2) * 30).toFixed(1)} Z`, k % 2 ? p.trim : p.mane);
+    }
+    g += circ(132, 90, 32, p.mane);
+  } else if (o.fur) g += pth('M104 64 L118 48 L132 58 L150 52 L162 72 L160 104 L148 126 L118 122 L104 108 Z', p.mane);
+  else g += r(104, 58, 58, 64, p.mane, 10);
+  if (o.beard) g += pth('M96 104 L118 104 L112 148 L104 138 Z', p.mane);
+  g += r(92, 70, 38, 42, p.face ?? p.body, 7) + r(80, 92, 22, 18, p.accent, 5) + `<path d="M96 84 L106 87" stroke="${p.eye}" stroke-width="3.5" stroke-linecap="round"/>`;
+  if (o.crown === 'classic') g += pth('M98 62 L98 38 L110 50 L120 32 L130 50 L142 38 L142 62 Z', p.trim) + r(96, 56, 50, 10, p.trim, 2) + circ(120, 32, 4, p.gem);
+  if (o.crown === 'circlet') g += r(94, 64, 44, 8, p.trim, 3) + pth('M98 64 L104 52 L110 64 Z', p.trim);
+  if (o.crown === 'helm') g += pth('M96 66 L96 46 L106 54 L116 38 L126 54 L140 44 L146 66 Z', p.trim) + pth('M140 56 L164 34 L160 48 L146 64 Z', p.accent) + r(94, 60, 54, 10, p.trim2, 2);
+  if (o.crown === 'imperial') g += r(98, 42, 46, 22, p.velvet, 4) + `<path d="M100 60 Q102 22 122 20 Q142 22 142 60" fill="none" stroke="${p.trim}" stroke-width="5"/>` + circ(122, 14, 6, p.trim) + r(94, 56, 54, 12, p.trim, 2);
+  return g;
+}
+function backBase(p, o) {
+  let g = '';
+  if (o.robe) g += pth('M88 186 L152 186 L170 266 L70 266 Z', p.robe);
+  else g += both(`${r(94, 206, 20, 50, p.joint, 2)}${r(90, 226, 28, 32, p.body, 4)}${r(84, 256, 36, 16, p.trim, 5)}`);
+  g += both(`${r(62, 136, 18, 40, p.joint, 3)}${r(56, 170, 30, 40, p.body, 6)}`);
+  g += pth('M82 122 L158 122 L150 192 L90 192 Z', p.body);
+  g += pth(`M76 116 L164 116 L${o.cape > 230 ? 184 : 174} ${o.cape} L${o.cape > 230 ? 56 : 66} ${o.cape} Z`, p.cape);
+  g += `<path d="M120 130 L120 ${o.cape - 8}" stroke="${O}" stroke-width="1.5" opacity=".35"/><path d="M100 130 L94 ${o.cape - 8} M140 130 L146 ${o.cape - 8}" stroke="${O}" stroke-width="1.5" opacity=".25"/>`;
+  if (o.cape < 230) g += circ(120, 158, 14, p.trim) + pth('M112 158 L120 148 L128 158 L120 168 Z', p.gem);
+  else g += circ(120, 176, 16, p.trim) + pth('M110 176 L120 164 L130 176 L120 188 Z', p.gem);
+  
+  if (o.robe) g += ermine(68, 258, 104, 14, 7);
+  if (o.fur) g += pth('M70 110 L170 110 L176 150 L64 150 Z', p.mane);
+  g += both(r(50, 108, 40, 34, o.robe ? p.robe : p.trim, 8));
+  if (o.ermine) g += ermine(86, 116, 68, 16, 5);
+  g += manes[o.mane](p);
+  if (o.mane === 'sun') g += circ(120, 90, 30, p.mane);
+  else g += r(96, 64, 48, 52, p.mane2 ?? p.mane, 10);
+  g += crowns[o.crown](p, o.crown === 'imperial' ? 64 : o.crown === 'circlet' ? 72 : 62);
+  return g;
+}
+
+const sheets = document.getElementById('sheets');
+designs().forEach((d, i) => {
+  const p = d.pal;
+  sheets.insertAdjacentHTML('beforeend', `
+  <section class="sheet">
+    <div class="head"><span class="num">0${i + 1}</span><h2>${d.name}</h2><span class="tag">${d.tag}</span></div>
+    <div class="views">
+      <div class="view">${frame(d.front(p))}<span>FRONT</span></div>
+      <div class="view">${frame(d.side(p))}<span>SIDE</span></div>
+      <div class="view">${frame(d.back(p))}<span>BACK</span></div>
+    </div>
+    <div class="info">
+      <div><h3>Palette</h3><div class="chips">${d.chips.map(([c, n, u]) => `<div class="chip"><i style="background:${c}"></i>${n}<em>${u}</em></div>`).join('')}</div></div>
+      <div><h3>The look</h3><ul>${d.look.map((t) => `<li>${t}</li>`).join('')}</ul></div>
+      <div><h3>3D build</h3><ul>${d.build.map((t) => `<li>${t}</li>`).join('')}</ul></div>
+    </div>
+  </section>`);
+});
+</script>
+</body>
+</html>
