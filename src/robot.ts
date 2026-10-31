@@ -413,6 +413,8 @@ type Look21 = {
   xLegs?: boolean;
   shellSkirt?: boolean;
   ribcage?: boolean;
+  /** Leo King: seated on a hovering throne whose armrests end in the cannons (see buildThroneKing) */
+  throne?: boolean;
 };
 /**
  * 2.1: every unit redesigned on the faceted chassis with its own frame and signature part,
@@ -521,7 +523,9 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   violet: { special: { alternate: true, hand: 0.45 }, fit: [1.38, 1.38, 1.38], look: { frame: 'gorilla', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', menace: true, lean: -0.46 }, ball: 0x7a4ad8, glow: 0xff3a1a, palette: { body: 0x4a2f9a, trim: 0xb8bfcc, accent: 0xee5466, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Leo King (Metabee): Fang Liger 2.1's head on a short neck for the beetle dome, no X legs or
   // shell skirt, a royal cape
-  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', dynamic: true, lean: -0.14 }, ball: 0xe8b43a, palette: { body: 0xee5466, trim: 0xe8b43a, accent: 0xf2ead8, joint: 0x1f1c2a, eye: 0xffd84a } },
+  // (now the Throne King: seated on a hovering throne, the warlord's horned battle-crown and fur
+  // mane, the high monarch's purple robe trimmed in ermine)
+  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, fit: [0.9, 0.9, 0.9], look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', lean: -0.14, throne: true }, ball: 0xe8b43a, palette: { body: 0x5b3a9e, trim: 0xe8b43a, accent: 0xf2ead8, joint: 0x232043, eye: 0xffd84a } },
   // Tyrant King (Megatron): a hellhound head for the bucket helm, wolf heads on both fists for
   // the T-rex fist, no silver ribcage; black and blood red
   // (on Fang Liger's four-legged body now, as big as it)
@@ -911,6 +915,10 @@ export class ShooterMesh {
     }
     if (def.hound) {
       this.buildHound22(def, { body, trim, accent, joint, eyeMat, ballMat });
+      return;
+    }
+    if (def.look21?.throne) {
+      this.buildThroneKing({ body, trim, accent, joint, eyeMat, ballMat, eyeColor: pal.eye, accentColor: pal.accent });
       return;
     }
     if (def.look21) {
@@ -4751,6 +4759,189 @@ export class ShooterMesh {
     this.mouthOn(head, m, -0.5, -0.1, 0.28, white);
     this.trigger = new THREE.Object3D();
     this.turret.add(this.trigger);
+  }
+
+  /**
+   * Leo King, the Throne King: it never stands for anyone. A hovering throne (night purple,
+   * gold-framed, thrusters under the seat) whose armrests end in lion-head cannons, the right
+   * and the left firing in turn. On it sits the king in the high monarch's outfit (a royal
+   * purple robe with an ermine mantle, cuffs and hem, a velvet cape) with the warlord's head:
+   * a crimson lion face in a shaggy dark mane, under a horned gold battle-crown. The whole
+   * throne swivels to aim; the king's arms rest on the armrests and rise for its gestures.
+   */
+  private buildThroneKing(m: HeroMats) {
+    const throne = this.paint(0x3a2a52);
+    const throneLo = this.paint(0x2a1e3e);
+    const velvet = this.paint(0x8e1838);
+    const fur = this.paint(0x4a2c22);
+    const furDark = this.paint(0x2e1a14);
+    const face = this.paint(0xb23040);
+    const bone = this.paint(0xe6dcc6);
+    const white = this.paint(0xf4f2ea);
+    const spot = this.paint(0x1f1c2a);
+    const hole = new THREE.MeshBasicMaterial({ color: 0x120a10 });
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0x8ae8ff, transparent: true, opacity: 0.85 });
+    const T = this.turret;
+    T.position.set(0, 0, 0);
+    this.root.add(T);
+    const add = (o: THREE.Object3D, parent: THREE.Object3D = T) => (parent.add(o), o);
+    const cone = (r: number, h: number, mat: THREE.Material, x: number, y: number, z: number, rx = 0, rz = 0, parent: THREE.Object3D = T) => {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), mat);
+      c.position.set(x, y, z);
+      c.rotation.set(rx, 0, rz);
+      return add(c, parent);
+    };
+    // ermine: white fur with black tails
+    const ermine = (w: number, h: number, d: number, x: number, y: number, z: number, n: number, parent: THREE.Object3D = T) => {
+      add(rbox(w, h, d, 0.02, m.accent, x, y, z), parent);
+      for (let k = 0; k < n; k++) add(rbox(0.025, 0.04, 0.012, 0.004, spot, x - w / 2 + (w * (k + 0.5)) / n, y, z - d / 2 - 0.004), parent);
+    };
+
+    // ---- the throne ----
+    // the seat block on its thrusters, a gold band round it
+    add(rbox(1.12, 0.2, 0.84, 0.04, throne, 0, 0.42, 0.02));
+    add(rbox(1.16, 0.05, 0.88, 0.01, m.trim, 0, 0.5, 0.02));
+    add(rbox(0.9, 0.1, 0.66, 0.03, velvet, 0, 0.57, 0.02));
+    // the tall back, framed in gold, with a crest and two finials on top
+    add(rbox(1.04, 1.36, 0.16, 0.04, throne, 0, 1.18, 0.4));
+    add(rbox(0.84, 1.12, 0.03, 0.01, velvet, 0, 1.14, 0.31));
+    for (const side of [-1, 1]) {
+      add(rbox(0.05, 1.2, 0.05, 0.01, m.trim, side * 0.46, 1.15, 0.31));
+      add(rbox(0.12, 0.12, 0.12, 0.02, m.trim, side * 0.5, 1.92, 0.4));
+      cone(0.06, 0.16, m.trim, side * 0.5, 2.06, 0.4);
+    }
+    add(rbox(0.96, 0.05, 0.05, 0.01, m.trim, 0, 1.75, 0.31));
+    add(rbox(0.96, 0.05, 0.05, 0.01, m.trim, 0, 0.56, 0.32));
+    cone(0.16, 0.3, m.trim, 0, 2.0, 0.4);
+    // its back: a gold frame round a velvet panel and the royal crest (a gold shield, a ruby)
+    add(rbox(0.84, 1.12, 0.03, 0.01, velvet, 0, 1.14, 0.49));
+    for (const side of [-1, 1]) add(rbox(0.05, 1.2, 0.05, 0.01, m.trim, side * 0.46, 1.15, 0.49));
+    for (const y of [0.56, 1.75]) add(rbox(0.96, 0.05, 0.05, 0.01, m.trim, 0, y, 0.49));
+    add(rbox(0.3, 0.3, 0.04, 0.01, m.trim, 0, 1.22, 0.51));
+    cone(0.15, 0.16, m.trim, 0, 1.0, 0.51, Math.PI);
+    add(rbox(0.1, 0.1, 0.04, 0.01, velvet, 0, 1.2, 0.535)).rotation.z = Math.PI / 4;
+    add(rbox(0.1, 0.1, 0.06, 0.02, m.eyeMat, 0, 1.92, 0.31)).rotation.z = Math.PI / 4;
+    // the armrests: blocks with gold tops, each ending in a lion-head cannon
+    const cannons: THREE.Group[] = [];
+    for (const side of [1, -1]) {
+      const x = side * 0.5;
+      add(rbox(0.22, 0.34, 0.66, 0.03, throne, x, 0.67, 0.02));
+      add(rbox(0.26, 0.06, 0.72, 0.01, m.trim, x, 0.86, 0.0));
+      add(rbox(0.24, 0.04, 0.6, 0.01, throneLo, x, 0.55, 0.02));
+      const g = new THREE.Group();
+      g.position.set(x, 0.72, -0.4);
+      // the lion's mane round a gold face, fangs over a dark muzzle
+      g.add(rbox(0.3, 0.3, 0.12, 0.03, m.trim, 0, 0, 0.04));
+      for (const [dx, dy] of [[-0.15, 0.12], [0.15, 0.12], [-0.17, -0.02], [0.17, -0.02], [0, 0.17]] as const) cone(0.05, 0.1, m.trim, dx, dy, 0.05, 0, Math.atan2(-dx, dy), g);
+      g.add(rbox(0.2, 0.18, 0.14, 0.03, m.trim, 0, -0.02, -0.06));
+      g.add(rbox(0.16, 0.04, 0.02, 0.01, spot, 0, 0.05, -0.135));
+      for (const ex of [-0.05, 0.05]) g.add(rbox(0.04, 0.025, 0.02, 0.005, m.eyeMat, ex, 0.05, -0.14));
+      g.add(rbox(0.14, 0.08, 0.04, 0.01, hole, 0, -0.06, -0.13));
+      for (const fx of [-0.05, 0.05]) cone(0.018, 0.06, white, fx, -0.035, -0.14, Math.PI, 0, g);
+      const mark = new THREE.Object3D();
+      mark.position.set(0, -0.06, -0.2);
+      g.add(mark);
+      T.add(g);
+      cannons.push(g);
+      if (side === 1) this.bellyMark = mark;
+      else this.bellyMarkL = mark;
+    }
+    this.barrel = cannons[0];
+    this.barrel2 = cannons[1];
+    this.barrelZ = cannons[0].position.z;
+    // thrusters under the seat, blue flames below (flickering)
+    const flames = new THREE.Group();
+    flames.position.y = 0.26;
+    for (const [fx, fz] of [[-0.36, -0.22], [0.36, -0.22], [-0.36, 0.26], [0.36, 0.26]] as const) {
+      add(rbox(0.16, 0.1, 0.16, 0.02, m.trim, fx, 0.28, fz));
+      add(rbox(0.1, 0.03, 0.1, 0.01, hole, fx, 0.225, fz));
+      cone(0.06, 0.22, flameMat, fx, -0.12, fz, Math.PI, 0, flames);
+    }
+    T.add(flames);
+    this.flame = flames;
+
+    // ---- the king, seated ----
+    // the robe's lap and the drape over its knees down to an ermine hem, gold slippers below
+    add(rbox(0.62, 0.18, 0.52, 0.04, m.body, 0, 0.7, -0.04));
+    add(rbox(0.6, 0.4, 0.12, 0.03, m.body, 0, 0.52, -0.34));
+    ermine(0.64, 0.08, 0.14, 0, 0.32, -0.34, 7);
+    add(rbox(0.05, 0.4, 0.02, 0.01, m.trim, 0, 0.52, -0.405));
+    for (const side of [-1, 1]) add(rbox(0.16, 0.08, 0.2, 0.02, m.trim, side * 0.15, 0.3, -0.48));
+    // the cape behind, over the throne's cushion
+    add(rbox(0.72, 0.8, 0.05, 0.02, velvet, 0, 0.98, 0.27));
+    // the body: robe-purple chest, a gold belt and clasp, a jewelled emblem
+    add(rbox(0.56, 0.52, 0.4, 0.05, m.body, 0, 1.04, 0.04));
+    add(rbox(0.6, 0.07, 0.44, 0.01, m.trim, 0, 0.82, 0.04));
+    add(rbox(0.32, 0.3, 0.04, 0.02, m.accent, 0, 1.04, -0.17));
+    add(rbox(0.12, 0.12, 0.04, 0.01, m.trim, 0, 1.06, -0.2));
+    add(rbox(0.06, 0.06, 0.04, 0.01, velvet, 0, 1.06, -0.225)).rotation.z = Math.PI / 4;
+    // the ermine mantle over the shoulders
+    ermine(0.7, 0.1, 0.48, 0, 1.3, 0.04, 8);
+    for (const side of [-1, 1]) {
+      // purple pads with a gold band
+      add(rbox(0.24, 0.18, 0.32, 0.05, m.body, side * 0.38, 1.24, 0.04));
+      add(rbox(0.25, 0.05, 0.33, 0.01, m.trim, side * 0.38, 1.18, 0.04));
+      // the arms: hanging from the shoulder, forearms laid along the armrests, gloved in gold
+      const arm = new THREE.Group();
+      arm.position.set(side * 0.46, 1.14, 0.06);
+      arm.add(rbox(0.15, 0.3, 0.15, 0.03, m.body, 0, -0.14, 0));
+      arm.add(rbox(0.16, 0.14, 0.4, 0.03, m.body, 0, -0.28, -0.16));
+      ermine(0.18, 0.12, 0.06, 0, -0.28, -0.37, 3, arm);
+      arm.add(rbox(0.14, 0.12, 0.12, 0.03, m.trim, 0, -0.27, -0.44));
+      T.add(arm);
+      this.punchArms.push(arm);
+      this.punchRest.push(0);
+    }
+
+    // ---- the warlord's head ----
+    const head = new THREE.Group();
+    head.position.set(0, 1.56, 0.0);
+    T.add(head);
+    this.tiltHead = null;
+    // the shaggy mane, tufts all round
+    head.add(rbox(0.58, 0.5, 0.44, 0.06, fur, 0, 0, 0.04));
+    for (let k = 0; k < 9; k++) {
+      const a = (k / 8) * Math.PI - Math.PI;
+      cone(0.08, 0.2, k % 2 ? furDark : fur, Math.cos(a) * 0.3, -Math.sin(a) * 0.24 - 0.02, 0.0, 0, a + Math.PI / 2, head);
+    }
+    for (const side of [-1, 1]) cone(0.09, 0.22, fur, side * 0.3, 0.08, 0.04, 0, -side * 1.3, head);
+    head.add(rbox(0.42, 0.22, 0.2, 0.04, fur, 0, -0.26, -0.02));
+    // the crimson lion face: a heavy brow, gold eyes narrowed, a bone muzzle, fangs, a scar
+    head.add(rbox(0.36, 0.34, 0.12, 0.04, face, 0, -0.02, -0.2));
+    for (const side of [-1, 1]) {
+      const brow = rbox(0.15, 0.05, 0.06, 0.01, furDark, side * 0.085, 0.09, -0.27);
+      brow.rotation.z = side * -0.32;
+      head.add(brow);
+      const eye = rbox(0.09, 0.03, 0.02, 0.005, m.eyeMat, side * 0.085, 0.04, -0.265);
+      eye.rotation.z = side * -0.25;
+      head.add(eye);
+    }
+    head.add(rbox(0.2, 0.12, 0.12, 0.03, bone, 0, -0.1, -0.29));
+    head.add(rbox(0.08, 0.05, 0.04, 0.01, spot, 0, -0.05, -0.355));
+    for (const side of [-1, 1]) cone(0.024, 0.09, white, side * 0.06, -0.19, -0.31, Math.PI, 0, head);
+    const scar = rbox(0.016, 0.13, 0.01, 0.003, bone, 0.1, 0.05, -0.263);
+    scar.rotation.z = -0.35;
+    head.add(scar);
+    // the snapping lower jaw
+    const jaw = new THREE.Group();
+    jaw.position.set(0, -0.17, -0.2);
+    jaw.add(rbox(0.18, 0.06, 0.16, 0.02, face, 0, -0.02, -0.06));
+    jaw.add(rbox(0.12, 0.015, 0.1, 0.005, this.paint(0xc8506a), 0, 0.012, -0.06));
+    head.add(jaw);
+    this.jaw = jaw;
+    this.jawOpen = -0.6;
+    // the horned battle-crown
+    head.add(rbox(0.5, 0.09, 0.46, 0.01, m.trim, 0, 0.27, 0.0));
+    head.add(rbox(0.5, 0.03, 0.46, 0.01, this.paint(0x9a6e1e), 0, 0.23, 0.0));
+    for (const [cx, h] of [[-0.2, 0.12], [-0.1, 0.18], [0, 0.24], [0.1, 0.18], [0.2, 0.12]] as const) cone(0.05, h, m.trim, cx, 0.31 + h / 2, -0.2, 0, 0, head);
+    add(rbox(0.07, 0.07, 0.03, 0.01, velvet, 0, 0.27, -0.24), head).rotation.z = Math.PI / 4;
+    for (const side of [-1, 1]) {
+      head.add(taper(curvePts(6, [side * 0.24, 0.28, -0.02], [side * 0.38, 0.4, 0], [side * 0.42, 0.62, 0.04]), 0.06, 0.018, bone, 6));
+    }
+
+    this.hoverLift = 0.05;
+    this.trigger = new THREE.Object3D();
+    T.add(this.trigger);
   }
 
   /** beast-wars megatron from the figure sheet: gunmetal helmet with a green gem, magenta chest with silver lines,

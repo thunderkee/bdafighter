@@ -146,7 +146,7 @@ export const FITS: Record<string, Fit> = {
   bastion: { hat: { p: [0, 1.29, -0.35], s: 0.9 }, back: { p: [0, 0.5, 0.62], s: 1.05 }, shoulder: { p: [0.8, 0.77, 0], s: 1 } },
   nightshade: { hat: { p: [0, 1.35, -0.01], s: 1 }, back: { p: [0, 0.55, 0.8], s: 1 }, shoulder: { p: [0.66, 0.78, 0], s: 0.95 } },
   violet: { hat: { p: [0, 0.8, -0.02], s: 1.05 }, back: { p: [0, 0.45, 0.66], s: 1.3 }, shoulder: { p: [0.85, 0.66, 0], s: 1.2 } },
-  kabuto: { hat: { p: [0, 1.31, -0.14], s: 0.75 }, back: { p: [0, 0.45, 0.58], s: 0.95 }, shoulder: { p: [0.59, 0.69, 0], s: 0.9 } },
+  kabuto: { hat: { p: [0, 1.96, 0.0], s: 0.75 }, back: { p: [0, 1.1, 0.6], s: 0.95 }, shoulder: { p: [0.38, 1.36, 0.04], s: 0.8 } },
   tyrant: { hat: { p: [0, 0.2, -0.1], s: 0.65 }, back: { p: [0, 0.92, 0.1], s: 0.75, body: true }, shoulder: { p: [0.27, 1.0, -0.3], s: 0.7, body: true } },
   rex: { hat: { p: [0, 0.5, -1.08], s: 0.6 }, back: { p: [0, 0.46, 0.15], s: 0.7 }, shoulder: { p: [0.3, 0.36, -0.16], s: 0.7 } },
   liger: { hat: { p: [0, 0.18, -0.14], s: 0.6 }, back: { p: [0, 0.92, 0.1], s: 0.75, body: true }, shoulder: { p: [0.27, 1.0, -0.3], s: 0.7, body: true } },
