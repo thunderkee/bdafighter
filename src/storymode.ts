@@ -93,7 +93,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Treaty',
         foe: 'kabuto',
-        arena: 'cloud',
+        arena: 'snow',
         before: [
           { who: N, text: 'The royal palace floats above the clouds. Leo King is waiting at the gate.' },
           { who: 'kabuto', text: 'The first frame. You stood here once, the day the treaty was signed.' },
@@ -292,7 +292,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'Obstructing the Law',
         foe: 'violet',
-        arena: 'desert',
+        arena: 'sandglass',
         before: [
           { who: N, text: 'Out in the desert badlands, Pioneer finds a silverback standing over a pile of broken cages.' },
           { who: 'violet', text: 'Stand behind me. Someone kept little ones in these. Now they are empty.' },
@@ -376,7 +376,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Laughing Cave',
         foe: 'ember',
-        arena: 'reef',
+        arena: 'beach',
         before: [
           { who: 'ember', text: 'Hi! Hi! I found a cave in the reef and it goes HA HA HA really loud! Wanna see?' },
           { who: 'liberty', text: 'That reef is closed. Go home, little one.' },
@@ -623,7 +623,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Buyer’s Test',
         foe: 'nightshade',
-        arena: 'haunted',
+        arena: 'forest',
         before: [
           { who: N, text: 'At the haunted gate below the Spire, a hooded frame drifts out of the fog.' },
           { who: 'nightshade', text: 'Courier. You are early.' },
@@ -722,7 +722,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'Two Shadows',
         foe: 'nightshade',
-        arena: 'haunted',
+        arena: 'forest',
         before: [
           { who: N, text: 'In the haunted grove below the Spire, a second shadow waits. It does not hide.' },
           { who: 'nightshade', text: 'You hunt what hunts the small. So do I, in my way.' },
@@ -791,7 +791,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Other Shadow',
         foe: 'bastion',
-        arena: 'haunted',
+        arena: 'forest',
         before: [
           { who: N, text: 'In the haunted grove below the Spire, something with scythes watches Nightshade pass.' },
           { who: 'bastion', text: '…' },
@@ -806,7 +806,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Pair',
         foe: 'rex',
-        arena: 'desert',
+        arena: 'sandglass',
         before: [
           { who: 'rex', text: 'I know you. Back in my day, they locked you at the top of that tower.' },
           { who: 'nightshade', text: 'No one locked me, old soldier. I chose to stay.' },
@@ -974,7 +974,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'Can I Wear It?',
         foe: 'ember',
-        arena: 'candy',
+        arena: 'beach',
         before: [
           { who: 'ember', text: 'Ooh! A real king! Can I wear the crown? Just for one second? Half a second?' },
           { who: 'kabuto', text: 'A crown is earned, little one.' },
@@ -1098,7 +1098,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'Thief of Thieves',
         foe: 'baron',
-        arena: 'cloud',
+        arena: 'snow',
         before: [
           { who: N, text: 'High in the cloud docks, the Crimson Baron is loading crates. Every crate is stamped with Tyrant’s seal.' },
           { who: 'tyrant', text: 'My vault. My stones. You’re a dead ace, Baron.' },
@@ -1113,7 +1113,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Dino Kings Split',
         foe: 'rex',
-        arena: 'desert',
+        arena: 'sandglass',
         before: [
           { who: 'rex', text: 'I’m done, hound. I set those keystones with my own jaws in the old wars. You’re pulling them out.' },
           { who: 'tyrant', text: 'You ride for the fights, old fossil. Not the plans.' },
@@ -1282,7 +1282,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Yardstick',
         foe: 'angel',
-        arena: 'cloud',
+        arena: 'snow',
         before: [
           { who: N, text: 'On the cloud road above the palace, Fang Liger meets the first frame ever built.' },
           { who: 'liger', text: 'Seraph Zero. Every frame is measured against you. Measure me.' },
@@ -1299,7 +1299,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'What Crowns Are For',
         foe: 'nightshade',
-        arena: 'haunted',
+        arena: 'forest',
         before: [
           { who: 'nightshade', text: 'The runaway guard. You left to wear a crown.' },
           { who: 'liger', text: 'I left to earn one.' },
@@ -1385,7 +1385,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'So Many Bubbles!',
         foe: 'liberty',
-        arena: 'reef',
+        arena: 'beach',
         before: [
           { who: 'ember', text: 'Bubbles! The reef has SO many bubbles!' },
           { who: 'liberty', text: 'This reef is closed, little one. Go home.' },
@@ -1397,7 +1397,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       {
         title: 'The Egg Collector',
         foe: 'baron',
-        arena: 'candy',
+        arena: 'beach',
         before: [
           { who: 'baron', text: 'Ooh, what a sweet little thing. And what a sweeter little egg. Mind if I borrow it, darling?' },
           { who: 'ember', text: 'No! It’s mine! I found it!' },

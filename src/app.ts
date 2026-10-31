@@ -19,7 +19,6 @@ import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
 import { CEL } from './cel';
-import { BOARDS } from './pinball';
 import { SHAPES } from './shapes';
 import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
 import { REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, type Equip, type Slot } from './cosmetics';
@@ -134,7 +133,12 @@ export function boot() {
   /** B-Daman mode: marbles picked up off the table, the B-Daspirit gauge and spirit shots */
   let bdaMode = false;
   /** the settings a match plays by: yours, with an arcade stage's (or local versus') rules on top */
-  const S = (): store.Settings =>
+  const S = (): store.Settings => {
+    const s = rules();
+    // (a removed arena, from an old save or arcade run, plays on the first one)
+    return { ...s, stage: stageById(s.stage).id };
+  };
+  const rules = (): store.Settings =>
     tut
       ? // the tutorial's practice match: one on one, a clean table, no clock, an easy rival
         { ...saveData.settings, pack: 1, playerPack: 1, items: false, roundTime: 0, pucks: 0, pins: 0, covers: 0, gates: false, enemyIQ: 'easy', enemyCharacter: 'liberty-22', enemyHealth: 3, enemySpeed: 2, enemyPower: 2 }
@@ -146,7 +150,7 @@ export function boot() {
           ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
           : bdaMode
             ? // (B-Daman: one on one, a clean table; item crates land on the table like the ammo box)
-              { ...saveData.settings, pack: 1, playerPack: 1, gates: false, pucks: 0, covers: 0, pins: 0, stage: BOARDS[saveData.settings.stage] ? 'space' : saveData.settings.stage }
+              { ...saveData.settings, pack: 1, playerPack: 1, gates: false, pucks: 0, covers: 0, pins: 0 }
             : saveData.settings;
   // the table width is fixed for the session: walls and scenery are built for it
   setArenaWidth(S().arenaWidth);
