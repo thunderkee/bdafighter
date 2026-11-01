@@ -299,7 +299,7 @@ export class View {
   /** 'duo' is local two-player versus: the whole table from above, player 1 at the bottom;
    *  'split' is two-player split screen: player 1's chase view in the bottom half, player 2's in
    *  the top half, turned round to face them across the phone */
-  cameraMode: 'far' | 'mid' | 'near' | 'first' | 'duo' | 'split' | 'bdaman' = 'mid';
+  cameraMode: 'far' | 'mid' | 'near' | 'first' | 'duo' | 'split' | 'arena' = 'mid';
   /** player 2's camera, for split screen */
   camera2 = new THREE.PerspectiveCamera(54, 1, 0.1, 140);
   private cam2Base = new THREE.Vector3();
@@ -442,7 +442,7 @@ export class View {
       return mesh;
     }) as unknown as [THREE.InstancedMesh, THREE.InstancedMesh];
     for (let i = 0; i < MATCH.marblePool; i++) this.marbleRot.push(new THREE.Quaternion());
-    // B-Daman mode: the loose marbles lying on the table (plain white glass, anyone's to grab)
+    // Arena rules: the loose marbles lying on the table (plain white glass, anyone's to grab)
     this.looseMesh = new THREE.InstancedMesh(marbleGeo, new THREE.MeshPhysicalMaterial({ color: 0xffe08a, emissive: 0x6a4a00, map: swirl, roughness: 0.15, clearcoat: 1 }), 64);
     this.looseRing = new THREE.InstancedMesh(new THREE.RingGeometry(0.75, 1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd84a, transparent: true, opacity: 0.85, depthWrite: false }), 64);
     this.looseRing.frustumCulled = false;
@@ -970,7 +970,7 @@ export class View {
     this.glows.length = 0;
     this.handleFx();
     this.stage.update(wdt, this.worldTime);
-    // ammo boxes (B-Daman mode): a clear crate of 8 marbles, dropping in with a bounce
+    // ammo boxes (Arena rules): a clear crate of 8 marbles, dropping in with a bounce
     const boxes = (this.game as { boxes?: { id: number; x: number; y: number; age: number }[] }).boxes ?? [];
     for (const [id, g] of this.boxMeshes) {
       if (!boxes.some((b) => b.id === id)) {
@@ -998,7 +998,7 @@ export class View {
       glassM.opacity = fl > 0 ? 0.6 : 0.32;
       g.rotation.y = Math.sin(b.age * 1.4) * 0.25;
     }
-    // loose marbles (B-Daman mode), rolling as they go
+    // loose marbles (Arena rules), rolling as they go
     const loose = (this.game as { loose?: { x: number; y: number; vx: number; vy: number }[] }).loose ?? [];
     const lr = 0.3;
     const n = Math.min(64, loose.length);
@@ -2075,8 +2075,8 @@ export class View {
         this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, 3.8, -p.y + 3.9);
         this.lookGoal.set(follow(0.7, 2.3) + lean * 3.5, 0.5, -p.y - 8.5);
         break;
-      case 'bdaman':
-        // the B-Daman anime angle: low, behind and off to one side of your robot, the table running away
+      case 'arena':
+        // the anime-style angle: low, behind and off to one side of your robot, the table running away
         this.camGoal.set(follow(0.85, 3.2) + 2.1 - lean * 0.5, 2.3, -p.y + 3.6);
         this.lookGoal.set(follow(0.5, 1.8) - 0.6 + lean * 3, 0.7, -p.y - 9.5);
         break;

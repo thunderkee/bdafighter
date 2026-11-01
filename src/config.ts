@@ -98,7 +98,7 @@ export const MARBLE_OF: Record<string, MarbleType> = {
 /**
  * Balance: a hidden damage scale per fighter (by base unit), tuned from bot-against-bot round
  * robins (every 2.2 pairing from both sides, 520 fights per fighter) so each wins about half its
- * fights (44-56% classic, 47-52% in B-Daman mode); the stat bars on the cards are unchanged.
+ * fights (44-56% classic, 47-52% in Arena rules); the stat bars on the cards are unchanged.
  * (A fighter whose trick costs it shots, like Pioneer's gun toss or Ember's sweeping head, hits
  * harder; one whose kit already stacks up, like Wyvern's wound-up heavy marbles, hits softer.)
  */
@@ -118,9 +118,9 @@ export const BALANCE: Record<string, number> = {
   violet: 0.78,
   dragon: 0.67,
 };
-/** the same for B-Daman mode (Versus), tuned from its own round robins: ammo from the box and
+/** the same for Arena rules (Versus), tuned from its own round robins: ammo from the box and
  *  specials even fighters out differently, so it keeps its own scale */
-export const BALANCE_BDA: Record<string, number> = {
+export const BALANCE_ARENA: Record<string, number> = {
   pioneer: 1.67,
   ember: 1.65,
   nightshade: 1.46,
@@ -139,11 +139,11 @@ export const BALANCE_BDA: Record<string, number> = {
 /** signature magazines that break the type's rule: the Baron's drum */
 export const MAG_OF: Record<string, number> = { baron: 14 };
 /**
- * B-Daman mode magazines: the ammo box fills the magazine right up, so each type's is sized for
+ * Arena rules magazines: the ammo box fills the magazine right up, so each type's is sized for
  * about the same punch per box (10 standard marbles' worth); the Baron's drum stays the biggest
  */
-export const MAG_BDA: Record<MarbleType, number> = { light: 12, standard: 10, heavy: 7, bouncy: 11 };
-export const MAG_BDA_OF: Record<string, number> = { baron: 12 };
+export const MAG_ARENA: Record<MarbleType, number> = { light: 12, standard: 10, heavy: 7, bouncy: 11 };
+export const MAG_ARENA_OF: Record<string, number> = { baron: 12 };
 
 /**
  * Signature tricks some units have:
@@ -155,7 +155,7 @@ export const MAG_BDA_OF: Record<string, number> = { baron: 12 };
  * - wobble: the head keeps turning this far (radians) left and right, and each shot leaves the way
  *   it's facing, so rapid fire sweeps across the table (Ember)
  * - bite: every this-many shots is a giant, heavy marble (Rex)
- * - ricochet: its marbles keep their speed off the walls and gain this share of damage per bounce (Liger)
+ * - ricochet: its marbles keep their speed off the walls and gain this share of damage per bounce (Fang Hound)
  */
 /** seconds a swapped gun takes to jump from one hand to the other (it fires once it lands) */
 export const TOSS_TIME = 0.3;

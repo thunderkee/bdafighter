@@ -19,7 +19,7 @@ Deploy (Cloudflare Workers static assets, configured in `wrangler.json`):
 npm run deploy     # build + wrangler deploy
 ```
 
-Pushing to `main` on the `bdafighter` GitHub repo also deploys if Cloudflare Workers Builds is connected
+Pushing to `main` on the deploy GitHub repo also deploys if Cloudflare Workers Builds is connected
 (build command `npm run build`, deploy command `npx wrangler deploy`).
 
 To test on a phone, run `npm run dev` and open the `Network:` URL it prints, on the same Wi-Fi.
@@ -49,7 +49,7 @@ __mf.start(); __mf.sim(90, __mf.bot('hard')); // bot vs bot, returns HP and winn
 
 | Tab       | Setting         | Options                                                                  |
 | --------- | --------------- | ------------------------------------------------------------------------ |
-| Fighter   | Your unit       | 14 units (placeholder designs), each with its own marble colour: 8 SD mechs, plus Unit Violet, Kabuto Bee, Tyrant King (fires from a rex-head blaster), Rex Saur, Fang Liger and Ember Lizard (all three fire from the mouth) |
+| Fighter   | Your unit       | 14 units (placeholder designs), each with its own marble colour: 8 SD mechs, plus Silverback, Kabuto Bee, Tyrant King (fires from a rex-head blaster), Rex Saur, Fang Hound and Ember Lizard (all three fire from the mouth) |
 |           | Pack-mate intelligence | Rookie / Regular / Veteran / Ace for your CPU pack-mates |
 |           | Pack-mate tactics | **Nearest**, **Focus weakest**, or **Back you up** (shoot whoever you're facing) |
 |           | Opponent unit   | Auto (different from yours) or any of the 14                             |

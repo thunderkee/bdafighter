@@ -26,7 +26,7 @@ const paint = (id: string, name: string, body: number, trim: number, accent: num
 });
 
 export const KITS: Record<string, Kit> = {
-  // Seraph Zero: a sword angel
+  // Seraph: a sword angel
   angel: {
     hat: [P('halo', 'Seraph Halo', 'halo', 0xfff2a8), P('vfin', 'Gold V-Fin', 'vfin', 0xe8b43a, 0x24305e), P('star', 'Guiding Star', 'star', 0x8ae8ff, 0xdfe6ee)],
     back: [P('feathers', 'Angel Wings', 'feathers', 0xf4f3ef, 0xb8d8ff), P('swords', 'Twin Excalibur', 'swords', 0xdfe6ee, 0xe8b43a), P('thrusters', 'Light Ring', 'thrusters', 0x8ae8ff, 0x24305e)],
@@ -82,7 +82,7 @@ export const KITS: Record<string, Kit> = {
     shoulder: [P('orb', 'Wisp Orbs', 'orb', 0xff6a9a, 0x1f1c2a), P('flames', 'Ghost Fire', 'flames', 0xb07aff, 0xff6a9a), P('spikes', 'Bone Spikes', 'spikes', 0xf2ead8)],
     paint: [paint('moon', 'Moonlit', 0xb8c8e8, 0x2a3458, 0x8ae8ff, 0x1a2034, 0xffffff), paint('crimson', 'Crimson Shade', 0x6a1a2a, 0x1f1c2a, 0xffd84a, 0x140a10, 0xffd84a), paint('void', 'Void', 0x14121a, 0x3a3448, 0x5af0ff, 0x08080c, 0x5af0ff)],
   },
-  // Unit Violet: the silverback gorilla
+  // Silverback: the silverback gorilla
   violet: {
     hat: [P('crown', 'Kong Crown', 'crown', 0xe8b43a, 0xee5466), P('horns', 'Demon Horns', 'horns', 0xb8bfcc), P('spikering', 'Brawler Ring', 'spikering', 0xb8bfcc, 0x1f1c2a)],
     back: [P('spines', 'Silver Ridge', 'spines', 0xb8bfcc, 0x4a2f9a), P('thrusters', 'Rage Core', 'thrusters', 0xff3a1a, 0x1f1c2a), P('banner', 'Jungle Banner', 'banner', 0xee5466, 0x4a2f9a)],
@@ -110,7 +110,7 @@ export const KITS: Record<string, Kit> = {
     shoulder: [P('shards', 'Frost Shards', 'shards', 0x8ae8ff, 0xd8f4ff), P('claw', 'Raptor Claws', 'claw', 0xf2ead8, 0x24305e), P('pads', 'Fossil Pads', 'pads', 0xf2ead8, 0xee7b4c)],
     paint: [paint('fossil', 'Fossil', 0xd8c8a8, 0x6a5a4a, 0xee7b4c, 0x2a2420, 0x5af0ff), paint('glacier', 'Glacier', 0xeaf8ff, 0x3a7ab8, 0x8ae8ff, 0x24305e, 0x3a7aff), paint('raptor', 'Raptor Green', 0x4a8a3a, 0x24301a, 0xf4c25b, 0x14200e, 0xffd84a)],
   },
-  // Fang Liger: the black-and-gold war hound
+  // Fang Hound: the black-and-gold war hound
   liger: {
     hat: [P('ears', 'Hound Ears', 'ears', 0x2a2734, 0xe8b43a), P('vfin', 'Fang Crest', 'vfin', 0xe8b43a, 0x1f1c2a), P('antenna', 'Tracker', 'antenna', 0x5af0ff, 0x1f1c2a)],
     back: [P('missiles', 'Flank Launchers', 'missiles', 0xe8b43a, 0x2a2734), P('jetpack', 'Pounce Boosters', 'jetpack', 0xe8b43a, 0x2a2734), P('saw', 'Fang Wheel', 'saw', 0xe8b43a, 0x2a2734)],

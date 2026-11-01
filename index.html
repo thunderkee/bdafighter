@@ -36,11 +36,11 @@
           <div class="side player">
             <div class="hp player"><div class="chip"></div><div class="fill"></div></div>
             <div class="sp player"><div class="fill"></div></div>
-            <div class="spirit player" aria-hidden="true"><div class="fill"></div><b>B-DASPIRIT</b></div>
+            <div class="spirit player" aria-hidden="true"><div class="fill"></div><b>OVERDRIVE</b></div>
             <div class="side-info">
               <div class="portrait"><canvas id="face-player"></canvas></div>
               <div class="meta">
-                <div class="unit-name"><span id="player-name">SERAPH ZERO</span></div>
+                <div class="unit-name"><span id="player-name">SERAPH</span></div>
                 <!-- win points, under the name -->
                 <div class="meta-row">
                   <span class="tag">P1</span><span class="rounds" id="player-rounds"><i></i><i></i></span>
@@ -54,7 +54,7 @@
           <div class="side enemy">
             <div class="hp enemy"><div class="chip"></div><div class="fill"></div></div>
             <div class="sp enemy"><div class="fill"></div></div>
-            <div class="spirit enemy" aria-hidden="true"><div class="fill"></div><b>B-DASPIRIT</b></div>
+            <div class="spirit enemy" aria-hidden="true"><div class="fill"></div><b>OVERDRIVE</b></div>
             <div class="side-info">
               <div class="portrait"><canvas id="face-enemy"></canvas></div>
               <div class="meta">
@@ -163,7 +163,7 @@
 
       <!-- VS intro -->
       <div id="intro" class="hidden">
-        <div class="intro-card p1"><span class="ic-tag">PLAYER 1</span><b id="intro-p1">SERAPH ZERO</b><span class="ic-sub" id="intro-p1-sub">UNIT 01</span></div>
+        <div class="intro-card p1"><span class="ic-tag">PLAYER 1</span><b id="intro-p1">SERAPH</b><span class="ic-sub" id="intro-p1-sub">UNIT 01</span></div>
         <div class="intro-card p2"><span class="ic-tag">CHALLENGER</span><b id="intro-p2">WYVERN</b><span class="ic-sub" id="intro-p2-sub">UNIT 02</span></div>
         <div class="intro-vs">VS</div>
         <div class="intro-skip">TAP TO SKIP</div>
@@ -194,7 +194,7 @@
         <p id="record" class="home-record"></p>
         <!-- your fighter (the last one played), big in the middle -->
         <div class="home-hero" id="title-hero"></div>
-        <div class="home-name"><span>YOUR FIGHTER</span><b id="title-unit">SERAPH ZERO</b><span class="home-lv" id="title-lv"></span><span class="home-next" id="title-next"></span><i id="title-stage" hidden></i></div>
+        <div class="home-name"><span>YOUR FIGHTER</span><b id="title-unit">SERAPH</b><span class="home-lv" id="title-lv"></span><span class="home-next" id="title-next"></span><i id="title-stage" hidden></i></div>
         <!-- first visit: an offer of the tutorial -->
         <div id="tut-offer" class="tut-offer hidden">
           <b>New here? Learn the basics in a minute.</b>
@@ -210,8 +210,8 @@
         <!-- the modes, one featured at a time: tap a card to bring it up, tap it again to play -->
         <nav class="home-cards" id="home-cards">
           <button id="tut-card" class="mode-card" data-art="tutorial"><i class="new-badge">NEW</i><i class="card-art"><em>🎯</em></i><span class="card-text"><b>Tutorial</b><small>Move, shoot, shield and parry in a minute</small></span><span class="card-go">START ▶</span></button>
-          <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>B-Daman rules: grab ammo, fill B-Daspirit, unleash a special</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
-          <button id="bda-btn" class="mode-card" data-art="bdaman"><i class="card-art"><em>🎱</em></i><span class="card-text"><b>Classic</b><small>The original rules: auto-reload, no specials</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Arena rules: grab ammo, fill Overdrive, unleash a special</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
+          <button id="classic-btn" class="mode-card" data-art="classic"><i class="card-art"><em>🎱</em></i><span class="card-text"><b>Classic</b><small>The original rules: auto-reload, no specials</small></span><span class="card-go">PLAY ▶</span></button>
           <button id="story-btn" class="mode-card" data-art="story"><i class="card-art"><em>📖</em></i><span class="card-text"><b>Story</b><small id="story-sub">Your fighter’s path through the League</small></span><span class="card-go" id="story-go">PLAY ▶</span></button>
           <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small id="arcade-sub">A ladder of stages and four bosses</small></span><span class="card-go" id="arcade-go">PLAY ▶</span><span class="card-custom card-new-run hidden" role="button">New run</span></button>
           <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
@@ -244,7 +244,7 @@
           <button class="car-arrow next" id="car-next" aria-label="Next"><svg viewBox="0 0 64 56"><path d="M4 22h26l-6-16 36 22-36 22 6-16H4z" /></svg></button>
           <div class="car-band" id="car-band">
             <div class="car-tag"><span id="pv-tag">PLAYER 1</span><span class="car-count" id="car-count"></span></div>
-            <b id="pv-name">Seraph Zero</b>
+            <b id="pv-name">Seraph</b>
             <div class="car-info">
               <div class="info-tabs" id="info-tabs"><button data-info="stats" class="on">Traits</button><button data-info="profile">Story</button><button data-info="style">Style</button></div>
               <div class="meters" id="pv-stats"></div>
@@ -585,7 +585,7 @@
         <button id="settings-done" class="key orange">DONE</button>
       </div>
 
-      <!-- B-Daman mode: the spirit shot's cinematic banner -->
+      <!-- Arena rules: the spirit shot's cinematic banner -->
       <div id="loose-count" class="hidden"><b id="loose-n">0</b><span>MARBLES ON YOUR SIDE<br />SLIDE OVER TO GRAB</span></div>
       <div id="special-fx" class="hidden">
         <i class="sfx-lines"></i>

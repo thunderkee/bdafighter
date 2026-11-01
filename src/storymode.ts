@@ -17,10 +17,10 @@
  *   carries it as a "shiny egg". So the Forge stays cold until the stone comes home.
  * - The Crimson Baron's "smuggled rare marbles" are keystones stolen back from Tyrant's vaults
  *   and flown up the Serpent Run to the Spire. Its buyer is Nightshade. Tyrant had it grounded.
- * - Every gate that goes dark wakes the Spire, and its signal grows. Seraph Zero and Nightshade
+ * - Every gate that goes dark wakes the Spire, and its signal grows. Seraph and Nightshade
  *   are the Orbital Deck pair: one built to measure the stones, one to keep them. Seraph's memory
  *   was wiped so no one could use it to open the gates. Leo King let the Forge burn "by the
- *   rules", which is why Fang Liger left.
+ *   rules", which is why Fang Hound left.
  */
 export interface Line {
   who: string;
@@ -48,7 +48,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
   angel: {
     title: 'What I Was Built For',
     intro: [
-      { who: N, text: 'A signal pulses from the top of the Spire, and only Seraph Zero can hear it.' },
+      { who: N, text: 'A signal pulses from the top of the Spire, and only Seraph can hear it.' },
       { who: N, text: 'Across the League, arena gates are going dark, one keystone at a time.' },
       { who: 'angel', text: 'Every frame since was measured against me. Now I want to know why.' },
       { who: 'angel', text: 'The answer is at the top. So I climb.' },
@@ -134,7 +134,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'nightshade', text: 'The Spire is waking, sibling. It needs its measure. I am only its keeper.' },
           { who: 'angel', text: 'Then show me what I forgot.' },
         ],
-        after: [{ who: N, text: 'The last marble drops. Somewhere inside Seraph Zero, a locked door swings open.' }],
+        after: [{ who: N, text: 'The last marble drops. Somewhere inside Seraph, a locked door swings open.' }],
       },
     ],
     ending: [
@@ -424,7 +424,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         foe: 'violet',
         arena: 'serpent',
         before: [
-          { who: N, text: 'On the Serpent Run, Unit Violet blocks the bend, as heavy and as still as Liberty.' },
+          { who: N, text: 'On the Serpent Run, Silverback blocks the bend, as heavy and as still as Liberty.' },
           { who: 'violet', text: 'Stand behind me. The road ahead is dangerous.' },
           { who: 'liberty', text: 'I stand behind no one. I hold the line.' },
           { who: 'violet', text: 'I held a line too. I waited at my base while the little ones vanished. Waiting is how you lose them.' },
@@ -848,7 +848,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       },
     ],
     ending: [
-      { who: N, text: 'Seraph Zero kneels on the Orbital Deck, and Nightshade lowers its staff.' },
+      { who: N, text: 'Seraph kneels on the Orbital Deck, and Nightshade lowers its staff.' },
       { who: 'nightshade', text: 'You are strong, sibling. But you do not remember yet.' },
       { who: 'nightshade', text: 'Not today. Rise, and climb again. I will be waiting.' },
       { who: N, text: 'Far below, the Spire’s signal softens. For the first time in an age, it sounds like a heartbeat.' },
@@ -892,7 +892,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         foe: 'liger',
         arena: 'sandglass',
         before: [
-          { who: N, text: 'In the narrow middle of Sandglass Pass, the cages lie open and empty. Fang Liger is sniffing them.' },
+          { who: N, text: 'In the narrow middle of Sandglass Pass, the cages lie open and empty. Fang Hound is sniffing them.' },
           { who: 'liger', text: 'I tracked this caravan too. Someone got here first.' },
           { who: 'violet', text: 'Where are they? What did you do?' },
           { who: 'liger', text: 'Nothing, big one. But I’ll fight you if you don’t believe me.' },
@@ -1034,11 +1034,11 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'liger', text: '…You don’t get to say that and make this easy.' },
           { who: 'kabuto', text: 'Then earn it, Fang. I have waited for this.' },
         ],
-        after: [{ who: N, text: 'Fang Liger falls back into the river, laughing for the first time in a season.' }],
+        after: [{ who: N, text: 'Fang Hound falls back into the river, laughing for the first time in a season.' }],
       },
     ],
     ending: [
-      { who: N, text: 'The King offers a hand to its fallen guard, and this time Fang Liger takes it.' },
+      { who: N, text: 'The King offers a hand to its fallen guard, and this time Fang Hound takes it.' },
       { who: 'liger', text: 'So. The crown fights now?' },
       { who: 'kabuto', text: 'The crown rides out to every dark gate. It will need a guard. Or a partner.' },
       { who: 'liger', text: 'Partner. I like partner.' },
@@ -1248,7 +1248,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
   liger: {
     title: 'My Own Crown',
     intro: [
-      { who: N, text: 'Fang Liger walked out of the palace with nothing but its flank blasters.' },
+      { who: N, text: 'Fang Hound walked out of the palace with nothing but its flank blasters.' },
       { who: N, text: 'The King would not fight when the Forge burned. Its guard could not stand still and watch.' },
       { who: 'liger', text: 'I left the crown to earn my own.' },
     ],
@@ -1284,8 +1284,8 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         foe: 'angel',
         arena: 'snow',
         before: [
-          { who: N, text: 'On the cloud road above the palace, Fang Liger meets the first frame ever built.' },
-          { who: 'liger', text: 'Seraph Zero. Every frame is measured against you. Measure me.' },
+          { who: N, text: 'On the cloud road above the palace, Fang Hound meets the first frame ever built.' },
+          { who: 'liger', text: 'Seraph. Every frame is measured against you. Measure me.' },
           { who: 'angel', text: 'Measure yourself against what you are for, not against me.' },
           { who: 'liger', text: 'I’m for winning.' },
           { who: 'angel', text: 'Then win. And tell me if it was enough.' },
@@ -1339,7 +1339,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       },
     ],
     ending: [
-      { who: N, text: 'The King kneels, and laughs. Fang Liger stands taller than it ever did at the palace gate.' },
+      { who: N, text: 'The King kneels, and laughs. Fang Hound stands taller than it ever did at the palace gate.' },
       { who: 'liger', text: 'My own crown. …I still respect you. Don’t tell anyone.' },
       { who: 'kabuto', text: 'Then wear it well. The dark gates are waiting.' },
       { who: 'liger', text: 'Not as your guard. As your equal.' },

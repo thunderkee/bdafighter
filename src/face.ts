@@ -585,7 +585,7 @@ export class Portrait {
           gold,
         );
         break;
-      case 'eva':
+      case 'longhorn':
         // single horn rising off the brow
         this.poly(
           [

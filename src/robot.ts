@@ -44,9 +44,9 @@ export interface CharacterDef {
   /** this unit's marble colour */
   ball: number;
   palette: Palette;
-  crest: 'vfin' | 'vfin-short' | 'horns' | 'twinHorns' | 'unihorn' | 'fin' | 'eva' | 'beetle' | 'tyrant' | 'trident' | 'none';
+  crest: 'vfin' | 'vfin-short' | 'horns' | 'twinHorns' | 'unihorn' | 'fin' | 'longhorn' | 'beetle' | 'tyrant' | 'trident' | 'none';
   /** body plan: humanoid mech (default) or a beast that fires from its mouth */
-  body?: 'mech' | 'rex' | 'cat' | 'lizard' | 'beetle' | 'eva' | 'megatron';
+  body?: 'mech' | 'rex' | 'cat' | 'lizard' | 'beetle' | 'longhorn' | 'tyrant';
   /** mech gun: chest cannon (default) or a T-rex head blaster */
   barrel?: 'chest' | 'rexhead';
   /** portrait style */
@@ -70,12 +70,12 @@ export interface CharacterDef {
   /** 2.0 body: hero proportions (V chest, narrow waist, angled armour, V brow) */
   v2?: boolean;
   /** 2.0 humanoids: built on the shared 2.0 chassis, dressed in this character kit */
-  kit?: 'mech' | 'eva' | 'beetle' | 'megatron' | 'lizard';
+  kit?: 'mech' | 'longhorn' | 'beetle' | 'tyrant' | 'lizard';
   /** 2.1 units: the faceted chassis, frame, head, gun and signature parts */
   look21?: Look21;
   /** 2.1 beasts: signature parts added on top of their Unit Lab design */
   addons?: ('fangs' | 'backCannon' | 'noBall' | 'legStripes' | 'armyWhites' | 'spines' | 'blades' | 'plates')[];
-  /** Fang Liger 2.2: the armoured hound, built in code */
+  /** Fang Hound 2.2: the armoured hound, built in code */
   hound?: boolean;
   /** a 2.1 unit */
   v21?: boolean;
@@ -113,7 +113,7 @@ const ORIGINALS: CharacterDef[] = [
   {
     id: 'angel',
     ball: 0x6fa8ff,
-    name: 'Seraph Zero',
+    name: 'Seraph',
     palette: { body: 0xf4f4f8, trim: 0x2f63e8, accent: 0xe8312f, joint: 0x5a5f73, wing: 0xf8f8fc, wingTip: 0x2f63e8, eye: 0x6dff9a },
     crest: 'vfin',
     eyes: 'twin',
@@ -213,10 +213,10 @@ const ORIGINALS: CharacterDef[] = [
   {
     id: 'violet',
     ball: 0x9cff5a,
-    name: 'Unit Violet',
+    name: 'Silverback',
     palette: { body: 0x8a5ae0, trim: 0x1b1a22, accent: 0x3de87c, joint: 0x15101e, wing: 0x8a5ae0, wingTip: 0x3de87c, eye: 0xf4ea8a },
-    crest: 'eva',
-    body: 'eva',
+    crest: 'longhorn',
+    body: 'longhorn',
     eyes: 'twin',
     wings: 'none',
     shoulders: 'heavy',
@@ -244,7 +244,7 @@ const ORIGINALS: CharacterDef[] = [
     name: 'Tyrant King',
     palette: { body: 0x6a3fd8, trim: 0xa63ab8, accent: 0xf0e4b8, joint: 0x2a3470, wing: 0x6a3fd8, wingTip: 0xa63ab8, eye: 0xff2a2a },
     crest: 'tyrant',
-    body: 'megatron',
+    body: 'tyrant',
     eyes: 'twin',
     wings: 'none',
     shoulders: 'spike',
@@ -269,7 +269,7 @@ const ORIGINALS: CharacterDef[] = [
   {
     id: 'liger',
     ball: 0x6ff0ff,
-    name: 'Fang Liger',
+    name: 'Fang Hound',
     palette: { body: 0x2a50ba, trim: 0x4b556d, accent: 0xcaa56c, joint: 0x2a2f3c, wing: 0x2a50ba, wingTip: 0x4b556d, eye: 0xff9a2a },
     crest: 'horns',
     eyes: 'twin',
@@ -321,7 +321,7 @@ const V2: Record<string, V2Look> = {
   nightshade: { kit: 'mech', ball: 0xff7ae0, palette: { body: 0xe6e2f0, trim: 0x7a5ad8, accent: 0xff3acd, joint: 0x3a3448, eye: 0xff3acd } },
   angel: { kit: 'mech', ball: 0xff5a6a, palette: { body: 0x2e313d, trim: 0xd8263a, accent: 0xffc23d, joint: 0x16171e, eye: 0xff4a4a } },
   liberty: { kit: 'mech', ball: 0xfff07a, palette: { body: 0x1f2028, trim: 0xd9a92a, accent: 0xffe08a, joint: 0x3a3a44, eye: 0x6dff9a } },
-  violet: { kit: 'eva', pose: 'punch', ball: 0xff8a3a, palette: { body: 0xd8262b, trim: 0x2a1a1c, accent: 0xffa21a, joint: 0x1e1416, eye: 0x7ff0ff } },
+  violet: { kit: 'longhorn', pose: 'punch', ball: 0xff8a3a, palette: { body: 0xd8262b, trim: 0x2a1a1c, accent: 0xffa21a, joint: 0x1e1416, eye: 0x7ff0ff } },
   kabuto: {
     kit: 'beetle',
     pose: 'punch',
@@ -333,7 +333,7 @@ const V2: Record<string, V2Look> = {
     ball: 0x6ad0ff,
     palette: { body: 0x30323c, trim: 0xd84a3a, accent: 0x6ad0ff, joint: 0x1a1a20, eye: 0xff4a3a },
   },
-  tyrant: { kit: 'megatron', ball: 0xff5a3a, palette: { body: 0x9a1a24, trim: 0x2a2a30, accent: 0xffc23d, joint: 0x3a2a2a, eye: 0x7cff3a } },
+  tyrant: { kit: 'tyrant', ball: 0xff5a3a, palette: { body: 0x9a1a24, trim: 0x2a2a30, accent: 0xffc23d, joint: 0x3a2a2a, eye: 0x7cff3a } },
   liger: { fit: [1.15, 1.15, 1.15], ball: 0xffd04a, palette: { body: 0xf0f2f6, trim: 0x3a4a6a, accent: 0xffc23d, joint: 0x2a2f3c, eye: 0x4ad8ff } },
   rex: { fit: [1.12, 1.12, 1.12], ball: 0xb8ff4a, palette: { body: 0x4a6a2a, trim: 0xc8b88a, accent: 0xff6a1a, joint: 0x2a3220, eye: 0xffe14d } },
 };
@@ -346,9 +346,9 @@ const FRAMES21: Record<string, Frame21> = {
   heavy: { legS: 1, legW: 1.16, legGap: 0.29, foot: 1.1, chestW: 1.06, chestB: 0.72, chestD: 0.66, waistW: 0.5, armS: 1, armW: 1.16, shOut: 0.72, headS: 0.98, lean: 0 },
   /** slim and quick: narrow chest, long thin limbs */
   slim: { legS: 1.1, legW: 0.84, legGap: 0.23, foot: 0.94, chestW: 0.82, chestB: 0.5, chestD: 0.54, waistW: 0.34, armS: 1.06, armW: 0.84, shOut: 0.58, headS: 1.02, lean: -0.04 },
-  /** EVA: very long legs, a narrow waist, hunched forward */
+  /** very long legs, a narrow waist, hunched forward */
   lanky: { legS: 1.34, legW: 0.82, legGap: 0.22, foot: 0.94, chestW: 0.8, chestB: 0.46, chestD: 0.52, waistW: 0.3, armS: 1.22, armW: 0.84, shOut: 0.56, headS: 0.96, lean: -0.14 },
-  /** Metabee: slim limbs under a huge dome head */
+  /** slim limbs under a huge dome head */
   beetle: { legS: 0.96, legW: 0.84, legGap: 0.24, foot: 0.92, chestW: 0.8, chestB: 0.56, chestD: 0.54, waistW: 0.4, armS: 0.96, armW: 0.82, shOut: 0.56, headS: 1.24, headY: 0.04, lean: 0 },
   /** squat and wide: short thick legs, a broad chest, big arms and hands */
   squat: { legS: 0.74, legW: 1.3, legGap: 0.3, foot: 1.2, chestW: 1.14, chestB: 0.84, chestD: 0.7, waistW: 0.56, armS: 0.9, armW: 1.42, shOut: 0.8, headS: 0.9, lean: 0 },
@@ -358,14 +358,14 @@ const FRAMES21: Record<string, Frame21> = {
 };
 type Look21 = {
   frame: keyof typeof FRAMES21;
-  head: 'gundam' | 'visor' | 'zaku' | 'hood' | 'eva' | 'beetle' | 'bucket' | 'lizard' | 'tallgeese' | 'megazord' | 'knight' | 'oni' | 'owl' | 'mantis' | 'shark' | 'crown' | 'diver' | 'ram' | 'lens' | 'mask' | 'jackal' | 'scout' | 'aviator' | 'warlord' | 'lion' | 'hellhound' | 'ape' | 'mandrill' | 'ligerHead';
+  head: 'vcrest' | 'visor' | 'monoeye' | 'hood' | 'longhorn' | 'beetle' | 'bucket' | 'lizard' | 'plumeHelm' | 'colossus' | 'knight' | 'oni' | 'owl' | 'mantis' | 'shark' | 'crown' | 'diver' | 'ram' | 'lens' | 'mask' | 'jackal' | 'scout' | 'aviator' | 'warlord' | 'lion' | 'hellhound' | 'ape' | 'mandrill' | 'houndHead';
   shoulder: 'wedge' | 'stepped' | 'heavy' | 'spike' | 'shield';
   shoulderL?: Look21['shoulder'];
   gun: 'chest' | 'beamRifle' | 'sniper' | 'magnum' | 'drumMG' | 'pallet' | 'gatling' | 'fistCannon' | 'rexFist' | 'dragonMaw' | 'mouth' | 'hmg' | 'dober' | 'bazooka' | 'shellCannon' | 'staffGun' | 'palm' | 'chestMaw' | 'slashSword' | 'mantisScythe' | 'backBlaster' | 'wolfHeads';
   left?: 'shield' | 'tower' | 'scythe' | 'claw' | 'tailBlade' | 'knife' | 'katana' | 'powerSword' | 'ammoDrum';
   back?: ('pods' | 'sabers' | 'wings' | 'cape' | 'radio' | 'drum' | 'pylons' | 'fins' | 'launchers' | 'ammoPack' | 'boosters' | 'shell' | 'rexTail' | 'tuskShield')[];
   /** a dino combiner: each limb in its own zord's colour (black arms, a blue right leg, a yellow left) and a pink breastplate */
-  megazord?: boolean;
+  colossus?: boolean;
   /** a menacing stance: legs wide and splayed, the head thrust low and forward */
   menace?: boolean;
   /** a gunmetal crest instead of the gold V-fin */
@@ -403,7 +403,7 @@ type Look21 = {
   abdomen?: boolean;
   /** MODOK-style: the head is the body, huge, with the arms and legs small beneath it */
   modok?: boolean;
-  /** a sleeker main-character Gundam head, the crown and ears in the accent colour */
+  /** a sleeker hero head, the crown and ears in the accent colour */
   heroHead?: boolean;
   /** an attacking stance: a lunge (left leg forward, right back), a forward lean, the off hand raised on guard */
   dynamic?: boolean;
@@ -418,7 +418,7 @@ type Look21 = {
 };
 /**
  * 2.1: every unit redesigned on the faceted chassis with its own frame and signature part,
- * in a palette that reads at a glance. Rex and Liger keep their Unit Lab designs and gain
+ * in a palette that reads at a glance. Rex and Fang Hound keep their Unit Lab designs and gain
  * a back cannon and big fangs.
  */
 /** each 2.1 unit's own marble and armour pattern */
@@ -440,26 +440,26 @@ const PATTERNS21: Record<string, [BallTex, ArmourTex]> = {
 const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; tune?: Tune[]; ball: number; palette: Partial<Palette>; glow?: number; crest?: CharacterDef['crest']; emblem?: CharacterDef['emblem']; matte?: boolean }> = {
   // Astray Red Frame: white armour over a red frame, black trim
   // a swordsman: the katana raised in the right hand, every shot a slash whose arc throws the marble
-  angel: { look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
-  // a dino combiner (after the Mighty Morphin Megazord): red core, silver crested helmet, pink
+  angel: { look: { frame: 'hero', head: 'vcrest', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0xff4a4a, palette: { body: 0xf2f2f2, trim: 0x1e1e24, accent: 0xd8262b, joint: 0xc8202a, eye: 0x5aff7a } },
+  // a dino combiner: red core, silver crested helmet, pink
   // breastplate, black arms with a tusked shield on the back, blue and yellow legs, a T-rex tail;
   // the old Wyvern head with twin gold horns; it fires from a toothed maw in its chest, and holds
   // a power sword ready in its left hand
-  dragon: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, special: { windup: 0.16 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
+  dragon: { look: { frame: 'heavy', head: 'vcrest', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, colossus: true, lean: -0.12 }, special: { windup: 0.16 }, crest: 'twinHorns', ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
   // tosses the heavy MG to the other hand after every fifth shot; the shot leaves from that side
   pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', back: ['ammoPack'], pose: 'dualAim', antenna: true, dynamic: true, lean: -0.16 }, ball: 0x7fb8ff, palette: { body: 0x3f6fc4, trim: 0xd8dde4, accent: 0xff8a1a, joint: 0x2a3040, eye: 0x7ff0ff } },
-  // Tallgeese-inspired, in mud-caked brown: plume helmet, Dober gun on the shoulder, huge back boosters
-  liberty: { look: { frame: 'heavy', head: 'tallgeese', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
+  // In mud-caked brown: plume helmet, a long cannon on the shoulder, huge back boosters
+  liberty: { look: { frame: 'heavy', head: 'plumeHelm', shoulder: 'heavy', gun: 'dober', left: 'shield', back: ['boosters'], treads: true }, ball: 0xd8a868, palette: { body: 0x6e5434, trim: 0xa08a64, accent: 0xc8782a, joint: 0x2e261e, eye: 0xffc04a } },
   // Blastoise-style: a shell on its back with a twin cannon (two marbles a shot), hunched like a gorilla
-  monoceros: { look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, twin: true, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
+  monoceros: { look: { frame: 'heavy', head: 'vcrest', shoulder: 'heavy', gun: 'shellCannon', back: ['shell'], gorilla: true, menace: true, lean: -0.32 }, twin: true, ball: 0xff6a8a, glow: 0xff2d55, palette: { body: 0xf4f4f6, trim: 0xdfe0e6, accent: 0xff2d55, joint: 0x5a5e6c, eye: 0xffe14d } },
   // teal and deep blue-green with gold, a pink mono-eye
   // a huge drum magazine in the left hand, its belt feeding the machine gun in the right
-  baron: { look: { frame: 'heavy', head: 'zaku', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0x6af0e0, palette: { body: 0x1f8a8a, trim: 0x173a44, accent: 0xffc23d, joint: 0x14202a, eye: 0xff5fd0 } },
+  baron: { look: { frame: 'heavy', head: 'monoeye', shoulder: 'shield', shoulderL: 'spike', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0x6af0e0, palette: { body: 0x1f8a8a, trim: 0x173a44, accent: 0xffc23d, joint: 0x14202a, eye: 0xff5fd0 } },
   // mysterious and dangerous: matte charcoal and dark olive, a bone skull, a red slit visor, a tattered cape
   bastion: { look: { frame: 'heavy', head: 'visor', shoulder: 'spike', gun: 'gatling', back: ['drum', 'cape'], pods: true, boneSkull: true, menace: true, darkCrest: true, pose: 'aim', dynamic: true, lean: -0.18 }, matte: true, emblem: 'skull', ball: 0xc8282e, palette: { body: 0x2a2c2e, trim: 0x474c42, accent: 0xb82020, joint: 0x17181a, eye: 0xff2a2a } },
   nightshade: { tune: [{ path: 'r/15/0', s: [1, 1.45, 1] }], look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, longSkirt: true, hover: true, bigCape: true }, ball: 0xd08aff, glow: 0xc86aff, palette: { body: 0x3a2a5c, trim: 0x241c36, accent: 0xc86aff, joint: 0x15111f, eye: 0xd08aff } },
   // Unit-08 pink and mint, hunched; a palm blaster in each hand, raised and opened in turn
-  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'lanky', head: 'eva', shoulder: 'heavy', gun: 'palm', back: ['pylons'], pose: 'dualAim', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
+  violet: { special: { alternate: true, hand: 0.45 }, look: { frame: 'lanky', head: 'longhorn', shoulder: 'heavy', gun: 'palm', back: ['pylons'], pose: 'dualAim', menace: true, lean: -0.3 }, ball: 0xff8ac0, glow: 0x4ae0a0, palette: { body: 0xf06aa0, trim: 0x2a2a34, accent: 0x4ae0a0, joint: 0x1e1c26, eye: 0xffe14d } },
   // army green
   // a fist cannon on each arm, firing left and right in turn
   kabuto: { special: { alternate: true, hand: 0.45 }, tune: [{ path: 'r/10/37/5/9/0', p: [0, 0, 0.12], s: [1, 1, 1.8] }, { path: 'r/10/38/5/9/0', p: [0, 0, 0.147], s: [1, 1, 1.8] }, { path: 'r/10/42/10', p: [0, 0.344, -0.341], r: [-0.262, 0, 0], s: [1.25, 1, 1] }, { path: 'r/10/42/11', p: [-0.3, 0.48, -0.377], r: [-0.257, 0.008, -0.325], s: [1.228, 1.027, 1] }, { path: 'r/10/42/12', p: [0.3, 0.48, -0.377], r: [-0.257, -0.008, 0.325], s: [1.228, 1.027, 1] }], look: { frame: 'beetle', head: 'beetle', shoulder: 'stepped', gun: 'fistCannon', pose: 'dualAim', xLegs: true, shellSkirt: true, dynamic: true, lean: -0.14 }, ball: 0xc8e07a, palette: { body: 0x5c6b3a, trim: 0x2a2c24, accent: 0xffb02e, joint: 0x23261e, eye: 0xffd23e } },
@@ -469,7 +469,7 @@ const V21: Record<string, { look?: Look21; addons?: CharacterDef['addons']; twin
   // desert: sand armour, dark brown, red accents, cyan eyes
   // every fourth shot is a giant bite of a marble
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall'], ball: 0xffb04a, palette: { body: 0xc8b48a, trim: 0x5a4a3a, accent: 0xd8402a, joint: 0x2a2420, eye: 0x5af0ff } },
-  // Char's red Zaku: salmon red armour, deep maroon plates, dark grey frame, a pink-red eye; no patterns
+  // Salmon red armour, deep maroon plates, dark grey frame, a pink-red eye; no patterns
   // bank shots: its marbles keep their speed off the walls and hit harder for every bounce
   liger: { special: { ricochet: 0.35 }, addons: ['armyWhites'], ball: 0xff5a6a, palette: { body: 0xd9525e, trim: 0x7c1c28, accent: 0x7c1c28, joint: 0x34343c, eye: 0xff3a7a } },
 };
@@ -496,19 +496,19 @@ const PATTERNS22: Record<string, [BallTex, ArmourTex]> = {
 const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFace?: boolean; hound?: boolean; fit?: [number, number, number]; look?: Look21; addons?: CharacterDef['addons']; twin?: boolean; special?: Special; tune?: Tune[]; ball: number; palette: Partial<Palette>; glow?: number; matte?: boolean }> = {
   // Each 2.2 is its 2.1 with only what gives the reference away changed.
   // Seraph (Astray Red Frame): the 2.1 design as it is, in the 2.2 colours (navy for the red frame)
-  angel: { crest: 'vfin', look: { frame: 'hero', head: 'gundam', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0x4aa8f0, palette: { body: 0xf4f3ef, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0x5af0ff } },
+  angel: { crest: 'vfin', look: { frame: 'hero', head: 'vcrest', shoulder: 'spike', gun: 'slashSword', pose: 'aim', back: ['sabers'], dynamic: true, menace: true, lean: -0.16, heroHead: true }, ball: 0x4aa8f0, palette: { body: 0xf4f3ef, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0x5af0ff } },
   // Wyvern: back to its 2.1 self (the red combiner with zord-coloured limbs)
-  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', look: { frame: 'heavy', head: 'gundam', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, megazord: true, lean: -0.12 }, ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
+  dragon: { special: { windup: 0.16 }, crest: 'twinHorns', look: { frame: 'heavy', head: 'vcrest', shoulder: 'heavy', gun: 'chestMaw', left: 'powerSword', back: ['tuskShield', 'rexTail'], dynamic: true, menace: true, colossus: true, lean: -0.12 }, ball: 0xff4a3a, palette: { body: 0xc8202a, trim: 0x1e1e24, accent: 0xf2b632, joint: 0x3a3c44, eye: 0xffe14d } },
   // Pioneer: a police robot that turns into a car: black-and-white with a riot visor and a light
   // bar, a windshield on its chest, the doors on its back, wheels on its shoulders and shins
   pioneer: { special: { swap: 5, hand: 0.42 }, look: { frame: 'slim', head: 'visor', shoulder: 'stepped', gun: 'hmg', pose: 'dualAim', dynamic: true, lean: -0.16, police: true }, ball: 0x2f5fe0, palette: { body: 0xf4f3ef, trim: 0x1f1c2a, accent: 0x2f5fe0, joint: 0x1f1c2a, eye: 0x5af0ff } },
-  // Liberty (Tallgeese): a diving-helmet head for the plume helm, a rail rifle for the Dober gun,
+  // Liberty: a diving-helmet head for the plume helm, a rail rifle for the shoulder cannon,
   // tank treads (swapped with Violet's mantis legs)
   liberty: { look: { frame: 'heavy', head: 'diver', shoulder: 'heavy', gun: 'sniper', left: 'shield', back: ['boosters'], treads: true, pose: 'aim' }, ball: 0x22b8a8, palette: { body: 0x22b8a8, trim: 0xf2ead8, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0x7affb0 } },
   // Mandrill (Blastoise): no shell on its back; MODOK-style, a giant mandrill head is its body,
   // red-nosed and blue-cheeked, small arms and legs beneath and the twin cannons over its shoulders
   monoceros: { name: 'Mandrill', twin: true, look: { frame: 'squat', head: 'mandrill', shoulder: 'wedge', gun: 'shellCannon', back: ['boosters'], modok: true, lean: -0.06 }, ball: 0xf4c25b, palette: { body: 0x5a7ab8, trim: 0xee5466, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0xffd84a } },
-  // Crimson Baron (Zaku): a flying-ace head for the mono-eye, plain shoulders for the shield
+  // Crimson Baron: a flying-ace head for the mono-eye, plain shoulders for the shield
   // and spikes, and crimson for the teal
   baron: { look: { frame: 'heavy', head: 'aviator', shoulder: 'heavy', gun: 'drumMG', left: 'ammoDrum', back: ['pods'], pose: 'aim', dynamic: true, lean: -0.18 }, ball: 0xf4c25b, palette: { body: 0xc8323a, trim: 0x2a2734, accent: 0xf2ead8, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Bastion (the Punisher): no skull; a mantis in leaf green: a mantis head, four walker legs, a
@@ -517,25 +517,25 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   bastion: { look: { frame: 'heavy', head: 'mantis', shoulder: 'spike', gun: 'mantisScythe', back: ['cape'], spider: true, abdomen: true, menace: true, pose: 'aim', lean: -0.18 }, ball: 0x8ad83a, palette: { body: 0x8ad83a, trim: 0x3fae5a, accent: 0xf4c25b, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Nightshade: ivory for the purple, and one floating tail instead of legs
   nightshade: { look: { frame: 'slim', head: 'hood', shoulder: 'wedge', gun: 'staffGun', back: ['cape'], pose: 'aim', dynamic: true, lean: -0.2, wisp: true, bigCape: true }, ball: 0xff6a9a, glow: 0xff3a4a, palette: { body: 0x3e2a6a, trim: 0x1f1c2a, accent: 0xff6a9a, joint: 0x1f1c2a, eye: 0xff7ad8 } },
-  // Unit Violet (EVA Unit-08): a silverback gorilla instead: an ape's head for the horned EVA
+  // Silverback: a gorilla: an ape's head for the horned
   // head, a squat hunched frame for the long legs, huge palm-blaster hands, violet with silver
   // (big now: a towering hunched silverback, near-black violet, a silver back and burning red eyes)
   violet: { special: { alternate: true, hand: 0.45 }, fit: [1.38, 1.38, 1.38], look: { frame: 'gorilla', head: 'ape', shoulder: 'heavy', gun: 'palm', back: ['fins'], pose: 'dualAim', menace: true, lean: -0.46 }, ball: 0x7a4ad8, glow: 0xff3a1a, palette: { body: 0x4a2f9a, trim: 0xb8bfcc, accent: 0xee5466, joint: 0x1f1c2a, eye: 0xff3a2a } },
-  // Leo King (Metabee): Fang Liger 2.1's head on a short neck for the beetle dome, no X legs or
+  // Leo King: Fang Hound 2.1's head on a short neck for the beetle dome, no X legs or
   // shell skirt, a royal cape
   // (now the Throne King: seated on a hovering throne, the warlord's horned battle-crown and fur
   // mane, the high monarch's purple robe trimmed in ermine)
-  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, fit: [0.9, 0.9, 0.9], look: { frame: 'beetle', head: 'ligerHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', lean: -0.14, throne: true }, ball: 0xe8b43a, palette: { body: 0x5b3a9e, trim: 0xe8b43a, accent: 0xf2ead8, joint: 0x232043, eye: 0xffd84a } },
-  // Tyrant King (Megatron): a hellhound head for the bucket helm, wolf heads on both fists for
+  kabuto: { name: 'Leo King', special: { alternate: true, hand: 0.45 }, fit: [0.9, 0.9, 0.9], look: { frame: 'beetle', head: 'houndHead', shoulder: 'stepped', gun: 'fistCannon', back: ['cape'], pose: 'dualAim', lean: -0.14, throne: true }, ball: 0xe8b43a, palette: { body: 0x5b3a9e, trim: 0xe8b43a, accent: 0xf2ead8, joint: 0x232043, eye: 0xffd84a } },
+  // Tyrant King: a hellhound head for the bucket helm, wolf heads on both fists for
   // the T-rex fist, no silver ribcage; black and blood red
-  // (on Fang Liger's four-legged body now, as big as it)
+  // (on Fang Hound's four-legged body now, as big as it)
   tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, fit: [1.3, 1.3, 1.3], look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xc8323a, glow: 0xff3a1a, palette: { body: 0x24305e, trim: 0xc8323a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0xff3a2a } },
   // Rex Saur: sky blue, a clean back (no stegosaurus plates)
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall'], ball: 0x4aa8f0, palette: { body: 0x4aa8f0, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0xffd84a } },
-  // Fang Liger (a Zoids liger): a black-and-gold war hound instead, plated all over, a visor over
+  // Fang Hound: a black-and-gold war hound, plated all over, a visor over
   // its eyes and a blaster on each flank, firing left and right in turn
   liger: { special: { ricochet: 0.35, alternate: true, hand: 0.4 }, hound: true, fit: [1.3, 1.3, 1.3], ball: 0xe8b43a, palette: { body: 0x2a2734, trim: 0xe8b43a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0x5af0ff } },
-  // Ember Lizard (Charmander): red, an axolotl's gill fronds fanned from its cheeks, and no flame
+  // Ember Lizard: red, an axolotl's gill fronds fanned from its cheeks, and no flame
   // on its tail
   // (peach orange, a blossom)
   ember: { name: 'Blossom', special: { wobble: Math.PI / 6 }, look: { frame: 'lizard', head: 'lizard', shoulder: 'wedge', gun: 'mouth', axolotl: true }, ball: 0xff6a9a, palette: { body: 0xee7b4c, trim: 0xf2ead8, accent: 0xff6a9a, joint: 0x1f1c2a, eye: 0x7affb0 } },
@@ -691,7 +691,7 @@ export function playableId(id: string) {
   return CHARACTERS.some((x) => x.id === v22) ? v22 : playable()[0].id;
 }
 
-/** each fighter's own power-up pose for its B-Daman special (anyone else surges) */
+/** each fighter's own power-up pose for its special (anyone else surges) */
 /** how a story line is said: its gesture (see talkPose) */
 export type TalkMood = 'say' | 'shout' | 'ask' | 'quiet';
 /**
@@ -731,7 +731,7 @@ const TALK: Record<string, TalkStyle> = {
   bastion: style({ pace: 0.6, cock: 1, energy: 0.4, shout: 'beat' }),
   // Nightshade: floats, slow and soft; rises up when it raises its voice
   nightshade: style({ pace: 0.8, float: 1, sway: 0.3, energy: 0.6, shout: 'rise' }),
-  // Unit Violet: the hunched silverback; beats its chest
+  // Silverback: the hunched silverback; beats its chest
   violet: style({ pace: 0.9, hunch: 0.15, lean: -0.05, energy: 1.2, shout: 'beat' }),
   // Leo King: chin up, leaning back, royal; one grand gesture
   kabuto: style({ pace: 0.85, lean: 0.07, chin: 0.12, energy: 0.8, shout: 'regal' }),
@@ -739,7 +739,7 @@ const TALK: Record<string, TalkStyle> = {
   tyrant: style({ pace: 0.7, lean: -0.08, hunch: 0.05, energy: 0.9, shout: 'snap' }),
   // Rex Saur: the grumpy old timer, crouched, shaking its head; stomps
   rex: style({ pace: 0.75, hunch: 0.12, shake: 0.7, energy: 0.9, shout: 'stomp' }),
-  // Fang Liger: prowls side to side, low; pounces
+  // Fang Hound: prowls side to side, low; pounces
   liger: style({ pace: 1, hunch: 0.15, sway: 1, energy: 1, shout: 'pounce' }),
   // Blossom: the kid, bouncing on its toes, quick and excited; a happy spin
   ember: style({ pace: 1.4, bounce: 1, energy: 1.4, shout: 'spin' }),
@@ -943,11 +943,11 @@ export class ShooterMesh {
       this.buildBeetle(def, { body, trim, accent, joint, gold, eyeMat, ballMat });
       return;
     }
-    if (def.body === 'eva' || def.body === 'cat' || def.body === 'megatron') {
+    if (def.body === 'longhorn' || def.body === 'cat' || def.body === 'tyrant') {
       const hm: HeroMats = { body, trim, accent, joint, eyeMat, ballMat, eyeColor: pal.eye, accentColor: pal.accent };
-      if (def.body === 'eva') this.buildEva(hm);
+      if (def.body === 'longhorn') this.buildLonghorn(hm);
       else if (def.body === 'cat') this.buildLion(hm);
-      else this.buildMegatron(hm);
+      else this.buildTyrant(hm);
       return;
     }
     if (def.body && def.body !== 'mech') {
@@ -1448,7 +1448,7 @@ export class ShooterMesh {
     }
   }
 
-  /** Metabee from the figure sheet: chibi build, big round head with twin launchers, white ribbed core,
+  /** the beetle from the figure sheet: chibi build, big round head with twin launchers, white ribbed core,
    * yellow side plates and shoulder blocks, black gun barrels on the forearms and back, blocky yellow boots */
   private buildBeetle(
     def: CharacterDef,
@@ -1973,7 +1973,7 @@ export class ShooterMesh {
     } else if (kit === 'beetle') {
       if (punch) this.markBelly(this.turret, 0.6, 0.44, -0.99); // the twin cannon on the thrown fist
       else this.markBelly(this.turret, 0.66, 0, -0.64); // the right forearm gun
-    } else if (kit === 'eva') {
+    } else if (kit === 'longhorn') {
       if (punch) this.markBelly(this.turret, 0.6, 0.16, -1.37); // the rifle in the outstretched hand
       else this.markBelly(this.turret, 0.52, 0.02, -0.98); // the rifle in the right hand
     } else {
@@ -2034,8 +2034,8 @@ export class ShooterMesh {
           sh.add(claw);
         }
       }
-      if (kit === 'eva') {
-        // EVA: tall dark pylons rising from the shoulders, green-tipped
+      if (kit === 'longhorn') {
+        // the longhorn: tall dark pylons rising from the shoulders, green-tipped
         const pylon = box(0.08, 0.62, 0.3, m.trim, side * 0.16, 0.34, 0);
         pylon.rotation.z = -side * 0.08;
         sh.add(pylon);
@@ -2043,13 +2043,13 @@ export class ShooterMesh {
         sh.add(box(0.09, 0.04, 0.31, m.accent, side * 0.17, 0.4, 0));
       }
       if (kit === 'beetle' && !thrown) {
-        // Metabee: a black gun barrel along each forearm
+        // the beetle: a black gun barrel along each forearm
         const gun = cyl(0.05, 0.3, m.trim);
         gun.rotation.x = Math.PI / 2;
         gun.position.set(side * 0.06, -0.42, -0.38);
         sh.add(gun);
       }
-      if (kit === 'megatron') {
+      if (kit === 'tyrant') {
         // scaled fins rising behind the shoulders
         const fin = box(0.12, 0.5, 0.3, m.body, side * 0.02, 0.36, 0.12);
         fin.rotation.set(0.15, 0, side * -0.3);
@@ -2089,8 +2089,8 @@ export class ShooterMesh {
       this.turret.add(this.barrel);
       this.barrelZ = -0.78;
     }
-    // EVA: a pallet rifle in the right hand is the gun, pointing down the lane
-    if (kit === 'eva') {
+    // the longhorn: a rifle in the right hand is the gun, pointing down the lane
+    if (kit === 'longhorn') {
       const gunmetal = this.paint(0x5d646e);
       if (punch) this.barrel.position.set(0.6, 0.16, -0.74);
       else this.barrel.position.set(0.52, 0.02, -0.36);
@@ -2110,9 +2110,9 @@ export class ShooterMesh {
       this.turret.add(this.barrel);
       this.barrelZ = this.barrel.position.z;
     }
-    // Metabee's right forearm gun is the main gun; it recoils on every shot
+    // the beetle's right forearm gun is the main gun; it recoils on every shot
     if (kit === 'beetle' && punch) {
-      // Metabee's twin cannon, mounted over the thrown fist
+      // the beetle's twin cannon, mounted over the thrown fist
       this.barrel.position.set(0.6, 0.44, -0.72);
       this.barrel.add(box(0.28, 0.15, 0.3, m.body, 0, 0, 0));
       this.barrel.add(box(0.3, 0.03, 0.32, m.trim, 0, -0.07, 0));
@@ -2139,9 +2139,9 @@ export class ShooterMesh {
       this.turret.add(this.barrel);
       this.barrelZ = -0.34;
     }
-    // Megatron: the T-rex head on his right fist is his gun, its jaw snapping on each shot;
+    // the tyrant: the T-rex head on its right fist is its gun, its jaw snapping on each shot;
     // the great curved tail is carried like a blade in the left hand
-    if (kit === 'megatron') {
+    if (kit === 'tyrant') {
       const pink = this.paint(0xc8506a);
       const red = new THREE.MeshBasicMaterial({ color: 0xff2a2a });
       this.barrel.position.set(0.56, -0.02, -0.34);
@@ -2210,13 +2210,13 @@ export class ShooterMesh {
     const head = new THREE.Group();
     head.position.set(0, 0.9, -0.02);
     head.scale.setScalar(1.06);
-    // Metabee's dome, jaw shell and launchers make a bigger head than the rest: scaled down to match
+    // the beetle's dome, jaw shell and launchers make a bigger head than the rest: scaled down to match
     if (kit === 'beetle') {
       head.scale.setScalar(0.84);
       head.position.y = 0.86;
     }
     this.turret.add(head);
-    if (kit === 'eva') {
+    if (kit === 'longhorn') {
       const slate = this.paint(0x6f7d96);
       head.add(box(0.6, 0.42, 0.72, m.body, 0, 0.04, 0.02)); // long helmet
       head.add(box(0.14, 0.1, 0.62, m.body, 0, 0.28, 0.02)); // crown ridge
@@ -2270,7 +2270,7 @@ export class ShooterMesh {
         pod.add(box(0.02, 0.11, 0.11, hole, side * 0.205, 0, 0));
         head.add(pod);
       }
-    } else if (kit === 'megatron') {
+    } else if (kit === 'tyrant') {
       const helmet = this.paint(0x3f4648);
       const helmetLite = this.paint(0x5a6264);
       const face = this.paint(0xa9b0b6);
@@ -2348,7 +2348,7 @@ export class ShooterMesh {
       this.flame = flame;
       this.root.add(tail);
     } else {
-      // the Gundam-style head: capped helmet, V brow, cheek guards, crest
+      // the V-crest head: capped helmet, V brow, cheek guards, crest
       head.add(box(0.72, 0.56, 0.64, m.body));
       head.add(box(0.62, 0.08, 0.56, m.trim, 0, 0.3, 0.02));
       head.add(box(0.5, 0.3, 0.06, def.darkFace ? m.joint : m.body, 0, -0.08, -0.33));
@@ -2553,7 +2553,7 @@ export class ShooterMesh {
       leg.add(at(prism(0.2 * lw, 0.22 * lw, 0.27 * lw, 0.27 * lw, 0.24 * k, m.body, [0.05, 0.05, 0.02, 0.02]), 0, -0.15 * k, 0));
       ventX(leg, s * 0.135 * lw, -0.22 * k, 0.01, 3, 0.16 * lw, s);
       if (L.xLegs) {
-        // Metabee's leg covers: square shells marked with an X
+        // the beetle's leg covers: square shells marked with an X
         leg.add(at(prism(0.3 * lw, 0.32 * lw, 0.3 * lw, 0.32 * lw, 0.26 * k, m.body, 0.03), 0, -0.36 * k, 0));
         for (const r of [0.75, -0.75]) leg.add(at(box(0.025, 0.3 * k, 0.02, m.joint), 0, -0.36 * k, -0.165 * lw, 0, 0, r));
       } else {
@@ -2576,7 +2576,7 @@ export class ShooterMesh {
         // foot: a side-view wedge, low toe and a raised heel block, plus a toe cap and heel spur
         const fl = F.foot;
         leg.add(at(side([[-0.4 * fl, 0], [0.2 * fl, 0], [0.24 * fl, 0.05], [0.15 * fl, 0.12], [-0.12 * fl, 0.13], [-0.4 * fl, 0.045]], 0.4 * lw, m.body), 0, sole, -0.04));
-        if (def.feet === 'claw' && !L.megazord) {
+        if (def.feet === 'claw' && !L.colossus) {
           for (const cx of [-0.12, 0, 0.12]) leg.add(at(cone(0.05, 0.16, m.joint), cx * lw, sole + 0.04, -0.47 * fl, -Math.PI / 2));
         } else {
           leg.add(at(side([[-0.42 * fl, 0], [-0.2 * fl, 0], [-0.2 * fl, 0.07], [-0.42 * fl, 0.04]], 0.42 * lw, m.accent), 0, sole, -0.04));
@@ -2624,7 +2624,7 @@ export class ShooterMesh {
       this.root.add(at(plate([[-0.24, len / 2], [0.24, len / 2], [0.2, -len / 2 + 0.04], [-0.2, -len / 2 + 0.04]], 0.05, m.body), 0, y, 0.22, 0.12));
     }
     if (L.shellSkirt) {
-      // Metabee's round shell skirt, as a faceted ring of plates
+      // the beetle's round shell skirt, as a faceted ring of plates
       for (const s of [-1, 1]) this.root.add(at(prism(0.2, 0.36, 0.26, 0.4, 0.16, m.body, 0.06), s * 0.24, tY - 0.12, 0.02, 0, 0, s * 0.35));
     }
 
@@ -2645,7 +2645,7 @@ export class ShooterMesh {
     // chest: pec plates in a V (or the skull), intakes under them, and the core
     const skull = def.emblem === 'skull';
     const z0 = -cd / 2 - 0.005;
-    if (L.megazord) {
+    if (L.colossus) {
       // the pterodactyl breastplate: a broad pink plate edged in gold, its gold beak pointing
       // down the middle and its wings folded up into the collar
       // (a 2.2 combiner wears its own palette: the breastplate in its accent colour)
@@ -2681,7 +2681,7 @@ export class ShooterMesh {
       }
       if (!skull) this.turret.add(at(plate([[-0.035, 0.12], [0.035, 0.12], [0.03, -0.06], [0, -0.12], [-0.03, -0.06]], 0.05, m.accent), 0, 0.44, z0 - 0.025));
     } else {
-      // Megatron: a silver ribcage
+      // the tyrant: a silver ribcage
       this.turret.add(at(plate([[-0.22, 0.14], [0.22, 0.14], [0.18, -0.12], [0, -0.18], [-0.18, -0.12]], 0.05, silver), 0, 0.38, z0));
       for (let q = 0; q < 4; q++) this.turret.add(box(0.3 - q * 0.04, 0.02, 0.02, m.joint, 0, 0.47 - q * 0.07, z0 - 0.03));
     }
@@ -2692,7 +2692,7 @@ export class ShooterMesh {
       for (const s of [-1, 1]) this.turret.add(box(0.09, 0.07, 0.02, hole, s * 0.075, 0.43, z - 0.012));
       this.turret.add(box(0.03, 0.04, 0.02, hole, 0, 0.375, z - 0.012));
       for (let q = 0; q < 5; q++) this.turret.add(box(0.036, 0.14, 0.03, bone, -0.1 + q * 0.05, 0.27, z));
-    } else if (!L.ribcage && L.gun !== 'dragonMaw' && !L.megazord) {
+    } else if (!L.ribcage && L.gun !== 'dragonMaw' && !L.colossus) {
       // the core: a hex housing with a glowing gem, under the keel
       const hex = (r: number): [number, number][] => [0, 1, 2, 3, 4, 5].map((i) => [Math.cos((i / 6) * Math.PI * 2) * r, Math.sin((i / 6) * Math.PI * 2) * r]);
       this.turret.add(at(plate(hex(0.06), 0.04, m.joint), 0, 0.26, z0 - 0.015));
@@ -2744,7 +2744,7 @@ export class ShooterMesh {
         sh.add(at(prism(0.34, 0.4, 0.28, 0.34, 0.14, m.trim, 0.06), s * 0.03, 0.13, 0));
         ventX(sh, s * 0.215, -0.1, 0, 2, 0.3, s);
       } else if (style === 'shield') {
-        // Zaku's round right shoulder shield, faceted
+        // the round right shoulder shield, faceted
         sh.add(at(prism(0.42, 0.5, 0.36, 0.44, 0.36, m.body, 0.12), s * 0.08, -0.02, 0, 0, 0, s * -0.3));
         sh.add(box(0.03, 0.3, 0.36, m.trim, s * 0.27, -0.04, 0));
       } else {
@@ -2937,7 +2937,7 @@ export class ShooterMesh {
         break;
       }
       case 'dober': {
-        // Tallgeese's Dober gun: a long cannon riding on the right shoulder, gripped below
+        // the shoulder cannon: a long cannon riding on the right shoulder, gripped below
         gun.position.set(0.02, 0.32, -0.04);
         gun.scale.setScalar(1.15);
         rightSh!.add(gun);
@@ -3060,7 +3060,7 @@ export class ShooterMesh {
         break;
       }
       case 'fistCannon': {
-        // Metabee's twin cannon over the thrown fist
+        // the beetle's twin cannon over the thrown fist
         gun.position.copy(fist).add(V(0, 0.16, 0.12));
         (L.pose === 'dualAim' ? rightArm! : rightSh!).add(gun);
         gun.add(at(prism(0.28, 0.3, 0.26, 0.28, 0.15, m.body, 0.05), 0, 0, 0));
@@ -3081,7 +3081,7 @@ export class ShooterMesh {
         break;
       }
       case 'rexFist': {
-        // Megatron: the T-rex head on the right fist is the gun, its jaw snapping on each shot
+        // the tyrant: the T-rex head on the right fist is the gun, its jaw snapping on each shot
         inHand();
         gun.scale.setScalar(1.4);
         const pink = this.paint(0xc8506a);
@@ -3432,7 +3432,7 @@ export class ShooterMesh {
       }
       if (back === 'boosters')
         for (const sx of [-1, 1]) {
-          // Tallgeese's huge twin super-vernier packs
+          // huge twin booster packs
           this.turret.add(at(prism(0.24, 0.42, 0.2, 0.36, 0.7, m.body, 0.06), sx * 0.22, 0.32, cd / 2 + 0.3, 0.12));
           this.turret.add(at(box(0.26, 0.06, 0.4, m.accent), sx * 0.22, 0.52, cd / 2 + 0.33, 0.12));
           this.turret.add(at(cyl(0.1, 0.12, m.joint), sx * 0.22, -0.06, cd / 2 + 0.26));
@@ -3471,7 +3471,7 @@ export class ShooterMesh {
         }
       }
       if (back === 'launchers') {
-        // Metabee: twin launchers on a stalk from the top of the head (added with the head below)
+        // the beetle: twin launchers on a stalk from the top of the head (added with the head below)
       }
     }
     if (drumFeed) {
@@ -3509,7 +3509,7 @@ export class ShooterMesh {
     head.position.set(0, 0.92 + (F.headY ?? 0), -0.03);
     if (L.menace) head.position.add(V(0, -0.07, -0.1));
     // (a beast's head sits low on a short neck)
-    if (L.head === 'ligerHead') head.position.y -= 0.14;
+    if (L.head === 'houndHead') head.position.y -= 0.14;
     head.scale.setScalar(F.headS);
     if (L.modok) {
       // the head is the body: blown up to engulf the torso, the limbs poking out beneath it
@@ -3530,7 +3530,7 @@ export class ShooterMesh {
       }
     };
     switch (L.head) {
-      case 'gundam':
+      case 'vcrest':
       case 'visor': {
         // the helmet, cut at the front corners so the face reads as facets, narrower at the top
         // (the hero head is sleeker: more cut, and its crown, ears and cheeks take the accent)
@@ -3572,7 +3572,7 @@ export class ShooterMesh {
         this.buildCrest(head, def, { body: m.body, trim: m.trim, accent: m.accent, joint: m.joint, gold: goldTrim, glowMat: m.glowMat });
         break;
       }
-      case 'megazord': {
+      case 'colossus': {
         // a silver helmet with a gold crest and fins, a black face with yellow eyes, a silver
         // mouthguard, and red ear pieces
         const silverH = this.paint(0xc4c9d0, 'metal');
@@ -3590,7 +3590,7 @@ export class ShooterMesh {
         }
         break;
       }
-      case 'tallgeese': {
+      case 'plumeHelm': {
         // a rounded knight's helmet with a plume rising at the front, eyes under the brow,
         // vents on the faceplate and big round ear pieces
         head.add(prism(0.66, 0.64, 0.56, 0.56, 0.48, m.body, [0.15, 0.15, 0.08, 0.08]));
@@ -3606,7 +3606,7 @@ export class ShooterMesh {
         }
         break;
       }
-      case 'zaku': {
+      case 'monoeye': {
         head.position.y -= 0.1;
         head.add(at(prism(0.66, 0.66, 0.46, 0.5, 0.48, m.body, 0.17), 0, 0.03, 0));
         head.add(at(prism(0.48, 0.52, 0.32, 0.36, 0.1, m.trim, 0.12), 0, 0.31, 0));
@@ -3898,8 +3898,8 @@ export class ShooterMesh {
         head.add(at(side([[0.2, 0], [-0.22, 0], [-0.14, 0.14], [0.14, 0.12]], 0.1, m.body), 0, 0.22, 0.04)); // fur crest
         break;
       }
-      case 'ligerHead': {
-        // Fang Liger 2.1's head, from its shipped Unit Lab design, in this unit's colours
+      case 'houndHead': {
+        // Fang Hound 2.1's head, from its shipped Unit Lab design, in this unit's colours
         const bp = SHIPPED.units['liger-21']?.blueprint;
         const src = bp?.children?.[58]?.children?.[1];
         if (src) {
@@ -3951,7 +3951,7 @@ export class ShooterMesh {
         for (const s of [-1, 1]) head.add(at(prism(0.06, 0.4, 0.04, 0.3, 0.4, m.trim), s * 0.33, -0.04, 0.0, 0, 0, s * 0.1));
         break;
       }
-      case 'eva': {
+      case 'longhorn': {
         head.add(at(prism(0.56, 0.76, 0.46, 0.68, 0.42, m.body, [0.12, 0.12, 0.05, 0.05]), 0, 0.04, 0.04));
         head.add(at(prism(0.12, 0.6, 0.08, 0.5, 0.12, m.body), 0, 0.29, 0.06));
         // eyes that look straight ahead, and the head held level however far the body hunches
@@ -4048,7 +4048,7 @@ export class ShooterMesh {
         this.root.add(at(prism(w, 0.2, w * 0.9, 0.18, w * 0.6, q % 2 ? m.trim : m.body, 0.04), 0, tY - 0.1 - q * 0.06, 0.26 + q * 0.17, 0.25 + q * 0.06));
       }
     }
-    if (L.megazord && !def.v22) {
+    if (L.colossus && !def.v22) {
       // each limb in its own zord's colour: black (mastodon) arms, a blue (triceratops) right
       // leg and a yellow (sabertooth) left leg
       const swap = (o: THREE.Object3D, to: Record<string, THREE.Material>) =>
@@ -4179,7 +4179,7 @@ export class ShooterMesh {
   }
 
   /**
-   * Fang Liger 2.2: an armoured war hound built in code, high at the shoulder, a long snout and
+   * Fang Hound 2.2: an armoured war hound built in code, high at the shoulder, a long snout and
    * tall ears, plated helm, chest, flanks and legs. The legs hang from the root (walked in
    * diagonal pairs); the turret is the neck, carrying the head, whose jaw snaps open as the
    * marble leaves the mouth.
@@ -4480,8 +4480,8 @@ export class ShooterMesh {
     return m;
   }
 
-  /** chibi EVA-01 from the figure sheet: big hooded helmet with horn and grey beak jaw, tall black pylons, rifle held across the body */
-  private buildEva(m: HeroMats) {
+  /** the longhorn from the figure sheet: big hooded helmet with horn and grey beak jaw, tall black pylons, rifle held across the body */
+  private buildLonghorn(m: HeroMats) {
     const orange = this.paint(0xf0a23a);
     const slate = this.paint(0x6f7d96);
     const gun = this.paint(0x5d646e);
@@ -4528,7 +4528,7 @@ export class ShooterMesh {
     this.turret.add(rbox(0.14, 0.16, 0.08, 0.03, m.body, 0, 0.36, 0.22));
     this.turret.add(rbox(0.08, 0.04, 0.04, 0.01, m.accent, 0, 0.42, 0.265));
     this.markBelly(this.turret, 0, 0.26, -0.28);
-    // belly port: the B-Daman barrel, ringed in green
+    // belly port: the marble barrel, ringed in green
     this.barrel.position.set(0, 0.26, -0.19);
     this.barrelZ = -0.19;
     const port = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.06, 16), black);
@@ -4649,7 +4649,7 @@ export class ShooterMesh {
     this.turret.add(this.trigger);
   }
 
-  /** shield liger from the model sheet: boxy blue armour ribbed with vents, slate frame studded with silver discs,
+  /** the hound from the model sheet: boxy blue armour ribbed with vents, slate frame studded with silver discs,
    * orange canopy, slotted crest, gold block paws, straight cannon tail */
   private buildLion(m: HeroMats) {
     const white = this.paint(0xf4f2ea);
@@ -4944,9 +4944,9 @@ export class ShooterMesh {
     T.add(this.trigger);
   }
 
-  /** beast-wars megatron from the figure sheet: gunmetal helmet with a green gem, magenta chest with silver lines,
+  /** the tyrant from the figure sheet: gunmetal helmet with a green gem, magenta chest with silver lines,
    * scaled shoulder fins, a big T-rex head right hand, and the curved tail carried like a blade in the left */
-  private buildMegatron(m: HeroMats) {
+  private buildTyrant(m: HeroMats) {
     const helmet = this.paint(0x3f4648);
     const helmetLite = this.paint(0x5a6264);
     const face = this.paint(0xa9b0b6);
@@ -5163,7 +5163,7 @@ export class ShooterMesh {
         head.add(box(0.5, 0.08, 0.62, m.trim, 0, 0.32, 0)); // crest band
         break;
       }
-      case 'eva': {
+      case 'longhorn': {
         // one long horn swept forward off the brow, armoured jaw
         const horn = cone(0.06, 0.7, m.body);
         horn.position.set(0, 0.42, -0.28);
@@ -5352,7 +5352,7 @@ export class ShooterMesh {
   /** world position of the barrel's tip, where a fired marble appears */
   muzzleWorld(out: THREE.Vector3) {
     this.root.updateMatrixWorld(true);
-    // B-Daman style: the marble leaves from the front of the belly
+    // Arena style: the marble leaves from the front of the belly
     if (this.lastHand === -1 && this.bellyMarkL) return this.bellyMarkL.getWorldPosition(out);
     if (this.bellyMark) return this.bellyMark.getWorldPosition(out);
     return this.barrel.localToWorld(out.set(0, 0, -0.25));
@@ -5435,7 +5435,7 @@ export class ShooterMesh {
   }
 
   /**
-   * The B-Daman spirit shot's power-up, played through its cinematic on top of the normal stance
+   * The spirit shot's power-up, played through its cinematic on top of the normal stance
    * (t: seconds in). Every fighter has its own (see POSES): a swordsman raises its blade to the
    * sky, a beast stomps and roars, the biplane loops, the gorilla beats its chest and slams down...
    * each ending leaning back into the wind-up it holds until the shot leaves.

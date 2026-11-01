@@ -5187,15 +5187,15 @@ body.buttons #pad {
   }
 }
 
-/* ================= B-Daman mode ================= */
-#home-cards .mode-card[data-art='bdaman'] {
+/* ================= Arena rules ================= */
+#home-cards .mode-card[data-art='classic'] {
   background: linear-gradient(135deg, #ff8a3a, #d8323a);
 }
-.mode-card[data-art='bdaman'] .card-art em {
+.mode-card[data-art='classic'] .card-art em {
   font-size: 48px;
   -webkit-text-stroke: 0;
 }
-/* the B-Daspirit gauge under each health bar (only in this mode) */
+/* the Overdrive gauge under each health bar (only in this mode) */
 .spirit {
   display: none;
   position: relative;
@@ -5207,7 +5207,7 @@ body.buttons #pad {
   overflow: hidden;
 }
 /* (the gauge lives in the SPECIAL button now) */
-body.bdaman .spirit {
+body.arena-rules .spirit {
   display: none;
 }
 .spirit .fill {
@@ -5245,7 +5245,7 @@ body.bdaman .spirit {
 #special-btn {
   display: none;
 }
-body.bdaman #special-btn {
+body.arena-rules #special-btn {
   display: block;
   width: 100%;
   height: 40px;
@@ -5259,14 +5259,14 @@ body.bdaman #special-btn {
   box-shadow: 0 4px 0 var(--line);
   pointer-events: auto;
 }
-body.bdaman #special-btn.ready {
+body.arena-rules #special-btn.ready {
   background: linear-gradient(#ffd84a, #ff7a3a);
   color: #fff;
   -webkit-text-stroke: 4px var(--line);
   paint-order: stroke fill;
   animation: badge-pulse 0.9s ease-in-out infinite;
 }
-body.bdaman #pad .pad-fire.single {
+body.arena-rules #pad .pad-fire.single {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -5372,7 +5372,7 @@ body.bdaman #pad .pad-fire.single {
   paint-order: stroke fill;
   text-shadow: 0 4px 0 var(--line);
 }
-/* B-Daman mode: how many loose marbles lie on your side, to go and grab */
+/* Arena rules: how many loose marbles lie on your side, to go and grab */
 #loose-count {
   position: absolute;
   z-index: 6;
@@ -5413,15 +5413,15 @@ body.bdaman #pad .pad-fire.single {
   animation: badge-pulse 1s ease-in-out infinite;
 }
 
-/* the SPECIAL button fills up from the bottom as B-Daspirit builds */
-body.bdaman #special-btn {
+/* the SPECIAL button fills up from the bottom as Overdrive builds */
+body.arena-rules #special-btn {
   --p: 0;
   background: linear-gradient(to top, #4aa8f0 0, #5af0ff calc(var(--p) * 1%), #4a4658 calc(var(--p) * 1%));
   color: #fff;
   -webkit-text-stroke: 3px var(--line);
   paint-order: stroke fill;
 }
-body.bdaman #special-btn.ready {
+body.arena-rules #special-btn.ready {
   background: linear-gradient(#ffd84a, #ff7a3a);
 }
 #special-fx.go .sfx-band {
@@ -5437,7 +5437,7 @@ body.cine-on #pad {
   visibility: hidden;
 }
 
-/* the fighter's B-Daman special on the select screen */
+/* the fighter's special on the select screen */
 .car-info .sp-move {
   grid-column: 1 / -1;
   display: flex;

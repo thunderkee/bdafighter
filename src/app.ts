@@ -1,4 +1,4 @@
-import { AI_PROFILES, ARENA, BALANCE, BALANCE_BDA, MAG_BDA, MAG_BDA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
+import { AI_PROFILES, ARENA, BALANCE, BALANCE_ARENA, MAG_ARENA, MAG_ARENA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, SPIRIT_MOVES, STEP, chargeLevel, slotTeam, type Shooter, type SpiritKind } from './game';
@@ -130,13 +130,14 @@ export function boot() {
   let duo = false;
   /** story mode: whose story, which chapter (0-based), and the chapter's match settings */
   let story: { hero: string; ch: number; cfg: Partial<store.Settings> } | null = null;
-  /** B-Daman mode: marbles picked up off the table, the B-Daspirit gauge and spirit shots */
-  let bdaMode = false;
+  /** Arena rules: marbles picked up off the table, the Overdrive gauge and spirit shots */
+  let arenaRules = false;
   /** the settings a match plays by: yours, with an arcade stage's (or local versus') rules on top */
   const S = (): store.Settings => {
     const s = rules();
     // (a removed arena, from an old save or arcade run, plays on the first one)
-    return { ...s, stage: stageById(s.stage).id };
+    if (stageById(s.stage).id !== s.stage) s.stage = stageById(s.stage).id;
+    return s;
   };
   const rules = (): store.Settings =>
     tut
@@ -148,8 +149,8 @@ export function boot() {
         ? { ...saveData.settings, ...arcade.cfg }
         : duo
           ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
-          : bdaMode
-            ? // (B-Daman: one on one, a clean table; item crates land on the table like the ammo box)
+          : arenaRules
+            ? // (Arena rules: one on one, a clean table; item crates land on the table like the ammo box)
               { ...saveData.settings, pack: 1, playerPack: 1, gates: false, pucks: 0, covers: 0, pins: 0 }
             : saveData.settings;
   // the table width is fixed for the session: walls and scenery are built for it
@@ -164,8 +165,8 @@ export function boot() {
     const c = characterById(id);
     const key = (c.base ?? c.id).replace(/-\d+$/, '');
     const type = MARBLE_OF[key] ?? 'standard';
-    // (B-Daman mode sizes them for its full refills from the ammo box)
-    const mag = bdaMode ? (MAG_BDA_OF[key] ?? MAG_BDA[type]) : (MAG_OF[key] ?? MARBLES[type].mag);
+    // (Arena rules sizes them for its full refills from the ammo box)
+    const mag = arenaRules ? (MAG_ARENA_OF[key] ?? MAG_ARENA[type]) : (MAG_OF[key] ?? MARBLES[type].mag);
     return { type, key, ...MARBLES[type], mag };
   };
   const withTraits = <S extends ShooterStats>(stats: S, id: string): S => {
@@ -176,7 +177,7 @@ export function boot() {
       marbleRadius: stats.marbleRadius * mb.radius,
       marbleMass: stats.marbleMass * mb.mass,
       muzzleSpeed: stats.muzzleSpeed * mb.speed,
-      damage: stats.damage * mb.damage * ((bdaMode ? BALANCE_BDA : BALANCE)[mb.key] ?? 1),
+      damage: stats.damage * mb.damage * ((arenaRules ? BALANCE_ARENA : BALANCE)[mb.key] ?? 1),
       bounce: mb.bounce,
       capacity: S().magPer === false ? stats.capacity : mb.mag,
       reloadTime: stats.reloadTime * mb.reload,
@@ -598,7 +599,7 @@ export function boot() {
       duration: st.roundTime ?? 60,
       burst: st.burst ?? 1,
       cpuCharge: st.cpuCharge ?? true,
-      bdaman: bdaMode,
+      arenaRules,
       allyCharge: st.allyCharge ?? true,
       boss: boss() ? { slots: boss()!.units.map((_, k) => 1 + k), size: boss()!.size } : undefined,
     });
@@ -653,9 +654,9 @@ export function boot() {
     // local versus: the table from above for both players, their own labels and controls
     document.body.classList.toggle('duo', duo);
     const cam = duo ? 'split' : st.camera;
-    document.body.classList.toggle('bdaman', bdaMode);
+    document.body.classList.toggle('arena-rules', arenaRules);
     // (the special button sits over FIRE on the pad; with gestures it floats on the HUD)
-    if (bdaMode) (S().layout === 'buttons' ? document.querySelector('#pad .pad-fire.single')! : $('hud')).prepend($('special-btn'));
+    if (arenaRules) (S().layout === 'buttons' ? document.querySelector('#pad .pad-fire.single')! : $('hud')).prepend($('special-btn'));
     if (view.cameraMode !== cam) {
       view.cameraMode = cam;
       view.resize();
@@ -683,7 +684,7 @@ export function boot() {
     view.setCharacters(unitIds(), duo ? undefined : mine(unitIds()[0]));
     fitTable(st);
     // the newer arenas bring their pinball board
-    game.setBoard(bdaMode ? null : st.stage);
+    game.setBoard(arenaRules ? null : st.stage);
     // a shaped board brings its own side walls (and nothing inside the table)
     game.setShape(st.stage);
     roundNo = 1;
@@ -969,7 +970,7 @@ export function boot() {
   const startArcade = () => {
     // a fighter with a run of its own picks it back up
     if (runOf(saveData.settings.character)) return resumeRun();
-    bdaMode = true;
+    arenaRules = true;
     runOwner = saveData.settings.character;
     const plan = rollPlan();
     arcade = { stage: 1, cleared: 0, cfg: plan[0], plan };
@@ -1024,8 +1025,8 @@ export function boot() {
     const r = runOf(id);
     if (!r) return;
     story = null;
-    // (arcade plays by B-Daman rules too)
-    bdaMode = true;
+    // (arcade plays by Arena rules too)
+    arenaRules = true;
     sfx.unlock();
     selectMode = 'arcade';
     duo = false;
@@ -1104,8 +1105,8 @@ export function boot() {
     if (!story) return;
     const c = pathOf(story.hero).chapters[ch];
     const diff = CHAPTER_DIFF[ch] ?? 'hard';
-    // (story fights play by B-Daman rules)
-    bdaMode = true;
+    // (story fights play by Arena rules)
+    arenaRules = true;
     story.cfg = { enemyCharacter: unitOfBase(c.foe), stage: c.arena, pack: 1, playerPack: 1, items: true, roundTime: 60, difficulty: diff, ...store.DIFFICULTY[diff] };
     arcade = null;
     duo = false;
@@ -1261,8 +1262,8 @@ export function boot() {
     // (the run stays saved: Continue on the title picks it back up)
     arcade = null;
     story = null;
-    bdaMode = false;
-    document.body.classList.remove('bdaman');
+    arenaRules = false;
+    document.body.classList.remove('arena-rules');
     $('loose-count').classList.add('hidden');
     showRunOffer();
     screen = 'title';
@@ -1272,7 +1273,7 @@ export function boot() {
   };
 
   /** Per-frame timeline for the intro, the replay and the finale. */
-  // ---------- B-Daman mode: the spirit shot ----------
+  // ---------- Arena rules: the spirit shot ----------
   const MOVE_NAMES: Record<string, string> = {
     angel: 'ZERO EXCALIBUR', dragon: 'DINO FORCE CANNON', pioneer: 'SIREN BUSTER', liberty: 'DEEP DIVE RAIL', monoceros: 'GENIUS TWIN BLAST', baron: 'CRIMSON LOOP DIVE', bastion: 'SCYTHE CROSS',
     nightshade: 'ECLIPSE FALL', violet: 'SILVERBACK QUAKE', kabuto: 'ROYAL ROAR', tyrant: 'HELLHOUND CERBERUS', rex: 'FROST BITE', liger: 'FANG RICOCHET', ember: 'BLOSSOM BURST',
@@ -1289,12 +1290,12 @@ export function boot() {
     specialTap = true;
   });
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyX' && bdaMode) specialTap = true;
+    if (e.code === 'KeyX' && arenaRules) specialTap = true;
   });
   /** each tick: only the SPECIAL button (or X) calls the spirit shot, when you choose; a direction
    *  held as you press it bends the shot that way */
   const pollSpecial = () => {
-    if (!bdaMode || flow !== 'round' || duo) return;
+    if (!arenaRules || flow !== 'round' || duo) return;
     const dir = Math.sign(player.moveAxis) || (Math.abs(player.vx) > 1.5 ? Math.sign(player.vx) : 0);
     if (specialTap && player.spirit >= 100) game.beginSpecial(player, dir);
     specialTap = false;
@@ -1397,20 +1398,20 @@ export function boot() {
 
   // Versus from home: straight into a match with your fighter, your last rival and arena;
   // Customise walks the steps instead
-  // (Versus plays by B-Daman rules: the ammo box, the B-Daspirit gauge and specials)
-  const bdaHint = () => setTimeout(() => showToast('SLIDE INTO YOUR AMMO BOX TO RELOAD // SHOOT THEIRS TO BREAK IT // SPECIAL WHEN YOU CHOOSE', 0xffc23d), 900);
+  // (Versus plays by Arena rules: the ammo box, the Overdrive gauge and specials)
+  const arenaHint = () => setTimeout(() => showToast('SLIDE INTO YOUR AMMO BOX TO RELOAD // SHOOT THEIRS TO BREAK IT // SPECIAL WHEN YOU CHOOSE', 0xffc23d), 900);
   const quickMatch = (classic = false) => {
     sfx.unlock();
     story = null;
-    bdaMode = !classic;
+    arenaRules = !classic;
     selectMode = 'versus';
     arcade = null;
     duo = false;
     startMatch();
-    if (!classic) bdaHint();
+    if (!classic) arenaHint();
   };
   // Classic: the original rules, a magazine that reloads itself and no specials
-  $('bda-btn').addEventListener('click', () => quickMatch(true));
+  $('classic-btn').addEventListener('click', () => quickMatch(true));
   $('play-btn').addEventListener('click', (e) => {
     if ((e.target as Element).closest('.card-custom')) openSelect('versus');
     else quickMatch();
@@ -1581,7 +1582,7 @@ export function boot() {
     ['agility', 'Agility'],
   ];
   /** what a fighter is like, in two or three big badges (not a wall of pips) */
-  /** the fighter's B-Daman special: its move name, the kind of shot, what it does */
+  /** the fighter's special: its move name, the kind of shot, what it does */
   const specialCard = (id: string) => {
     const base = baseOf(id);
     const kind = SPIRIT_OF[base] ?? 'single';
@@ -1605,12 +1606,12 @@ export function boot() {
     if (out.length < 2) out.unshift(['⚖', 'All-rounder']);
     // (its classic magazine, whichever mode was played last)
     const mag = S().magPer === false ? magazine() : (MAG_OF[mb.key] ?? MARBLES[mb.type].mag);
-    // (and its B-Daman magazine, which the ammo box fills right up)
-    const bda = MAG_BDA_OF[mb.key] ?? MAG_BDA[mb.type];
+    // (and its Arena-rules magazine, which the ammo box fills right up)
+    const arenaMag = MAG_ARENA_OF[mb.key] ?? MAG_ARENA[mb.type];
     return `<div class="badges">${out
       .slice(0, 3)
       .map(([i, l]) => `<span class="badge"><i>${i}</i>${l}</span>`)
-      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load · ${bda} in B-Daman</p>${specialCard(id)}`;
+      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load · ${arenaMag} in Arena rules</p>${specialCard(id)}`;
   };
   const markSteps = () => {
     const order: Step[] = selectMode === 'arcade' || selectMode === 'home' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];
@@ -1965,8 +1966,8 @@ export function boot() {
   const openSelect = (mode: 'versus' | 'arcade' | 'duo' | 'home') => {
     sfx.unlock();
     story = null;
-    // (a customised Versus match is B-Daman too, and so is an arcade run)
-    bdaMode = mode === 'versus' || mode === 'arcade';
+    // (a customised Versus match is Arena rules too, and so is an arcade run)
+    arenaRules = mode === 'versus' || mode === 'arcade';
     selectMode = mode;
     // a locked unit (or, for an arcade run, a boss) can't be your pick: move it to the first that can
     const ok = (id: string) => !isLocked(id) && !(mode === 'arcade' && isBossUnit(id));
@@ -2023,7 +2024,7 @@ export function boot() {
     arcade = null;
     duo = selectMode === 'duo';
     startMatch();
-    if (bdaMode) bdaHint();
+    if (arenaRules) arenaHint();
   });
 
   // settings tabs
@@ -2195,7 +2196,7 @@ export function boot() {
     arcade = null;
     duo = false;
     story = null;
-    bdaMode = false;
+    arenaRules = false;
     tut = { i: 0, t: 0, moved: 0, lastX: 0, shots0: 0, hits0: 0, charged: false, shield: 0, done: false };
     startMatch();
     tut.lastX = player.x;
@@ -2286,9 +2287,9 @@ export function boot() {
       view,
       faces,
       start: startMatch,
-      /** B-Daman mode on or off for the next start() */
-      bda(on: boolean) {
-        bdaMode = on;
+      /** Arena rules on or off for the next start() */
+      arenaRules(on: boolean) {
+        arenaRules = on;
       },
       /** arcade, for testing the ladder without playing every match */
       arcade: {
@@ -2438,7 +2439,7 @@ export function boot() {
           if (S().vibrate) buzz([30, 40, 50]);
         } else if (f.type === 'spirit-clash' && !duo) callout('CLASH! EVEN', 'cyan');
         if (f.type === 'spirit-ready' && f.slot === 0) {
-          showToast('B-DASPIRIT FULL // SPECIAL READY', 0xffc23d);
+          showToast('OVERDRIVE FULL // SPECIAL READY', 0xffc23d);
           sfx.play('charge');
         }
         if (f.type === 'eliminated') {
@@ -2701,7 +2702,7 @@ export function boot() {
       hpBox[i].classList.toggle('low', frac < 0.25);
       hpNum[i].textContent = Math.ceil(frac * 100) + '%';
       spFill[i].style.width = (s.shield / SHIELD.max) * 100 + '%';
-      if (bdaMode) {
+      if (arenaRules) {
         // (the gauge is the SPECIAL button itself: it fills from the bottom)
         if (i === 0) {
           $('special-btn').style.setProperty('--p', String(Math.min(100, s.spirit)));

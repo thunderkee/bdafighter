@@ -25,7 +25,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Orbital Deck test squadron',
     style: 'Shield up, steady fire',
     specialty: 'No weak spot',
-    bio: 'The first frame off the line and the yardstick every other unit is measured against. Seraph Zero does everything well and nothing badly.',
+    bio: 'The first frame off the line and the yardstick every other unit is measured against. Seraph does everything well and nothing badly.',
     traits: { health: 3, speed: 4, fireRate: 3, agility: 4 },
   },
   dragon: {
@@ -121,7 +121,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Highland plains',
     style: 'Circle and pounce',
     specialty: 'Fastest beast',
-    bio: 'A great blue cat frame with golden fangs. Fang Liger never stops moving and picks the moment to fire.',
+    bio: 'A great blue cat frame with golden fangs. Fang Hound never stops moving and picks the moment to fire.',
     traits: { health: 3, speed: 5, fireRate: 3, agility: 4 },
   },
   ember: {
@@ -157,7 +157,7 @@ export const STORIES: Record<string, Story> = {
     personality: 'Calm, disciplined, quietly proud',
     quote: 'Every frame since was measured against me.',
     story:
-      'The first unit off the Orbital Deck line, built to be the yardstick for every machine after it. Its makers wiped its memory before the League began, so Seraph Zero fights to learn what it was really built for. The answer, it suspects, is at the top of the Spire.',
+      'The first unit off the Orbital Deck line, built to be the yardstick for every machine after it. Its makers wiped its memory before the League began, so Seraph fights to learn what it was really built for. The answer, it suspects, is at the top of the Spire.',
     rival: 'nightshade',
   },
   dragon: {
@@ -199,28 +199,28 @@ export const STORIES: Record<string, Story> = {
     personality: 'Silent, patient, predatory',
     quote: '…',
     story:
-      'Nobody knows who built the mantis walker of the Rainy Forest, or whether anyone did. Bastion waits without a sound until both scythes strike at once, and the marble forms where they cross. Arcade climbers meet it as the first boss of the Spire. Only Unit Violet has ever stood its ground.',
+      'Nobody knows who built the mantis walker of the Rainy Forest, or whether anyone did. Bastion waits without a sound until both scythes strike at once, and the marble forms where they cross. Arcade climbers meet it as the first boss of the Spire. Only Silverback has ever stood its ground.',
     rival: 'violet',
   },
   nightshade: {
     personality: 'Cold, elegant, unknowable',
     quote: 'You climbed all this way to meet yourself.',
     story:
-      'The second prototype from the Orbital Deck line, Seraph Zero’s twin, taken before it was finished. Nightshade drifts on a single floating tail at the top of the Spire, the final boss of the arcade, and it knows what Seraph Zero has forgotten. It has been waiting for its sibling to climb.',
+      'The second prototype from the Orbital Deck line, Seraph’s twin, taken before it was finished. Nightshade drifts on a single floating tail at the top of the Spire, the final boss of the arcade, and it knows what Seraph has forgotten. It has been waiting for its sibling to climb.',
     rival: 'angel',
   },
   violet: {
     personality: 'A gentle giant, until provoked',
     quote: 'Stand behind me.',
     story:
-      'A silverback guardian built at the Snowfield research base to protect the little survey bots. Unit Violet is slow to anger and almost impossible to stop once it is angry, and its palm blasters fire left, right, left. It is the only one Bastion has never got past, and it travels as a trio when it has to.',
+      'A silverback guardian built at the Snowfield research base to protect the little survey bots. Silverback is slow to anger and almost impossible to stop once it is angry, and its palm blasters fire left, right, left. It is the only one Bastion has never got past, and it travels as a trio when it has to.',
     rival: 'bastion',
   },
   kabuto: {
     personality: 'Regal, generous, a born leader',
     quote: 'A crown is earned every season.',
     story:
-      'The lion king of the League, Leo King defends its title every season, fist cannons blazing and its royal cape snapping. It rules fairly and fights fairly. The one thing it cannot forgive is Fang Liger, the guard who left its side to prove itself alone.',
+      'The lion king of the League, Leo King defends its title every season, fist cannons blazing and its royal cape snapping. It rules fairly and fights fairly. The one thing it cannot forgive is Fang Hound, the guard who left its side to prove itself alone.',
     rival: 'liger',
   },
   tyrant: {
@@ -241,7 +241,7 @@ export const STORIES: Record<string, Story> = {
     personality: 'Fierce, loyal, restless',
     quote: 'I left the crown to earn my own.',
     story:
-      'Once the royal guard of Leo King, Fang Liger walked out of the palace to prove it could win alone. The black-and-gold war hound fires from its flanks, left then right, and its shots ricochet where you least expect. It still respects the King, but it won’t say so.',
+      'Once the royal guard of Leo King, Fang Hound walked out of the palace to prove it could win alone. The black-and-gold war hound fires from its flanks, left then right, and its shots ricochet where you least expect. It still respects the King, but it won’t say so.',
     rival: 'kabuto',
   },
   ember: {
