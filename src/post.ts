@@ -169,3 +169,34 @@ export class Post {
     this.composer.dispose();
   }
 }
+
+/** just the ink outlines, over a see-through render: the menus' turntables (no bloom or grade, so the page shows behind) */
+export class InkOnly {
+  private composer: EffectComposer;
+  private w = 0;
+  private h = 0;
+  constructor(
+    private renderer: THREE.WebGLRenderer,
+    scene: THREE.Scene,
+    camera: THREE.PerspectiveCamera,
+  ) {
+    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, depthTexture: new THREE.DepthTexture(1, 1) });
+    this.composer = new EffectComposer(renderer, target);
+    this.composer.addPass(new RenderPass(scene, camera));
+    this.composer.addPass(new InkPass(camera));
+    this.composer.addPass(new OutputPass());
+  }
+  render() {
+    const s = this.renderer.getSize(new THREE.Vector2());
+    if (s.x !== this.w || s.y !== this.h) {
+      this.w = s.x;
+      this.h = s.y;
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setSize(s.x, s.y);
+    }
+    this.composer.render();
+  }
+  dispose() {
+    this.composer.dispose();
+  }
+}

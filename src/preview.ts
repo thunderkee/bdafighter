@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CEL, celify } from './cel';
+import { InkOnly } from './post';
 import { ShooterMesh, characterById, studioEnv, type CharacterDef } from './robot';
 import { Stage } from './stage';
 import { TOSS_TIME, TWIN_X } from './config';
@@ -14,6 +15,8 @@ type Act = Pick<Shooter, 'x' | 'y' | 'team' | 'aim' | 'recoil' | 'vx' | 'firing'
  */
 export class Preview {
   private renderer: THREE.WebGLRenderer | null = null;
+  /** the ink outline pass for the cel look */
+  private inked: InkOnly | null = null;
   /** the tallest roster unit (Bastion) and the widest reach (Nightshade), round the plinth's axis */
   static FRAME_H = 2.5;
   static FRAME_R = 1.65;
@@ -308,8 +311,16 @@ export class Preview {
       this.camera.lookAt(0, 0, -2);
       this.stage.update(dt, this.t);
     }
-    celify(this.scene, this.hero || (this.cel && this.mode === 'unit') || CEL.on);
-    r.render(this.scene, this.camera);
+    const cel = this.hero || (this.cel && this.mode === 'unit') || CEL.on;
+    celify(this.scene, cel);
+    // (the rim light would fill in the toon shading's dark band, so the cel look goes without it)
+    this.rim.visible = !cel;
+    // (and its key light comes from the side, so the dark band shows on the far faces)
+    if (cel && this.mode === 'unit') this.sun.position.set(-5, 7, -1.5);
+    else this.sun.position.set(-3, 6, -5);
+    // (a unit on show gets the game's ink outlines too)
+    if (cel && this.mode === 'unit') (this.inked ??= new InkOnly(r, this.scene, this.camera)).render();
+    else r.render(this.scene, this.camera);
     // (read straight after drawing, while the frame is still there)
     if (this.mode === 'stage' && this.skyIn > 0 && --this.skyIn === 0 && this.onSky) {
       const gl = r.getContext();
