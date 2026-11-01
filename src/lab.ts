@@ -1438,6 +1438,7 @@ const ROLE_LABEL: Record<Role, string> = {
   fistR: 'FIST R',
   fistL: 'FIST L',
   head: 'SWEEPING HEAD',
+  tilt: 'TILTS ON SHOT',
 };
 const blockColor = (b: Block) => (b.mat ? resolveColor(b.mat.color, def(), def().ball) : null);
 

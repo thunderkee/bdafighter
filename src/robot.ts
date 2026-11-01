@@ -786,6 +786,9 @@ export class ShooterMesh {
   private armR: THREE.Object3D | null = null;
   private armL: THREE.Object3D | null = null;
   private fistR: THREE.Object3D | null = null;
+  /** a part that tips forward on every shot (a staff held upright), and its rest angle */
+  private tilter: THREE.Object3D | null = null;
+  private tiltRest = 0;
   private fistL: THREE.Object3D | null = null;
   private raise = { r: 1, l: 0 };
   private tossGun: THREE.Object3D | null = null;
@@ -1691,6 +1694,10 @@ export class ShooterMesh {
         case 'head':
           this.tiltHead = o;
           break;
+        case 'tilt':
+          this.tilter = o;
+          this.tiltRest = o.rotation.x;
+          break;
         case 'belly':
           this.bellyMark = o;
           break;
@@ -1747,6 +1754,7 @@ export class ShooterMesh {
       if (o === this.fistR) return 'fistR';
       if (o === this.fistL) return 'fistL';
       if (o === this.tiltHead) return 'head';
+      if (o === this.tilter) return 'tilt';
       if (this.punchArms.includes(o)) return 'punch';
       if (o === this.armR) return 'armR';
       if (o === this.armL) return 'armL';
@@ -5863,6 +5871,12 @@ export class ShooterMesh {
       const rested = biter === this.jaw ? this.jaw2 : this.jaw;
       biter.rotation.x = this.rest.jaw + (this.jawOpen ? this.jawOpen * gape : s.recoil * 0.55);
       if (rested) rested.rotation.x = this.lastHand === 0 ? biter.rotation.x : this.rest.jaw;
+    }
+    if (this.tilter) {
+      // the shot tips it forward fast, then it rights itself
+      const t = s.kickT ?? 9;
+      const tip = t < 0.07 ? 1 - (1 - t / 0.07) ** 3 : t < 0.45 ? 1 - ((t - 0.07) / 0.38) ** 0.7 : 0;
+      this.tilter.rotation.x = this.tiltRest - tip * 0.85;
     }
     if (this.slashArm) {
       // a swordsman's shot is a slash: from the ready (raised on the right, turned a little out),
