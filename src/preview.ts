@@ -61,12 +61,14 @@ export class Preview {
       // (the arrows and peeks laid over it still click)
       if ((e.target as Element).closest('button')) return;
       this.dragX = e.clientX;
+      this.dragged = 0;
       host.setPointerCapture(e.pointerId);
       host.classList.add('turning');
     });
     host.addEventListener('pointermove', (e) => {
       if (this.dragX === null) return;
       this.spin += (e.clientX - this.dragX) * 0.012;
+      this.dragged += Math.abs(e.clientX - this.dragX);
       this.dragX = e.clientX;
       this.handT = 2.5;
     });
@@ -295,7 +297,7 @@ export class Preview {
       // and the swing waits a moment after you let go
       this.handT = Math.max(0, this.handT - dt);
       if (this.handT === 0 && this.dragX === null) this.swingT += dt;
-      const a = this.hero ? -0.5 + Math.sin(this.t * 0.35) * 0.14 : -0.55 + Math.sin(this.swingT * 0.45) * 0.75 + this.spin;
+      const a = this.hero ? -0.5 + Math.sin(this.t * 0.35) * 0.14 + this.spin : -0.55 + Math.sin(this.swingT * 0.45) * 0.75 + this.spin;
       this.pivot.rotation.y = a;
       this.plinth.rotation.y = a;
       this.animate(dt);
@@ -378,6 +380,12 @@ export class Preview {
   private tripleN = 0;
   /** drag to turn the unit by hand: the extra turn, and how long the auto swing waits after a drag */
   private spin = 0;
+  /** how far the last press dragged, in pixels */
+  private dragged = 0;
+  /** the last press turned the unit (so it wasn't a tap) */
+  get wasDrag() {
+    return this.dragged > 6;
+  }
   private handT = 0;
   private swingT = 0;
   private dragX: number | null = null;

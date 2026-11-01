@@ -3983,6 +3983,8 @@ body.duo #enemy-tag {
   position: relative;
   z-index: 1;
   flex: 1;
+  /* (a sideways drag turns your fighter; up and down still scroll) */
+  touch-action: pan-y;
   min-height: 160px;
   width: calc(100% + 32px);
   margin: 0 -16px;

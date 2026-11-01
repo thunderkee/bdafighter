@@ -1871,7 +1871,6 @@ export function boot() {
   // ---------- home: your fighter (the last one played) as the hero, the modes as cards ----------
   const hero = new Preview($('title-hero'));
   hero.hero = true;
-  hero.turnable = false;
   let heroId = '';
   /** the hero runs only while the home screen is up */
   const showHero = () => {
@@ -1894,7 +1893,8 @@ export function boot() {
   }
   $('tut-card').addEventListener('click', () => startTutorial());
   // tap your fighter (or its name) to pick another
-  for (const el of [$('title-hero'), document.querySelector<HTMLElement>('.home-name')!]) el.addEventListener('click', () => openSelect('home'));
+  // (a drag on your fighter turns it instead)
+  for (const el of [$('title-hero'), document.querySelector<HTMLElement>('.home-name')!]) el.addEventListener('click', () => !(el.id === 'title-hero' && hero.wasDrag) && openSelect('home'));
   const cards = [...document.querySelectorAll<HTMLElement>('#home-cards .mode-card')];
   let cardIdx = 0;
   // every card the same wide rectangle; the one scrolled to the middle is the mode, and a tap on
