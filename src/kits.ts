@@ -130,6 +130,13 @@ const baseOf = (def: CharacterDef) => (def.base ?? def.id).replace(/-\d+$/, '');
 /** a fighter's own wardrobe (none for a fighter outside the roster) */
 export const kitOf = (def: CharacterDef): Kit | undefined => KITS[baseOf(def)];
 
+/** a paint job's colours on this fighter: the kit's, with any edited in the lab on top (the wings follow body and trim) */
+export function paintPalette(def: CharacterDef, pj: KitPaint): Partial<CharacterDef['palette']> {
+  const o = def.paints?.[pj.id];
+  if (!o) return pj.palette;
+  return { ...pj.palette, ...o, wing: o.body ?? pj.palette.wing, wingTip: o.trim ?? pj.palette.wingTip };
+}
+
 /**
  * Where each fighter wears its parts, measured off its model: the top of its head, the middle
  * of its back, the top of its right shoulder (mirrored for the left), and a size for each.

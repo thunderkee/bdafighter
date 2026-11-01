@@ -1,6 +1,6 @@
 import { characterById, type CharacterDef } from './robot';
 import type { BallTex } from './patterns';
-import { kitOf } from './kits';
+import { kitOf, paintPalette } from './kits';
 
 /**
  * Cosmetic rewards: every fighter earns the same track as it levels up (a nameplate, marble
@@ -56,7 +56,7 @@ export function skinned(id: string, equip: Equip | undefined): CharacterDef {
   const palette = { ...def.palette };
   const kit = kitOf(def);
   const pj = equip.paint ? kit?.paint.find((k) => k.id === equip.paint) : undefined;
-  if (pj) Object.assign(palette, pj.palette);
+  if (pj) Object.assign(palette, paintPalette(def, pj));
   if (equip.eyes && EYES[equip.eyes] !== undefined) palette.eye = EYES[equip.eyes];
   const mb = equip.marble ? MARBLES[equip.marble] : undefined;
   // its own parts (an id saved from before, or from another fighter, finds nothing and is left off)

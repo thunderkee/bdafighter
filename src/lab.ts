@@ -7,6 +7,7 @@ import { API, cachedPublished, fetchPublished, type PublishedRoster } from './pu
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
 import { MATCH } from './config';
+import { kitOf, paintPalette } from './kits';
 import { computeStats, STARTER_BUILD } from './parts';
 import * as store from './storage';
 import type { Shooter } from './game';
@@ -278,7 +279,10 @@ function rebuildPreview() {
     model.dispose();
   }
   const d = def();
-  model = new ShooterMesh(d.id, d.ball, { ...d, blueprint: draft });
+  // (showing one of its paint jobs, while that's being edited)
+  const pj = previewPaint ? kitOf(d)?.paint.find((p) => p.id === previewPaint) : undefined;
+  const palette = pj ? { ...d.palette, ...paintPalette(d, pj) } : d.palette;
+  model = new ShooterMesh(d.id, d.ball, { ...d, palette, blueprint: draft });
   scene.add(model.root);
   addBallExitMarker();
   updateHelper();
@@ -1114,6 +1118,7 @@ function switchUnit(id: string) {
   edit = null;
   syncEditBar();
   currentId = id;
+  previewPaint = null;
   selected = null;
   selection = [];
   undo = [];
@@ -1406,10 +1411,97 @@ function renderPalette() {
       small.textContent = input.value;
       commit();
     });
+    input.addEventListener('change', () => keepSwatch(parseInt(input.value.slice(1), 16)));
     const span = document.createElement('span');
     span.textContent = s.label;
     row.append(input, span, small);
     box.appendChild(row);
+  }
+  renderPaintJobs();
+}
+
+/** the paint job showing on the preview (null: the unit's own colours) */
+let previewPaint: string | null = null;
+const PAINT_SLOTS = SLOTS.filter((s) => s.key !== 'ball') as { key: Exclude<PaletteSlot, 'ball'>; label: string }[];
+
+/** this fighter's three paint jobs, each colour editable; editing one shows it on the preview */
+function renderPaintJobs() {
+  const box = $('paint-jobs');
+  box.innerHTML = '';
+  const d = def();
+  const kit = kitOf(d);
+  box.classList.toggle('hidden', !kit);
+  if (!kit) return;
+  for (const pj of kit.paint) {
+    const pal = paintPalette(d, pj);
+    const card = document.createElement('div');
+    card.className = 'paint-job' + (previewPaint === pj.id ? ' on' : '');
+    const head = document.createElement('div');
+    head.className = 'paint-head';
+    const title = document.createElement('b');
+    title.textContent = pj.name;
+    const show = document.createElement('button');
+    show.textContent = previewPaint === pj.id ? 'Showing' : 'Preview';
+    show.addEventListener('click', () => {
+      previewPaint = previewPaint === pj.id ? null : pj.id;
+      rebuildPreview();
+      renderPaintJobs();
+    });
+    const reset = document.createElement('button');
+    reset.textContent = 'Reset';
+    reset.disabled = !entry().paints?.[pj.id];
+    reset.addEventListener('click', () => {
+      pushUndo();
+      const e = entry();
+      if (e.paints) delete e.paints[pj.id];
+      commit();
+      renderPaintJobs();
+    });
+    head.append(title, show, reset);
+    const row = document.createElement('div');
+    row.className = 'paint-row';
+    for (const s of PAINT_SLOTS) {
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.title = s.label;
+      input.value = hex(pal[s.key] ?? d.palette[s.key]);
+      input.addEventListener('input', () => {
+        pushUndo(`paint-${pj.id}-${s.key}`);
+        const e = entry();
+        e.paints = { ...e.paints, [pj.id]: { ...e.paints?.[pj.id], [s.key]: parseInt(input.value.slice(1), 16) } };
+        previewPaint = pj.id;
+        commit();
+      });
+      input.addEventListener('change', () => {
+        keepSwatch(parseInt(input.value.slice(1), 16));
+        renderPaintJobs();
+      });
+      const cell = document.createElement('label');
+      cell.append(input, Object.assign(document.createElement('small'), { textContent: s.label.split(' ')[0] }));
+      row.appendChild(cell);
+    }
+    card.append(head, row);
+    box.appendChild(card);
+  }
+}
+
+// ---------- saved custom colours ----------
+const SWATCH_KEY = 'marble-fighter:lab-swatches';
+let swatches: number[] = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem(SWATCH_KEY) ?? '[]');
+    return Array.isArray(v) ? v.filter((c) => typeof c === 'number') : [];
+  } catch {
+    return [];
+  }
+})();
+/** remember a picked colour (newest first) to reuse on other blocks */
+function keepSwatch(v: number) {
+  swatches = [v, ...swatches.filter((c) => c !== v)].slice(0, 16);
+  try {
+    localStorage.setItem(SWATCH_KEY, JSON.stringify(swatches));
+  } catch {
+    // storage full: they last for this session
   }
 }
 
@@ -1568,7 +1660,10 @@ function pickLayerColor(path: string, anchor: HTMLElement) {
     input.remove();
     renderForm();
   };
-  input.addEventListener('change', done);
+  input.addEventListener('change', () => {
+    keepSwatch(parseInt(input.value.slice(1), 16));
+    done();
+  });
   input.addEventListener('blur', () => setTimeout(done, 200));
   if (typeof input.showPicker === 'function') {
     try {
@@ -1721,10 +1816,32 @@ function renderForm() {
       for (const m of mats) m.color = parseInt(custom.value.slice(1), 16);
       designChanged();
     });
+    custom.addEventListener('change', () => {
+      keepSwatch(parseInt(custom.value.slice(1), 16));
+      renderForm();
+    });
     const inline = document.createElement('div');
     inline.className = 'inline';
     inline.append(pick, custom);
     row2('Colour', inline);
+    if (swatches.length) {
+      const saved = document.createElement('div');
+      saved.className = 'saved-swatches';
+      for (const c of swatches) {
+        const b = document.createElement('button');
+        b.style.background = hex(c);
+        b.title = hex(c);
+        b.addEventListener('click', () => {
+          pushUndo();
+          for (const m of mats) m.color = c;
+          keepSwatch(c);
+          designChanged();
+          renderForm();
+        });
+        saved.appendChild(b);
+      }
+      row2('Saved', saved);
+    }
 
     const finish = document.createElement('select');
     const kinds = new Set(mats.map((m) => m.kind));

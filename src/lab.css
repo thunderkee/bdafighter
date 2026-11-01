@@ -767,3 +767,63 @@ body[data-mode='studio'] .bar h1 {
     max-height: 240px;
   }
 }
+
+/* paint jobs */
+.paint-jobs {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.paint-job {
+  border: 1px solid #3ef0ff33;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.paint-job.on {
+  border-color: var(--cyan);
+}
+
+.paint-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.paint-head b {
+  flex: 1;
+}
+
+.paint-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.paint-row label {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.paint-row small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* saved custom colours */
+.saved-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.saved-swatches button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #ffffff55;
+  border-radius: 4px;
+}

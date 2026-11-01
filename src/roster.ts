@@ -75,6 +75,8 @@ export interface UnitEntry {
   palette?: Partial<Record<Exclude<PaletteSlot, 'ball'>, number>>;
   traits?: Traits;
   blueprint?: Block;
+  /** its paint jobs' colours as edited in the lab, by paint job id */
+  paints?: Record<string, Partial<Record<Exclude<PaletteSlot, 'ball'>, number>>>;
 }
 
 export interface RosterData {

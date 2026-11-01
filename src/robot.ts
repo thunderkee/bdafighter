@@ -65,6 +65,8 @@ export interface CharacterDef {
   traits?: Traits;
   /** a block design from the Unit Lab; replaces the built-in model */
   blueprint?: Block;
+  /** its paint jobs' colours as edited in the lab, by paint job id */
+  paints?: UnitEntry['paints'];
   /** custom units: the built-in they started from */
   base?: string;
   /** 2.0 body: hero proportions (V chest, narrow waist, angled armour, V brow) */
@@ -632,6 +634,7 @@ function applyEntry(def: CharacterDef, u: UnitEntry | undefined, id = def.id): C
     palette: { ...def.palette, ...u.palette },
     traits: u.traits ?? def.traits,
     blueprint: u.blueprint ?? def.blueprint,
+    paints: u.paints ?? def.paints,
     base: def.base ?? (id !== def.id ? def.id : undefined),
   };
 }
