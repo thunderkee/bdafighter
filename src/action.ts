@@ -59,6 +59,14 @@ const FORT_FIRE = 0.6;
 const FORT_DMG = 300;
 const SIEGE_TIME = 150;
 const RESPAWN = 4;
+/**
+ * the special's power-up pose before its balls leave (game seconds): yours plays through the slow
+ * motion as a little cinematic; the others' quicker, as a warning
+ */
+const POSE_ME = 0.36;
+const POSE_CPU = 0.8;
+/** (the other modes' pose runs this long) */
+const POSE_FULL = 2.8;
 const TEAM_COLOR = [0x4aa8f0, 0xff5a5a];
 
 /**
@@ -221,6 +229,9 @@ interface Unit {
   /** health mended since the last +HP pop, and time to the next one */
   healed: number;
   healT: number;
+  /** its special's power-up pose, as in the other modes: seconds in, and how long it lasts (-1: not posing) */
+  spT: number;
+  spLen: number;
 }
 interface Fort {
   team: number;
@@ -351,6 +362,9 @@ export class ActionMode {
   private auras = new Map<Unit, THREE.Mesh>();
   /** the camera pushing in: for your special, and while you charge */
   private punch = 0;
+  /** your special's cinematic: seconds left with the camera down behind you (cockpit framing), and which way it looks */
+  private spCam = 0;
+  private spYaw = 0;
   /** seconds to the next item crate */
   private boxT = DROP.first;
   /** charging: a ball of light at the muzzle of whoever's charging (one each, made as needed) */
@@ -1157,7 +1171,16 @@ export class ActionMode {
         const side = i === 0 ? 0 : i === W - 1 ? 1 : j === 0 ? 2 : j === H - 1 ? 3 : -1;
         if (side >= 0) edges.push({ ...this.center(i, j), side });
       }
-    decorate(this.world, th.id, W, H, edges);
+    // inside: walls that can carry a prop, and open floor for flat touches (not where anyone starts)
+    const inner: { x: number; z: number }[] = [];
+    const open: { x: number; z: number }[] = [];
+    for (let j = 1; j < H - 1; j++)
+      for (let i = 1; i < W - 1; i++) {
+        const t = this.grid[this.idx(i, j)];
+        if (t === WALL) inner.push(this.center(i, j));
+        else if (t === FLOOR) open.push(this.center(i, j));
+      }
+    decorate(this.world, th.id, W, H, edges, inner, open);
     for (const f of this.pendingForts) this.makeFort(f.team, f.z, f.tiles);
     this.pendingForts = [];
     if (this.kind === 'ffa') {
@@ -1266,6 +1289,8 @@ export class ActionMode {
       item: null,
       healed: 0,
       healT: 0,
+      spT: -1,
+      spLen: 1,
     };
     this.units.push(u);
     return u;
@@ -1607,18 +1632,24 @@ export class ActionMode {
         ball({});
     }
     u.face = angle;
-    u.pose.kickT = 0;
-    u.pose.heavyT = 0;
+    // first the pose; the balls leave as it ends
+    u.spLen = u === this.me ? POSE_ME : POSE_CPU;
+    u.spT = 0;
+    for (const q of u.queue) q.t += u.spLen;
     u.reveal = 2;
     if (u === this.me) {
       this.shake = 0.45;
       this.opts.vibrate?.([20, 30, 40]);
       // the moment: a flash, a beat of slow motion, the move's name big across the screen
       this.flash();
-      this.slowT = 0.45;
+      // (the slow motion lasts the pose: the world at 0.3, so it's about a second)
+      this.slowT = POSE_ME / 0.3 + 0.1;
       this.lockShow = 1.6;
       this.lockOn = tgt;
       this.punch = 1;
+      // the camera drops behind you, looking where it'll go, for the pose; then back to your view
+      this.spCam = POSE_ME / 0.3 + 0.35;
+      this.spYaw = angle;
       const sl = this.hud.speed;
       sl.classList.remove('show');
       void sl.offsetWidth;
@@ -1718,6 +1749,8 @@ export class ActionMode {
     u.bar.classList.add('gone');
     u.firing = false;
     u.stored = u.chargeHold = 0;
+    u.spT = -1;
+    u.queue = [];
     // (it stays standing through the pops, then blows apart)
     this.wrecks.push({ u, mesh: u.mesh, t: 0, pops: 0, shattered: false, debris: [] });
     if (from === this.me) this.kos++;
@@ -1841,6 +1874,8 @@ export class ActionMode {
       const sn = Math.sin(this.camYaw);
       [mx, mz] = [mx * c - mz * sn, mx * sn + mz * c];
     }
+    // (striking the special's pose: standing your ground)
+    if (me.spT >= 0) mx = mz = 0;
     if (me.alive) {
       const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1) * (me.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       me.vx = mx * sp;
@@ -1852,7 +1887,7 @@ export class ActionMode {
       if (a) me.aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) + (this.view === 'first' ? this.camYaw : 0) : this.autoAim();
       if (this.mouseFire) me.aim = this.mouseAngle();
       if (this.keyFire) me.aim = this.autoAim();
-      me.firing = !!a || this.mouseFire || this.keyFire || me.burst > 0;
+      me.firing = me.spT < 0 && (!!a || this.mouseFire || this.keyFire || me.burst > 0);
       // charging: turned to face the closest enemy (unless you're aiming by hand), and it's marked
       this.chargeTarget = null;
       if (me.chargeHold > 0.12 && !dragged && !this.mouseFire) {
@@ -1989,6 +2024,11 @@ export class ActionMode {
       u.healed += u.hp - before;
     }
     u.bar.classList.toggle('mend', mending);
+    if (u.spT >= 0 && (u.spT += dt) >= u.spLen) {
+      u.spT = -1;
+      u.pose.kickT = 0;
+      u.pose.heavyT = 0;
+    }
     for (const q of u.queue) q.t -= dt;
     while (u.queue.length && u.queue[0].t <= 0) {
       const q = u.queue.shift()!;
@@ -2607,6 +2647,12 @@ export class ActionMode {
   // ---------- the CPU ----------
 
   private think(u: Unit, dt: number) {
+    // (striking the special's pose: it holds still)
+    if (u.spT >= 0) {
+      u.vx = u.vz = 0;
+      u.firing = false;
+      return;
+    }
     u.think -= dt;
     u.strafeT -= dt;
     if (u.strafeT <= 0) {
@@ -2887,6 +2933,8 @@ export class ActionMode {
       p.firing = u.queue.length > 0 || p.kickT < 0.2;
       p.recoil = Math.max(0, 1 - p.kickT / 0.12) * 0.6;
       u.mesh.sync(p as never, this.time, dt);
+      // the special's power-up pose, the other modes' own, run to fit
+      if (u.spT >= 0) u.mesh.specialPose((u.spT / u.spLen) * POSE_FULL, 0);
       // (the march's y only drives its legs: the fighter itself stays where the wrap puts it)
       u.mesh.root.position.z += p.y;
     }
@@ -3139,7 +3187,10 @@ export class ActionMode {
   /** the camera follows you: from above and behind (far is near overhead), or low behind you in the cockpit view */
   private placeCamera(dt: number) {
     const me = this.me;
-    const view = this.view;
+    // (your special's cinematic: the cockpit framing, behind you and looking at its target)
+    this.spCam = Math.max(0, this.spCam - dt);
+    const cine = this.spCam > 0 && !!me?.alive;
+    const view: ActionView = cine ? 'first' : this.view;
     const tall = this.camera.aspect < 1;
     const mx = me ? me.x : 0;
     const mz = me ? me.z : 0;
@@ -3159,8 +3210,9 @@ export class ActionMode {
     }
     if (view === 'first') {
       const back = tall ? 7.4 : 6.4;
-      const fx = Math.sin(this.camYaw);
-      const fz = -Math.cos(this.camYaw);
+      const yaw = cine ? this.spYaw : this.camYaw;
+      const fx = Math.sin(yaw);
+      const fz = -Math.cos(yaw);
       pos.set(mx - fx * back, tall ? 4.6 : 4, mz - fz * back);
       at.set(mx + fx * 5.5, 0.3, mz + fz * 5.5);
     } else {
@@ -3186,12 +3238,13 @@ export class ActionMode {
     // pushing in: a punch for your special (easing out), and a lean in while you charge
     this.punch = Math.max(0, this.punch - dt * 1.6);
     const charge = me && me.alive && me.chargeHold >= CHARGE.hold ? 0.06 + (me.stored / CHARGE.max) * 0.1 : 0;
-    const zoom = 1 - Math.max(charge, this.punch * 0.3);
+    const zoom = 1 - Math.max(charge, cine ? 0 : this.punch * 0.3);
     const cp = this.camAt.clone().add(this.camPos.clone().sub(this.camAt).multiplyScalar(zoom));
     this.camera.position.set(cp.x + (Math.random() - 0.5) * j, cp.y, cp.z + (Math.random() - 0.5) * j);
     this.camera.lookAt(this.camAt);
     // (the cockpit view's picture is lifted, so you stand above the thumb tray rather than behind it)
-    const lift = view === 'first' ? Math.round(this.camera.aspect < 1 ? 0.17 * this.vh : 0.08 * this.vh) : 0;
+    // (not during your special's cinematic, so the picture doesn't jump as it starts and ends)
+    const lift = view === 'first' && !cine ? Math.round(this.camera.aspect < 1 ? 0.17 * this.vh : 0.08 * this.vh) : 0;
     if (lift !== this.lift) {
       this.lift = lift;
       if (lift) this.camera.setViewOffset(this.vw, this.vh, 0, lift, this.vw, this.vh);

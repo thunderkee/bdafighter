@@ -160,6 +160,69 @@ const stand: Make = () => {
 const goal: Make = () => group(mesh(cyl(0.05, 0.05, 1.2), M(0xffffff), -1, 0, 0), mesh(cyl(0.05, 0.05, 1.2), M(0xffffff), 1, 0, 0), mesh(box(2.1, 0.08, 0.08), M(0xffffff), 0, 1.2, 0));
 const flag: Make = () => group(mesh(cyl(0.03, 0.03, 1), M(0xffffff)), mesh(box(0.35, 0.25, 0.02), M(0xffd23e), 0.18, 0.75, 0));
 
+// ---------- flat touches for the floor inside (walked over, never in the way) ----------
+const disc = (r: number) => new THREE.CircleGeometry(r, 18).rotateX(-Math.PI / 2);
+const puddle = (color: number, glow = false): Make => (rnd) => {
+  const g = group(mesh(disc(0.32 + rnd() * 0.18), M(color, glow), 0, 0.012, 0));
+  g.scale.set(1.3, 1, 0.8);
+  g.rotation.y = rnd() * 3;
+  return group(g);
+};
+const crack = (color: number): Make => (rnd) => {
+  const g = new THREE.Group();
+  let x = 0;
+  let z = 0;
+  for (let k = 0; k < 4; k++) {
+    const a = rnd() * Math.PI * 2;
+    const l = 0.2 + rnd() * 0.25;
+    const seg = mesh(new THREE.PlaneGeometry(l, 0.05).rotateX(-Math.PI / 2), M(color, true), x + (Math.cos(a) * l) / 2, 0.014, z + (Math.sin(a) * l) / 2);
+    seg.rotation.y = -a;
+    g.add(seg);
+    x += Math.cos(a) * l;
+    z += Math.sin(a) * l;
+  }
+  return g;
+};
+const pebbles = (color: number): Make => (rnd) => {
+  const g = new THREE.Group();
+  for (let k = 0; k < 4; k++) g.add(mesh(ball(0.06 + rnd() * 0.05), M(color), (rnd() - 0.5) * 0.6, 0.04, (rnd() - 0.5) * 0.6));
+  return g;
+};
+const tuft = (color: number): Make => (rnd) => {
+  const g = new THREE.Group();
+  for (let k = 0; k < 5; k++) {
+    const b = mesh(cone(0.04, 0.18 + rnd() * 0.12, 3), M(color), (rnd() - 0.5) * 0.3, 0, (rnd() - 0.5) * 0.3);
+    b.rotation.z = (rnd() - 0.5) * 0.6;
+    g.add(b);
+  }
+  return g;
+};
+const chalk: Make = (rnd) => group(mesh(new THREE.RingGeometry(0.28, 0.33, 24).rotateX(-Math.PI / 2), M(0xffffff, true), 0, 0.012, 0), mesh(disc(0.05), M(0xffffff, true), (rnd() - 0.5) * 0.1, 0.013, 0));
+const smallShroom: Make = (rnd) => {
+  const g = mushroom(rnd);
+  g.scale.multiplyScalar(0.5);
+  return g;
+};
+const smallCrystal = (color: number): Make => (rnd) => {
+  const g = crystal(color)(rnd);
+  g.scale.setScalar(0.4);
+  return g;
+};
+/** each theme's floor touches */
+const FLOOR: Record<string, Make[]> = {
+  meadow: [flowers, tuft(0x3f9e3e), pebbles(0x9a9a8a)],
+  dungeon: [pebbles(0x4a4458), puddle(0x5a6488), crack(0x8a7aff)],
+  beach: [pebbles(0xf2ead8), puddle(0x8ae8ff), flowers],
+  snow: [puddle(0xffffff), smallCrystal(0x9fe0ff), pebbles(0xb8c8d8)],
+  lava: [crack(0xff5a1a), crack(0xffa02a), pebbles(0x1e1418)],
+  forest: [smallShroom, tuft(0x2f6a3a), puddle(0x2a4a4a)],
+  river: [tuft(0x7a9a4a), puddle(0x5a7ab8), pebbles(0x8a6a4a)],
+  cyber: [crack(0xff2bd6), crack(0x2bf0ff), smallCrystal(0xff2bd6)],
+  space: [smallCrystal(0x3ef0ff), crack(0x3ef0ff), pebbles(0x4a5674)],
+  city: [puddle(0x3a3c48), crack(0xffcf3e), pebbles(0x8a8f98)],
+  soccer: [chalk, tuft(0x2f8a3a)],
+};
+
 /** each theme's props: tall ones (sides and far end) and low ones (anywhere, the near edge too) */
 const SETS: Record<string, { tall: Make[]; low: Make[]; n: number }> = {
   meadow: { tall: [roundTree, roundTree, pine(0x3f8e3e)], low: [flowers, rock(0x9a9a8a), flowers], n: 34 },
@@ -180,7 +243,16 @@ const SETS: Record<string, { tall: Make[]; low: Make[]; n: number }> = {
  * border walls (edges: their tiles; side 0 left, 1 right, 2 far, 3 near) so they frame the
  * stage even when the camera shows little beyond it
  */
-export function decorate(world: THREE.Object3D, theme: string, W: number, H: number, edges: { x: number; z: number; side: number }[] = []) {
+export function decorate(
+  world: THREE.Object3D,
+  theme: string,
+  W: number,
+  H: number,
+  edges: { x: number; z: number; side: number }[] = [],
+  /** inside the stage: wall tiles that can carry a prop on top, and open floor for flat touches */
+  inner: { x: number; z: number }[] = [],
+  open: { x: number; z: number }[] = [],
+) {
   const set = SETS[theme];
   if (!set) return;
   // (seeded from the stage, so it's the same each time you see it)
@@ -221,5 +293,30 @@ export function decorate(world: THREE.Object3D, theme: string, W: number, H: num
     wrap.rotation.y = e.side === 0 ? Math.PI / 2 : e.side === 1 ? -Math.PI / 2 : e.side === 2 ? 0 : Math.PI;
     g.add(wrap);
   });
+  // inside: a prop on top of some of the walls (mostly low ones, so the stage stays easy to read)
+  for (const w of inner) {
+    if (rnd() > 0.22) continue;
+    const pool = rnd() < 0.65 ? set.low : set.tall;
+    const o = pool[Math.floor(rnd() * pool.length)](rnd);
+    const wrap = new THREE.Group();
+    wrap.add(o);
+    wrap.scale.setScalar(0.55);
+    wrap.position.set(w.x, 1.1, w.z);
+    wrap.rotation.y = rnd() * Math.PI * 2;
+    g.add(wrap);
+  }
+  // and flat touches about the floor (flowers, puddles, glowing cracks...), walked straight over
+  const touches = FLOOR[theme] ?? [];
+  if (touches.length && open.length) {
+    const n = Math.min(open.length, Math.round(open.length * 0.06) + 4);
+    const spots = [...open];
+    for (let k = 0; k < n; k++) {
+      const p = spots.splice(Math.floor(rnd() * spots.length), 1)[0];
+      const o = touches[Math.floor(rnd() * touches.length)](rnd);
+      o.position.x += p.x + (rnd() - 0.5) * 0.4;
+      o.position.z += p.z + (rnd() - 0.5) * 0.4;
+      g.add(o);
+    }
+  }
   world.add(g);
 }
