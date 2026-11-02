@@ -5536,16 +5536,26 @@ body.cine-on #pad {
   background: linear-gradient(180deg, #7affb0, #2ac46a);
 }
 #action .ac-bar em {
-  display: flex;
-  gap: 2px;
+  display: block;
+  width: 56px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(20, 16, 28, 0.85);
+  border: 1px solid #14101c;
+  overflow: hidden;
 }
 #action .ac-bar u {
   display: block;
-  width: 17px;
-  height: 5px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #ffb23e calc(var(--f, 1) * 100%), rgba(20, 16, 28, 0.8) 0);
-  border: 1px solid #14101c;
+  height: 100%;
+  background: linear-gradient(180deg, #ffd84a, #ff9a2a);
+}
+/* standing still: mending */
+#action .ac-bar.mend i {
+  box-shadow: 0 0 0 2px #7affb0, 0 0 10px #7affb0;
+}
+#action .ac-super b {
+  padding: 0 6px;
+  line-height: 1.15;
 }
 #action .ac-hud {
   position: absolute;

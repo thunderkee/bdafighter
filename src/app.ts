@@ -1,7 +1,7 @@
 import { AI_PROFILES, ARENA, BALANCE, BALANCE_ARENA, MAG_ARENA, MAG_ARENA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
-import { CHARGE, Game, SPIRIT_MOVES, STEP, chargeLevel, slotTeam, type Shooter, type SpiritKind } from './game';
+import { CHARGE, Game, MOVE_NAMES, SPIRIT_MOVES, SPIRIT_OF, STEP, chargeLevel, slotTeam, type Shooter } from './game';
 import { View } from './view';
 import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
@@ -1275,15 +1275,6 @@ export function boot() {
 
   /** Per-frame timeline for the intro, the replay and the finale. */
   // ---------- Arena rules: the spirit shot ----------
-  const MOVE_NAMES: Record<string, string> = {
-    angel: 'ZERO EXCALIBUR', dragon: 'DINO FORCE CANNON', pioneer: 'SIREN BUSTER', liberty: 'DEEP DIVE RAIL', monoceros: 'GENIUS TWIN BLAST', baron: 'CRIMSON LOOP DIVE', bastion: 'SCYTHE CROSS',
-    nightshade: 'ECLIPSE FALL', violet: 'SILVERBACK QUAKE', kabuto: 'ROYAL ROAR', tyrant: 'HELLHOUND CERBERUS', rex: 'FROST BITE', liger: 'FANG RICOCHET', ember: 'BLOSSOM BURST',
-  };
-  /** each fighter's own spirit shot */
-  const SPIRIT_OF: Record<string, SpiritKind> = {
-    angel: 'triple', dragon: 'giant', pioneer: 'barrage', liberty: 'rail', monoceros: 'twin', baron: 'dive', bastion: 'cross',
-    nightshade: 'zigzag', violet: 'quake', kabuto: 'split', tyrant: 'chain', rex: 'frost', liger: 'ricochet', ember: 'drain',
-  };
   let specialTap = false;
   $('special-btn').addEventListener('pointerdown', (e) => {
     e.preventDefault();

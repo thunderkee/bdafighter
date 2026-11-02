@@ -3,7 +3,8 @@ import { celify } from './cel';
 import { InkOnly } from './post';
 import { ShooterMesh, characterById, playable, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
-import { MARBLE_OF, type MarbleType } from './config';
+import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, type MarbleType } from './config';
+import { MOVE_NAMES, SPIRIT, SPIRIT_OF, type SpiritKind } from './game';
 import * as sfx from './audio';
 
 /**
@@ -13,8 +14,9 @@ import * as sfx from './audio';
  *   door. A boss every fifth room, ten rooms in all.
  * - Free-for-all: one big stage, you and five CPU fighters, everyone against everyone. Crates
  *   hold power cubes, bushes hide whoever stands in them, and a storm closes in from the edges.
- * Twin-stick: the left thumb walks, the right thumb aims and fires on release (a tap fires at the
- * nearest enemy). The special charges as your shots land.
+ * Twin-stick: the left thumb walks, the right thumb aims and fires while held (a tap fires a burst
+ * at the nearest enemy). Every fighter keeps its own marble, magazine, damage and special from
+ * the main game (Arena rules), scaled to Action's health. Standing still mends you.
  */
 
 export type ActionKind = 'gauntlet' | 'ffa';
@@ -28,9 +30,13 @@ const WATER = 4;
 const GATE = 5;
 
 const UNIT_R = 0.42;
-const AMMO = 3;
 const BASE_HP = 3600;
-const BASE_DMG = 1000;
+/** the main game's health is 100: its damage numbers scale by this */
+const SCALE = BASE_HP / MATCH.maxHealth;
+const SHOT_SPEED = 13;
+const SHOT_RANGE = 7.5;
+/** standing still (not firing, not hit for a moment) mends this share of health a second */
+const MEND = 0.12;
 const ROOMS = 10;
 const CRATE_HP = 2600;
 const STORM_START = 20;
@@ -38,20 +44,20 @@ const STORM_END = 95;
 const STORM_DPS = 700;
 const BEST_KEY = 'marble-fighter:action:best';
 
-/** each marble type's attack: how many shots, how far apart, how hard */
-const ATTACK: Record<MarbleType, { shots: number; gap: number; dmg: number; speed: number; r: number; range: number; bounce: number; spread: number }> = {
-  light: { shots: 3, gap: 0.07, dmg: 0.4, speed: 15, r: 0.12, range: 7, bounce: 0, spread: 0.05 },
-  standard: { shots: 2, gap: 0.1, dmg: 0.58, speed: 13.5, r: 0.15, range: 7.5, bounce: 0, spread: 0.03 },
-  heavy: { shots: 1, gap: 0, dmg: 1.25, speed: 10.5, r: 0.27, range: 6.5, bounce: 0, spread: 0 },
-  bouncy: { shots: 1, gap: 0, dmg: 1.0, speed: 13, r: 0.17, range: 9, bounce: 2, spread: 0 },
+/** a fighter's marble as the main game has it (Arena rules magazines and balance) */
+const marbleOf = (def: CharacterDef) => {
+  const key = (def.base ?? def.id).replace(/-\d+$/, '');
+  const type: MarbleType = MARBLE_OF[key] ?? 'standard';
+  return { key, type, ...MARBLES[type], mag: MAG_ARENA_OF[key] ?? MAG_ARENA[type], balance: BALANCE_ARENA[key] ?? 1 };
 };
+const baseOf = (def: CharacterDef) => (def.base ?? def.id).replace(/-\d+$/, '');
 
 /** the Gauntlet's upgrades, one picked from three after each room */
 const UPGRADES = [
   { id: 'power', name: 'Power Marbles', text: '+20% damage' },
-  { id: 'rapid', name: 'Quick Reload', text: 'Reload 20% faster' },
-  { id: 'multi', name: 'Double Shot', text: 'Every attack fires twice' },
-  { id: 'fan', name: 'Side Shots', text: '+2 shots angled to the sides' },
+  { id: 'rapid', name: 'Quick Hands', text: 'Fire and reload 20% faster' },
+  { id: 'multi', name: 'Double Barrel', text: 'Every shot fires two marbles side by side' },
+  { id: 'fan', name: 'Side Shots', text: '+2 marbles angled to the sides' },
   { id: 'bounce', name: 'Ricochet', text: 'Marbles bounce off walls once more' },
   { id: 'pierce', name: 'Piercing', text: 'Marbles pass through one more fighter' },
   { id: 'vital', name: 'Armour Plating', text: '+25% max health, and heal 25%' },
@@ -82,18 +88,39 @@ interface Unit {
   hp: number;
   max: number;
   speed: number;
+  /** one marble's damage, and a multiplier on it and the special (upgrades, cubes, a boss) */
   dmg: number;
-  reload: number;
+  power: number;
+  // the magazine, as in the main game: fires one marble per interval while held, refills when it stops
+  mag: number;
   ammo: number;
-  cool: number;
+  fireInt: number;
+  refill: number;
+  fireT: number;
+  firing: boolean;
+  aim: number;
+  idle: number;
+  /** a tap's short auto-aimed burst (seconds left) */
+  burst: number;
+  shotSpeed: number;
+  shotR: number;
+  range: number;
+  bounce: number;
+  spirit: SpiritKind;
   charge: number;
   marble: MarbleType;
   alive: boolean;
   /** seconds it stays seen after firing or being hit, even in a bush */
   reveal: number;
-  /** seconds since it last fired or was hurt (health comes back after a while, in free-for-all) */
+  /** seconds since it was last hurt */
   calm: number;
-  queue: { t: number; angle: number; big: boolean }[];
+  /** seconds it has stood still without firing (mending after a moment) */
+  still: number;
+  /** frozen (slowed) and stunned (can't move or fire) */
+  slowT: number;
+  stunT: number;
+  /** a special's balls still to leave (a barrage, a chain) */
+  queue: { t: number; angle: number; o: Partial<Shot> }[];
   cubes: number;
   boss: boolean;
   // the CPU's mind
@@ -106,6 +133,10 @@ interface Unit {
   /** the next tile on its way round the walls (null: the way is straight) */
   step: { x: number; z: number } | null;
   aimError: number;
+  /** the CPU holding back to let its magazine refill */
+  reloading: boolean;
+  /** the CPU's trigger rhythm: firing for a while, then a breath */
+  cycle: number;
 }
 interface Shot {
   x: number;
@@ -121,6 +152,24 @@ interface Shot {
   hit: Set<Unit>;
   color: THREE.Color;
   big: boolean;
+  // a special's ball
+  spirit?: boolean;
+  head?: number;
+  speed?: number;
+  /** homing turn rate (rad/s), the one it homes on, and seconds before it starts turning */
+  home?: number;
+  tgt?: Unit | null;
+  recover?: number;
+  age?: number;
+  weave?: boolean;
+  /** splits into three once this much range is left */
+  splitAt?: number;
+  /** only homes once it has banked off a wall */
+  bank?: boolean;
+  banked?: boolean;
+  /** flies over everything and lands on the spot, hitting all round it */
+  dive?: number;
+  effect?: 'drain' | 'frost' | 'quake';
 }
 type Drop = { x: number; z: number; kind: 'cube' | 'heal'; mesh: THREE.Object3D };
 type Pop = { el: HTMLElement; x: number; z: number; t: number };
@@ -169,6 +218,10 @@ export class ActionMode {
 
   // input
   private keys = new Set<string>();
+  /** the mouse held down (firing at the cursor), Space held (firing at the nearest) */
+  private mouseFire = false;
+  private keyFire = false;
+  private mouseAt = { x: 0, y: 0 };
   private moveStick: { id: number; x0: number; y0: number; x: number; y: number } | null = null;
   private aimStick: { id: number; x0: number; y0: number; x: number; y: number; t0: number; big: boolean } | null = null;
 
@@ -190,7 +243,7 @@ export class ActionMode {
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
         <p class="ac-callout"></p>
-        <p class="ac-hint">LEFT THUMB WALKS · RIGHT THUMB AIMS, LET GO TO FIRE · TAP TO AUTO-AIM</p>
+        <p class="ac-hint">LEFT THUMB WALKS · RIGHT THUMB AIMS AND FIRES · TAP TO AUTO-FIRE · STAND STILL TO MEND</p>
       </div>
       <div class="ac-stick ac-move hidden"><i></i></div>
       <div class="ac-stick ac-aim hidden"><i></i></div>
@@ -605,11 +658,11 @@ export class ActionMode {
     shadow.position.y = 0.02;
     this.world.add(wrap, shadow);
     const t = def.traits;
-    const base = (def.base ?? def.id).replace(/-\d+$/, '');
+    const mb = marbleOf(def);
     const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1));
     const bar = document.createElement('div');
     bar.className = 'ac-bar' + (cpu ? '' : ' me');
-    bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u><u></u><u></u></em>'}`;
+    bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
     bar.querySelector('span')!.textContent = cpu ? def.name : 'YOU';
     this.hud.bars.appendChild(bar);
     const u: Unit = {
@@ -630,15 +683,31 @@ export class ActionMode {
       hp: max,
       max,
       speed: 3.3 * Math.sqrt(traitMul(t?.speed, 'speed')) * (boss ? 0.85 : 1),
-      dmg: BASE_DMG * (opts.dmg ?? 1) * (this.kind === 'ffa' ? 0.65 : 1),
-      reload: 1.3 / traitMul(t?.fireRate, 'fireRate'),
-      ammo: AMMO,
-      cool: 0,
+      // (the main game's marble: its damage per hit as a share of health, its magazine and cadence)
+      dmg: BASE_STATS.damage * SCALE * mb.damage * mb.balance,
+      power: opts.dmg ?? 1,
+      mag: mb.mag,
+      ammo: mb.mag,
+      fireInt: (BASE_STATS.fireInterval * mb.fire) / traitMul(t?.fireRate, 'fireRate'),
+      refill: mb.mag / (BASE_STATS.reloadTime * mb.reload * 1.6),
+      fireT: 0,
+      firing: false,
+      aim: Math.PI,
+      idle: 0,
+      burst: 0,
+      shotSpeed: SHOT_SPEED * mb.speed,
+      shotR: 0.15 * mb.radius,
+      range: mb.type === 'bouncy' ? SHOT_RANGE + 1.5 : SHOT_RANGE,
+      bounce: mb.type === 'bouncy' ? 2 : 0,
+      spirit: SPIRIT_OF[baseOf(def)] ?? 'single',
       charge: 0,
-      marble: MARBLE_OF[base] ?? 'standard',
+      marble: mb.type,
       alive: true,
       reveal: 0,
-      calm: 0,
+      calm: 9,
+      still: 0,
+      slowT: 0,
+      stunT: 0,
       queue: [],
       cubes: 0,
       boss,
@@ -650,6 +719,8 @@ export class ActionMode {
       goal: null,
       step: null,
       aimError: 0.12,
+      reloading: false,
+      cycle: 0,
     };
     this.units.push(u);
     return u;
@@ -665,10 +736,12 @@ export class ActionMode {
       this.me.max = Math.round(this.me.max * (1 + 0.25 * vital));
       this.me.hp = this.me.max;
       this.me.speed *= 1 + 0.15 * (this.ups.swift ?? 0);
-      this.me.dmg *= 1 + 0.2 * (this.ups.power ?? 0);
-      this.me.reload /= 1 + 0.2 * (this.ups.rapid ?? 0);
+      this.me.power *= 1 + 0.2 * (this.ups.power ?? 0);
+      this.me.fireInt /= 1 + 0.2 * (this.ups.rapid ?? 0);
+      this.me.refill *= 1 + 0.2 * (this.ups.rapid ?? 0);
     }
     this.el.querySelector('.ac-unit')!.textContent = def.name;
+    this.hud.super.querySelector('b')!.textContent = MOVE_NAMES[baseOf(def)] ?? 'SPECIAL';
   }
 
   private pickFoes(n: number) {
@@ -769,58 +842,167 @@ export class ActionMode {
     if (!this.blocked(u.x, u.z + dz, u.r)) u.z += dz;
   }
 
-  /** fire one attack (or the special) at this angle */
-  private attack(u: Unit, angle: number, big = false) {
-    if (!u.alive) return;
-    if (big) {
-      if (u.charge < 1) return;
-      u.charge = 0;
-      u.queue.push({ t: 0, angle, big: true });
-      if (u === this.me) {
-        this.shake = 0.35;
-        this.opts.vibrate?.([20, 30, 40]);
+  /** the nearest enemy it can see (what a special homes on) */
+  private nearestFoe(u: Unit, range = 14) {
+    let best: Unit | null = null;
+    let bd = range;
+    for (const o of this.units) {
+      if (!this.hostile(u, o) || !this.sees(u, o)) continue;
+      const d = Math.hypot(o.x - u.x, o.z - u.z);
+      if (d < bd) {
+        bd = d;
+        best = o;
       }
-      sfx.play('super');
-      this.callout(u === this.me ? 'SPECIAL!' : `${u.def.name.toUpperCase()} · SPECIAL`, u === this.me ? 0 : 1);
-      return;
     }
-    if (u.ammo < 1 || u.cool > 0) return;
-    u.ammo -= 1;
-    u.cool = 0.32;
-    const a = ATTACK[u.marble];
-    const times = u === this.me && this.kind === 'gauntlet' ? 1 + (this.ups.multi ?? 0) : 1;
-    for (let rep = 0; rep < times; rep++) for (let s = 0; s < a.shots; s++) u.queue.push({ t: rep * 0.22 + s * a.gap, angle, big: false });
+    return best;
   }
 
-  private launch(u: Unit, angle: number, big: boolean) {
-    const a = ATTACK[u.marble];
+  /** one marble out of the magazine, toward u.aim */
+  private shoot(u: Unit) {
     const mine = u === this.me && this.kind === 'gauntlet';
     const color = new THREE.Color(u.def.ball);
-    const out = (ang: number, dmg: number, speed: number, r: number, range: number, bounce: number, pierce: number) => {
-      const sx = u.x + Math.sin(ang) * (u.r + 0.1);
-      const sz = u.z - Math.cos(ang) * (u.r + 0.1);
-      this.shots.push({ x: sx, z: sz, vx: Math.sin(ang) * speed, vz: -Math.cos(ang) * speed, owner: u, dmg, r, left: range, bounce, pierce, hit: new Set(), color, big });
-    };
-    const bounce = a.bounce + (mine ? (this.ups.bounce ?? 0) : 0);
+    const bounce = u.bounce + (mine ? (this.ups.bounce ?? 0) : 0);
     const pierce = mine ? (this.ups.pierce ?? 0) : 0;
-    if (big) {
-      // the special: a wide fan of heavy marbles that punch through
-      for (let k = -3; k <= 3; k++) out(angle + k * 0.16, u.dmg * 0.95, 14, 0.24, 8.5, bounce, 2 + pierce);
-    } else {
-      const ang = angle + (Math.random() - 0.5) * 2 * a.spread;
-      out(ang, u.dmg * a.dmg, a.speed, a.r, a.range, bounce, pierce);
-      const fan = mine ? (this.ups.fan ?? 0) : 0;
-      for (let f = 1; f <= fan; f++) for (const side of [-1, 1]) out(ang + side * 0.35 * f, u.dmg * a.dmg * 0.7, a.speed, a.r, a.range * 0.85, bounce, pierce);
+    const out = (ang: number, side: number, dmg: number) => {
+      const sx = u.x + Math.sin(ang) * (u.r + 0.1) + Math.cos(ang) * side;
+      const sz = u.z - Math.cos(ang) * (u.r + 0.1) + Math.sin(ang) * side;
+      this.shots.push({ x: sx, z: sz, vx: Math.sin(ang) * u.shotSpeed, vz: -Math.cos(ang) * u.shotSpeed, owner: u, dmg, r: u.shotR, left: u.range, bounce, pierce, hit: new Set(), color, big: false });
+    };
+    const ang = u.aim + (Math.random() - 0.5) * 2 * BASE_STATS.spread;
+    const dmg = u.dmg * u.power;
+    const two = mine && (this.ups.multi ?? 0) > 0;
+    if (two) {
+      out(ang, -0.14, dmg * 0.75);
+      out(ang, 0.14, dmg * 0.75);
+    } else out(ang, 0, dmg);
+    const fan = mine ? (this.ups.fan ?? 0) : 0;
+    for (let f = 1; f <= fan; f++) for (const side of [-1, 1]) out(ang + side * 0.3 * f, 0, dmg * 0.6);
+    u.face = u.aim;
+    u.pose.kickT = 0;
+    u.pose.lastHand = u.def.twin ? -u.pose.lastHand : 1;
+    u.reveal = 1.2;
+    if (u === this.me || Math.random() < 0.35) sfx.play('fire', u === this.me ? 0.45 : 0.2);
+  }
+
+  /** its own special, as in the main game: the same balls, homing, quirks and damage shares */
+  private special(u: Unit, angle: number) {
+    if (!u.alive || u.charge < 1 || u.stunT > 0) return;
+    u.charge = 0;
+    u.firing = false;
+    const tgt = this.nearestFoe(u);
+    const at = tgt ? Math.atan2(tgt.x - u.x, -(tgt.z - u.z)) : angle;
+    const dist = tgt ? Math.hypot(tgt.x - u.x, tgt.z - u.z) : 7;
+    const steel = 0xdfe6ee;
+    const ball = (o: Partial<Shot> & { size?: number; share?: number }, ang = angle, delay = 0) => {
+      const { size = 1, share = 1, ...rest } = o;
+      const sp = 9.5 * (rest.speed ?? 1);
+      const shot: Partial<Shot> = {
+        r: 0.3 * size,
+        dmg: SPIRIT.damage * SCALE * share * u.power,
+        speed: sp,
+        home: SPIRIT.turn,
+        tgt,
+        recover: 0.12,
+        color: new THREE.Color(steel),
+        left: sp * SPIRIT.life,
+        ...rest,
+      };
+      shot.speed = sp;
+      u.queue.push({ t: delay, angle: ang, o: shot });
+    };
+    const fan = (n: number, spread: number, o: Partial<Shot> & { size?: number; share?: number }) => {
+      for (let k = 0; k < n; k++) ball({ recover: 0.25, ...o }, angle + (k - (n - 1) / 2) * spread);
+    };
+    switch (u.spirit) {
+      case 'twin':
+        fan(2, 0.3, { share: 0.62, size: 0.8 });
+        break;
+      case 'triple':
+        fan(3, 0.32, { share: 0.46, size: 0.72 });
+        break;
+      case 'cross':
+        // both swing out wide, coast, then turn back in and cross on the way
+        fan(2, 1.1, { share: 0.62, size: 0.8, home: 3.6, recover: 0.3 });
+        break;
+      case 'barrage':
+        for (let k = 0; k < 10; k++) ball({ share: 0.14, size: 0.42, speed: 1.5, home: 1.4 }, angle + (Math.random() - 0.5) * 0.35, k * 0.09);
+        break;
+      case 'chain':
+        for (let k = 0; k < 3; k++) ball({ share: 0.42, size: 0.75, speed: 1.15 }, angle, k * 0.32);
+        break;
+      case 'giant':
+        ball({ share: 1.5, size: 1.7, speed: 0.62, home: 0.6 });
+        break;
+      case 'rail':
+        // straight at where the target stands, three times as fast, no homing, through everyone
+        ball({ share: 1.05, size: 0.65, speed: 3, home: 0, pierce: 9, color: new THREE.Color(0x8ae8ff) }, at);
+        break;
+      case 'zigzag':
+        ball({ share: 1.1, size: 0.9, speed: 0.9, weave: true });
+        break;
+      case 'dive':
+        // up over everything and down on the spot it was aimed at
+        ball({ share: 1.2, size: 0.95, speed: 0.8, home: 0, dive: dist, left: dist }, at);
+        break;
+      case 'split':
+        ball({ share: 1.2, size: 1.05, splitAt: Math.max(0, 9.5 * SPIRIT.life - dist * 0.55) });
+        break;
+      case 'ricochet':
+        // off to one side first, then home in once it has banked off a wall
+        ball({ share: 1.25, size: 0.9, speed: 1.2, bounce: 1, bank: true }, angle + (Math.random() < 0.5 ? -1 : 1) * 1.05);
+        break;
+      case 'drain':
+        ball({ share: 0.9, effect: 'drain', color: new THREE.Color(0xff6a9a) });
+        break;
+      case 'frost':
+        ball({ share: 0.8, effect: 'frost', color: new THREE.Color(0x8ae8ff) });
+        break;
+      case 'quake':
+        ball({ share: 1.15, size: 1.35, speed: 0.75, effect: 'quake', color: new THREE.Color(0xffa24a) });
+        break;
+      default:
+        ball({});
     }
     u.face = angle;
     u.pose.kickT = 0;
-    u.pose.lastHand = -u.pose.lastHand;
-    u.reveal = 1.2;
-    u.calm = 0;
-    if (u === this.me || Math.random() < 0.5) sfx.play('fire', u === this.me ? 0.5 : 0.25);
+    u.pose.heavyT = 0;
+    u.reveal = 2;
+    if (u === this.me) {
+      this.shake = 0.35;
+      this.opts.vibrate?.([20, 30, 40]);
+    }
+    sfx.play('super');
+    const name = MOVE_NAMES[baseOf(u.def)] ?? 'SPECIAL';
+    this.callout(u === this.me ? `${name}!` : `${u.def.name.toUpperCase()} · ${name}`, u === this.me ? 0 : 1);
   }
 
-  private hurt(u: Unit, amount: number, from: Unit | null) {
+  /** a special's ball leaves */
+  private launchBall(u: Unit, angle: number, o: Partial<Shot>) {
+    const sp = o.speed ?? 9.5;
+    const sx = u.x + Math.sin(angle) * (u.r + 0.2);
+    const sz = u.z - Math.cos(angle) * (u.r + 0.2);
+    this.shots.push({
+      x: sx,
+      z: sz,
+      vx: Math.sin(angle) * sp,
+      vz: -Math.cos(angle) * sp,
+      owner: u,
+      dmg: 0,
+      r: 0.3,
+      left: sp * SPIRIT.life,
+      bounce: 0,
+      pierce: 0,
+      hit: new Set(),
+      color: new THREE.Color(0xdfe6ee),
+      big: true,
+      spirit: true,
+      head: angle,
+      age: 0,
+      ...o,
+    });
+  }
+
+  private hurt(u: Unit, amount: number, from: Unit | null, spirit = false) {
     if (!u.alive) return;
     const dmg = Math.round(amount);
     u.hp -= dmg;
@@ -828,8 +1010,10 @@ export class ActionMode {
     u.calm = 0;
     u.pose.flash = 1;
     if (from === this.me || u === this.me) this.pop(u.x, u.z, `-${dmg}`, from === this.me ? 'hit' : 'ouch');
+    // the special's gauge, as in the main game: a marble that lands fills 8%, one taken 4.5%
+    if (!spirit) u.charge = Math.min(1, u.charge + 0.045);
     if (from && from.alive) {
-      from.charge = Math.min(1, from.charge + amount / (from.dmg * 3.4));
+      if (!spirit) from.charge = Math.min(1, from.charge + 0.08);
       if (from === this.me && this.kind === 'gauntlet' && this.ups.leech) from.hp = Math.min(from.max, from.hp + amount * 0.08 * this.ups.leech);
     }
     if (u === this.me) {
@@ -925,10 +1109,18 @@ export class ActionMode {
       }
     }
     if (me.alive) {
-      me.vx = mx * me.speed;
-      me.vz = mz * me.speed;
+      const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1);
+      me.vx = mx * sp;
+      me.vz = mz * sp;
+      // the trigger: held on the aim stick (once dragged), the mouse button, or Space
+      const a = this.aimStick;
+      const dragged = a && !a.big && Math.hypot(a.x - a.x0, a.y - a.y0) > 14;
+      if (dragged) me.aim = Math.atan2(a.x - a.x0, -(a.y - a.y0));
+      if (this.mouseFire) me.aim = this.mouseAngle();
+      if (this.keyFire) me.aim = this.autoAim();
+      me.firing = !!dragged || this.mouseFire || this.keyFire || me.burst > 0;
       this.walk(me, me.vx * dt, me.vz * dt);
-      if ((mx || mz) && !this.aimStick) me.face = Math.atan2(mx, -mz);
+      if ((mx || mz) && !me.firing && !this.aimStick) me.face = Math.atan2(mx, -mz);
     }
     for (const u of this.units) if (u.cpu && u.alive) this.think(u, dt);
     for (const u of this.units) this.tickUnit(u, dt);
@@ -941,24 +1133,88 @@ export class ActionMode {
 
   private tickUnit(u: Unit, dt: number) {
     if (!u.alive) return;
-    u.cool = Math.max(0, u.cool - dt);
     u.reveal = Math.max(0, u.reveal - dt);
+    u.slowT = Math.max(0, u.slowT - dt);
+    u.stunT = Math.max(0, u.stunT - dt);
     u.calm += dt;
-    if (u.ammo < AMMO) u.ammo = Math.min(AMMO, u.ammo + dt / u.reload);
-    // (free-for-all: health comes back after three quiet seconds)
-    if (this.kind === 'ffa' && u.calm > 3 && u.hp < u.max) u.hp = Math.min(u.max, u.hp + u.max * 0.13 * dt);
+    if (u.burst > 0) {
+      u.burst -= dt;
+      u.firing = u.burst > 0;
+    }
+    // the magazine: a marble every interval while the trigger's held, refilling once it lets go
+    if (u.firing && u.stunT <= 0 && u.ammo >= 1) {
+      u.idle = 0;
+      u.fireT -= dt;
+      while (u.fireT <= 0 && u.ammo >= 1) {
+        this.shoot(u);
+        u.ammo -= 1;
+        u.fireT += u.fireInt;
+      }
+    } else {
+      u.fireT = Math.max(0, u.fireT - dt);
+      if (!u.firing) {
+        u.idle += dt;
+        if (u.idle > 0.45 && u.ammo < u.mag) u.ammo = Math.min(u.mag, u.ammo + dt * u.refill);
+      }
+    }
+    // standing still mends: not moving, not firing, and not hit for a moment
+    const still = Math.hypot(u.vx, u.vz) < 0.3 && !u.firing;
+    u.still = still ? u.still + dt : 0;
+    const mending = u.still > 0.6 && u.calm > 2 && u.hp < u.max;
+    if (mending) u.hp = Math.min(u.max, u.hp + u.max * MEND * dt);
+    u.bar.classList.toggle('mend', mending);
     for (const q of u.queue) q.t -= dt;
     while (u.queue.length && u.queue[0].t <= 0) {
       const q = u.queue.shift()!;
-      this.launch(u, q.angle, q.big);
+      this.launchBall(u, q.angle, q.o);
     }
     u.pose.kickT += dt;
+    u.pose.heavyT += dt;
     u.pose.flash = Math.max(0, u.pose.flash - dt * 4);
+  }
+
+  /** a special's ball lands on someone: its damage, and its quirk */
+  private ballHits(s: Shot, u: Unit) {
+    this.hurt(u, s.dmg, s.owner, true);
+    if (s.effect === 'drain' && s.owner.alive) s.owner.hp = Math.min(s.owner.max, s.owner.hp + s.dmg * 0.75);
+    if (s.effect === 'frost') u.slowT = 3;
+    if (s.effect === 'quake') {
+      u.stunT = 1;
+      this.shake = Math.max(this.shake, 0.25);
+      for (const o of this.units) if (o !== u && this.hostile(s.owner, o) && Math.hypot(o.x - u.x, o.z - u.z) < 1.6) this.hurt(o, s.dmg * 0.5, s.owner, true);
+    }
+    sfx.play('superhit', 0.7);
+  }
+
+  /** a special's ball steering: homing on its target, weaving, splitting */
+  private steerBall(s: Shot, dt: number) {
+    s.age = (s.age ?? 0) + dt;
+    let head = s.head ?? Math.atan2(s.vx, -s.vz);
+    const t = s.tgt;
+    if (s.home && t?.alive && s.age > (s.recover ?? 0) && (!s.bank || s.banked)) {
+      const want = Math.atan2(t.x - s.x, -(t.z - s.z));
+      let d = want - head;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      head += Math.max(-s.home * dt, Math.min(s.home * dt, d));
+    }
+    s.head = head;
+    const wob = s.weave ? Math.sin(s.age * 8) * 0.75 : 0;
+    const sp = s.speed ?? 9.5;
+    s.vx = Math.sin(head + wob) * sp;
+    s.vz = -Math.cos(head + wob) * sp;
+    if (s.splitAt !== undefined && s.left <= s.splitAt) {
+      // into three, just before it lands
+      s.splitAt = undefined;
+      for (const off of [-0.35, 0.35]) this.shots.push({ ...s, dmg: s.dmg / 3, r: s.r * 0.6, head: head + off, hit: new Set(), splitAt: undefined, recover: s.age + 0.15 });
+      s.dmg /= 3;
+      s.r *= 0.6;
+    }
   }
 
   private moveShots(dt: number) {
     for (let k = this.shots.length - 1; k >= 0; k--) {
       const s = this.shots[k];
+      if (s.spirit) this.steerBall(s, dt);
       const speed = Math.hypot(s.vx, s.vz);
       const steps = Math.max(1, Math.ceil((speed * dt) / 0.2));
       let dead = false;
@@ -969,6 +1225,16 @@ export class ActionMode {
         s.x += s.vx * h;
         s.z += s.vz * h;
         s.left -= speed * h;
+        if (s.dive !== undefined) {
+          // over everything until it comes down: then everyone round the spot is hit
+          if (s.left <= 0) {
+            for (const u of this.units) if (this.hostile(s.owner, u) && Math.hypot(u.x - s.x, u.z - s.z) < 1.4) this.ballHits(s, u);
+            this.shake = Math.max(this.shake, 0.3);
+            sfx.play('slam', 0.8);
+            dead = true;
+          }
+          continue;
+        }
         if (s.left <= 0) {
           dead = true;
           break;
@@ -989,6 +1255,10 @@ export class ActionMode {
             if (this.blocksShot(this.tile(ox, s.z))) s.vz = -s.vz;
             s.x = ox;
             s.z = oz;
+            if (s.spirit) {
+              s.head = Math.atan2(s.vx, -s.vz);
+              s.banked = true;
+            }
             sfx.play('wall', 0.25);
           } else dead = true;
           continue;
@@ -996,7 +1266,8 @@ export class ActionMode {
         for (const u of this.units) {
           if (!this.hostile(s.owner, u) || s.hit.has(u)) continue;
           if ((u.x - s.x) ** 2 + (u.z - s.z) ** 2 < (u.r + s.r) ** 2) {
-            this.hurt(u, s.dmg, s.owner);
+            if (s.spirit) this.ballHits(s, u);
+            else this.hurt(u, s.dmg, s.owner);
             s.hit.add(u);
             if (s.pierce > 0) s.pierce--;
             else {
@@ -1020,7 +1291,7 @@ export class ActionMode {
           u.cubes++;
           u.max = Math.round(u.max * 1.1);
           u.hp = Math.min(u.max, u.hp + u.max * 0.1);
-          u.dmg *= 1.08;
+          u.power *= 1.08;
         } else {
           if (u !== this.me) continue;
           u.hp = Math.min(u.max, u.hp + u.max * 0.25);
@@ -1116,8 +1387,14 @@ export class ActionMode {
     }
     let dx = 0;
     let dz = 0;
-    const range = ATTACK[u.marble].range;
+    const range = u.range;
     const low = this.kind === 'ffa' && u.hp < u.max * 0.3;
+    // the trigger: hold back once the magazine's empty until it's mostly full again
+    if (u.ammo < 1) u.reloading = true;
+    if (u.reloading && u.ammo >= u.mag * 0.6) u.reloading = false;
+    u.cycle -= dt;
+    if (u.cycle < -0.3 - Math.random() * 0.5) u.cycle = 0.5 + Math.random() * 0.8;
+    let fire = false;
     const tgt = u.target && u.target.alive ? u.target : null;
     if (tgt) {
       const ox = tgt.x - u.x;
@@ -1140,21 +1417,22 @@ export class ActionMode {
       u.aimDelay -= dt;
       if (los && d < range * 0.95 && u.aimDelay <= 0) {
         // lead the target a little, with a miss that shrinks as the rooms go on
-        const lead = (d / ATTACK[u.marble].speed) * 0.6;
+        const lead = (d / u.shotSpeed) * 0.6;
         const px = tgt.x + tgt.vx * lead;
         const pz = tgt.z + tgt.vz * lead;
         const ang = Math.atan2(px - u.x, -(pz - u.z)) + (Math.random() - 0.5) * 2 * u.aimError;
-        if (u.charge >= 1 && d < 7.5) this.attack(u, ang, true);
-        else if (u.ammo >= 1 && (u.ammo > 1.6 || d < range * 0.6 || Math.random() < dt * 2)) this.attack(u, ang);
+        u.aim = ang;
+        if (u.charge >= 1 && d < 7.5) this.special(u, ang);
+        else fire = !u.reloading && u.cycle > 0;
       }
       u.face = Math.atan2(ox, -oz);
     } else {
       // nothing in sight: shoot open a crate nearby, pick up cubes, head for the middle
       const cube = this.kind === 'ffa' ? this.drops.find((d) => Math.hypot(d.x - u.x, d.z - u.z) < 7) : undefined;
       const crate = !cube && this.kind === 'ffa' ? this.nearCrate(u) : null;
-      if (crate && u.ammo >= 1) {
-        const ang = Math.atan2(crate.x - u.x, -(crate.z - u.z));
-        this.attack(u, ang);
+      if (crate && !u.reloading) {
+        u.aim = Math.atan2(crate.x - u.x, -(crate.z - u.z));
+        fire = u.cycle > 0;
       }
       const g = cube ?? u.step ?? u.goal;
       if (g) {
@@ -1165,6 +1443,7 @@ export class ActionMode {
         dz = oz / d;
       }
     }
+    u.firing = fire && u.stunT <= 0;
     // stay inside the storm
     if (this.kind === 'ffa' && (Math.abs(u.x) > this.storm - 1 || Math.abs(u.z) > this.storm - 1)) {
       const d = Math.hypot(u.x, u.z) || 1;
@@ -1207,8 +1486,9 @@ export class ActionMode {
           }
         }
       }
-      u.vx = ax * u.speed;
-      u.vz = az * u.speed;
+      const sp = u.stunT > 0 ? 0 : u.speed * (u.slowT > 0 ? 0.5 : 1);
+      u.vx = ax * sp;
+      u.vz = az * sp;
       this.walk(u, u.vx * dt, u.vz * dt);
       if (!tgt) u.face = Math.atan2(ax, -az);
     } else {
@@ -1311,7 +1591,9 @@ export class ActionMode {
     let n = 0;
     for (const s of this.shots) {
       if (n >= 300) break;
-      this.dummy.position.set(s.x, 0.55, s.z);
+      // (a diving ball arcs high and comes down on its spot)
+      const y = s.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - s.left / s.dive))) * 3.2 : 0.55;
+      this.dummy.position.set(s.x, y, s.z);
       this.dummy.scale.setScalar(s.r);
       this.dummy.rotation.set(0, 0, 0);
       this.dummy.updateMatrix();
@@ -1374,7 +1656,7 @@ export class ActionMode {
       return;
     }
     const ang = Math.atan2(dx, -dy);
-    const range = a.big ? 8.5 : ATTACK[me.marble].range;
+    const range = a.big ? 8.5 : me.range;
     this.aimGuide.visible = true;
     this.aimGuide.position.set(me.x, 0.05, me.z);
     this.aimGuide.rotation.y = -ang;
@@ -1393,7 +1675,7 @@ export class ActionMode {
       u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (u.bar.querySelector('b') as HTMLElement).style.width = `${(u.hp / u.max) * 100}%`;
       u.bar.querySelector('i')!.setAttribute('data-hp', String(Math.max(0, Math.round(u.hp))));
-      if (!u.cpu) u.bar.querySelectorAll('u').forEach((el, k) => ((el as HTMLElement).style.setProperty('--f', String(Math.max(0, Math.min(1, u.ammo - k))))));
+      if (!u.cpu) (u.bar.querySelector('u') as HTMLElement).style.width = `${(u.ammo / u.mag) * 100}%`;
     }
   }
 
@@ -1499,7 +1781,7 @@ export class ActionMode {
     bestEl.textContent = '';
     if (kind === 'start') {
       h.textContent = 'Action';
-      text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks, right thumb aims and fires when you let go (tap to auto-aim). Landing hits charges your special.';
+      text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks; right thumb aims and fires while you hold it (a tap auto-fires). Your marbles, magazine and special are your fighter’s own. Landing hits charges the special; standing still mends you.';
       const mode = (k: ActionKind, title: string, sub: string) => {
         const c = document.createElement('button');
         c.className = 'ac-mode';
@@ -1548,8 +1830,11 @@ export class ActionMode {
   private takeUpgrade(id: UpgradeId) {
     this.ups[id] = (this.ups[id] ?? 0) + 1;
     const me = this.me!;
-    if (id === 'power') me.dmg *= 1.2;
-    if (id === 'rapid') me.reload /= 1.2;
+    if (id === 'power') me.power *= 1.2;
+    if (id === 'rapid') {
+      me.fireInt /= 1.2;
+      me.refill *= 1.2;
+    }
     if (id === 'swift') me.speed *= 1.15;
     if (id === 'vital') {
       me.max = Math.round(me.max * 1.25);
@@ -1605,20 +1890,26 @@ export class ActionMode {
     (el.querySelector('i') as HTMLElement).style.transform = `translate(${dx * k}px, ${dy * k}px)`;
   }
 
+  /** the floor spot under the mouse, as an angle from you */
+  private mouseAngle() {
+    const me = this.me!;
+    const r = this.canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((this.mouseAt.x - r.left) / r.width) * 2 - 1, -((this.mouseAt.y - r.top) / r.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    const hit = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.5), hit)) return me.aim;
+    return Math.atan2(hit.x - me.x, -(hit.z - me.z));
+  }
+
   private down = (e: PointerEvent) => {
     if (this.over || this.paused || !this.me?.alive) return;
     sfx.unlock();
-    // a mouse: click to fire at the spot
+    // a mouse: hold to fire at the cursor (right click or shift: the special)
     if (e.pointerType === 'mouse') {
-      const r = this.canvas.getBoundingClientRect();
-      const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-      const ray = new THREE.Raycaster();
-      ray.setFromCamera(ndc, this.camera);
-      const hit = new THREE.Vector3();
-      if (ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.5), hit)) {
-        const me = this.me;
-        this.attack(me, Math.atan2(hit.x - me.x, -(hit.z - me.z)), e.button === 2 || e.shiftKey);
-      }
+      this.mouseAt = { x: e.clientX, y: e.clientY };
+      if (e.button === 2 || e.shiftKey) this.special(this.me, this.mouseAngle());
+      else this.mouseFire = true;
       return;
     }
     const left = e.clientX < this.el.clientWidth / 2;
@@ -1635,13 +1926,14 @@ export class ActionMode {
     e.stopPropagation();
     if (this.over || this.paused || !this.me?.alive || this.me.charge < 1) return;
     if (e.pointerType === 'mouse') {
-      this.attack(this.me, this.autoAim(), true);
+      this.special(this.me, this.autoAim());
       return;
     }
     this.aimStick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), big: true };
     this.stickEl('aim', this.aimStick);
   };
   private pmove = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') this.mouseAt = { x: e.clientX, y: e.clientY };
     for (const s of [this.moveStick, this.aimStick]) {
       if (s && s.id === e.pointerId) {
         s.x = e.clientX;
@@ -1652,6 +1944,7 @@ export class ActionMode {
     if (this.aimStick) this.stickEl('aim', this.aimStick);
   };
   private up = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') this.mouseFire = false;
     if (this.moveStick?.id === e.pointerId) {
       this.moveStick = null;
       this.stickEl('move', null);
@@ -1663,20 +1956,25 @@ export class ActionMode {
       if (this.over || this.paused || !this.me?.alive) return;
       const dx = a.x - a.x0;
       const dy = a.y - a.y0;
-      // a drag aims; a quick tap fires at the nearest enemy
-      const ang = Math.hypot(dx, dy) > 14 ? Math.atan2(dx, -dy) : this.autoAim();
-      this.attack(this.me, ang, a.big);
+      const dragged = Math.hypot(dx, dy) > 14;
+      if (a.big) this.special(this.me, dragged ? Math.atan2(dx, -dy) : this.autoAim());
+      else if (!dragged) {
+        // a quick tap: a short burst at the nearest enemy
+        this.me.aim = this.autoAim();
+        this.me.burst = 0.4;
+      }
     }
   };
   private keydown = (e: KeyboardEvent) => {
     if (!this.running) return;
     this.keys.add(e.code);
     if (this.over || this.paused || !this.me?.alive) return;
-    if (e.code === 'Space') this.attack(this.me, this.autoAim());
-    if (e.code === 'KeyE' || e.code === 'KeyQ') this.attack(this.me, this.autoAim(), true);
+    if (e.code === 'Space') this.keyFire = true;
+    if (e.code === 'KeyE' || e.code === 'KeyQ') this.special(this.me, this.autoAim());
     if (e.code === 'Escape') this.exit();
   };
   private keyup = (e: KeyboardEvent) => {
     this.keys.delete(e.code);
+    if (e.code === 'Space') this.keyFire = false;
   };
 }
