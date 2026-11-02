@@ -642,6 +642,33 @@ function applyEntry(def: CharacterDef, u: UnitEntry | undefined, id = def.id): C
   };
 }
 
+/**
+ * The kit parts' colours as palette tokens: each colour is read as the slot nearest it in the
+ * fighter's own (unpainted) palette, then painted with that slot's colour as worn now, so a
+ * part follows a paint job (or a lab edit) like the rest of the fighter. A two-tone part whose
+ * colours land on the same slot takes the next nearest for its second, so it keeps its contrast.
+ */
+const TOKEN_SLOTS = ['body', 'trim', 'accent', 'joint', 'eye'] as const;
+function tokenGear(def: CharacterDef): NonNullable<CharacterDef['gear']> {
+  const own = (characterById(def.id) ?? def).palette;
+  const rgb = (c: number) => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
+  const dist = (x: number, y: number) => {
+    const [a, b] = [rgb(x), rgb(y)];
+    // (weighted for how the eye sees it)
+    return 2 * (a[0] - b[0]) ** 2 + 4 * (a[1] - b[1]) ** 2 + 3 * (a[2] - b[2]) ** 2;
+  };
+  const ranked = (c: number) => [...TOKEN_SLOTS].sort((p, q) => dist(c, own[p]) - dist(c, own[q]));
+  const out: NonNullable<CharacterDef['gear']> = {};
+  for (const [slot, spec] of Object.entries(def.gear ?? {}) as [keyof NonNullable<CharacterDef['gear']>, PartSpec][]) {
+    if (!spec) continue;
+    const sa = spec.a !== undefined ? ranked(spec.a)[0] : undefined;
+    let sb = spec.b !== undefined ? ranked(spec.b)[0] : undefined;
+    if (sb && sb === sa) sb = ranked(spec.b!).find((k) => k !== sa);
+    out[slot] = { ...spec, a: sa ? def.palette[sa] : spec.a, b: sb ? def.palette[sb] : spec.b };
+  }
+  return out;
+}
+
 /** the built-ins as shipped (code designs plus the shipped Unit Lab edits) */
 /** the roster published from the Unit Studio: shared by every player, above the shipped designs */
 let PUBLISHED: RosterData = cachedPublished();
@@ -879,7 +906,7 @@ export class ShooterMesh {
       for (const c of this.turret.children) if (!(c as THREE.Mesh).isMesh) c.scale.y /= chestH;
     }
     // the customizer's add-ons, fitted to this fighter (after the torso's stretch, so they don't stretch with it)
-    if (def.gear) attachParts(this.turret, this.root, def.gear, def.palette, FITS[(def.base ?? def.id).replace(/-\d+$/, '')]);
+    if (def.gear) attachParts(this.turret, this.root, tokenGear(def), def.palette, FITS[(def.base ?? def.id).replace(/-\d+$/, '')]);
     if (def.fit) {
       this.fit.set(...def.fit);
       this.root.scale.copy(this.fit);
