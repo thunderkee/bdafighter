@@ -112,7 +112,8 @@ export function boot() {
     [9, ['rex', 'tyrant']],
     [12, ['nightshade']],
   ];
-  const baseOf = (id: string) => characterById(id).id.replace(/-\d+$/, '');
+  // (a fighter built on another, like True Leo King on Leo King, counts as it: its special, kit and story)
+  const baseOf = (id: string) => { const c = characterById(id); return (c.base ?? c.id).replace(/-\d+$/, ''); };
   /** a boss unit, in whichever version (it can't be picked for an arcade run) */
   const isBossUnit = (id: string) => [...BOSS_IDS].some((b) => baseOf(b) === baseOf(id));
   /** the arcade stage that unlocks this unit (0 = a starter, or a custom unit) */

@@ -692,9 +692,14 @@ export function rosterCharacters(data = loadRoster()): CharacterDef[] {
   const isBuiltin = (id: string) => BUILTINS.some((b) => b.id === id);
   const out = BUILTINS.map((b) => applyEntry(shippedById(b.id)!, data.units[b.id]));
   const customs = new Map<string, CharacterDef>();
-  for (const u of Object.values(PUBLISHED.units)) {
+  // new fighters shipped with the game (made in the Unit Lab), then the published ones, then this device's own
+  for (const u of Object.values(SHIPPED.units)) {
     if (isBuiltin(u.id)) continue;
     customs.set(u.id, applyEntry(shippedById(u.base) ?? BUILTINS[0], u, u.id));
+  }
+  for (const u of Object.values(PUBLISHED.units)) {
+    if (isBuiltin(u.id)) continue;
+    customs.set(u.id, applyEntry(customs.get(u.id) ?? shippedById(u.base) ?? BUILTINS[0], u, u.id));
   }
   for (const u of Object.values(data.units)) {
     if (isBuiltin(u.id)) continue;
