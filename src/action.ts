@@ -9,6 +9,7 @@ import * as sfx from './audio';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
 import { DRAGON, ITEMS, MISSILE } from './items';
+import { stageById } from './stage';
 
 /**
  * Action: walk the whole stage freely and take the other fighters down, seen from above.
@@ -44,8 +45,10 @@ const SHOT_RANGE = 7.5;
 const MEND = 0.12;
 const ROOMS = 10;
 const CRATE_HP = 2600;
-const STORM_START = 20;
-const STORM_END = 95;
+const STORM_START = 45;
+const STORM_END = 165;
+/** free-for-all fighters are tougher, so a fight there lasts */
+const FFA_HP = 2.1;
 const STORM_DPS = 700;
 const BEST_KEY = 'marble-fighter:action:best';
 // Siege: three on three, each side's fortress shooting back; knock theirs down (or have more of yours left at the bell)
@@ -56,6 +59,44 @@ const FORT_DMG = 300;
 const SIEGE_TIME = 150;
 const RESPAWN = 4;
 const TEAM_COLOR = [0x4aa8f0, 0xff5a5a];
+
+/**
+ * the stages' looks, after the main game's arenas (their floor, rails and surroundings), made
+ * light enough to read from above: floor checker, wall, bush, water and the ground round the edge
+ */
+interface Theme {
+  id: string;
+  /** the main game's stage it's after (for its name), or its own name */
+  stage?: string;
+  name?: string;
+  floor: [string, string];
+  /** the floor's grid lines (neon on the night stages) */
+  line: string;
+  wall: number;
+  /** a glowing edge on the walls */
+  wallGlow?: number;
+  bush: number;
+  bushGlow?: boolean;
+  water: number;
+  /** lava, neon pools: they glow */
+  waterGlow?: boolean;
+  apron: number;
+  sky: number;
+}
+const THEMES: Theme[] = [
+  { id: 'meadow', name: 'Green Meadow', floor: ['#7fc25a', '#76b852'], line: 'rgba(0,0,0,0.06)', wall: 0xc8a46a, bush: 0x3fae4a, water: 0x3ac8ef, apron: 0x3a6a8a, sky: 0x8fcff0 },
+  { id: 'dungeon', name: 'Stone Keep', floor: ['#8a93b8', '#828bb0'], line: 'rgba(0,0,0,0.06)', wall: 0x5a4a8a, bush: 0x3fae4a, water: 0x3ac8ef, apron: 0x2a2440, sky: 0x4a4070 },
+  { id: 'beach', stage: 'beach', floor: ['#f3e7c6', '#eadbb4'], line: 'rgba(160,120,60,0.12)', wall: 0x9b7a55, bush: 0x4fbf6a, water: 0x2fc6d6, apron: 0x2fc6d6, sky: 0x5fbcf5 },
+  { id: 'snow', stage: 'snow', floor: ['#e6f0f9', '#d9e6f2'], line: 'rgba(127,182,232,0.35)', wall: 0xa9d4f0, bush: 0x2f6a5a, water: 0x8fd0f2, apron: 0xf4f9fd, sky: 0xbfd6ea },
+  { id: 'lava', stage: 'lava', floor: ['#5a4640', '#514039'], line: 'rgba(255,122,42,0.3)', wall: 0x2e2220, wallGlow: 0xff5a1a, bush: 0xb04a2a, water: 0xff5a1a, waterGlow: true, apron: 0xff4a10, sky: 0x1a0605 },
+  { id: 'forest', stage: 'forest', floor: ['#557a48', '#4d7141'], line: 'rgba(200,232,176,0.12)', wall: 0x6a5236, bush: 0x2f7a3a, water: 0x3a7a8a, apron: 0x1d2a19, sky: 0x26352f },
+  { id: 'river', stage: 'river', floor: ['#b0805a', '#a47652'], line: 'rgba(255,224,176,0.25)', wall: 0x5a3e26, bush: 0x5a8a3a, water: 0x3a5a9a, apron: 0x2a4a7a, sky: 0xe98a5a },
+  { id: 'cyber', stage: 'cyber', floor: ['#3a2a52', '#33244a'], line: 'rgba(255,43,214,0.45)', wall: 0x2a1e3a, wallGlow: 0x2bf0ff, bush: 0xff2bd6, bushGlow: true, water: 0x2bf0ff, waterGlow: true, apron: 0x0a0610, sky: 0x07030f },
+  { id: 'space', stage: 'space', floor: ['#34405e', '#2e3955'], line: 'rgba(47,216,255,0.4)', wall: 0x4a5674, wallGlow: 0x3ef0ff, bush: 0x3ef0ff, bushGlow: true, water: 0x0b1226, apron: 0x060912, sky: 0x03040c },
+  { id: 'city', stage: 'city', floor: ['#5a5c66', '#53555f'], line: 'rgba(255,207,62,0.3)', wall: 0x8a8f98, wallGlow: 0xff3e8e, bush: 0x4a8a4a, water: 0x3a5a7a, apron: 0x16171d, sky: 0x0f1326 },
+  { id: 'soccer', stage: 'soccer', floor: ['#3fa04a', '#379142'], line: 'rgba(255,255,255,0.35)', wall: 0xe8e8ee, bush: 0x2f7a36, water: 0x3ac8ef, apron: 0x2f7a36, sky: 0x8cc8ff },
+];
+const themeName = (t: Theme) => t.name ?? stageById(t.stage ?? '').name;
 /** the camera, shared with the other modes' setting: far (overhead), mid, near, and first (just behind your fighter) */
 export type ActionView = 'far' | 'mid' | 'near' | 'first';
 const VIEWS: ActionView[] = ['near', 'mid', 'far', 'first'];
@@ -279,7 +320,16 @@ export class ActionMode {
   private storm = 0;
   private stormMesh: THREE.Mesh[] = [];
   private bushMat = new THREE.MeshStandardMaterial({ color: 0x3fae4a, roughness: 0.9, transparent: true });
+  /** this stage's look, and the Gauntlet run's order of them */
+  private theme: Theme = THEMES[0];
+  private themeOrder: Theme[] = [];
   private shake = 0;
+  /** a beat of slow motion as your special goes */
+  private slowT = 0;
+  /** the lock-on ring: on whoever your special will go for once it's charged, and on its target while it flies */
+  private lockRing!: THREE.Group;
+  private lockOn: Unit | null = null;
+  private lockShow = 0;
   /** the camera, eased toward where the view puts it */
   private camPos = new THREE.Vector3();
   private camAt = new THREE.Vector3();
@@ -287,6 +337,7 @@ export class ActionMode {
   /** which way the cockpit view looks (set as each stage starts, so the stick stays put) */
   private camYaw = 0;
   private localView: ActionView = 'mid';
+  private skyFor: Theme | null = null;
   private lift = 0;
   private vw = 1;
   private vh = 1;
@@ -295,6 +346,7 @@ export class ActionMode {
 
   // shots drawn as instances
   private shotMesh: THREE.InstancedMesh;
+  private haloMesh: THREE.InstancedMesh;
   private dummy = new THREE.Object3D();
   private aimGuide: THREE.Mesh;
 
@@ -317,6 +369,7 @@ export class ActionMode {
     this.el.className = 'hidden';
     this.el.innerHTML = `
       <canvas></canvas>
+      <div class="ac-flash"></div>
       <div class="ac-bars"></div>
       <div class="ac-hud">
         <div class="ac-top">
@@ -325,6 +378,7 @@ export class ActionMode {
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
         <p class="ac-callout"></p>
+        <p class="ac-supername"></p>
         <p class="ac-hint">TAP FIRE TO SHOOT · HOLD IT TO CHARGE, LET GO TO BLAST · SLIDE OFF IT TO AIM · STAND STILL TO MEND</p>
       </div>
       <div class="ac-tray">
@@ -345,7 +399,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['bars', 'title', 'score', 'callout', 'hint', 'panel', 'special', 'fire']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['bars', 'title', 'score', 'callout', 'supername', 'flash', 'hint', 'panel', 'special', 'fire']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -363,6 +417,11 @@ export class ActionMode {
     this.shotMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(300 * 3), 3);
     this.shotMesh.frustumCulled = false;
     this.scene.add(this.shotMesh);
+    this.haloMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }), 60);
+    this.haloMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(60 * 3), 3);
+    this.haloMesh.frustumCulled = false;
+    this.haloMesh.count = 0;
+    this.scene.add(this.haloMesh);
     const guide = new THREE.PlaneGeometry(1, 1);
     guide.translate(0, 0.5, 0);
     guide.rotateX(-Math.PI / 2);
@@ -371,6 +430,24 @@ export class ActionMode {
     this.scene.add(this.aimGuide);
     this.skyDome.visible = false;
     this.scene.add(this.skyDome);
+    // the lock-on: a gold ring on the floor with four pointers, drawn over everything
+    this.lockRing = new THREE.Group();
+    const lockMat = new THREE.MeshBasicMaterial({ color: 0xffd23e, transparent: true, opacity: 0.95, depthTest: false });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.74, 40), lockMat);
+    ring.rotation.x = -Math.PI / 2;
+    this.lockRing.add(ring);
+    for (let k = 0; k < 4; k++) {
+      const tick = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.32), lockMat);
+      tick.rotation.x = -Math.PI / 2;
+      const a = (k * Math.PI) / 2;
+      tick.position.set(Math.sin(a) * 0.95, 0, Math.cos(a) * 0.95);
+      tick.rotation.z = a;
+      this.lockRing.add(tick);
+    }
+    this.lockRing.renderOrder = 5;
+    this.lockRing.traverse((o) => (o.renderOrder = 5));
+    this.lockRing.visible = false;
+    this.scene.add(this.lockRing);
 
     this.el.querySelector('.ac-quit')!.addEventListener('click', () => this.exit());
     this.el.querySelector('.ac-view')!.addEventListener('pointerdown', (e) => {
@@ -448,6 +525,9 @@ export class ActionMode {
     this.clearStage();
     this.camSnap = true;
     this.cleared = false;
+    // a new look each time: a fresh shuffle for a new run (the Gauntlet walks through them room by room)
+    if (this.kind !== 'gauntlet' || this.room === 1 || !this.themeOrder.length) this.themeOrder = [...THEMES].sort(() => Math.random() - 0.5);
+    this.theme = this.kind === 'gauntlet' ? this.themeOrder[(this.room - 1) % this.themeOrder.length] : this.themeOrder[0];
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     this.time = this.kind === 'gauntlet' ? this.time : 0;
     this.buildStage();
@@ -459,7 +539,8 @@ export class ActionMode {
     }
     this.spawnFoes();
     this.over = false;
-    this.callout(this.kind === 'siege' ? 'SIEGE · KNOCK DOWN THEIR FORTRESS' : this.kind === 'ffa' ? 'FREE-FOR-ALL' : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room}`);
+    const where = themeName(this.theme).toUpperCase();
+    this.callout(this.kind === 'siege' ? `SIEGE · ${where}` : this.kind === 'ffa' ? `FREE-FOR-ALL · ${where}` : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room} · ${where}`);
     sfx.play(this.isBossRoom() ? 'gong' : 'go');
     this.updateHud();
   }
@@ -869,23 +950,30 @@ export class ActionMode {
 
   private drawStage() {
     const { W, H } = this;
-    const ffa = this.kind === 'ffa';
+    const th = this.theme;
     // the floor: a checker of two tones with a fine grid
     const cv = document.createElement('canvas');
     cv.width = W * 32;
     cv.height = H * 32;
     const c = cv.getContext('2d')!;
-    const tones = ffa ? ['#7fc25a', '#76b852'] : ['#8a93b8', '#828bb0'];
+    const tones = th.floor;
     for (let i = 0; i < W; i++)
       for (let j = 0; j < H; j++) {
         c.fillStyle = tones[(i + j) % 2];
         c.fillRect(i * 32, j * 32, 32, 32);
       }
-    c.strokeStyle = 'rgba(0,0,0,0.06)';
+    c.strokeStyle = th.line;
+    c.lineWidth = 1.5;
     for (let i = 0; i <= W; i++) {
       c.beginPath();
       c.moveTo(i * 32, 0);
       c.lineTo(i * 32, H * 32);
+      c.stroke();
+    }
+    for (let j = 0; j <= H; j++) {
+      c.beginPath();
+      c.moveTo(0, j * 32);
+      c.lineTo(W * 32, j * 32);
       c.stroke();
     }
     const tex = new THREE.CanvasTexture(cv);
@@ -895,7 +983,7 @@ export class ActionMode {
     floor.rotation.x = -Math.PI / 2;
     this.world.add(floor);
     // round the outside, a darker apron so the edge reads
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(W + 40, H + 40), new THREE.MeshStandardMaterial({ color: ffa ? 0x3a6a8a : 0x2a2440, roughness: 1 }));
+    const apron = new THREE.Mesh(new THREE.PlaneGeometry(W + 40, H + 40), new THREE.MeshStandardMaterial({ color: th.apron, roughness: 1, emissive: th.waterGlow && th.id === 'lava' ? 0x801800 : 0x000000 }));
     apron.rotation.x = -Math.PI / 2;
     apron.position.y = -0.02;
     this.world.add(apron);
@@ -921,7 +1009,18 @@ export class ActionMode {
     };
     const wallGeo = new THREE.BoxGeometry(1, 1.1, 1);
     wallGeo.translate(0, 0.55, 0);
-    inst(wallGeo, new THREE.MeshStandardMaterial({ color: ffa ? 0xc8a46a : 0x5a4a8a, roughness: 0.8 }), WALL, () => {});
+    inst(wallGeo, new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8 }), WALL, () => {});
+    if (th.wallGlow) {
+      // a glowing band round the top of each wall (the main game's rail glow)
+      // (a band round the sides just under the top, so it never shares a face with the wall)
+      const stripGeo = new THREE.BoxGeometry(1.03, 0.09, 1.03);
+      stripGeo.translate(0, 0.98, 0);
+      inst(stripGeo, new THREE.MeshBasicMaterial({ color: th.wallGlow }), WALL, () => {});
+    }
+    this.bushMat.color.setHex(th.bush);
+    this.bushMat.emissive.setHex(th.bushGlow ? th.bush : 0x000000);
+    this.bushMat.emissiveIntensity = th.bushGlow ? 0.35 : 0;
+    this.bushMat.opacity = th.bushGlow ? 0.85 : 1;
     const bushGeo = new THREE.IcosahedronGeometry(0.64, 0);
     bushGeo.translate(0, 0.5, 0);
     inst(bushGeo, this.bushMat, BUSH, (o, i, j) => {
@@ -931,7 +1030,7 @@ export class ActionMode {
     const waterGeo = new THREE.PlaneGeometry(1, 1);
     waterGeo.rotateX(-Math.PI / 2);
     waterGeo.translate(0, 0.015, 0);
-    inst(waterGeo, new THREE.MeshStandardMaterial({ color: 0x3ac8ef, roughness: 0.2, metalness: 0.1 }), WATER, () => {});
+    inst(waterGeo, new THREE.MeshStandardMaterial({ color: th.water, roughness: 0.2, metalness: 0.1, emissive: th.waterGlow ? th.water : 0x000000, emissiveIntensity: 0.6 }), WATER, () => {});
     // crates and the door are one mesh each: they come away
     for (let j = 0; j < H; j++)
       for (let i = 0; i < W; i++) {
@@ -973,7 +1072,7 @@ export class ActionMode {
     this.world.add(wrap, shadow);
     const t = def.traits;
     const mb = marbleOf(def);
-    const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1));
+    const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1) * (this.kind === 'ffa' ? FFA_HP : 1));
     const bar = document.createElement('div');
     bar.className = 'ac-bar' + (cpu ? (team === 0 && this.kind === 'siege' ? ' ally' : '') : ' me');
     bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
@@ -1310,8 +1409,10 @@ export class ActionMode {
     if (!u.alive || u.charge < 1 || u.stunT > 0) return;
     u.charge = 0;
     u.firing = false;
-    const tgt = this.nearestFoe(u);
+    // locked on: the special goes for the nearest enemy it can see, whichever way you were aiming
+    const tgt = this.lockOf(u);
     const at = tgt ? Math.atan2(tgt.x - u.x, -(tgt.z - u.z)) : angle;
+    angle = at;
     const dist = tgt ? Math.hypot(tgt.x - u.x, tgt.z - u.z) : 7;
     const steel = 0xdfe6ee;
     const ball = (o: Partial<Shot> & { size?: number; share?: number }, ang = angle, delay = 0) => {
@@ -1321,9 +1422,9 @@ export class ActionMode {
         r: 0.3 * size,
         dmg: SPIRIT.damage * SCALE * share * u.power,
         speed: sp,
-        home: SPIRIT.turn,
+        home: SPIRIT.turn * (tgt ? 1.6 : 1),
         tgt,
-        recover: 0.12,
+        recover: 0.08,
         color: new THREE.Color(steel),
         left: sp * SPIRIT.life,
         ...rest,
@@ -1389,12 +1490,47 @@ export class ActionMode {
     u.pose.heavyT = 0;
     u.reveal = 2;
     if (u === this.me) {
-      this.shake = 0.35;
+      this.shake = 0.45;
       this.opts.vibrate?.([20, 30, 40]);
+      // the moment: a flash, a beat of slow motion, the move's name big across the screen
+      this.flash();
+      this.slowT = 0.45;
+      this.lockShow = 1.6;
+      this.lockOn = tgt;
     }
     sfx.play('super');
     const name = MOVE_NAMES[baseOf(u.def)] ?? 'SPECIAL';
-    this.callout(u === this.me ? `${name}!` : `${u.def.name.toUpperCase()} · ${name}`, u === this.me ? 0 : 1);
+    if (u === this.me) this.superCallout(name);
+    else this.callout(`${u.def.name.toUpperCase()} · ${name}`, 1);
+  }
+
+  /** who a special locks on to: the nearest enemy in sight (one in a clear line first) */
+  private lockOf(u: Unit) {
+    let best: Unit | null = null;
+    let bd = 14;
+    for (const o of this.units) {
+      if (!this.hostile(u, o) || !this.sees(u, o)) continue;
+      const d = Math.hypot(o.x - u.x, o.z - u.z) + (this.clearLine(u.x, u.z, o.x, o.z) ? 0 : 5);
+      if (d < bd) {
+        bd = d;
+        best = o;
+      }
+    }
+    return best;
+  }
+  /** the special's own callout: big, gold, and it bursts in */
+  private superCallout(name: string) {
+    const el = this.hud.supername;
+    el.textContent = `${name}!`;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+  }
+  private flash() {
+    const el = this.hud.flash;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
   }
 
   /** a special's ball leaves */
@@ -1535,7 +1671,9 @@ export class ActionMode {
     if (this.saverOn && now - this.last < 1000 / 30 - 4) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    if (!this.over && !this.paused) this.step(dt);
+    // (a beat of slow motion as your special goes)
+    if (this.slowT > 0) this.slowT -= dt;
+    if (!this.over && !this.paused) this.step(this.slowT > 0 ? dt * 0.3 : dt);
     this.draw(dt);
   };
 
@@ -1954,7 +2092,7 @@ export class ActionMode {
       u.think = 0.25;
       let best: Unit | null = null;
       // (in free-for-all it only takes on what's near, so the stage doesn't all pile into the middle)
-      let bd = this.kind === 'gauntlet' ? 13 : 9;
+      let bd = this.kind === 'gauntlet' ? 13 : this.kind === 'ffa' ? 6.5 : 9;
       for (const o of this.units) {
         if (!this.hostile(u, o) || !this.sees(u, o)) continue;
         const d = Math.hypot(o.x - u.x, o.z - u.z);
@@ -2233,6 +2371,21 @@ export class ActionMode {
       n++;
     }
     this.shotMesh.count = n;
+    // a special's balls glow: a soft halo round each
+    let h = 0;
+    for (const s of this.shots) {
+      if (!s.spirit || h >= 60) continue;
+      const y = s.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - s.left / s.dive))) * 3.2 : 0.55;
+      this.dummy.position.set(s.x, y, s.z);
+      this.dummy.scale.setScalar(s.r * (2.1 + Math.sin(this.time * 20 + h) * 0.2));
+      this.dummy.updateMatrix();
+      this.haloMesh.setMatrixAt(h, this.dummy.matrix);
+      this.haloMesh.setColorAt(h, s.color);
+      h++;
+    }
+    this.haloMesh.count = h;
+    this.haloMesh.instanceMatrix.needsUpdate = true;
+    if (this.haloMesh.instanceColor) this.haloMesh.instanceColor.needsUpdate = true;
     this.shotMesh.instanceMatrix.needsUpdate = true;
     if (this.shotMesh.instanceColor) this.shotMesh.instanceColor.needsUpdate = true;
     for (const d of this.drops) {
@@ -2258,12 +2411,30 @@ export class ActionMode {
       const k = 1 + f.flash * 0.04;
       if (f.hp > 0) f.root.scale.set(k, k, k);
     }
+    this.drawLock(dt);
     this.drawAimGuide();
     this.placeCamera(dt);
     celify(this.scene, true);
     this.ink.render();
     this.placeBars();
     this.tickPops(dt);
+  }
+
+  /** the lock-on ring: on your special's target while it's ready, and while the special flies at it */
+  private drawLock(dt: number) {
+    const me = this.me;
+    this.lockShow = Math.max(0, this.lockShow - dt);
+    let t: Unit | null = null;
+    if (this.lockShow > 0 && this.lockOn?.alive) t = this.lockOn;
+    else if (me?.alive && me.charge >= 1 && !this.over) t = this.lockOf(me);
+    this.lockRing.visible = !!t;
+    if (!t) return;
+    const r = (t.boss ? 1.4 : 1) * (1 + Math.sin(this.time * 9) * 0.06) * (this.lockShow > 0 ? 1.15 : 1);
+    this.lockRing.position.set(t.x, 0.06, t.z);
+    this.lockRing.scale.setScalar(r);
+    this.lockRing.rotation.y += dt * 2.2;
+    t.bar.classList.add('locked');
+    for (const u of this.units) if (u !== t) u.bar.classList.remove('locked');
   }
 
   private drawAimGuide() {
@@ -2305,6 +2476,7 @@ export class ActionMode {
       this.v.set(f.x, 2.75 - (this.view === 'first' ? 0.3 : 0), f.z).project(this.camera);
       f.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (f.bar.querySelector('b') as HTMLElement).style.width = `${(f.hp / f.max) * 100}%`;
+      f.bar.querySelector('i')!.setAttribute('data-hp', String(Math.ceil(f.hp)));
       f.bar.classList.toggle('gone', this.v.z > 1);
     }
   }
@@ -2404,9 +2576,11 @@ export class ActionMode {
     if (this.camSnap && me) this.camYaw = this.kind === 'ffa' && Math.hypot(me.x, me.z) > 1 ? Math.atan2(-me.x, me.z) : 0;
     // it sees the horizon: a sky, and a haze over the far side
     const sky = view === 'first';
-    if (sky !== !!this.scene.fog) {
+    if (sky !== !!this.scene.fog || (sky && this.skyFor !== this.theme)) {
+      this.skyFor = this.theme;
       this.skyDome.visible = sky;
-      this.scene.fog = sky ? new THREE.Fog(0x9fd6f2, 16, 42) : null;
+      (this.skyDome.material as THREE.MeshBasicMaterial).color.setHex(this.theme.sky);
+      this.scene.fog = sky ? new THREE.Fog(this.theme.sky, 16, 42) : null;
     }
     if (view === 'first') {
       const back = tall ? 5.2 : 4.6;
