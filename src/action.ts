@@ -4,7 +4,7 @@ import { InkOnly } from './post';
 import { ShooterMesh, characterById, playable, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
-import { BITE, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
+import { BITE, CHARGE, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
 import * as sfx from './audio';
 
 /**
@@ -113,6 +113,13 @@ interface Unit {
   windLeft: number;
   wobble: number;
   wobbleN: number;
+  // the charge shot, as in the main game: a held trigger stores marbles, letting go fires them as one
+  chargeHold: number;
+  stored: number;
+  /** this press already fired its one shot (a press fires once; holding on charges) */
+  pressShot: boolean;
+  /** the CPU's plan: how many to store before it lets go (0: not charging) */
+  chargeWant: number;
   shotSpeed: number;
   shotR: number;
   range: number;
@@ -254,7 +261,7 @@ export class ActionMode {
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
         <p class="ac-callout"></p>
-        <p class="ac-hint">LEFT THUMB WALKS · HOLD FIRE TO SHOOT (SLIDE OFF IT TO AIM) · STAND STILL TO MEND</p>
+        <p class="ac-hint">TAP FIRE TO SHOOT · HOLD IT TO CHARGE, LET GO TO BLAST · SLIDE OFF IT TO AIM · STAND STILL TO MEND</p>
       </div>
       <div class="ac-tray">
         <div class="pad-dir ac-joy" aria-label="Move"><div class="ac-move"><i></i></div></div>
@@ -720,6 +727,10 @@ export class ActionMode {
       windLeft: 0,
       wobble: 0,
       wobbleN: 0,
+      chargeHold: 0,
+      stored: 0,
+      pressShot: false,
+      chargeWant: 0,
       shotSpeed: SHOT_SPEED * mb.speed,
       shotR: 0.15 * mb.radius,
       range: mb.type === 'bouncy' ? SHOT_RANGE + 1.5 : SHOT_RANGE,
@@ -959,6 +970,29 @@ export class ActionMode {
     return used;
   }
 
+  /** the charged ball: the stored marbles as one, bigger, heavier and slower, from the hand whose turn it is */
+  private fireCharged(u: Unit, n: number) {
+    const sp = u.def.special;
+    const handed = !!(sp?.alternate || sp?.triple || sp?.swap || sp?.hand);
+    const r = u.shotR * n;
+    u.face = u.aim;
+    u.wrap.position.set(u.x, 0, u.z);
+    u.wrap.rotation.y = -u.aim;
+    u.mesh.muzzleFor(handed ? u.lastHand || 1 : null, this.mz, sp?.hand ?? TWIN.gap);
+    const speed = u.shotSpeed * (1 - (n - 1) * 0.04);
+    // (nudged forward so a big one doesn't start inside the fighter)
+    const sx = this.mz.x + Math.sin(u.aim) * r;
+    const sz = this.mz.z - Math.cos(u.aim) * r;
+    this.shots.push({ x: sx, z: sz, vx: Math.sin(u.aim) * speed, vz: -Math.cos(u.aim) * speed, owner: u, dmg: u.dmg * u.power * n, r, left: u.range, bounce: u.bounce, pierce: 0, hit: new Set(), color: new THREE.Color(u.def.ball), big: true });
+    u.pose.kickT = 0;
+    u.pose.heavyT = 0;
+    u.pose.recoil = 1;
+    u.reveal = 1.2;
+    u.idle = 0;
+    if (u === this.me) this.shake = Math.max(this.shake, 0.08 + n * 0.03);
+    sfx.play('super', (0.7 + n * 0.1) * (u === this.me ? 1 : 0.5));
+  }
+
   /** its own special, as in the main game: the same balls, homing, quirks and damage shares */
   private special(u: Unit, angle: number) {
     if (!u.alive || u.charge < 1 || u.stunT > 0) return;
@@ -1184,7 +1218,7 @@ export class ActionMode {
       }
     }
     if (me.alive) {
-      const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1);
+      const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1) * (me.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       me.vx = mx * sp;
       me.vz = mz * sp;
       // the trigger: held on the aim stick (once dragged), the mouse button, or Space
@@ -1227,21 +1261,50 @@ export class ActionMode {
     }
     // Blossom's head sweeps side to side (slower while firing), and its shots follow it
     if (sp?.wobble) u.wobble = Math.sin((u.wobbleN += dt * HEAD_SWEEP * (u.firing ? 0.35 : 1))) * sp.wobble;
-    if (u.firing && u.stunT <= 0 && u.ammo >= 1) {
+    // the charge shot: you charge by holding FIRE past a moment; a CPU charges when it plans to
+    const human = u === this.me;
+    if (human || u.chargeWant > 0 || u.chargeHold > 0 || u.stored > 0) {
+      const holding = u.stunT <= 0 && (human ? u.firing : u.chargeWant > 0);
+      let letGo = false;
+      if (holding) {
+        u.chargeHold += dt;
+        if (u.chargeHold >= CHARGE.hold) {
+          // one marble per `per` seconds after the threshold, up to five
+          const want = Math.min(CHARGE.max, Math.floor((u.chargeHold - CHARGE.hold) / CHARGE.per + 1e-6));
+          while (u.stored < want && u.ammo >= 1) {
+            u.ammo -= 1;
+            u.stored++;
+            u.idle = 0;
+            sfx.play('tick', (0.6 + u.stored * 0.12) * (human ? 1 : 0.4));
+          }
+          if (!human && u.stored > 0 && (u.stored >= u.chargeWant || u.ammo < 1)) letGo = true;
+        }
+      }
+      if (letGo || (!holding && (u.chargeHold > 0 || u.stored > 0))) {
+        // let go: the charged ball (stunned mid-charge: the marbles go back)
+        if (u.stored > 0) {
+          if ((human ? !u.firing : letGo) && u.stunT <= 0) this.fireCharged(u, u.stored);
+          else u.ammo = Math.min(u.mag, u.ammo + u.stored);
+        }
+        u.stored = 0;
+        u.chargeHold = 0;
+        if (!human) u.chargeWant = 0;
+      }
+      if (human && !u.firing) u.pressShot = false;
+    }
+    // a press fires one shot (holding on is charge); a CPU's held trigger streams, unless it's charging
+    u.fireT = Math.max(0, u.fireT - dt);
+    const mayFire = human ? !u.pressShot && u.chargeHold < CHARGE.hold : u.chargeWant === 0 && u.chargeHold === 0;
+    // (not while a gun's in the air, or a punch is winding up)
+    if (mayFire && u.firing && u.stunT <= 0 && u.ammo >= 1 && u.fireT <= 0 && u.swapT <= 0 && u.windLeft <= 0) {
+      if (human) u.pressShot = true;
+      u.ammo -= this.shoot(u);
+      u.fireT = u.fireInt;
       u.idle = 0;
-      u.fireT -= dt;
-      // (not while a gun's in the air, or a punch is winding up)
-      while (u.fireT <= 0 && u.ammo >= 1 && u.swapT <= 0 && u.windLeft <= 0) {
-        u.ammo -= this.shoot(u);
-        u.fireT += u.fireInt;
-      }
-      u.fireT = Math.max(u.fireT, -u.fireInt);
-    } else {
-      u.fireT = Math.max(0, u.fireT - dt);
-      if (!u.firing) {
-        u.idle += dt;
-        if (u.idle > 0.45 && u.ammo < u.mag) u.ammo = Math.min(u.mag, u.ammo + dt * u.refill);
-      }
+    }
+    if (!u.firing && u.stored === 0) {
+      u.idle += dt;
+      if (u.idle > 0.45 && u.ammo < u.mag) u.ammo = Math.min(u.mag, u.ammo + dt * u.refill);
     }
     // standing still mends: not moving, not firing, and not hit for a moment
     const still = Math.hypot(u.vx, u.vz) < 0.3 && !u.firing;
@@ -1517,7 +1580,11 @@ export class ActionMode {
         const ang = Math.atan2(px - u.x, -(pz - u.z)) + (Math.random() - 0.5) * 2 * u.aimError;
         u.aim = ang;
         if (u.charge >= 1 && d < 7.5) this.special(u, ang);
-        else fire = !u.reloading && u.cycle > 0;
+        else {
+          fire = !u.reloading && u.cycle > 0;
+          // now and then it plans a charge shot instead (2 to 4 marbles)
+          if (fire && u.chargeWant === 0 && u.chargeHold === 0 && u.ammo >= 5 && Math.random() < dt * 0.35) u.chargeWant = 2 + Math.floor(Math.random() * 3);
+        }
       }
       u.face = Math.atan2(ox, -oz);
     } else {
@@ -1580,7 +1647,7 @@ export class ActionMode {
           }
         }
       }
-      const sp = u.stunT > 0 ? 0 : u.speed * (u.slowT > 0 ? 0.5 : 1);
+      const sp = u.stunT > 0 ? 0 : u.speed * (u.slowT > 0 ? 0.5 : 1) * (u.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       u.vx = ax * sp;
       u.vz = az * sp;
       this.walk(u, u.vx * dt, u.vz * dt);
@@ -1813,6 +1880,11 @@ export class ActionMode {
     const c = this.me?.charge ?? 0;
     // (the SPECIAL button fills from the bottom, then burns once it's ready, as in the main game)
     this.hud.special.classList.toggle('ready', c >= 1);
+    const me = this.me;
+    const lvl = me && me.chargeHold >= CHARGE.hold ? Math.min(1, (me.chargeHold - CHARGE.hold) / (CHARGE.per * CHARGE.max)) : 0;
+    this.hud.fire.style.setProperty('--charge', lvl.toFixed(2));
+    this.hud.fire.classList.toggle('charging', lvl > 0);
+    this.hud.fire.textContent = me && me.stored > 0 ? `×${me.stored}` : 'FIRE';
     this.hud.special.style.setProperty('--p', String(Math.round(c * 100)));
   }
 
@@ -1876,7 +1948,7 @@ export class ActionMode {
     bestEl.textContent = '';
     if (kind === 'start') {
       h.textContent = 'Action';
-      text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks; hold FIRE to shoot at the nearest fighter, or slide your thumb off it to aim. SPECIAL fires your fighter’s own move once it’s charged. Standing still mends you.';
+      text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks. Tap FIRE to shoot at the nearest fighter; hold it to charge up to five marbles and let go to fire them as one; slide your thumb off it to aim. SPECIAL fires your fighter’s own move once it’s charged. Standing still mends you.';
       const mode = (k: ActionKind, title: string, sub: string) => {
         const c = document.createElement('button');
         c.className = 'ac-mode';

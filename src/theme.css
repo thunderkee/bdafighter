@@ -5678,6 +5678,12 @@ body.cine-on #pad {
   height: 96px;
   pointer-events: auto;
 }
+/* holding FIRE charges: the button swells and brightens, as in the main game */
+#action .ac-fire.held.charging {
+  transform: translateY(3px) scale(calc(1.04 + var(--charge, 0) * 0.3));
+  filter: brightness(calc(1 + var(--charge, 0) * 0.35));
+  font-size: 22px;
+}
 #action .ac-special {
   --p: 0;
   height: 40px;
