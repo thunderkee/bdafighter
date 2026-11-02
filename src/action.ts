@@ -410,7 +410,7 @@ export class ActionMode {
       <div class="ac-bars"></div>
       <div class="ac-hud">
         <div class="ac-top">
-          <div class="ac-left"><button class="ac-quit key round" aria-label="Back">✕</button><button class="ac-view key" aria-label="Switch view">NEAR</button></div>
+          <div class="ac-left"><button class="ac-quit key round" aria-label="Back">✕</button></div>
           <div class="ac-title"><b></b><span></span></div>
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
@@ -425,6 +425,8 @@ export class ActionMode {
       <div class="ac-tray">
         <div class="pad-dir ac-joy" aria-label="Move"><div class="ac-move"><i></i></div></div>
         <div class="pad-right ac-right">
+          <!-- the view switch, where the other modes keep it: on top of the right thumb's group -->
+          <button class="icon-btn view ac-view" aria-label="Switch view">NEAR</button>
           <button class="ac-special" aria-label="Special move">SPECIAL</button>
           <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
         </div>
@@ -564,6 +566,9 @@ export class ActionMode {
 
   private kos = 0;
   private startStage() {
+    // (what you carry into the next Gauntlet room, read before the old room is cleared away:
+    // your health, your special's gauge and an item you haven't used yet)
+    const keep = this.me ? { hp: this.me.hp / this.me.max, charge: this.me.charge, item: this.me.item } : null;
     this.clearStage();
     this.camSnap = true;
     this.cleared = false;
@@ -573,11 +578,11 @@ export class ActionMode {
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     this.time = this.kind === 'gauntlet' ? this.time : 0;
     this.buildStage();
-    const keep = this.me ? { hp: this.me.hp / this.me.max, charge: this.me.charge } : null;
     this.spawnMe();
     if (keep && this.kind === 'gauntlet' && this.room > 1) {
       this.me!.hp = Math.max(1, this.me!.max * Math.min(1, keep.hp + 0.08));
       this.me!.charge = keep.charge;
+      this.me!.item = keep.item;
     }
     this.spawnFoes();
     this.over = false;

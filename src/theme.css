@@ -5589,7 +5589,7 @@ body.cine-on #pad {
 }
 #action .ac-top {
   display: grid;
-  grid-template-columns: 104px 1fr 104px;
+  grid-template-columns: 64px 1fr 64px;
   align-items: center;
   gap: 12px;
 }
@@ -5601,14 +5601,15 @@ body.cine-on #pad {
   justify-self: end;
   min-width: 64px;
 }
+/* the view switch: on top of the right thumb's group, as the other modes' pad has it */
 #action .ac-view {
   pointer-events: auto;
-  height: 44px;
-  min-width: 52px;
-  padding: 0 8px;
-  border-radius: 99px;
-  font: 700 11px var(--display);
-  letter-spacing: 0.04em;
+  align-self: center;
+  width: 96px;
+  height: 30px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 10px;
 }
 #action .ac-quit {
   pointer-events: auto;
@@ -5710,7 +5711,7 @@ body.cine-on #pad {
 }
 #action .ac-hint {
   /* (above the control trays) */
-  margin: auto 0 190px;
+  margin: auto 0 236px;
   text-align: center;
   font: 700 11px var(--body);
   letter-spacing: 0.1em;
@@ -5780,7 +5781,7 @@ body.cine-on #pad {
 /* holding FIRE charges: the button swells and brightens, as in the main game */
 /* the main game's charge meter, over the stage just above the thumb trays */
 #action .ac-charge {
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 236px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 250px);
   z-index: 3;
 }
 /* an item from a crate loaded: the next shot is it */
