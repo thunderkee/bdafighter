@@ -362,8 +362,14 @@ export class ActionMode {
   private auras = new Map<Unit, THREE.Mesh>();
   /** the camera pushing in: for your special, and while you charge */
   private punch = 0;
-  /** your special's cinematic: seconds left with the camera down behind you (cockpit framing), and which way it looks */
-  private spCam = 0;
+  /**
+   * your special's cinematic: close behind you for the pose, then chasing its ball until it hits,
+   * a beat on the hit, then back to your view (spMax: a safety cut-off)
+   */
+  private spCine = false;
+  private spFlew = false;
+  private spHold = -1;
+  private spMax = 0;
   private spYaw = 0;
   /** seconds to the next item crate */
   private boxT = DROP.first;
@@ -1648,7 +1654,10 @@ export class ActionMode {
       this.lockOn = tgt;
       this.punch = 1;
       // the camera drops behind you, looking where it'll go, for the pose; then back to your view
-      this.spCam = POSE_ME / 0.3 + 0.35;
+      this.spCine = true;
+      this.spFlew = false;
+      this.spHold = -1;
+      this.spMax = 4.5;
       this.spYaw = angle;
       const sl = this.hud.speed;
       sl.classList.remove('show');
@@ -3188,8 +3197,16 @@ export class ActionMode {
   private placeCamera(dt: number) {
     const me = this.me;
     // (your special's cinematic: the cockpit framing, behind you and looking at its target)
-    this.spCam = Math.max(0, this.spCam - dt);
-    const cine = this.spCam > 0 && !!me?.alive;
+    // (the cinematic ends a beat after its last ball has hit, or at the cut-off)
+    const balls = me ? this.shots.filter((s) => s.owner === me && s.spirit) : [];
+    if (this.spCine) {
+      this.spMax -= dt;
+      if (balls.length) this.spFlew = true;
+      if (this.spFlew && !balls.length && me && me.spT < 0 && !me.queue.length && this.spHold < 0) this.spHold = 0.45;
+      if (this.spHold >= 0 && (this.spHold -= dt) < 0) this.spCine = false;
+      if (this.spMax <= 0 || !me?.alive) this.spCine = false;
+    }
+    const cine = this.spCine && !!me?.alive;
     const view: ActionView = cine ? 'first' : this.view;
     const tall = this.camera.aspect < 1;
     const mx = me ? me.x : 0;
@@ -3208,9 +3225,31 @@ export class ActionMode {
       (this.skyDome.material as THREE.MeshBasicMaterial).color.setHex(this.theme.sky);
       this.scene.fog = sky ? new THREE.Fog(this.theme.sky, 16, 42) : null;
     }
-    if (view === 'first') {
+    if (cine && this.spHold >= 0) {
+      // the hit: hold where it was
+      pos.copy(this.camPos);
+      at.copy(this.camAt);
+    } else if (cine && balls.length && me!.spT < 0) {
+      // chasing the ball: just behind and above it, looking where it's going
+      const b = balls[0];
+      const sp = Math.hypot(b.vx, b.vz) || 1;
+      const dx = b.vx / sp;
+      const dz = b.vz / sp;
+      const y = b.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - b.left / b.dive))) * 3.2 : 0.55;
+      // (further back for a big ball, so it doesn't fill the screen)
+      const off = 3.2 + b.r * 4;
+      pos.set(b.x - dx * off, y + 2.1 + b.r * 2, b.z - dz * off);
+      at.set(b.x + dx * 2, y * 0.6, b.z + dz * 2);
+    } else if (cine) {
+      // the pose: close in behind you, looking where it'll go (closer than the cockpit view)
+      const fx = Math.sin(this.spYaw);
+      const fz = -Math.cos(this.spYaw);
+      const back = tall ? 4.2 : 3.6;
+      pos.set(mx - fx * back, tall ? 2.8 : 2.4, mz - fz * back);
+      at.set(mx + fx * 2.6, 0.75, mz + fz * 2.6);
+    } else if (view === 'first') {
       const back = tall ? 7.4 : 6.4;
-      const yaw = cine ? this.spYaw : this.camYaw;
+      const yaw = this.camYaw;
       const fx = Math.sin(yaw);
       const fz = -Math.cos(yaw);
       pos.set(mx - fx * back, tall ? 4.6 : 4, mz - fz * back);
@@ -3231,7 +3270,8 @@ export class ActionMode {
       this.camAt.copy(at);
       this.camSnap = false;
     } else {
-      const k = 1 - Math.exp(-dt * 9);
+      // (quicker while chasing a ball, so it keeps up)
+      const k = 1 - Math.exp(-dt * (cine && balls.length ? 14 : 9));
       this.camPos.lerp(pos, k);
       this.camAt.lerp(at, k);
     }
