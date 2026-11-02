@@ -5369,6 +5369,26 @@ export class ShooterMesh {
     return this.barrel.localToWorld(out.set(0, 0, -0.25));
   }
 
+  /**
+   * where a marble leaves for this hand (1 the right, -1 the left, 0 the middle, null wherever its
+   * one gun is): its own marker, or the right one mirrored across the body, pushed out to a gun
+   * held off-centre (handX)
+   */
+  muzzleFor(hand: number | null, out: THREE.Vector3, handX = 0) {
+    this.root.updateMatrixWorld(true);
+    if (hand === -1 && this.bellyMarkL) return this.bellyMarkL.getWorldPosition(out);
+    if (this.bellyMark) this.bellyMark.getWorldPosition(out);
+    else this.barrel.localToWorld(out.set(0, 0, -0.25));
+    if (hand === null) return out;
+    this.root.worldToLocal(out);
+    // (a marker on the middle line: the hand's offset decides the side)
+    if (hand && Math.abs(out.x) < 0.08) out.x = handX;
+    if (hand === -1) out.x = -Math.abs(out.x);
+    else if (hand === 1) out.x = Math.abs(out.x);
+    else out.x = 0;
+    return this.root.localToWorld(out);
+  }
+
   /** where fired marbles appear: an empty marker on the front of the belly */
   bellyMark: THREE.Object3D | null = null;
   /**

@@ -3,8 +3,8 @@ import { celify } from './cel';
 import { InkOnly } from './post';
 import { ShooterMesh, characterById, playable, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
-import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, type MarbleType } from './config';
-import { MOVE_NAMES, SPIRIT, SPIRIT_OF, type SpiritKind } from './game';
+import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
+import { BITE, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
 import * as sfx from './audio';
 
 /**
@@ -102,6 +102,17 @@ interface Unit {
   idle: number;
   /** a tap's short auto-aimed burst (seconds left) */
   burst: number;
+  // the main game's shooting habits: which hand fires, a gun tossed between hands, the wind-up
+  // punch, the bite, a head that sweeps side to side
+  hand: number;
+  lastHand: number;
+  tripleN: number;
+  swapN: number;
+  swapT: number;
+  biteN: number;
+  windLeft: number;
+  wobble: number;
+  wobbleN: number;
   shotSpeed: number;
   shotR: number;
   range: number;
@@ -245,10 +256,12 @@ export class ActionMode {
         <p class="ac-callout"></p>
         <p class="ac-hint">LEFT THUMB WALKS · HOLD FIRE TO SHOOT (SLIDE OFF IT TO AIM) · STAND STILL TO MEND</p>
       </div>
-      <div class="ac-stick ac-move hidden"><i></i></div>
-      <div class="ac-pad">
-        <button class="ac-special" aria-label="Special move">SPECIAL</button>
-        <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
+      <div class="ac-tray">
+        <div class="pad-dir ac-joy" aria-label="Move"><div class="ac-move"><i></i></div></div>
+        <div class="pad-right ac-right">
+          <button class="ac-special" aria-label="Special move">SPECIAL</button>
+          <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
+        </div>
       </div>
       <div class="ac-panel">
         <h2>Action</h2>
@@ -698,6 +711,15 @@ export class ActionMode {
       aim: Math.PI,
       idle: 0,
       burst: 0,
+      hand: 1,
+      lastHand: 1,
+      tripleN: 0,
+      swapN: 0,
+      swapT: 0,
+      biteN: 0,
+      windLeft: 0,
+      wobble: 0,
+      wobbleN: 0,
       shotSpeed: SHOT_SPEED * mb.speed,
       shotR: 0.15 * mb.radius,
       range: mb.type === 'bouncy' ? SHOT_RANGE + 1.5 : SHOT_RANGE,
@@ -744,7 +766,6 @@ export class ActionMode {
       this.me.refill *= 1 + 0.2 * (this.ups.rapid ?? 0);
     }
     this.el.querySelector('.ac-unit')!.textContent = def.name;
-    this.hud.special.textContent = MOVE_NAMES[baseOf(def)] ?? 'SPECIAL';
   }
 
   private pickFoes(n: number) {
@@ -860,31 +881,82 @@ export class ActionMode {
     return best;
   }
 
-  /** one marble out of the magazine, toward u.aim */
-  private shoot(u: Unit) {
+  private mz = new THREE.Vector3();
+  /**
+   * one shot out of the magazine, toward u.aim, as the main game fires it: from the hand whose
+   * turn it is (alternating, Tyrant King's left-right-both, Pioneer's tossed gun), both barrels of
+   * a twin, Rex's bite every few shots, Wyvern's punch once its wind-up is done, Blossom's sweeping
+   * head. Returns the marbles it used.
+   */
+  private shoot(u: Unit, wound = false): number {
+    const sp = u.def.special;
+    if (sp?.windup && !wound) {
+      if (u.windLeft <= 0) {
+        u.windLeft = sp.windup;
+        u.pose.windT = 0;
+      }
+      return 0;
+    }
+    u.lastHand = u.hand;
+    if (sp?.alternate) u.hand = -u.hand;
+    let both = false;
+    if (sp?.triple) {
+      const n = u.tripleN++ % 3;
+      both = n === 2;
+      u.lastHand = n === 0 ? -1 : n === 1 ? 1 : 0;
+      u.hand = n === 0 ? 1 : n === 1 ? 1 : -1;
+    }
+    if (sp?.swap && (u.swapN = (u.swapN + 1) % sp.swap) === 0) {
+      u.hand = -u.hand;
+      u.swapT = TOSS_TIME;
+    }
+    const bite = !!sp?.bite && (u.biteN = (u.biteN + 1) % sp.bite) === 0;
+    const wind = sp?.windup ? WINDUP : { damage: 1, speed: 1 };
+    const twin = !!u.def.twin;
     const mine = u === this.me && this.kind === 'gauntlet';
     const color = new THREE.Color(u.def.ball);
     const bounce = u.bounce + (mine ? (this.ups.bounce ?? 0) : 0);
     const pierce = mine ? (this.ups.pierce ?? 0) : 0;
-    const out = (ang: number, side: number, dmg: number) => {
-      const sx = u.x + Math.sin(ang) * (u.r + 0.1) + Math.cos(ang) * side;
-      const sz = u.z - Math.cos(ang) * (u.r + 0.1) + Math.sin(ang) * side;
-      this.shots.push({ x: sx, z: sz, vx: Math.sin(ang) * u.shotSpeed, vz: -Math.cos(ang) * u.shotSpeed, owner: u, dmg, r: u.shotR, left: u.range, bounce, pierce, hit: new Set(), color, big: false });
+    const handed = !!(sp?.alternate || sp?.triple || sp?.swap || sp?.hand);
+    const r = u.shotR * (bite ? BITE.radius : 1);
+    const speed = u.shotSpeed * wind.speed;
+    const dmg = u.dmg * u.power * (bite ? BITE.damage : 1) * wind.damage;
+    // (the marble appears at the model's own muzzle for that hand, at floor level)
+    const out = (ang: number, hand: number | null, d: number, off = 0) => {
+      // (turned to face the shot first, so the muzzle is where the marble goes)
+      u.wrap.position.set(u.x, 0, u.z);
+      u.wrap.rotation.y = -u.aim;
+      u.mesh.muzzleFor(hand, this.mz, sp?.hand ?? TWIN.gap);
+      const sx = this.mz.x + Math.cos(ang) * off;
+      const sz = this.mz.z + Math.sin(ang) * off;
+      this.shots.push({ x: sx, z: sz, vx: Math.sin(ang) * speed, vz: -Math.cos(ang) * speed, owner: u, dmg: d, r, left: u.range, bounce, pierce, hit: new Set(), color, big: false });
     };
-    const ang = u.aim + (Math.random() - 0.5) * 2 * BASE_STATS.spread;
-    const dmg = u.dmg * u.power;
-    const two = mine && (this.ups.multi ?? 0) > 0;
-    if (two) {
-      out(ang, -0.14, dmg * 0.75);
-      out(ang, 0.14, dmg * 0.75);
-    } else out(ang, 0, dmg);
+    const ang = u.aim + (Math.random() - 0.5) * 2 * BASE_STATS.spread + (sp?.wobble ? u.wobble : 0);
+    let used = 1;
+    if (twin) {
+      // both barrels, each a little lighter
+      out(ang, 1, dmg * TWIN.damage);
+      out(u.aim + (Math.random() - 0.5) * 2 * BASE_STATS.spread, -1, dmg * TWIN.damage);
+    } else if (both) {
+      // both fists at once (the second marble costs one too)
+      out(ang, 1, dmg);
+      if (u.ammo >= 2) {
+        out(u.aim + (Math.random() - 0.5) * 2 * BASE_STATS.spread, -1, dmg);
+        used = 2;
+      }
+    } else if (mine && (this.ups.multi ?? 0) > 0) {
+      out(ang, handed ? u.lastHand : null, dmg * 0.75, -0.14);
+      out(ang, handed ? u.lastHand : null, dmg * 0.75, 0.14);
+    } else out(ang, handed ? u.lastHand : null, dmg);
     const fan = mine ? (this.ups.fan ?? 0) : 0;
-    for (let f = 1; f <= fan; f++) for (const side of [-1, 1]) out(ang + side * 0.3 * f, 0, dmg * 0.6);
+    for (let f = 1; f <= fan; f++) for (const side of [-1, 1]) out(ang + side * 0.3 * f, handed ? u.lastHand : null, dmg * 0.6);
     u.face = u.aim;
     u.pose.kickT = 0;
-    u.pose.lastHand = u.def.twin ? -u.pose.lastHand : 1;
+    u.pose.recoil = 1;
+    if (bite) u.pose.heavyT = 0;
     u.reveal = 1.2;
     if (u === this.me || Math.random() < 0.35) sfx.play('fire', u === this.me ? 0.45 : 0.2);
+    return used;
   }
 
   /** its own special, as in the main game: the same balls, homing, quirks and damage shares */
@@ -1146,14 +1218,24 @@ export class ActionMode {
       u.firing = u.burst > 0;
     }
     // the magazine: a marble every interval while the trigger's held, refilling once it lets go
+    const sp = u.def.special;
+    u.swapT = Math.max(0, u.swapT - dt);
+    // the wind-up done: the punch leaves
+    if (u.windLeft > 0 && (u.windLeft -= dt) <= 0) {
+      u.windLeft = 0;
+      if (u.ammo >= 1) u.ammo -= this.shoot(u, true);
+    }
+    // Blossom's head sweeps side to side (slower while firing), and its shots follow it
+    if (sp?.wobble) u.wobble = Math.sin((u.wobbleN += dt * HEAD_SWEEP * (u.firing ? 0.35 : 1))) * sp.wobble;
     if (u.firing && u.stunT <= 0 && u.ammo >= 1) {
       u.idle = 0;
       u.fireT -= dt;
-      while (u.fireT <= 0 && u.ammo >= 1) {
-        this.shoot(u);
-        u.ammo -= 1;
+      // (not while a gun's in the air, or a punch is winding up)
+      while (u.fireT <= 0 && u.ammo >= 1 && u.swapT <= 0 && u.windLeft <= 0) {
+        u.ammo -= this.shoot(u);
         u.fireT += u.fireInt;
       }
+      u.fireT = Math.max(u.fireT, -u.fireInt);
     } else {
       u.fireT = Math.max(0, u.fireT - dt);
       if (!u.firing) {
@@ -1174,6 +1256,11 @@ export class ActionMode {
     }
     u.pose.kickT += dt;
     u.pose.heavyT += dt;
+    u.pose.windT += dt;
+    u.pose.recoil = Math.max(0, u.pose.recoil - dt * 8);
+    u.pose.hand = u.hand;
+    u.pose.lastHand = u.lastHand;
+    u.pose.wobble = u.wobble;
     u.pose.flash = Math.max(0, u.pose.flash - dt * 4);
   }
 
@@ -1254,6 +1341,9 @@ export class ActionMode {
             dead = true;
           } else if (s.bounce > 0) {
             s.bounce--;
+            // (Fang Hound's marbles hit harder for every bounce)
+            const ric = s.owner.def.special?.ricochet;
+            if (ric && !s.spirit) s.dmg *= 1 + ric;
             // which way to turn: whichever axis took it into the wall
             if (this.blocksShot(this.tile(s.x, oz))) s.vx = -s.vx;
             if (this.blocksShot(this.tile(ox, s.z))) s.vz = -s.vz;
@@ -1881,18 +1971,19 @@ export class ActionMode {
     return me.face;
   }
 
-  private stickEl(which: 'move', s: { x0: number; y0: number; x: number; y: number } | null) {
-    const el = this.el.querySelector(`.ac-${which}`) as HTMLElement;
-    el.classList.toggle('hidden', !s);
-    if (!s) return;
-    const r = this.el.getBoundingClientRect();
-    el.style.left = `${s.x0 - r.left}px`;
-    el.style.top = `${s.y0 - r.top}px`;
+  /** the stick in the left tray: its knob follows your thumb (the thumb can start anywhere on the left) */
+  private stickEl(s: { x0: number; y0: number; x: number; y: number } | null) {
+    const knob = this.el.querySelector('.ac-move i') as HTMLElement;
+    this.el.querySelector('.ac-joy')!.classList.toggle('held', !!s);
+    if (!s) {
+      knob.style.transform = '';
+      return;
+    }
     const dx = s.x - s.x0;
     const dy = s.y - s.y0;
     const len = Math.hypot(dx, dy);
-    const k = len > 46 ? 46 / len : 1;
-    (el.querySelector('i') as HTMLElement).style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+    const k = len > 34 ? 34 / len : 1;
+    knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
   }
 
   /** the floor spot under the mouse, as an angle from you */
@@ -1921,7 +2012,7 @@ export class ActionMode {
     const s = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
     if (left && !this.moveStick) {
       this.moveStick = s;
-      this.stickEl('move', s);
+      this.stickEl(s);
     }
   };
   private fireDown = (e: PointerEvent) => {
@@ -1944,13 +2035,13 @@ export class ActionMode {
         s.y = e.clientY;
       }
     }
-    if (this.moveStick) this.stickEl('move', this.moveStick);
+    if (this.moveStick) this.stickEl(this.moveStick);
   };
   private up = (e: PointerEvent) => {
     if (e.pointerType === 'mouse') this.mouseFire = false;
     if (this.moveStick?.id === e.pointerId) {
       this.moveStick = null;
-      this.stickEl('move', null);
+      this.stickEl(null);
     }
     if (this.aimStick?.id === e.pointerId) {
       this.aimStick = null;

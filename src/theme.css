@@ -30,7 +30,6 @@
   --good: #7fd67a;
   --display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --body: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mono: 'Space Mono', ui-monospace, 'SF Mono', monospace;
   --bg: var(--char);
   --key-shadow: 0 1px 0 #fff inset, 0 -2px 0 var(--case-lo) inset, 0 3px 0 var(--case-deep), 0 5px 8px rgba(30, 24, 16, 0.28);
   --key-shadow-press: 0 1px 0 #fff inset, 0 -1px 0 var(--case-lo) inset, 0 1px 0 var(--case-deep), 0 2px 3px rgba(30, 24, 16, 0.25);
@@ -1652,7 +1651,7 @@ body.pressing .pad-btn.fire.held {
   }
 }
 
-/* monospace only lives inside the black screens: LCD panels, the clock, ammo and FPS readouts */
+/* the black screens: LCD panels, the clock, ammo and FPS readouts */
 .lcd,
 .lcd *,
 #clock,
@@ -1660,7 +1659,7 @@ body.pressing .pad-btn.fire.held {
 #fps,
 #loading,
 #loading * {
-  font-family: var(--mono);
+  font-family: var(--body);
 }
 
 /* phones: a compact unit card, so the roster grid gets the room */
@@ -2402,7 +2401,7 @@ body.pressing #pad .pad-btn.fire.held {
   transform: translateX(-50%) translateY(0);
 }
 .charge-meter b {
-  font: 700 10px var(--mono, monospace);
+  font: 700 10px var(--body);
   letter-spacing: 0.16em;
   color: var(--orange);
 }
@@ -2685,11 +2684,11 @@ body.duo .charge-meter {
   align-items: flex-end;
 }
 #squad .sq-score b {
-  font: 700 22px var(--mono);
+  font: 700 22px var(--body);
 }
 #squad .sq-count span,
 #squad .sq-score span {
-  font: 600 10px var(--mono);
+  font: 600 10px var(--body);
   letter-spacing: 0.16em;
   opacity: 0.75;
 }
@@ -2710,7 +2709,7 @@ body.duo .charge-meter {
   position: absolute;
   right: 0;
   top: 12px;
-  font: 600 10px var(--mono);
+  font: 600 10px var(--body);
   font-style: normal;
   letter-spacing: 0.14em;
   color: #fff;
@@ -2746,7 +2745,7 @@ body.duo .charge-meter {
   margin-top: auto;
   text-align: center;
   color: #fff;
-  font: 600 12px var(--mono);
+  font: 600 12px var(--body);
   letter-spacing: 0.2em;
   opacity: 0.85;
   transition: opacity 0.6s;
@@ -2779,7 +2778,7 @@ body.duo .charge-meter {
 }
 #squad .sq-unit {
   margin: 0 0 12px;
-  font: 600 12px var(--mono);
+  font: 600 12px var(--body);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--orange-lo);
@@ -2796,7 +2795,7 @@ body.duo .charge-meter {
 #squad .sq-best {
   min-height: 1em;
   margin: 0 0 16px;
-  font: 700 14px var(--mono);
+  font: 700 14px var(--body);
   letter-spacing: 0.08em;
 }
 #squad .sq-buttons {
@@ -2825,7 +2824,7 @@ body.duo .charge-meter {
   border: 1px solid var(--c);
   background: rgba(20, 18, 24, 0.7);
   color: var(--c);
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   letter-spacing: 0.08em;
 }
 #squad .sq-callout {
@@ -2879,7 +2878,7 @@ body.duo #enemy-tag {
   align-items: center;
   gap: 8px;
   color: #fff;
-  font: 700 12px var(--mono);
+  font: 700 12px var(--body);
   letter-spacing: 0.1em;
   text-shadow: 0 1px 0 #000;
 }
@@ -2933,7 +2932,7 @@ body.duo #enemy-tag {
   text-align: center;
 }
 #tower header span {
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   letter-spacing: 0.3em;
   color: var(--amber);
 }
@@ -2975,7 +2974,7 @@ body.duo #enemy-tag {
   transition: transform 0.3s;
 }
 #tower .tw-stage em {
-  font: 700 13px var(--mono);
+  font: 700 13px var(--body);
   font-style: normal;
   color: #a08a74;
   text-align: center;
@@ -3013,7 +3012,7 @@ body.duo #enemy-tag {
   border-radius: 4px;
   background: #b8202a;
   color: #fff;
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   letter-spacing: 0.12em;
 }
 #tower .tw-stage.boss {
@@ -3070,7 +3069,7 @@ body.duo #enemy-tag {
   box-shadow: 0 0 16px rgba(127, 214, 122, 0.6);
 }
 #tower .tw-you b {
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--good);
@@ -3078,7 +3077,7 @@ body.duo #enemy-tag {
 }
 #tower > p {
   margin: 0;
-  font: 600 11px var(--mono);
+  font: 600 11px var(--body);
   letter-spacing: 0.2em;
   opacity: 0.6;
 }
@@ -3088,7 +3087,7 @@ body.duo #enemy-tag {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   font-style: normal;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3137,7 +3136,7 @@ body.duo #enemy-tag {
   from { transform: translateY(-8px) scale(0.97); opacity: 0.4; }
 }
 #tut .tut-step {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   font-style: normal;
   letter-spacing: 0.16em;
   color: var(--orange-lo);
@@ -3561,7 +3560,7 @@ body.duo #enemy-tag {
   opacity: 0.85;
 }
 .car-count {
-  font-family: var(--mono);
+  font-family: var(--body);
   letter-spacing: 0.04em;
 }
 #pv-name {
@@ -3643,7 +3642,7 @@ body.duo #enemy-tag {
   grid-column: 1 / -1;
 }
 .car-info .meter.marble em {
-  font: 700 11px var(--mono);
+  font: 700 11px var(--body);
   font-style: normal;
   color: #fff;
 }
@@ -3972,7 +3971,7 @@ body.duo #enemy-tag {
   z-index: 2;
   align-self: flex-start;
   margin: 8px 0 0;
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   letter-spacing: 0.06em;
   color: var(--muted);
 }
@@ -4662,7 +4661,7 @@ body.duo #enemy-tag {
   color: var(--line);
 }
 .home-lv small {
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   color: var(--muted);
 }
 .home-lv i,
@@ -4727,7 +4726,7 @@ body.duo #enemy-tag {
   transition: width 0.9s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 .xp-gain small {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   color: var(--muted);
 }
 /* trait badges on the select band */
@@ -4760,7 +4759,7 @@ body.duo #enemy-tag {
   grid-column: 1 / -1;
   margin: 2px 0 0;
   text-align: center;
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   color: rgba(255, 255, 255, 0.8);
   text-transform: uppercase;
 }
@@ -5457,7 +5456,7 @@ body.cine-on #pad {
   max-width: 100%;
 }
 .sp-move .sp-tag {
-  font: 700 9px var(--mono);
+  font: 700 9px var(--body);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.75;
@@ -5509,7 +5508,7 @@ body.cine-on #pad {
   display: none;
 }
 #action .ac-bar span {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   letter-spacing: 0.06em;
   color: #fff;
   text-shadow: 0 1px 0 #000, 0 0 3px #000;
@@ -5589,7 +5588,7 @@ body.cine-on #pad {
 }
 #action .ac-title span,
 #action .ac-score span {
-  font: 700 10px var(--mono);
+  font: 700 10px var(--body);
   letter-spacing: 0.14em;
 }
 #action .ac-callout {
@@ -5611,10 +5610,10 @@ body.cine-on #pad {
   transform: scale(1);
 }
 #action .ac-hint {
-  /* (left of the FIRE and SPECIAL buttons) */
-  margin: auto 132px 0 0;
-  text-align: left;
-  font: 700 11px var(--mono);
+  /* (above the control trays) */
+  margin: auto 0 190px;
+  text-align: center;
+  font: 700 11px var(--body);
   letter-spacing: 0.1em;
   color: #fff;
   text-shadow: 0 1px 0 #000;
@@ -5623,56 +5622,71 @@ body.cine-on #pad {
 #action .ac-hint.gone {
   opacity: 0;
 }
-#action .ac-stick {
+/* the main game's control trays: the stick on the left, SPECIAL over FIRE on the right */
+#action .ac-tray {
   position: absolute;
-  width: 112px;
-  height: 112px;
-  margin: -56px 0 0 -56px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  background: rgba(20, 16, 28, 0.25);
+  left: 5px;
+  right: 5px;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 7px);
+  padding: 0 5px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
   pointer-events: none;
 }
-#action .ac-stick.hidden {
-  display: none;
+#action .ac-joy {
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  padding: 10px;
+  pointer-events: none;
 }
-#action .ac-stick i {
+#action .ac-move {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  background: radial-gradient(circle, #3a3630 0 30%, #2a2722 70%);
+  box-shadow: inset 0 3px 6px #000;
+}
+#action .ac-move i {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 52px;
-  height: 52px;
-  margin: -26px 0 0 -26px;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.8);
+  border: 3px solid var(--line);
+  background: #fff;
+  box-shadow: 0 4px 0 var(--line);
 }
-/* the main game's right thumb: SPECIAL over a big round FIRE */
-#action .ac-pad {
-  position: absolute;
-  right: 16px;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  width: 108px;
+#action .ac-joy.held .ac-move i {
+  box-shadow: 0 1px 0 var(--line);
+}
+#action .ac-right {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
+  width: auto;
 }
 #action .ac-fire {
-  width: 108px;
-  height: 108px;
+  width: 96px;
+  height: 96px;
   pointer-events: auto;
 }
 #action .ac-special {
   --p: 0;
-  min-height: 40px;
-  padding: 4px 6px;
+  height: 40px;
   border: 3px solid var(--line);
   border-radius: 14px;
   background: linear-gradient(to top, #4aa8f0 0, #5af0ff calc(var(--p) * 1%), #4a4658 calc(var(--p) * 1%));
   color: #fff;
-  font: 400 13px var(--display);
-  line-height: 1.1;
-  letter-spacing: 0.04em;
+  font: 400 15px var(--display);
+  letter-spacing: 0.06em;
   -webkit-text-stroke: 3px var(--line);
   paint-order: stroke fill;
   box-shadow: 0 4px 0 var(--line);
@@ -5727,7 +5741,7 @@ body.cine-on #pad {
 }
 #action .ac-unit {
   margin: 0 0 12px;
-  font: 600 12px var(--mono);
+  font: 600 12px var(--body);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--orange-lo);
@@ -5772,7 +5786,7 @@ body.cine-on #pad {
 #action .ac-best {
   min-height: 1em;
   margin: 0 0 14px;
-  font: 700 12px var(--mono);
+  font: 700 12px var(--body);
   letter-spacing: 0.06em;
 }
 #action .ac-buttons {

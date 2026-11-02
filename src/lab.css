@@ -507,7 +507,7 @@ body[data-mode='studio'] .bar h1 {
 
 .swatch small {
   color: var(--muted);
-  font-family: ui-monospace, monospace;
+  font-family: inherit;
 }
 
 /* blocks */

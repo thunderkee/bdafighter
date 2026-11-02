@@ -1131,7 +1131,7 @@ body:not(.touch) .touch-only {
   position: absolute;
   left: 8px;
   top: 50%;
-  font: 11px ui-monospace, monospace;
+  font: 11px var(--body);
   color: #9f9;
   pointer-events: none;
   white-space: pre;

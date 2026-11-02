@@ -531,15 +531,15 @@ type Tag =
 /** seconds between the balls of one trigger pull */
 const BURST_GAP = 0.07;
 /** twin barrels: each marble leaves from its own barrel (the mesh's TWIN_X), with a share of the damage */
-const TWIN = { gap: TWIN_X, damage: 0.45 };
+export const TWIN = { gap: TWIN_X, damage: 0.45 };
 /** spread fire (an arcade boss): the angle between the marbles of a fan, and each one's share of the damage */
 const FAN = { angle: 0.16, damage: 0.5 };
 /** how fast a sweeping head turns (radians of sweep phase per second: a left-right pass in about 4s) */
-const HEAD_SWEEP = 1.5;
+export const HEAD_SWEEP = 1.5;
 /** Wyvern's wound-up shot: damage, speed and weight against a regular one */
-const WINDUP = { damage: 1.4, speed: 1.1, mass: 1.8 };
+export const WINDUP = { damage: 1.4, speed: 1.1, mass: 1.8 };
 /** Rex's bite: the giant marble's size, weight and damage */
-const BITE = { radius: 1.6, mass: 3, damage: 1.8 };
+export const BITE = { radius: 1.6, mass: 3, damage: 1.8 };
 
 /** pack traffic: start passing within `start` m, done once `clear` m apart; step out `depth` m at `speed` m/s */
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
