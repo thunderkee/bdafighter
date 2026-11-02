@@ -8,7 +8,7 @@ import { BITE, CHARGE, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, 
 import * as sfx from './audio';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
-import { DRAGON, ITEMS, MISSILE } from './items';
+import { DROP, DRAGON, ITEMS, MISSILE } from './items';
 import { stageById } from './stage';
 
 /**
@@ -272,6 +272,20 @@ type DropKind = 'cube' | 'heal' | 'dragon' | 'steel' | 'special';
 type Drop = { x: number; z: number; kind: DropKind; mesh: THREE.Object3D };
 const DROP_NAME: Record<DropKind, string> = { cube: 'POWER UP', heal: 'REPAIR', dragon: 'DRAGON SHOT', steel: 'STEEL BALL', special: 'SPECIAL FULL' };
 /** a crate's item, by weight (the free-for-all's crates hold power cubes) */
+/** an item crate's colour: the main game's item colours */
+const ITEM_COLOR: Record<Exclude<DropKind, 'cube'>, number> = { heal: ITEMS.heal.color, dragon: ITEMS.dragon.color, steel: ITEMS.missile.color, special: 0xffd23e };
+/** the main game's item crates: they drop in from above, take two hits, and the item goes to whoever breaks one */
+interface ItemBox {
+  kind: Exclude<DropKind, 'cube'>;
+  x: number;
+  z: number;
+  hp: number;
+  life: number;
+  age: number;
+  flash: number;
+  root: THREE.Group;
+  marker: THREE.Mesh;
+}
 const CRATE_ITEMS: [DropKind, number][] = [
   ['heal', 0.3],
   ['dragon', 0.25],
@@ -310,6 +324,14 @@ export class ActionMode {
   private me: Unit | null = null;
   private shots: Shot[] = [];
   private drops: Drop[] = [];
+  private boxes: ItemBox[] = [];
+  /** seconds to the next item crate */
+  private boxT = DROP.first;
+  /** charging: a ball of light at the muzzle of whoever's charging (one each, made as needed) */
+  private orbs = new Map<Unit, THREE.Group>();
+  private hemi!: THREE.HemisphereLight;
+  private sun!: THREE.DirectionalLight;
+  private dim = 0;
   private pops: Pop[] = [];
   private time = 0;
   private over = true;
@@ -361,7 +383,7 @@ export class ActionMode {
 
   constructor(
     host: HTMLElement,
-    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; camera?: () => ActionView; setCamera?: (v: ActionView) => void; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
+    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; camera?: () => ActionView; setCamera?: (v: ActionView) => void; cpuCharge?: () => boolean; allyCharge?: () => boolean; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
   ) {
     this.unitId = opts.unit;
     this.el = document.createElement('div');
@@ -379,7 +401,11 @@ export class ActionMode {
         </div>
         <p class="ac-callout"></p>
         <p class="ac-supername"></p>
-        <p class="ac-hint">TAP FIRE TO SHOOT · HOLD IT TO CHARGE, LET GO TO BLAST · SLIDE OFF IT TO AIM · STAND STILL TO MEND</p>
+        <p class="ac-hint">TAP TO FIRE · HOLD TO CHARGE · DRAG TO AIM · SHOOT THE CRATES · STAND STILL TO MEND</p>
+      </div>
+      <div class="charge-meter ac-charge" aria-hidden="true">
+        <b>HOLD TO CHARGE</b>
+        <div class="charge-segs"><i></i><i></i><i></i><i></i><i></i></div>
       </div>
       <div class="ac-tray">
         <div class="pad-dir ac-joy" aria-label="Move"><div class="ac-move"><i></i></div></div>
@@ -399,7 +425,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['bars', 'title', 'score', 'callout', 'supername', 'flash', 'hint', 'panel', 'special', 'fire']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['bars', 'title', 'score', 'callout', 'supername', 'flash', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -408,8 +434,9 @@ export class ActionMode {
     this.scene.environment = studioEnv(this.renderer);
     this.scene.environmentIntensity = 0.4;
     this.ink = new InkOnly(this.renderer, this.scene, this.camera);
-    this.scene.add(new THREE.HemisphereLight(0xeef4ff, 0x4a5a3a, 1.5));
-    const sun = new THREE.DirectionalLight(0xffffff, 2);
+    this.hemi = new THREE.HemisphereLight(0xeef4ff, 0x4a5a3a, 1.5);
+    this.scene.add(this.hemi);
+    const sun = (this.sun = new THREE.DirectionalLight(0xffffff, 2));
     sun.position.set(-6, 14, 5);
     this.scene.add(sun, this.world);
 
@@ -564,6 +591,14 @@ export class ActionMode {
     this.shots = [];
     for (const d of this.drops) d.mesh.removeFromParent();
     this.drops = [];
+    for (const b of this.boxes) {
+      b.root.removeFromParent();
+      b.marker.removeFromParent();
+    }
+    this.boxes = [];
+    this.boxT = DROP.first;
+    for (const o of this.orbs.values()) o.removeFromParent();
+    this.orbs.clear();
     for (const p of this.pops) p.el.remove();
     this.pops = [];
     this.world.traverse((o) => {
@@ -1731,6 +1766,7 @@ export class ActionMode {
     }
     for (const u of this.units) if (u.cpu && u.alive) this.think(u, dt);
     for (const u of this.units) this.tickUnit(u, dt);
+    this.tickBoxes(dt);
     this.moveShots(dt);
     this.pickups();
     if (this.kind === 'ffa') this.tickStorm(dt);
@@ -1945,6 +1981,13 @@ export class ActionMode {
           } else dead = true;
           continue;
         }
+        // an item crate in the way: anyone's marble knocks at it
+        const bk = s.dive === undefined ? this.boxes.findIndex((b) => b.age >= DROP.land && (b.x - s.x) ** 2 + (b.z - s.z) ** 2 < (0.4 + s.r) ** 2) : -1;
+        if (bk >= 0) {
+          this.hitBox(bk, s);
+          dead = true;
+          break;
+        }
         for (const u of this.units) {
           if (!this.hostile(s.owner, u) || s.hit.has(u)) continue;
           if ((u.x - s.x) ** 2 + (u.z - s.z) ** 2 < (u.r + s.r) ** 2) {
@@ -1963,6 +2006,159 @@ export class ActionMode {
     }
   }
 
+  /** a power cube or an item, to this fighter */
+  private gain(u: Unit, kind: DropKind) {
+    if (kind === 'cube') {
+      // a power cube: a little more health and hit
+      u.cubes++;
+      u.max = Math.round(u.max * 1.1);
+      u.hp = Math.min(u.max, u.hp + u.max * 0.1);
+      u.power *= 1.08;
+    } else if (kind === 'heal') u.hp = Math.min(u.max, u.hp + u.max * 0.25);
+    else if (kind === 'special') u.charge = 1;
+    else u.item = kind;
+    if (u === this.me) {
+      sfx.play('charge', 0.6);
+      this.pop(u.x, u.z, DROP_NAME[kind], 'good');
+      if (kind === 'dragon' || kind === 'steel') this.callout(`${DROP_NAME[kind]} · YOUR NEXT SHOT`);
+    }
+  }
+
+  // ---------- item crates (the main game's air drops) ----------
+
+  private tickBoxes(dt: number) {
+    if ((this.boxT -= dt) <= 0 && this.boxes.length < 2) {
+      this.boxT = DROP.every[0] + Math.random() * (DROP.every[1] - DROP.every[0]);
+      this.dropBox();
+    }
+    for (let k = this.boxes.length - 1; k >= 0; k--) {
+      const b = this.boxes[k];
+      b.age += dt;
+      b.life -= dt;
+      b.flash = Math.max(0, b.flash - dt * 6);
+      if (b.life <= 0) this.removeBox(k);
+    }
+  }
+  /** an item crate drops onto open floor, away from everyone (and inside the storm) */
+  private dropBox() {
+    for (let n = 0; n < 40; n++) {
+      const i = 1 + Math.floor(Math.random() * (this.W - 2));
+      const j = 2 + Math.floor(Math.random() * (this.H - 4));
+      if (this.grid[this.idx(i, j)] !== FLOOR) continue;
+      const p = this.center(i, j);
+      if (this.kind === 'ffa' && (Math.abs(p.x) > this.storm - 2 || Math.abs(p.z) > this.storm - 2)) continue;
+      if (this.units.some((u) => u.alive && Math.hypot(u.x - p.x, u.z - p.z) < 2.5)) continue;
+      if (this.boxes.some((o) => Math.hypot(o.x - p.x, o.z - p.z) < 3)) continue;
+      const kind = this.crateItem() as ItemBox['kind'];
+      const c = ITEM_COLOR[kind];
+      // as in the main game: a dark crate with glowing bands in the item's colour, and a ring on the floor
+      const root = new THREE.Group();
+      root.add(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.62), new THREE.MeshLambertMaterial({ color: 0x2a3146 })));
+      const glow = new THREE.MeshBasicMaterial({ color: c });
+      for (const [w, h, d] of [
+        [0.66, 0.08, 0.66],
+        [0.08, 0.66, 0.66],
+        [0.66, 0.66, 0.08],
+      ])
+        root.add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), glow));
+      root.rotation.y = Math.random() * 0.8 - 0.4;
+      const marker = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
+      this.world.add(root, marker);
+      this.boxes.push({ kind, x: p.x, z: p.z, hp: DROP.hp, life: DROP.landedLife, age: 0, flash: 0, root, marker });
+      sfx.play('whoosh', 0.5);
+      return;
+    }
+  }
+  private removeBox(k: number) {
+    const b = this.boxes[k];
+    b.root.removeFromParent();
+    b.marker.removeFromParent();
+    this.boxes.splice(k, 1);
+  }
+  /** a marble hits an item crate: two hits break it, and its item goes to whoever broke it */
+  private hitBox(k: number, s: Shot) {
+    const b = this.boxes[k];
+    b.hp -= s.big || s.spirit ? 2 : 1;
+    b.flash = 1;
+    sfx.play('wall', 0.4);
+    if (b.hp > 0) return;
+    this.removeBox(k);
+    sfx.play('clatter', 0.7);
+    const u = s.owner;
+    // (a fortress's turret breaks it for nobody)
+    if (u.alive && this.units.includes(u)) this.gain(u, b.kind);
+  }
+  private drawBoxes() {
+    for (const b of this.boxes) {
+      // it drops in, then sits with a little bob; a hit squashes it, and it blinks before it goes
+      const t = Math.min(1, b.age / DROP.land);
+      const bob = t < 1 ? 0 : Math.abs(Math.sin(b.age * 3)) * 0.06;
+      b.root.position.set(b.x, (1 - t) * 5 + bob + 0.32, b.z);
+      b.root.scale.setScalar((b.hp < DROP.hp ? 0.86 : 1) * (1 + b.flash * 0.25));
+      b.marker.position.set(b.x, 0.04, b.z);
+      const pulse = 1 + Math.sin(this.time * 6) * 0.12;
+      b.marker.scale.set(pulse, 1, pulse);
+      b.root.visible = b.life > 2 || Math.sin(this.time * 20) > 0;
+    }
+  }
+  /** the nearest item crate this fighter has a clear shot at */
+  private nearBox(u: Unit, range: number) {
+    let best: ItemBox | null = null;
+    let bd = range;
+    for (const b of this.boxes) {
+      if (b.age < DROP.land) continue;
+      const d = Math.hypot(b.x - u.x, b.z - u.z);
+      if (d < bd && this.clearLine(u.x, u.z, b.x, b.z)) {
+        bd = d;
+        best = b;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * charging: a ball of light swells at the muzzle of whoever is charging (an opponent's warns
+   * you a big one is coming), and while it's you the stage dims a touch around you
+   */
+  private drawCharge(dt: number) {
+    const me = this.me;
+    const yours = !!me && me.alive && me.chargeHold >= CHARGE.hold;
+    const lvl = yours ? Math.min(1, me.stored / CHARGE.max) : 0;
+    this.dim += ((yours ? 0.1 + lvl * 0.15 : 0) - this.dim) * Math.min(1, dt * (yours ? 5 : 9));
+    this.hemi.intensity = 1.5 * (1 - 0.45 * this.dim);
+    this.sun.intensity = 2 * (1 - 0.5 * this.dim);
+    for (const u of this.units) {
+      const charging = u.alive && u.wrap.visible && u.chargeHold >= CHARGE.hold;
+      let orb = this.orbs.get(u);
+      if (!charging) {
+        if (orb) orb.visible = false;
+        continue;
+      }
+      if (!orb) {
+        orb = new THREE.Group();
+        const glow = (r: number, opacity: number) => new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
+        orb.add(glow(1, 0.85), glow(1.18, 0.3), glow(1.4, 0.1));
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.05, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+        ring.name = 'ring';
+        orb.add(ring);
+        orb.renderOrder = 5;
+        this.scene.add(orb);
+        this.orbs.set(u, orb);
+      }
+      orb.visible = true;
+      u.mesh.muzzleFor(u.def.special?.hand ? u.lastHand || 1 : null, this.mz, u.def.special?.hand ?? TWIN.gap);
+      // grows toward the next stored marble, so its size reads as how big the shot will be
+      // (scaled to these smaller fighters: a full charge is about head-sized)
+      const r = u.shotR * 0.5 * Math.max(0.8, Math.min(CHARGE.max, u.stored + ((u.chargeHold - CHARGE.hold) % CHARGE.per) / CHARGE.per));
+      const pulse = 1 + Math.sin(this.time * (14 + u.stored * 4)) * 0.08;
+      orb.position.set(this.mz.x, Math.max(this.mz.y, r), this.mz.z);
+      orb.scale.setScalar(r * pulse);
+      const col = new THREE.Color(u.team === (this.me?.team ?? 0) ? 0x7ac8ff : 0xff7a5a).lerp(new THREE.Color(0xffffff), 0.35 + 0.3 * Math.sin(this.time * 9));
+      orb.children.forEach((c, k) => ((c as THREE.Mesh).material as THREE.MeshBasicMaterial).color.copy(k === 0 ? new THREE.Color(0xffffff).lerp(col, 0.4) : col));
+      orb.getObjectByName('ring')!.rotation.set(this.time * 3, this.time * 4.2, 0);
+    }
+  }
+
   private pickups() {
     for (let k = this.drops.length - 1; k >= 0; k--) {
       const d = this.drops[k];
@@ -1970,20 +2166,7 @@ export class ActionMode {
         if (!u.alive || (u.x - d.x) ** 2 + (u.z - d.z) ** 2 > 0.5 ** 2) continue;
         // (in the Gauntlet, what's left lying about is yours)
         if (d.kind !== 'cube' && this.kind === 'gauntlet' && u !== this.me) continue;
-        if (d.kind === 'cube') {
-          // a power cube: a little more health and hit
-          u.cubes++;
-          u.max = Math.round(u.max * 1.1);
-          u.hp = Math.min(u.max, u.hp + u.max * 0.1);
-          u.power *= 1.08;
-        } else if (d.kind === 'heal') u.hp = Math.min(u.max, u.hp + u.max * 0.25);
-        else if (d.kind === 'special') u.charge = 1;
-        else u.item = d.kind;
-        if (u === this.me) {
-          sfx.play('charge', 0.6);
-          this.pop(u.x, u.z, DROP_NAME[d.kind], 'good');
-          if (d.kind === 'dragon' || d.kind === 'steel') this.callout(`${DROP_NAME[d.kind]} · YOUR NEXT SHOT`);
-        }
+        this.gain(u, d.kind);
         d.mesh.removeFromParent();
         this.drops.splice(k, 1);
         break;
@@ -2153,7 +2336,9 @@ export class ActionMode {
         else {
           fire = !u.reloading && u.cycle > 0;
           // now and then it plans a charge shot instead (2 to 4 marbles)
-          if (fire && u.chargeWant === 0 && u.chargeHold === 0 && u.ammo >= 5 && Math.random() < dt * 0.35) u.chargeWant = 2 + Math.floor(Math.random() * 3);
+          // (as in the other modes: Settings can turn opponents' charge shots, and your side's, off)
+          const may = u.team === 0 ? (this.opts.allyCharge?.() ?? true) : (this.opts.cpuCharge?.() ?? true);
+          if (may && fire && u.chargeWant === 0 && u.chargeHold === 0 && u.ammo >= 5 && Math.random() < dt * 0.35) u.chargeWant = 2 + Math.floor(Math.random() * 3);
         }
       }
       u.face = Math.atan2(ox, -oz);
@@ -2162,6 +2347,13 @@ export class ActionMode {
       const fort = this.kind === 'siege' ? this.forts.find((f) => f.team !== u.team && f.hp > 0) : undefined;
       if (fort && Math.hypot(fort.x - u.x, fort.z - u.z) < u.range + 1 && this.fortOnLine(u.x, u.z, fort.x, fort.z) === fort && !u.reloading) {
         u.aim = Math.atan2(fort.x - u.x, -(fort.z - u.z)) + (Math.random() - 0.5) * 0.1;
+        u.face = u.aim;
+        fire = u.cycle > 0;
+      }
+      // an item crate in reach: shoot it open (and walk up to it)
+      const box = !fire ? this.nearBox(u, u.range + 2) : null;
+      if (box && !u.reloading) {
+        u.aim = Math.atan2(box.x - u.x, -(box.z - u.z));
         u.face = u.aim;
         fire = u.cycle > 0;
       }
@@ -2415,6 +2607,8 @@ export class ActionMode {
       if (f.hp > 0) f.root.scale.set(k, k, k);
     }
     this.drawLock(dt);
+    this.drawBoxes();
+    this.drawCharge(dt);
     this.drawAimGuide();
     this.placeCamera(dt);
     celify(this.scene, true);
@@ -2530,10 +2724,26 @@ export class ActionMode {
     // (the SPECIAL button fills from the bottom, then burns once it's ready, as in the main game)
     this.hud.special.classList.toggle('ready', c >= 1);
     const me = this.me;
-    const lvl = me && me.chargeHold >= CHARGE.hold ? Math.min(1, (me.chargeHold - CHARGE.hold) / (CHARGE.per * CHARGE.max)) : 0;
-    this.hud.fire.style.setProperty('--charge', lvl.toFixed(2));
-    this.hud.fire.classList.toggle('charging', lvl > 0);
-    this.hud.fire.textContent = me && me.stored > 0 ? `×${me.stored}` : me?.item === 'dragon' ? 'DRAGON' : me?.item === 'steel' ? 'STEEL' : 'FIRE';
+    // the charge meter, as in the other modes: an arming bar for the first moment, then one
+    // segment per stored marble (the next one filling)
+    const meter = this.hud.charge;
+    const holding = !!me && me.alive && me.chargeHold > 0.12;
+    meter.classList.toggle('on', holding || (!!me && me.stored > 0));
+    if (me && (holding || me.stored > 0)) {
+      const armed = me.chargeHold >= CHARGE.hold;
+      const next = armed ? ((me.chargeHold - CHARGE.hold) % CHARGE.per) / CHARGE.per : me.chargeHold / CHARGE.hold;
+      const segs = meter.querySelector('.charge-segs')!.children;
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i] as HTMLElement;
+        const fill = i < me.stored ? 1 : i === me.stored && me.stored < CHARGE.max ? (armed ? next : 0) : 0;
+        seg.style.setProperty('--fill', String(fill));
+        seg.classList.toggle('lit', i < me.stored);
+      }
+      meter.classList.toggle('arming', !armed);
+      meter.querySelector('b')!.textContent = !armed ? 'HOLD TO CHARGE' : me.stored ? `CHARGE ×${me.stored}` : 'CHARGING';
+      meter.style.setProperty('--arm', String(armed ? 1 : next));
+    }
+    this.hud.fire.textContent = me?.item === 'dragon' ? 'DRAGON' : me?.item === 'steel' ? 'STEEL' : 'FIRE';
     this.hud.fire.classList.toggle('item', !!me?.item);
     this.hud.special.style.setProperty('--p', String(Math.round(c * 100)));
   }
@@ -2798,6 +3008,9 @@ export class ActionMode {
         best = u;
       }
     }
+    // (an enemy in shooting range first; then an item crate in reach, before one further off)
+    const box = this.nearBox(me, me.range + 1);
+    if (box && (!best || bd > me.range + 1)) return Math.atan2(box.x - me.x, -(box.z - me.z));
     if (best) return Math.atan2(best.x - me.x, -(best.z - me.z));
     // nothing in sight: their fortress, a crate, or straight ahead
     const fort = this.forts.find((f) => f.team !== me.team && f.hp > 0);

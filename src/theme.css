@@ -5778,16 +5778,17 @@ body.cine-on #pad {
   pointer-events: auto;
 }
 /* holding FIRE charges: the button swells and brightens, as in the main game */
+/* the main game's charge meter, over the stage just above the thumb trays */
+#action .ac-charge {
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 236px);
+  z-index: 3;
+}
 /* an item from a crate loaded: the next shot is it */
 #action .ac-fire.item {
   font-size: 15px;
   box-shadow: 0 0 0 4px #ffd23e, 0 0 18px #ffd23e;
 }
-#action .ac-fire.held.charging {
-  transform: translateY(3px) scale(calc(1.04 + var(--charge, 0) * 0.3));
-  filter: brightness(calc(1 + var(--charge, 0) * 0.35));
-  font-size: 22px;
-}
+
 #action .ac-special {
   --p: 0;
   height: 40px;

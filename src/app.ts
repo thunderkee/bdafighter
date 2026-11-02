@@ -1427,7 +1427,7 @@ export function boot() {
   let actionMode: ActionMode | null = null;
   $('action-btn').addEventListener('click', () => {
     sfx.unlock();
-    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
+    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
     show('');
     actionMode.open(playableId(S().character));
     if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;
