@@ -1610,14 +1610,10 @@ export function boot() {
     else if (mb.type === 'light') out.push(['🪶', 'Light marbles']);
     else if (mb.type === 'bouncy') out.push(['🏀', 'Bouncy marbles']);
     if (out.length < 2) out.unshift(['⚖', 'All-rounder']);
-    // (its classic magazine, whichever mode was played last)
-    const mag = S().magPer === false ? magazine() : (MAG_OF[mb.key] ?? MARBLES[mb.type].mag);
-    // (and its Arena-rules magazine, which the ammo box fills right up)
-    const arenaMag = MAG_ARENA_OF[mb.key] ?? MAG_ARENA[mb.type];
     return `<div class="badges">${out
       .slice(0, 3)
       .map(([i, l]) => `<span class="badge"><i>${i}</i>${l}</span>`)
-      .join('')}</div><p class="badge-note">${mb.name} marbles · ${mag} per load · ${arenaMag} in Arena rules</p>${specialCard(id)}`;
+      .join('')}</div>${specialCard(id)}`;
   };
   const markSteps = () => {
     const order: Step[] = selectMode === 'arcade' || selectMode === 'home' ? ['fighter'] : ['fighter', 'rival', 'arena', 'rules'];
@@ -1641,12 +1637,17 @@ export function boot() {
   };
   /** the unit card's two tabs: stats or profile */
   let infoTab: 'stats' | 'profile' | 'style' = 'stats';
-  /** one page, no tabs: traits, then the story, then (for your own fighter) its style */
+  /** three tabs, one at a time: brief info, the story, and (for your own fighter) customizing it */
   const showInfo = () => {
-    $('info-tabs').classList.add('hidden');
-    $('pv-stats').classList.remove('hidden');
-    $('pv-profile').classList.remove('hidden');
-    $('pv-style').classList.toggle('hidden', step !== 'fighter');
+    if (infoTab === 'style' && step !== 'fighter') infoTab = 'stats';
+    $('info-tabs').classList.remove('hidden');
+    document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.info === infoTab);
+      b.classList.toggle('hidden', b.dataset.info === 'style' && step !== 'fighter');
+    });
+    $('pv-stats').classList.toggle('hidden', infoTab !== 'stats');
+    $('pv-profile').classList.toggle('hidden', infoTab !== 'profile');
+    $('pv-style').classList.toggle('hidden', infoTab !== 'style');
   };
   /** the Style tab: each slot's unlocked looks to pick from, the locked ones showing their level */
   const showStyle = (id: string) => {
@@ -1769,13 +1770,12 @@ export function boot() {
     const prof = $('pv-profile');
     showInfo();
     const sto = storyOf(c.id, c.from, c.base);
+    // (kept short: its line, its story, its rival)
     prof.innerHTML = pr
-      ? `<div class="pf-head"><b>${pr.role}</b><span>${pr.origin}</span></div>${
-          sto
-            ? `<p class="pf-quote">“${sto.quote}”</p><p class="pf-who">${sto.personality}</p><p>${sto.story}</p><div class="pf-tags"><em>Rival · ${characterById(playable().find((u) => baseOf(u.id) === sto.rival)?.id ?? sto.rival).name}</em><em>Best at · ${pr.specialty}</em></div>`
-            : `<p>${pr.bio}</p><div class="pf-tags"><em>Style · ${pr.style}</em><em>Best at · ${pr.specialty}</em></div>`
-        }`
-      : `<div class="pf-head"><b>Custom unit</b><span>Unit Lab</span></div><p>Built in the Unit Lab.</p>`;
+      ? sto
+        ? `<p class="pf-quote">“${sto.quote}”</p><p>${sto.story}</p><div class="pf-tags"><em>Rival · ${characterById(playable().find((u) => baseOf(u.id) === sto.rival)?.id ?? sto.rival).name}</em></div>`
+        : `<p>${pr.bio}</p>`
+      : `<p>Built in the Unit Lab.</p>`;
     if (step === 'fighter') showStyle(unit);
     $('pv-name').className = step === 'fighter' ? plateClass(unit) : '';
   };

@@ -170,7 +170,8 @@ export class Preview {
     const hi = this.frameH + 0.12;
     const cy = (lo + hi) / 2;
     const r = this.frameR;
-    const dist = Math.max((hi - lo) / 2 / tan, r / (tan * aspect)) + r * 0.15;
+    // (in the select carousel the fighter is the focus: in a little closer, the biggest only just fitting)
+    const dist = (Math.max((hi - lo) / 2 / tan, r / (tan * aspect)) + r * 0.15) * (this.hero ? 1 : 0.84);
     this.camera.position.set(0, cy + dist * 0.12, -dist);
     this.camera.lookAt(0, cy, 0);
     this.camera.updateProjectionMatrix();

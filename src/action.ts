@@ -2944,11 +2944,11 @@ export class ActionMode {
       this.scene.fog = sky ? new THREE.Fog(this.theme.sky, 16, 42) : null;
     }
     if (view === 'first') {
-      const back = tall ? 5.2 : 4.6;
+      const back = tall ? 7.4 : 6.4;
       const fx = Math.sin(this.camYaw);
       const fz = -Math.cos(this.camYaw);
-      pos.set(mx - fx * back, tall ? 3.4 : 3, mz - fz * back);
-      at.set(mx + fx * 5, 0.4, mz + fz * 5);
+      pos.set(mx - fx * back, tall ? 4.6 : 4, mz - fz * back);
+      at.set(mx + fx * 5.5, 0.3, mz + fz * 5.5);
     } else {
       // (in a Gauntlet room the overhead views stop short of the edges, so the room fills the screen)
       const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view];

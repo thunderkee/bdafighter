@@ -5920,3 +5920,80 @@ body.cine-on #pad {
 .mode-card[data-art='action'] {
   background: linear-gradient(135deg, #ff5a8a, #8a2ad8);
 }
+
+/* ---- fighter select: the fighter is the focus; its card floats below it, one tab at a time ---- */
+#select .carousel {
+  background: transparent;
+}
+#select .car-stage {
+  margin-bottom: 8px;
+}
+.car-band {
+  flex: none;
+  margin: 0 14px 10px;
+  max-height: 40%;
+  padding: 12px 14px 12px;
+  border-radius: 22px;
+  border: 3px solid var(--line);
+  box-shadow: 0 6px 0 var(--line), 0 14px 26px rgba(0, 0, 0, 0.22);
+  gap: 2px;
+}
+#pv-name {
+  font-size: clamp(22px, 7vw, 30px);
+}
+.car-info {
+  gap: 8px;
+  margin-top: 2px;
+}
+.car-info .info-tabs {
+  padding: 3px;
+}
+.car-info .info-tabs button {
+  padding: 5px 14px;
+  font-size: 11px;
+}
+.car-info .info-tabs button.hidden {
+  display: none;
+}
+#pv-stats.hidden,
+#pv-profile.hidden,
+#pv-style.hidden {
+  display: none;
+}
+/* (no section headings: the tab says which it is) */
+#pv-profile::before,
+#pv-style::before {
+  content: none;
+}
+.car-info .profile {
+  font-size: 12px;
+}
+.car-info .profile .pf-quote {
+  margin-top: 0;
+}
+/* the buttons on the light ground, under the card */
+#select .dev-actions {
+  margin-bottom: 0;
+  background: transparent;
+}
+#select #select-back {
+  color: var(--ink);
+  border-color: var(--line);
+}
+#select .arena-width {
+  background: transparent;
+  color: var(--ink);
+}
+#select .arena-width > b {
+  color: var(--ink);
+}
+/* (three trait badges fit on one row) */
+.car-info .badges {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.car-info .badge {
+  padding: 4px 9px;
+  font-size: 11px;
+  white-space: nowrap;
+}
