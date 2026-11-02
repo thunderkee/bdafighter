@@ -5976,7 +5976,8 @@ export class ShooterMesh {
     const fwd = this.fwd;
     const brace = guard;
     const moving = Math.max(side, fwd) * (1 - brace * 0.85);
-    this.stride += dt * (side > fwd ? 16 : 12) * moving;
+    // (free roam passes how fast it's really going, so the steps keep time with it)
+    this.stride += dt * (side > fwd ? 16 : 12) * moving * ((s as { gait?: number }).gait ?? 1);
     // alternate legs (diagonal pairs on four-legged beasts)
     this.legs.forEach((l, i) => {
       const ph = Math.sin(this.stride + (i % 2) * Math.PI);

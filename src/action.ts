@@ -1095,7 +1095,8 @@ export class ActionMode {
       r: boss ? 0.6 : UNIT_R,
       hp: max,
       max,
-      speed: 3.3 * Math.sqrt(traitMul(t?.speed, 'speed')) * (boss ? 0.85 : 1),
+      // (each fighter's Speed, as on the rail in the other modes: half as fast at 1, 1.6 times at 5)
+      speed: 3.3 * traitMul(t?.speed, 'speed') * (boss ? 0.85 : 1),
       // (the main game's marble: its damage per hit as a share of health, its magazine and cadence)
       dmg: BASE_STATS.damage * SCALE * mb.damage * mb.balance,
       power: opts.dmg ?? 1,
@@ -2348,6 +2349,8 @@ export class ActionMode {
       const moving = Math.hypot(u.vx, u.vz) > 0.3;
       p.vx = moving ? across * 1.1 : 0;
       p.y += moving ? ahead * 1.1 * dt : 0;
+      // (and the legs keep time with how fast it's really going: a quick fighter's steps are quicker)
+      (p as { gait?: number }).gait = moving ? Math.max(0.6, Math.hypot(u.vx, u.vz) / 3.3) : 1;
       p.firing = u.queue.length > 0 || p.kickT < 0.2;
       p.recoil = Math.max(0, 1 - p.kickT / 0.12) * 0.6;
       u.mesh.sync(p as never, this.time, dt);
