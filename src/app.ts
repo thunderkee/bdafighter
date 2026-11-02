@@ -865,17 +865,22 @@ export function boot() {
     const box = $('xp-gain');
     box.classList.toggle('hidden', duo);
     if (duo) return;
-    const id = saveData.settings.character;
-    const gain = (w === 0 ? 50 : w === -1 ? 30 : 20) + roundWins[0] * 10;
+    grantXp(box, saveData.settings.character, (w === 0 ? 50 : w === -1 ? 30 : 20) + roundWins[0] * 10);
+  };
+  /** add XP to a fighter and show it on an XP card (the result screen's, or Action's) */
+  const grantXp = (box: HTMLElement, id: string, gain: number) => {
     const before = levelOf(xpOf(id));
     saveData = store.save({ fighterXp: { ...(saveData.fighterXp ?? {}), [id]: xpOf(id) + gain } });
     const after = levelOf(xpOf(id));
-    $('xp-name').textContent = characterById(id).name.toUpperCase();
-    $('xp-lv').textContent = `LV ${after.lv} · ${after.rank.toUpperCase()}`;
-    $('xp-plus').textContent = `+${gain} XP`;
-    $('xp-text').textContent = after.need ? `${after.into} / ${after.need} XP to level ${after.lv + 1}` : 'Max level';
+    box.innerHTML = '<div class="xp-head"><b></b><em></em><span></span></div><i class="xp-bar"><b></b></i><small></small>';
+    const [name, lv, plus] = box.querySelectorAll<HTMLElement>('.xp-head > *');
+    const text = box.querySelector('small')!;
+    name.textContent = characterById(id).name.toUpperCase();
+    lv.textContent = `LV ${after.lv} · ${after.rank.toUpperCase()}`;
+    plus.textContent = `+${gain} XP`;
+    text.textContent = after.need ? `${after.into} / ${after.need} XP to level ${after.lv + 1}` : 'Max level';
     // the bar fills from where it was (from empty after a level up)
-    const fill = $('xp-fill');
+    const fill = box.querySelector<HTMLElement>('.xp-bar b')!;
     const from = after.lv > before.lv ? 0 : before.need ? (before.into / before.need) * 100 : 100;
     fill.style.transition = 'none';
     fill.style.width = `${from}%`;
@@ -888,7 +893,7 @@ export function boot() {
     // new rewards go on straight away (they can be swapped back on the Style tab)
     const fresh = rewardsOf(id).filter((r) => r.lv > before.lv && r.lv <= after.lv);
     for (const r of fresh) setEquip(id, r.slot, r.id);
-    if (fresh.length) $('xp-text').textContent = `Unlocked: ${fresh.map((r) => r.name).join(' + ')}`;
+    if (fresh.length) text.textContent = `Unlocked: ${fresh.map((r) => r.name).join(' + ')}`;
     if (after.lv > before.lv) setTimeout(() => showToast(`LEVEL UP // ${characterById(id).name.toUpperCase()} LV ${after.lv}${fresh.length ? ` · ${fresh[0].name.toUpperCase()}` : ''}`, 0xffc23d), 700);
   };
   /** the result screen in arcade: stage clear (and a look at the next one), or game over */
@@ -1422,7 +1427,7 @@ export function boot() {
   let actionMode: ActionMode | null = null;
   $('action-btn').addEventListener('click', () => {
     sfx.unlock();
-    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
+    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
     show('');
     actionMode.open(playableId(S().character));
     if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;

@@ -245,7 +245,7 @@ export class ActionMode {
 
   constructor(
     host: HTMLElement,
-    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
+    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
   ) {
     this.unitId = opts.unit;
     this.el = document.createElement('div');
@@ -275,6 +275,7 @@ export class ActionMode {
         <p class="ac-unit"></p>
         <p class="ac-text"></p>
         <div class="ac-cards"></div>
+        <div class="xp-gain ac-xp hidden"></div>
         <p class="ac-best"></p>
         <div class="ac-buttons"></div>
       </div>`;
@@ -1923,6 +1924,11 @@ export class ActionMode {
       // storage unavailable
     }
     this.showPanel(win ? 'win' : 'lose', place);
+    // XP for your fighter, as in the other modes: rooms cleared (gauntlet) or how high you placed (free-for-all), plus KOs
+    const gain = this.kind === 'gauntlet' ? (win ? ROOMS : this.room - 1) * 5 + this.kos * 2 + (win ? 30 : 0) : (7 - place) * 8 + this.kos * 5 + (win ? 20 : 0);
+    const box = this.hud.panel.querySelector('.ac-xp') as HTMLElement;
+    box.classList.toggle('hidden', !this.opts.reward);
+    this.opts.reward?.(box, this.unitId, Math.max(10, gain));
   }
 
   private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | null, place = 0) {
@@ -1937,6 +1943,7 @@ export class ActionMode {
     const bestEl = p.querySelector('.ac-best') as HTMLElement;
     cards.innerHTML = '';
     buttons.innerHTML = '';
+    (p.querySelector('.ac-xp') as HTMLElement).classList.add('hidden');
     const best = this.best();
     const button = (label: string, fn: () => void, cls = '') => {
       const b = document.createElement('button');

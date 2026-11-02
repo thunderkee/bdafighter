@@ -5741,6 +5741,13 @@ body.cine-on #pad {
 #action .ac-panel.hidden {
   display: none;
 }
+#action .ac-xp {
+  margin: 12px auto 0;
+  text-align: left;
+}
+#action .ac-xp.hidden {
+  display: none;
+}
 #action .ac-panel h2 {
   margin: 0 0 4px;
   font: 700 28px var(--display);
