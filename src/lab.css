@@ -875,7 +875,8 @@ body[data-mode='studio'] .bar h1 {
 /* over the preview: which version is being edited */
 .skin-tag {
   position: absolute;
-  top: 140px;
+  /* (low over the floor, clear of the model's head) */
+  bottom: 52px;
   left: 50%;
   transform: translateX(-50%);
   display: grid;
