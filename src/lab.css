@@ -871,3 +871,33 @@ body[data-mode='studio'] .bar h1 {
 .skin-reset {
   align-self: flex-start;
 }
+
+/* over the preview: which version is being edited */
+.skin-tag {
+  position: absolute;
+  top: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(10, 16, 34, 0.75);
+  border: 1px solid var(--line-dim);
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 3;
+  white-space: nowrap;
+}
+.skin-tag span {
+  font-size: 10px;
+  opacity: 0.7;
+}
+.skin-tag.skin {
+  border-color: #ffc23d;
+  box-shadow: 0 0 0 1px #ffc23d, 0 0 14px rgba(255, 194, 61, 0.35);
+}
+.skin-tag.skin b {
+  color: #ffc23d;
+}

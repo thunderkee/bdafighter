@@ -1188,6 +1188,11 @@ function renderSkins() {
   add(null, 'Fighter', false);
   const ed = def().skins ?? {};
   for (const sk of skinsOf(def())) add(sk.id, sk.name, !!ed[sk.id]);
+  // over the preview: what's being edited, so a block change never lands on the wrong one
+  const tag = $('skin-tag');
+  const sk = curSkin();
+  tag.classList.toggle('skin', !!sk);
+  tag.innerHTML = sk ? `<b>Editing skin: ${sk.name}</b><span>blocks, name, stats and parts change this skin only</span>` : `<b>Editing ${def().name}</b><span>pick a skin above the tabs to edit it</span>`;
 }
 
 $('new-unit').addEventListener('click', () => {
