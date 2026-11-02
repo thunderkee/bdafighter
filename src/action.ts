@@ -6,6 +6,9 @@ import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
 import { BITE, CHARGE, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
 import * as sfx from './audio';
+import { skinned } from './cosmetics';
+import { kitOf } from './kits';
+import { DRAGON, ITEMS, MISSILE } from './items';
 
 /**
  * Action: walk the whole stage freely and take the other fighters down, seen from above.
@@ -19,7 +22,7 @@ import * as sfx from './audio';
  * the main game (Arena rules), scaled to Action's health. Standing still mends you.
  */
 
-export type ActionKind = 'gauntlet' | 'ffa';
+export type ActionKind = 'gauntlet' | 'ffa' | 'siege';
 
 // tiles
 const FLOOR = 0;
@@ -28,6 +31,8 @@ const CRATE = 2;
 const BUSH = 3;
 const WATER = 4;
 const GATE = 5;
+/** a fortress's footprint (Siege): blocks walking, and takes the marbles that hit it */
+const FORT = 6;
 
 const UNIT_R = 0.42;
 const BASE_HP = 3600;
@@ -43,6 +48,14 @@ const STORM_START = 20;
 const STORM_END = 95;
 const STORM_DPS = 700;
 const BEST_KEY = 'marble-fighter:action:best';
+// Siege: three on three, each side's fortress shooting back; knock theirs down (or have more of yours left at the bell)
+const FORT_HP = 21000;
+const FORT_RANGE = 7;
+const FORT_FIRE = 0.6;
+const FORT_DMG = 300;
+const SIEGE_TIME = 150;
+const RESPAWN = 4;
+const TEAM_COLOR = [0x4aa8f0, 0xff5a5a];
 /** the camera, shared with the other modes' setting: far (overhead), mid, near, and first (just behind your fighter) */
 export type ActionView = 'far' | 'mid' | 'near' | 'first';
 const VIEWS: ActionView[] = ['near', 'mid', 'far', 'first'];
@@ -159,6 +172,26 @@ interface Unit {
   reloading: boolean;
   /** the CPU's trigger rhythm: firing for a while, then a breath */
   cycle: number;
+  /** Siege: seconds until it's back at its fortress after a knockout */
+  back: number;
+  /** an item picked up from a crate: its next shot is a Dragon Shot or a Steel Ball */
+  item: 'dragon' | 'steel' | null;
+}
+interface Fort {
+  team: number;
+  x: number;
+  z: number;
+  hp: number;
+  max: number;
+  root: THREE.Group;
+  turret: THREE.Object3D;
+  bar: HTMLElement;
+  fireT: number;
+  flash: number;
+  /** its turret's marbles go out in a hidden gunner's name (so hits, gauges and teams all just work) */
+  gun: Unit;
+  /** the tiles it stands on */
+  tiles: number[];
 }
 interface Shot {
   x: number;
@@ -193,7 +226,17 @@ interface Shot {
   dive?: number;
   effect?: 'drain' | 'frost' | 'quake';
 }
-type Drop = { x: number; z: number; kind: 'cube' | 'heal'; mesh: THREE.Object3D };
+/** what a crate (or a knocked-out fighter) leaves: a power cube, or one of the main game's items */
+type DropKind = 'cube' | 'heal' | 'dragon' | 'steel' | 'special';
+type Drop = { x: number; z: number; kind: DropKind; mesh: THREE.Object3D };
+const DROP_NAME: Record<DropKind, string> = { cube: 'POWER UP', heal: 'REPAIR', dragon: 'DRAGON SHOT', steel: 'STEEL BALL', special: 'SPECIAL FULL' };
+/** a crate's item, by weight (the free-for-all's crates hold power cubes) */
+const CRATE_ITEMS: [DropKind, number][] = [
+  ['heal', 0.3],
+  ['dragon', 0.25],
+  ['steel', 0.25],
+  ['special', 0.2],
+];
 type Pop = { el: HTMLElement; x: number; z: number; t: number };
 
 export class ActionMode {
@@ -216,8 +259,13 @@ export class ActionMode {
   private grid = new Uint8Array(0);
   private crateHp = new Map<number, number>();
   private crateMesh = new Map<number, THREE.Object3D>();
+  /** Siege: broken crates, back after a while (tile, seconds left) */
+  private crateBack: { k: number; t: number }[] = [];
   private gateMeshes: THREE.Object3D[] = [];
   private units: Unit[] = [];
+  private forts: Fort[] = [];
+  /** Siege: what your marbles have knocked off their fortress */
+  private fortDealt = 0;
   private me: Unit | null = null;
   private shots: Shot[] = [];
   private drops: Drop[] = [];
@@ -387,6 +435,8 @@ export class ActionMode {
     this.ups = {};
     this.kos = 0;
     this.time = 0;
+    this.fortDealt = 0;
+    this.warned = false;
     this.startStage();
     this.showPanel(null);
     this.hud.hint.classList.remove('gone');
@@ -399,7 +449,7 @@ export class ActionMode {
     this.camSnap = true;
     this.cleared = false;
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
-    this.time = this.kind === 'ffa' ? 0 : this.time;
+    this.time = this.kind === 'gauntlet' ? this.time : 0;
     this.buildStage();
     const keep = this.me ? { hp: this.me.hp / this.me.max, charge: this.me.charge } : null;
     this.spawnMe();
@@ -409,7 +459,7 @@ export class ActionMode {
     }
     this.spawnFoes();
     this.over = false;
-    this.callout(this.kind === 'ffa' ? 'FREE-FOR-ALL' : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room}`);
+    this.callout(this.kind === 'siege' ? 'SIEGE · KNOCK DOWN THEIR FORTRESS' : this.kind === 'ffa' ? 'FREE-FOR-ALL' : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room}`);
     sfx.play(this.isBossRoom() ? 'gong' : 'go');
     this.updateHud();
   }
@@ -424,6 +474,11 @@ export class ActionMode {
       u.bar.remove();
     }
     this.units = [];
+    for (const f of this.forts) {
+      f.bar.remove();
+      f.gun.mesh.dispose();
+    }
+    this.forts = [];
     this.me = null;
     this.shots = [];
     for (const d of this.drops) d.mesh.removeFromParent();
@@ -437,6 +492,7 @@ export class ActionMode {
     this.world.clear();
     this.crateHp.clear();
     this.crateMesh.clear();
+    this.crateBack = [];
     this.gateMeshes = [];
     this.stormMesh = [];
   }
@@ -457,13 +513,17 @@ export class ActionMode {
   private center(i: number, j: number) {
     return { x: i - this.W / 2 + 0.5, z: j - this.H / 2 + 0.5 };
   }
-  private blocksMove = (t: number) => t === WALL || t === CRATE || t === WATER || t === GATE;
-  private blocksShot = (t: number) => t === WALL || t === CRATE || t === GATE;
+  private blocksMove = (t: number) => t === WALL || t === CRATE || t === WATER || t === GATE || t === FORT;
+  private blocksShot = (t: number) => t === WALL || t === CRATE || t === GATE || t === FORT;
 
   private buildStage() {
     if (this.kind === 'ffa') {
       this.W = this.H = 28;
       this.layoutFfa();
+    } else if (this.kind === 'siege') {
+      this.W = 15;
+      this.H = 25;
+      this.layoutSiege();
     } else {
       this.W = 11;
       this.H = 17;
@@ -583,6 +643,223 @@ export class ActionMode {
     }
   }
 
+  /** a crate on tile k: a box with two bands (they all share one set of shapes and paints) */
+  private crateParts?: { geo: THREE.BufferGeometry; band: THREE.BufferGeometry; mat: THREE.Material; bandMat: THREE.Material };
+  private makeCrate(k: number) {
+    const c = (this.crateParts ??= {
+      geo: new THREE.BoxGeometry(0.86, 0.86, 0.86).translate(0, 0.43, 0),
+      band: new THREE.BoxGeometry(0.9, 0.12, 0.9),
+      mat: new THREE.MeshStandardMaterial({ color: 0xb87a3e, roughness: 0.8 }),
+      bandMat: new THREE.MeshStandardMaterial({ color: 0x6a3f1e, roughness: 0.8 }),
+    });
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(c.geo, c.mat));
+    for (const y of [0.16, 0.7]) {
+      const b = new THREE.Mesh(c.band, c.bandMat);
+      b.position.y = y;
+      g.add(b);
+    }
+    const j = Math.floor(k / this.W);
+    const p = this.center(k - j * this.W, j);
+    g.position.set(p.x, 0, p.z);
+    this.world.add(g);
+    this.crateMesh.set(k, g);
+  }
+
+  /** the Siege stage: your fortress at the bottom, theirs at the top, the same cover both ways round */
+  private layoutSiege() {
+    const { W, H } = this;
+    const g = (this.grid = new Uint8Array(W * H));
+    const put = (i: number, j: number, t: number) => {
+      // (i, j) in the top half, turned through the middle onto the bottom half, and mirrored left to right
+      for (const [a, b] of [
+        [i, j],
+        [W - 1 - i, j],
+        [i, H - 1 - j],
+        [W - 1 - i, H - 1 - j],
+      ]) {
+        if (a < 0 || b < 0 || a >= W || b >= H) continue;
+        g[this.idx(a, b)] = t;
+        if (t === CRATE) this.crateHp.set(this.idx(a, b), CRATE_HP);
+      }
+    };
+    for (let i = 0; i < W; i++) put(i, 0, WALL);
+    for (let j = 0; j < H; j++) put(0, j, WALL);
+    const rnd = (n: number) => Math.floor(Math.random() * n);
+    const mid = (W - 1) / 2;
+    // walls guarding each fortress's flanks, cover out in the field, bushes down the sides
+    put(mid - 4, 4, WALL);
+    put(mid - 4, 5, WALL);
+    for (let n = 0; n < 3; n++) {
+      const i = 1 + rnd(mid - 1);
+      const j = 7 + rnd(4);
+      put(i, j, WALL);
+      if (Math.random() < 0.5) put(i + 1, j, WALL);
+      else put(i, j + 1, WALL);
+    }
+    for (let i = 1; i <= 2; i++) for (let j = 8; j <= 11; j++) if (g[this.idx(i, j)] === FLOOR) put(i, j, BUSH);
+    for (let n = 0; n < 2; n++) {
+      const i = 2 + rnd(mid - 2);
+      const j = 6 + rnd(5);
+      if (g[this.idx(i, j)] === FLOOR) put(i, j, CRATE);
+    }
+    // the middle row: a bush on each side of a crate pair, open lanes either side
+    const cj = (H - 1) / 2;
+    g[this.idx(mid - 1, cj)] = g[this.idx(mid + 1, cj)] = CRATE;
+    this.crateHp.set(this.idx(mid - 1, cj), CRATE_HP);
+    this.crateHp.set(this.idx(mid + 1, cj), CRATE_HP);
+    for (const i of [2, 3, W - 3, W - 4]) g[this.idx(i, cj)] = BUSH;
+    // clear ground in front of and round each fortress
+    for (let i = 1; i < W - 1; i++)
+      for (const j of [1, 2, 3, 4, 5, H - 2, H - 3, H - 4, H - 5, H - 6])
+        if (Math.abs(i - mid) <= 3) g[this.idx(i, j)] = FLOOR;
+    // the fortresses: three tiles across, two deep
+    for (const [team, j0] of [
+      [0, H - 4],
+      [1, 2],
+    ]) {
+      const tiles: number[] = [];
+      for (let i = mid - 1; i <= mid + 1; i++)
+        for (let j = j0; j <= j0 + 1; j++) {
+          g[this.idx(i, j)] = FORT;
+          tiles.push(this.idx(i, j));
+        }
+      this.pendingForts.push({ team, z: j0 + 1 - H / 2, tiles });
+    }
+  }
+  private pendingForts: { team: number; z: number; tiles: number[] }[] = [];
+
+  /** a fortress: a stone keep in its side's colours, with a turret on top that turns to shoot */
+  private makeFort(team: number, z: number, tiles: number[]) {
+    const color = TEAM_COLOR[team];
+    const root = new THREE.Group();
+    const stone = new THREE.MeshStandardMaterial({ color: 0xd8d0c0, roughness: 0.85 });
+    const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x3a3448, roughness: 0.8 });
+    const keep = new THREE.Mesh(new THREE.BoxGeometry(2.9, 1.3, 1.9), stone);
+    keep.position.y = 0.65;
+    root.add(keep);
+    const band = new THREE.Mesh(new THREE.BoxGeometry(3, 0.22, 2), paint);
+    band.position.y = 1.2;
+    root.add(band);
+    // battlements, and a tower at each corner with a pennant
+    for (let k = -1; k <= 1; k += 2)
+      for (let m = -1; m <= 1; m += 2) {
+        const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 1.8, 10), stone);
+        tower.position.set(k * 1.3, 0.9, m * 0.82);
+        root.add(tower);
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(0.46, 0.55, 10), paint);
+        cap.position.set(k * 1.3, 2.07, m * 0.82);
+        root.add(cap);
+      }
+    for (let k = -2; k <= 2; k++) {
+      const merlon = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.26, 0.28), stone);
+      merlon.position.set(k * 0.5, 1.43, team ? -0.86 : 0.86);
+      root.add(merlon);
+    }
+    const gate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.1), dark);
+    gate.position.set(0, 0.4, team ? 0.96 : -0.96);
+    root.add(gate);
+    // the turret: a drum and a barrel, turning as one
+    const turret = new THREE.Group();
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.5, 14), paint);
+    turret.add(drum);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.9, 10), dark);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.05, -0.55);
+    turret.add(barrel);
+    turret.position.y = 1.55;
+    turret.rotation.y = team ? Math.PI : 0;
+    root.add(turret);
+    root.position.set(0, 0, z);
+    this.world.add(root);
+    const bar = document.createElement('div');
+    bar.className = 'ac-bar fort ' + (team === 0 ? 'ally' : 'foe');
+    bar.innerHTML = `<span>${team === 0 ? 'YOUR FORTRESS' : 'THEIR FORTRESS'}</span><i><b></b></i>`;
+    this.hud.bars.appendChild(bar);
+    // (its gunner: a fighter of its side, never seen, never in the fight)
+    const gun = this.makeUnit(playable()[0], 0, z, true, team, { dmg: 1 });
+    this.units.pop();
+    gun.wrap.visible = gun.shadow.visible = false;
+    gun.bar.remove();
+    gun.dmg = FORT_DMG;
+    this.forts.push({ team, x: 0, z, hp: FORT_HP, max: FORT_HP, root, turret, bar, fireT: 1.5, flash: 0, gun, tiles });
+  }
+  private fortAt(key: number) {
+    return this.forts.find((f) => f.tiles.includes(key)) ?? null;
+  }
+  private hurtFort(f: Fort, amount: number, from: Unit) {
+    if (f.hp <= 0 || this.over) return;
+    f.hp = Math.max(0, f.hp - amount);
+    f.flash = 1;
+    if (from === this.me) {
+      this.fortDealt += amount;
+      this.pop(f.x + (Math.random() - 0.5) * 1.5, f.z, `-${Math.round(amount)}`, 'hit');
+    }
+    // knocking at a fortress fills the gauge a little too
+    if (from.alive) from.charge = Math.min(1, from.charge + 0.04);
+    sfx.play('wall', from === this.me ? 0.45 : 0.2);
+    if (f.hp <= 0) {
+      this.shake = 0.6;
+      sfx.play('explode', 1);
+      f.root.scale.set(1, 0.35, 1);
+      f.turret.visible = false;
+      this.finishSiege(f.team === 0 ? -1 : 1);
+    }
+  }
+  /** the fortress turrets: each fires on the nearest enemy in range it can see */
+  private tickForts(dt: number) {
+    for (const f of this.forts) {
+      f.flash = Math.max(0, f.flash - dt * 5);
+      if (f.hp <= 0) continue;
+      f.fireT -= dt;
+      let best: Unit | null = null;
+      let bd = FORT_RANGE;
+      for (const u of this.units) {
+        if (u.team === f.team || !u.alive || !this.sees(f.gun, u)) continue;
+        const d = Math.hypot(u.x - f.x, u.z - f.z);
+        if (d < bd && this.lineFrom(f, u.x, u.z)) {
+          bd = d;
+          best = u;
+        }
+      }
+      if (!best) continue;
+      const ang = Math.atan2(best.x - f.x, -(best.z - f.z));
+      f.turret.rotation.y = -ang;
+      if (f.fireT > 0) continue;
+      f.fireT = FORT_FIRE;
+      const lead = (bd / SHOT_SPEED) * 0.5;
+      const a = Math.atan2(best.x + best.vx * lead - f.x, -(best.z + best.vz * lead - f.z)) + (Math.random() - 0.5) * 0.12;
+      const sx = f.x + Math.sin(a) * 1.7;
+      const sz = f.z - Math.cos(a) * 1.7;
+      this.shots.push({ x: sx, z: sz, vx: Math.sin(a) * SHOT_SPEED, vz: -Math.cos(a) * SHOT_SPEED, owner: f.gun, dmg: FORT_DMG, r: 0.22, left: FORT_RANGE, bounce: 0, pierce: 0, hit: new Set(), color: new THREE.Color(TEAM_COLOR[f.team]), big: true });
+      sfx.play('fire', 0.35);
+    }
+  }
+  /** a clear line from just outside a fortress's walls to a spot */
+  private lineFrom(f: Fort, x: number, z: number) {
+    const a = Math.atan2(x - f.x, -(z - f.z));
+    return this.clearLine(f.x + Math.sin(a) * 1.7, f.z - Math.cos(a) * 1.7, x, z);
+  }
+  /** the first thing a line runs into: a fortress (or null if it's open, or something else is in the way) */
+  private fortOnLine(x0: number, z0: number, x1: number, z1: number) {
+    const d = Math.hypot(x1 - x0, z1 - z0);
+    const n = Math.ceil(d / 0.2);
+    for (let k = 1; k <= n; k++) {
+      const t = k / n;
+      const key = this.tileOf(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t);
+      const tile = key < 0 ? WALL : this.grid[key];
+      if (tile === FORT) return this.fortAt(key);
+      if (this.blocksShot(tile)) return null;
+    }
+    return null;
+  }
+  /** Siege starts: your side at the bottom by your fortress, theirs at the top */
+  private siegeSpot(team: number, k: number) {
+    const f = this.forts.find((o) => o.team === team)!;
+    return { x: [0, -2.2, 2.2][k % 3], z: f.z + (team === 0 ? -2.4 : 2.4) };
+  }
+
   private ffaStarts() {
     return Array.from({ length: 6 }, (_, k) => {
       const a = (k / 6) * Math.PI * 2 + Math.PI / 2;
@@ -656,33 +933,20 @@ export class ActionMode {
     waterGeo.translate(0, 0.015, 0);
     inst(waterGeo, new THREE.MeshStandardMaterial({ color: 0x3ac8ef, roughness: 0.2, metalness: 0.1 }), WATER, () => {});
     // crates and the door are one mesh each: they come away
-    const crateGeo = new THREE.BoxGeometry(0.86, 0.86, 0.86);
-    crateGeo.translate(0, 0.43, 0);
-    const crateMat = new THREE.MeshStandardMaterial({ color: 0xb87a3e, roughness: 0.8 });
-    const bandMat = new THREE.MeshStandardMaterial({ color: 0x6a3f1e, roughness: 0.8 });
-    const bandGeo = new THREE.BoxGeometry(0.9, 0.12, 0.9);
     for (let j = 0; j < H; j++)
       for (let i = 0; i < W; i++) {
         const t = this.grid[this.idx(i, j)];
         const p = this.center(i, j);
-        if (t === CRATE) {
-          const g = new THREE.Group();
-          g.add(new THREE.Mesh(crateGeo, crateMat));
-          for (const y of [0.16, 0.7]) {
-            const b = new THREE.Mesh(bandGeo, bandMat);
-            b.position.y = y;
-            g.add(b);
-          }
-          g.position.set(p.x, 0, p.z);
-          this.world.add(g);
-          this.crateMesh.set(this.idx(i, j), g);
-        } else if (t === GATE) {
+        if (t === CRATE) this.makeCrate(this.idx(i, j));
+        else if (t === GATE) {
           const bars = new THREE.Mesh(new THREE.BoxGeometry(1, 1.1, 0.3), new THREE.MeshStandardMaterial({ color: 0xff5a5a, emissive: 0x801010, roughness: 0.5 }));
           bars.position.set(p.x, 0.55, p.z);
           this.world.add(bars);
           this.gateMeshes.push(bars);
         }
       }
+    for (const f of this.pendingForts) this.makeFort(f.team, f.z, f.tiles);
+    this.pendingForts = [];
     if (this.kind === 'ffa') {
       // the storm: four walls of green cloud closing in from the edges
       const mat = new THREE.MeshBasicMaterial({ color: 0x3aff8a, transparent: true, opacity: 0.32, depthWrite: false });
@@ -711,7 +975,7 @@ export class ActionMode {
     const mb = marbleOf(def);
     const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1));
     const bar = document.createElement('div');
-    bar.className = 'ac-bar' + (cpu ? '' : ' me');
+    bar.className = 'ac-bar' + (cpu ? (team === 0 && this.kind === 'siege' ? ' ally' : '') : ' me');
     bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
     bar.querySelector('span')!.textContent = cpu ? def.name : 'YOU';
     this.hud.bars.appendChild(bar);
@@ -784,6 +1048,8 @@ export class ActionMode {
       aimError: 0.12,
       reloading: false,
       cycle: 0,
+      back: 0,
+      item: null,
     };
     this.units.push(u);
     return u;
@@ -791,9 +1057,9 @@ export class ActionMode {
 
   private spawnMe() {
     const def = this.opts.skin?.(this.unitId) ?? characterById(this.unitId);
-    const start = this.kind === 'ffa' ? this.ffaStarts()[0] : { x: 0, z: this.H / 2 - 2 };
+    const start = this.kind === 'ffa' ? this.ffaStarts()[0] : this.kind === 'siege' ? this.siegeSpot(0, 0) : { x: 0, z: this.H / 2 - 2 };
     this.me = this.makeUnit(def, start.x, start.z, false, 0);
-    this.me.face = Math.PI;
+    this.me.face = this.kind === 'siege' ? 0 : Math.PI;
     if (this.kind === 'gauntlet') {
       const vital = this.ups.vital ?? 0;
       this.me.max = Math.round(this.me.max * (1 + 0.25 * vital));
@@ -811,12 +1077,31 @@ export class ActionMode {
     const out: CharacterDef[] = [];
     for (let k = 0; k < n; k++) {
       if (!pool.length) pool.push(...playable());
-      out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      out.push(this.painted(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]));
     }
     return out;
   }
+  /** the other fighters wear one of their paint jobs (never the plain one), so no two matches look alike */
+  private painted(def: CharacterDef) {
+    const jobs = kitOf(def)?.paint ?? [];
+    if (!jobs.length) return def;
+    return skinned(def.id, { paint: jobs[Math.floor(Math.random() * jobs.length)].id });
+  }
 
   private spawnFoes() {
+    if (this.kind === 'siege') {
+      // two on your side, three on theirs
+      const picks = this.pickFoes(5);
+      picks.forEach((d, k) => {
+        const team = k < 2 ? 0 : 1;
+        const p = this.siegeSpot(team, team === 0 ? k + 1 : k - 2);
+        const u = this.makeUnit(d, p.x, p.z, true, team);
+        u.face = team === 0 ? 0 : Math.PI;
+        u.aimError = 0.1 + Math.random() * 0.08;
+        u.aimDelay = 0.3 + Math.random() * 0.3;
+      });
+      return;
+    }
     if (this.kind === 'ffa') {
       const starts = this.ffaStarts();
       this.pickFoes(5).forEach((d, k) => {
@@ -1167,6 +1452,12 @@ export class ActionMode {
     u.bar.classList.add('gone');
     sfx.play('explode', u.boss ? 1 : 0.6);
     if (from === this.me) this.kos++;
+    if (this.kind === 'siege') {
+      u.back = RESPAWN;
+      if (u === this.me) this.callout(`BACK IN ${RESPAWN}`, 1);
+      this.updateHud();
+      return;
+    }
     if (this.kind === 'ffa') {
       // its power cubes spill out (at least one)
       for (let k = 0; k < Math.max(1, u.cubes); k++) this.drop(u.x + (Math.random() - 0.5) * 0.8, u.z + (Math.random() - 0.5) * 0.8, 'cube');
@@ -1178,11 +1469,16 @@ export class ActionMode {
     this.updateHud();
   }
 
-  private drop(x: number, z: number, kind: 'cube' | 'heal') {
-    const mesh =
-      kind === 'cube'
-        ? new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), new THREE.MeshStandardMaterial({ color: 0x5aff7a, emissive: 0x1a8a3a }))
-        : new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), new THREE.MeshStandardMaterial({ color: 0xff6a9a, emissive: 0x8a1a3a }));
+  private drop(x: number, z: number, kind: DropKind) {
+    let mesh: THREE.Object3D;
+    if (kind === 'cube') mesh = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), new THREE.MeshStandardMaterial({ color: 0x5aff7a, emissive: 0x1a8a3a }));
+    else if (kind === 'heal') mesh = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), new THREE.MeshStandardMaterial({ color: 0xff6a9a, emissive: 0x8a1a3a }));
+    else if (kind === 'steel') mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.9, roughness: 0.2, emissive: 0x30343a }));
+    else {
+      // the main game's item colours: the Dragon Shot's pink gem, the special's gold star
+      const c = kind === 'dragon' ? ITEMS.dragon.color : 0xffd23e;
+      mesh = new THREE.Mesh(kind === 'dragon' ? new THREE.OctahedronGeometry(0.26) : new THREE.IcosahedronGeometry(0.24, 0), new THREE.MeshStandardMaterial({ color: c, emissive: new THREE.Color(c).multiplyScalar(0.45) }));
+    }
     mesh.position.set(x, 0.35, z);
     this.world.add(mesh);
     this.drops.push({ x, z, kind, mesh });
@@ -1196,8 +1492,32 @@ export class ActionMode {
     this.crateMesh.delete(k);
     const j = Math.floor(k / this.W);
     const p = this.center(k - j * this.W, j);
-    this.drop(p.x, p.z, this.kind === 'ffa' ? 'cube' : 'heal');
+    this.drop(p.x, p.z, this.kind === 'ffa' ? 'cube' : this.crateItem());
     sfx.play('clatter', 0.6);
+    // (in Siege the crates come back)
+    if (this.kind === 'siege') this.crateBack.push({ k, t: 20 });
+  }
+  private crateItem(): DropKind {
+    let r = Math.random() * CRATE_ITEMS.reduce((n, [, w]) => n + w, 0);
+    for (const [kind, w] of CRATE_ITEMS) if ((r -= w) <= 0) return kind;
+    return 'heal';
+  }
+  private tickCrates(dt: number) {
+    for (let n = this.crateBack.length - 1; n >= 0; n--) {
+      const c = this.crateBack[n];
+      if ((c.t -= dt) > 0) continue;
+      const j = Math.floor(c.k / this.W);
+      const p = this.center(c.k - j * this.W, j);
+      // (not on top of anyone, or an item still lying there)
+      if (this.units.some((u) => u.alive && Math.abs(u.x - p.x) < 1 && Math.abs(u.z - p.z) < 1) || this.drops.some((d) => Math.hypot(d.x - p.x, d.z - p.z) < 0.6)) {
+        c.t = 1;
+        continue;
+      }
+      this.crateBack.splice(n, 1);
+      this.grid[c.k] = CRATE;
+      this.crateHp.set(c.k, CRATE_HP);
+      this.makeCrate(c.k);
+    }
   }
 
   // ---------- the loop ----------
@@ -1265,6 +1585,11 @@ export class ActionMode {
       this.walk(me, me.vx * dt, me.vz * dt);
       if ((mx || mz) && !me.firing && !this.aimStick) me.face = Math.atan2(mx, -mz);
     }
+    if (this.kind === 'siege') {
+      this.tickForts(dt);
+      this.tickCrates(dt);
+      for (const u of this.units) if (!u.alive && u.back > 0 && (u.back -= dt) <= 0) this.respawn(u);
+    }
     for (const u of this.units) if (u.cpu && u.alive) this.think(u, dt);
     for (const u of this.units) this.tickUnit(u, dt);
     this.moveShots(dt);
@@ -1272,6 +1597,29 @@ export class ActionMode {
     if (this.kind === 'ffa') this.tickStorm(dt);
     this.checkEnd();
     this.updateHud();
+  }
+
+  /** Siege: back on its feet by its own fortress */
+  private respawn(u: Unit) {
+    const p = this.siegeSpot(u.team, Math.floor(Math.random() * 3));
+    u.x = p.x;
+    u.z = p.z;
+    u.vx = u.vz = 0;
+    u.hp = u.max;
+    u.ammo = u.mag;
+    u.alive = true;
+    u.stored = u.chargeHold = u.chargeWant = 0;
+    u.slowT = u.stunT = 0;
+    u.queue = [];
+    u.face = u.team === 0 ? 0 : Math.PI;
+    u.wrap.visible = u.shadow.visible = true;
+    u.bar.classList.remove('gone');
+    u.target = null;
+    u.goal = null;
+    if (u === this.me) {
+      this.callout('BACK IN THE FIGHT');
+      this.camSnap = true;
+    }
   }
 
   private tickUnit(u: Unit, dt: number) {
@@ -1331,7 +1679,7 @@ export class ActionMode {
     // (not while a gun's in the air, or a punch is winding up)
     if (mayFire && u.firing && u.stunT <= 0 && u.ammo >= 1 && u.fireT <= 0 && u.swapT <= 0 && u.windLeft <= 0) {
       if (human) u.pressShot = true;
-      u.ammo -= this.shoot(u);
+      u.ammo -= u.item ? this.fireItem(u) : this.shoot(u);
       u.fireT = u.fireInt;
       u.idle = 0;
     }
@@ -1416,6 +1764,7 @@ export class ActionMode {
           // over everything until it comes down: then everyone round the spot is hit
           if (s.left <= 0) {
             for (const u of this.units) if (this.hostile(s.owner, u) && Math.hypot(u.x - s.x, u.z - s.z) < 1.4) this.ballHits(s, u);
+            for (const f of this.forts) if (f.team !== s.owner.team && Math.abs(s.x - f.x) < 2.2 && Math.abs(s.z - f.z) < 1.8) this.hurtFort(f, s.dmg, s.owner);
             this.shake = Math.max(this.shake, 0.3);
             sfx.play('slam', 0.8);
             dead = true;
@@ -1429,7 +1778,11 @@ export class ActionMode {
         const t = this.tile(s.x, s.z);
         if (this.blocksShot(t)) {
           const key = this.tileOf(s.x, s.z);
-          if (t === CRATE && key >= 0) {
+          if (t === FORT && key >= 0) {
+            const f = this.fortAt(key);
+            if (f && f.team !== s.owner.team) this.hurtFort(f, s.dmg, s.owner);
+            dead = true;
+          } else if (t === CRATE && key >= 0) {
             const hp = (this.crateHp.get(key) ?? CRATE_HP) - s.dmg;
             this.crateHp.set(key, hp);
             sfx.play('wall', 0.3);
@@ -1476,25 +1829,57 @@ export class ActionMode {
       const d = this.drops[k];
       for (const u of this.units) {
         if (!u.alive || (u.x - d.x) ** 2 + (u.z - d.z) ** 2 > 0.5 ** 2) continue;
+        // (in the Gauntlet, what's left lying about is yours)
+        if (d.kind !== 'cube' && this.kind === 'gauntlet' && u !== this.me) continue;
         if (d.kind === 'cube') {
           // a power cube: a little more health and hit
           u.cubes++;
           u.max = Math.round(u.max * 1.1);
           u.hp = Math.min(u.max, u.hp + u.max * 0.1);
           u.power *= 1.08;
-        } else {
-          if (u !== this.me) continue;
-          u.hp = Math.min(u.max, u.hp + u.max * 0.25);
-        }
+        } else if (d.kind === 'heal') u.hp = Math.min(u.max, u.hp + u.max * 0.25);
+        else if (d.kind === 'special') u.charge = 1;
+        else u.item = d.kind;
         if (u === this.me) {
           sfx.play('charge', 0.6);
-          this.pop(u.x, u.z, d.kind === 'cube' ? 'POWER UP' : 'HEAL', 'good');
+          this.pop(u.x, u.z, DROP_NAME[d.kind], 'good');
+          if (d.kind === 'dragon' || d.kind === 'steel') this.callout(`${DROP_NAME[d.kind]} · YOUR NEXT SHOT`);
         }
         d.mesh.removeFromParent();
         this.drops.splice(k, 1);
         break;
       }
     }
+  }
+
+  /**
+   * a held item goes out instead of the next shot, as in the main game: the Dragon Shot's three
+   * heavy weaving balls, or the Steel Ball that homes in (its three hits landing as one)
+   */
+  private fireItem(u: Unit) {
+    const kind = u.item!;
+    u.item = null;
+    const angle = u.aim;
+    if (kind === 'dragon') {
+      for (let k = 0; k < DRAGON.count; k++)
+        u.queue.push({
+          t: k * DRAGON.gap,
+          angle,
+          o: { dmg: u.dmg * DRAGON.damage * u.power, r: 0.15 * DRAGON.radius * 1.4, speed: SHOT_SPEED * DRAGON.speed, left: 10, weave: true, color: new THREE.Color(ITEMS.dragon.color), home: 0 },
+        });
+      sfx.play('super', u === this.me ? 0.8 : 0.4);
+    } else {
+      const tgt = this.nearestFoe(u, 16);
+      u.queue.push({
+        t: 0,
+        angle,
+        o: { dmg: u.dmg * 2 * MISSILE.hits * u.power, r: 0.32, speed: MISSILE.speed, left: MISSILE.speed * MISSILE.life * 0.6, home: MISSILE.turnRate, tgt, recover: 0.2, color: new THREE.Color(0xdfe6ee) },
+      });
+      sfx.play('super', u === this.me ? 0.8 : 0.4);
+    }
+    u.pose.kickT = 0;
+    u.pose.recoil = 1;
+    return 1;
   }
 
   private tickStorm(dt: number) {
@@ -1513,6 +1898,18 @@ export class ActionMode {
   }
 
   private checkEnd() {
+    if (this.kind === 'siege') {
+      if (!this.over && this.time >= SIEGE_TIME) {
+        // the bell: whichever fortress has more left
+        const [mine, theirs] = [0, 1].map((t) => this.forts.find((f) => f.team === t)!.hp / FORT_HP);
+        this.finishSiege(Math.abs(mine - theirs) < 0.005 ? 0 : mine > theirs ? 1 : -1);
+      }
+      if (!this.over && this.time >= SIEGE_TIME - 30 && !this.warned) {
+        this.warned = true;
+        this.callout('30 SECONDS LEFT');
+      }
+      return;
+    }
     if (this.over || !this.me?.alive) return;
     const foes = this.units.filter((u) => u !== this.me && u.alive).length;
     if (this.kind === 'ffa') {
@@ -1557,7 +1954,7 @@ export class ActionMode {
       u.think = 0.25;
       let best: Unit | null = null;
       // (in free-for-all it only takes on what's near, so the stage doesn't all pile into the middle)
-      let bd = this.kind === 'ffa' ? 9 : 13;
+      let bd = this.kind === 'gauntlet' ? 13 : 9;
       for (const o of this.units) {
         if (!this.hostile(u, o) || !this.sees(u, o)) continue;
         const d = Math.hypot(o.x - u.x, o.z - u.z);
@@ -1570,6 +1967,7 @@ export class ActionMode {
       u.target = best;
       // (the Gauntlet's fighters always know where you are, and come for you)
       if (!best && this.kind === 'gauntlet' && this.me?.alive) u.goal = { x: this.me.x, z: this.me.z };
+      else if (this.kind === 'siege') u.goal = this.siegeGoal(u, best);
       else if (!best && (!u.goal || Math.hypot(u.goal.x - u.x, u.goal.z - u.z) < 0.8 || Math.random() < 0.02)) u.goal = this.wanderGoal(u);
       // where it's headed, if a wall is in the way: the way round
       const to = best ?? u.goal;
@@ -1621,9 +2019,16 @@ export class ActionMode {
       }
       u.face = Math.atan2(ox, -oz);
     } else {
+      // Siege, nothing in sight: knock at their fortress once it's in range
+      const fort = this.kind === 'siege' ? this.forts.find((f) => f.team !== u.team && f.hp > 0) : undefined;
+      if (fort && Math.hypot(fort.x - u.x, fort.z - u.z) < u.range + 1 && this.fortOnLine(u.x, u.z, fort.x, fort.z) === fort && !u.reloading) {
+        u.aim = Math.atan2(fort.x - u.x, -(fort.z - u.z)) + (Math.random() - 0.5) * 0.1;
+        u.face = u.aim;
+        fire = u.cycle > 0;
+      }
       // nothing in sight: shoot open a crate nearby, pick up cubes, head for the middle
-      const cube = this.kind === 'ffa' ? this.drops.find((d) => Math.hypot(d.x - u.x, d.z - u.z) < 7) : undefined;
-      const crate = !cube && this.kind === 'ffa' ? this.nearCrate(u) : null;
+      const cube = this.kind !== 'gauntlet' ? this.drops.find((d) => Math.hypot(d.x - u.x, d.z - u.z) < (this.kind === 'ffa' ? 7 : 5)) : undefined;
+      const crate = !cube && this.kind !== 'gauntlet' && !fire ? this.nearCrate(u) : null;
       if (crate && !u.reloading) {
         u.aim = Math.atan2(crate.x - u.x, -(crate.z - u.z));
         fire = u.cycle > 0;
@@ -1633,8 +2038,11 @@ export class ActionMode {
         const ox = g.x - u.x;
         const oz = g.z - u.z;
         const d = Math.hypot(ox, oz) || 1;
-        dx = ox / d;
-        dz = oz / d;
+        // (there: it holds its spot)
+        if (d > 0.5) {
+          dx = ox / d;
+          dz = oz / d;
+        }
       }
     }
     u.firing = fire && u.stunT <= 0;
@@ -1727,6 +2135,26 @@ export class ActionMode {
     return c;
   }
 
+  /**
+   * Siege: where a CPU heads. Back to defend if their side is at its fortress; otherwise up to
+   * theirs, to a spot in range of it (each its own, so they don't stack up)
+   */
+  private siegeGoal(u: Unit, foe: Unit | null) {
+    const home = this.forts.find((f) => f.team === u.team)!;
+    const away = this.forts.find((f) => f.team !== u.team)!;
+    // (only the one of its side nearest home goes back; the rest keep up the attack)
+    const raid = this.units.find((o) => o.alive && o.team !== u.team && Math.hypot(o.x - home.x, o.z - home.z) < 5.5);
+    if (raid && !foe) {
+      const mates = this.units.filter((o) => o.alive && o.team === u.team);
+      const nearest = mates.reduce((a, b) => (Math.hypot(a.x - home.x, a.z - home.z) <= Math.hypot(b.x - home.x, b.z - home.z) ? a : b));
+      if (nearest === u) return { x: raid.x, z: raid.z };
+    }
+    if (u.goal && Math.abs(u.goal.z - away.z) < 7 && Math.random() > 0.05) return u.goal;
+    const side = (this.units.indexOf(u) % 3) - 1;
+    const dir = away.z > home.z ? -1 : 1;
+    return { x: side * 2.4, z: away.z + dir * (u.range * 0.7 + 1) };
+  }
+
   private nearCrate(u: Unit) {
     let best: { x: number; z: number } | null = null;
     let bd = 6;
@@ -1761,7 +2189,7 @@ export class ActionMode {
     for (const u of this.units) {
       if (!u.alive) continue;
       // (a CPU in a bush is hidden from you, unless you're right next to it or it just gave itself away)
-      const hidden = !!me && u.cpu && me.alive && !this.sees(me, u);
+      const hidden = !!me && u.team !== me.team && me.alive && !this.sees(me, u);
       u.wrap.visible = !hidden;
       u.shadow.visible = !hidden;
       u.bar.classList.toggle('gone', hidden);
@@ -1774,10 +2202,19 @@ export class ActionMode {
       u.wrap.rotation.y = cur + d * Math.min(1, dt * 14);
       u.shadow.position.set(u.x, 0.02, u.z);
       const p = u.pose;
-      p.vx = Math.hypot(u.vx, u.vz) > 0.3 ? 3 : 0;
+      // the main game's gait, from how it walks against the way it faces: ahead (or back) is a
+      // march (the pose's y going up), across is the side-step shuffle (the pose's x speed)
+      const yaw = -u.wrap.rotation.y;
+      const ahead = u.vx * Math.sin(yaw) - u.vz * Math.cos(yaw);
+      const across = u.vx * Math.cos(yaw) + u.vz * Math.sin(yaw);
+      const moving = Math.hypot(u.vx, u.vz) > 0.3;
+      p.vx = moving ? across * 1.1 : 0;
+      p.y += moving ? ahead * 1.1 * dt : 0;
       p.firing = u.queue.length > 0 || p.kickT < 0.2;
       p.recoil = Math.max(0, 1 - p.kickT / 0.12) * 0.6;
       u.mesh.sync(p as never, this.time, dt);
+      // (the march's y only drives its legs: the fighter itself stays where the wrap puts it)
+      u.mesh.root.position.z += p.y;
     }
     // your own bush goes see-through while you're in it
     this.bushMat.opacity = me?.alive && this.inBush(me) ? 0.55 : 1;
@@ -1816,6 +2253,10 @@ export class ActionMode {
       b.scale.set(s * 2, 1, w);
       b.position.set(0, 0.8, s + w / 2);
       for (const m of this.stormMesh) m.visible = s < this.W / 2 - 0.01;
+    }
+    for (const f of this.forts) {
+      const k = 1 + f.flash * 0.04;
+      if (f.hp > 0) f.root.scale.set(k, k, k);
     }
     this.drawAimGuide();
     this.placeCamera(dt);
@@ -1860,6 +2301,12 @@ export class ActionMode {
       u.bar.querySelector('i')!.setAttribute('data-hp', String(Math.max(0, Math.round(u.hp))));
       if (!u.cpu) (u.bar.querySelector('u') as HTMLElement).style.width = `${(u.ammo / u.mag) * 100}%`;
     }
+    for (const f of this.forts) {
+      this.v.set(f.x, 2.75 - (this.view === 'first' ? 0.3 : 0), f.z).project(this.camera);
+      f.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
+      (f.bar.querySelector('b') as HTMLElement).style.width = `${(f.hp / f.max) * 100}%`;
+      f.bar.classList.toggle('gone', this.v.z > 1);
+    }
   }
 
   private pop(x: number, z: number, text: string, kind: string) {
@@ -1891,7 +2338,12 @@ export class ActionMode {
   private updateHud() {
     const title = this.hud.title;
     const alive = this.units.filter((u) => u.alive).length;
-    if (this.kind === 'ffa') {
+    if (this.kind === 'siege') {
+      const left = Math.max(0, Math.ceil(SIEGE_TIME - this.time));
+      title.querySelector('b')!.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      const pct = (t: number) => Math.ceil(((this.forts.find((f) => f.team === t)?.hp ?? 0) / FORT_HP) * 100);
+      title.querySelector('span')!.textContent = `OURS ${pct(0)}% · THEIRS ${pct(1)}%`;
+    } else if (this.kind === 'ffa') {
       title.querySelector('b')!.textContent = `${alive}`;
       title.querySelector('span')!.textContent = 'FIGHTERS LEFT';
     } else {
@@ -1906,7 +2358,8 @@ export class ActionMode {
     const lvl = me && me.chargeHold >= CHARGE.hold ? Math.min(1, (me.chargeHold - CHARGE.hold) / (CHARGE.per * CHARGE.max)) : 0;
     this.hud.fire.style.setProperty('--charge', lvl.toFixed(2));
     this.hud.fire.classList.toggle('charging', lvl > 0);
-    this.hud.fire.textContent = me && me.stored > 0 ? `×${me.stored}` : 'FIRE';
+    this.hud.fire.textContent = me && me.stored > 0 ? `×${me.stored}` : me?.item === 'dragon' ? 'DRAGON' : me?.item === 'steel' ? 'STEEL' : 'FIRE';
+    this.hud.fire.classList.toggle('item', !!me?.item);
     this.hud.special.style.setProperty('--p', String(Math.round(c * 100)));
   }
 
@@ -1963,7 +2416,7 @@ export class ActionMode {
       at.set(mx + fx * 5, 0.4, mz + fz * 5);
     } else {
       // (in a Gauntlet room the overhead views stop short of the edges, so the room fills the screen)
-      const h = { far: tall ? 26 : 19, mid: this.kind === 'ffa' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view];
+      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view];
       const back = { far: 0.22, mid: 0.55, near: 0.85 }[view];
       const room = this.kind === 'gauntlet' && view !== 'near';
       const half = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * h * 1.5;
@@ -1993,23 +2446,41 @@ export class ActionMode {
     this.skyDome.position.copy(this.camera.position);
   }
 
-  private best(): { ffa: number; gauntlet: number } {
+  private best(): { ffa: number; gauntlet: number; siege: number } {
     try {
-      return { ffa: 0, gauntlet: 0, ...JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') };
+      return { ffa: 0, gauntlet: 0, siege: 0, ...JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') };
     } catch {
-      return { ffa: 0, gauntlet: 0 };
+      return { ffa: 0, gauntlet: 0, siege: 0 };
     }
+  }
+  private bestLine() {
+    const b = this.best();
+    return `Best: ${b.gauntlet}/${ROOMS} rooms · ${b.ffa} free-for-all win${b.ffa === 1 ? '' : 's'} · ${b.siege} siege win${b.siege === 1 ? '' : 's'}`;
+  }
+
+  /** Siege over: 1 your side won, -1 theirs, 0 a draw at the bell */
+  private siegeOutcome = 0;
+  private warned = false;
+  private finishSiege(result: number) {
+    if (this.over) return;
+    this.siegeOutcome = result;
+    setTimeout(() => this.finish(result > 0, result > 0 ? 1 : result < 0 ? 2 : 0), result ? 1200 : 300);
+    this.callout(result > 0 ? 'THEIR FORTRESS FALLS!' : result < 0 ? 'YOUR FORTRESS FALLS' : 'TIME · A DRAW', result < 0 ? 1 : 0);
+    this.over = true;
+    this.shots = [];
   }
 
   private finish(win: boolean, place: number) {
-    if (this.over) return;
+    if (this.over && this.kind !== 'siege') return;
+    if (this.kind === 'siege' && !this.hud.panel.classList.contains('hidden')) return;
     this.over = true;
     this.shots = [];
     sfx.play(win ? 'win' : 'lose');
     const best = this.best();
     // best: the most rooms cleared, or the most free-for-all wins
     if (this.kind === 'gauntlet') best.gauntlet = Math.max(best.gauntlet, win ? ROOMS : this.room - 1);
-    else if (win) best.ffa += 1;
+    else if (win && this.kind === 'ffa') best.ffa += 1;
+    else if (win) best.siege += 1;
     try {
       localStorage.setItem(BEST_KEY, JSON.stringify(best));
     } catch {
@@ -2017,7 +2488,12 @@ export class ActionMode {
     }
     this.showPanel(win ? 'win' : 'lose', place);
     // XP for your fighter, as in the other modes: rooms cleared (gauntlet) or how high you placed (free-for-all), plus KOs
-    const gain = this.kind === 'gauntlet' ? (win ? ROOMS : this.room - 1) * 5 + this.kos * 2 + (win ? 30 : 0) : (7 - place) * 8 + this.kos * 5 + (win ? 20 : 0);
+    const gain =
+      this.kind === 'gauntlet'
+        ? (win ? ROOMS : this.room - 1) * 5 + this.kos * 2 + (win ? 30 : 0)
+        : this.kind === 'siege'
+          ? (win ? 60 : place === 0 ? 35 : 20) + this.kos * 4 + Math.round((this.fortDealt / FORT_HP) * 40)
+          : (7 - place) * 8 + this.kos * 5 + (win ? 20 : 0);
     const box = this.hud.panel.querySelector('.ac-xp') as HTMLElement;
     box.classList.toggle('hidden', !this.opts.reward);
     this.opts.reward?.(box, this.unitId, Math.max(10, gain));
@@ -2036,7 +2512,6 @@ export class ActionMode {
     cards.innerHTML = '';
     buttons.innerHTML = '';
     (p.querySelector('.ac-xp') as HTMLElement).classList.add('hidden');
-    const best = this.best();
     const button = (label: string, fn: () => void, cls = '') => {
       const b = document.createElement('button');
       b.className = 'key ' + cls;
@@ -2057,7 +2532,8 @@ export class ActionMode {
       };
       mode('gauntlet', 'Gauntlet', `Clear ${ROOMS} rooms, pick an upgrade after each, a boss every fifth room`);
       mode('ffa', 'Free-for-all', 'You and five fighters, one stage, bushes, crates and a closing storm');
-      bestEl.textContent = `Best: ${best.gauntlet}/${ROOMS} rooms · ${best.ffa} free-for-all win${best.ffa === 1 ? '' : 's'}`;
+      mode('siege', 'Siege', 'Three on three: knock down their fortress before they knock down yours');
+      bestEl.textContent = this.bestLine();
       button('Back', () => this.exit());
     } else if (kind === 'upgrade') {
       h.textContent = 'Room clear';
@@ -2073,9 +2549,14 @@ export class ActionMode {
       }
     } else {
       const ffa = this.kind === 'ffa';
-      h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Gauntlet cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
-      text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${ROOMS} rooms, ${this.kos} fighters down.` : `You reached room ${this.room} with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
-      bestEl.textContent = `Best: ${best.gauntlet}/${ROOMS} rooms · ${best.ffa} free-for-all win${best.ffa === 1 ? '' : 's'}`;
+      if (this.kind === 'siege') {
+        const o = this.siegeOutcome;
+        h.textContent = o > 0 ? 'Fortress down!' : o < 0 ? 'Fortress lost' : 'A draw';
+        const pct = (t: number) => Math.ceil(((this.forts.find((f) => f.team === t)?.hp ?? 0) / FORT_HP) * 100);
+        text.textContent = `${o > 0 ? 'Your side knocked theirs down' : o < 0 ? 'Their side knocked yours down' : 'Time ran out'}: yours ${pct(0)}%, theirs ${pct(1)}%. You knocked off ${Math.round((this.fortDealt / FORT_HP) * 100)}% and took down ${this.kos} fighter${this.kos === 1 ? '' : 's'}.`;
+      } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Gauntlet cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
+      if (this.kind !== 'siege') text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${ROOMS} rooms, ${this.kos} fighters down.` : `You reached room ${this.room} with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
+      bestEl.textContent = this.bestLine();
       button('Play again', () => this.begin(this.kind), 'primary');
       button('Modes', () => {
         this.clearStage();
@@ -2141,7 +2622,9 @@ export class ActionMode {
       }
     }
     if (best) return Math.atan2(best.x - me.x, -(best.z - me.z));
-    // nothing in sight: a crate, or straight ahead
+    // nothing in sight: their fortress, a crate, or straight ahead
+    const fort = this.forts.find((f) => f.team !== me.team && f.hp > 0);
+    if (fort && Math.hypot(fort.x - me.x, fort.z - me.z) < me.range + 2) return Math.atan2(fort.x - me.x, -(fort.z - me.z));
     const crate = this.nearCrate(me);
     if (crate) return Math.atan2(crate.x - me.x, -(crate.z - me.z));
     return me.face;

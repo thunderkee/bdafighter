@@ -835,12 +835,38 @@ export class ShooterMesh {
   /** the jaw's swing when firing (signed); 0 uses the beasts' default snap */
   private jawOpen = 0;
 
+  /**
+   * a Unit Lab design built from a tank keeps the tank's track plates and road wheels as plain
+   * parts: find them by their shape (a row of thin plates, top and bottom runs; small wheels on
+   * their side) so the tracks still roll as it drives
+   */
+  private findTreads() {
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.012;
+    const plates: THREE.Mesh[] = [];
+    const wheels: THREE.Mesh[] = [];
+    this.root.traverse((o) => {
+      const g = (o as THREE.Mesh).geometry as (THREE.BufferGeometry & { parameters?: Record<string, number> }) | undefined;
+      const q = g?.parameters;
+      if (!q) return;
+      if (g.type === 'BoxGeometry' && near(q.width, 0.25) && near(q.height, 0.025) && near(q.depth, 0.07)) plates.push(o as THREE.Mesh);
+      else if (g.type === 'CylinderGeometry' && near(q.radiusTop, 0.085) && near(q.height, 0.26)) wheels.push(o as THREE.Mesh);
+    });
+    if (plates.length < 8) return;
+    for (const p of plates) {
+      p.userData.z0 = p.position.z;
+      p.userData.dir = p.position.y > 0.1 ? 1 : -1;
+      this.treadPlates.push(p);
+    }
+    this.treadWheels.push(...wheels);
+  }
+
   /** defOverride lets the Unit Lab preview an unsaved design */
   constructor(characterId: string, marbleColor: number, defOverride?: CharacterDef) {
     const def = defOverride ?? characterById(characterId);
     this.id = def.id;
     this.ball = marbleColor;
     this.build(def, marbleColor);
+    if (def.blueprint && !this.legs.length) this.findTreads();
     // a design with no legs flies: it bobs in the air like the floating units
     if (def.blueprint && !this.legs.length && !this.hoverLift && !this.treadPlates.length && !def.look21?.treads) this.hoverLift = 0.001;
     // a taller torso: the chest's own plates stretch, the parts on it (head, arms) just ride up
@@ -5966,7 +5992,8 @@ export class ShooterMesh {
     if (this.treadPlates.length) {
       // the tracks roll with the ground speed: plates slide along (wrapping every plate pitch),
       // the top run one way and the bottom run the other, and the wheels turn
-      this.treadTravel += s.vx * dt * (s.team === 0 ? 1 : -1);
+      // (driving ahead rolls them too, in free roam)
+      this.treadTravel += (s.vx * (s.team === 0 ? 1 : -1) + vy) * dt;
       const pitch = 0.1;
       const off = ((this.treadTravel % pitch) + pitch) % pitch;
       for (const p of this.treadPlates) {
