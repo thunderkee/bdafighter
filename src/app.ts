@@ -23,7 +23,7 @@ import { CEL } from './cel';
 import { SHAPES } from './shapes';
 import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
 import { REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, type Equip, type Slot } from './cosmetics';
-import { kitOf } from './kits';
+import { skinDelta, skinsOf } from './kits';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -170,8 +170,9 @@ export function boot() {
     const mag = arenaRules ? (MAG_ARENA_OF[key] ?? MAG_ARENA[type]) : (MAG_OF[key] ?? MARBLES[type].mag);
     return { type, key, ...MARBLES[type], mag };
   };
-  const withTraits = <S extends ShooterStats>(stats: S, id: string): S => {
-    const t = characterById(id).traits;
+  /** a fighter's stats with its traits (your own fighter's from the skin it wears) */
+  const withTraits = <S extends ShooterStats>(stats: S, id: string, def = characterById(id)): S => {
+    const t = def.traits;
     const mb = marbleOf(id);
     return {
       ...stats,
@@ -189,12 +190,13 @@ export function boot() {
       special: characterById(id).special,
     };
   };
-  const healthTrait = (id: string) => traitMul(characterById(id).traits?.health, 'health');
+  const healthTrait = (id: string, def = characterById(id)) => traitMul(def.traits?.health, 'health');
   const playerStats = () => {
     const base = computeStats(STARTER_BUILD);
     // a bigger pack hits softer each, like the opponent's
     const sc = PACK_SCALE[allySize() - 1];
-    return withTraits({ ...base, capacity: magazine(), damage: base.damage * sc.damage }, S().character);
+    // (your fighter's stats from the skin it wears; read from the save, as this runs before boot is done)
+    return withTraits({ ...base, capacity: magazine(), damage: base.damage * sc.damage }, S().character, skinned(S().character, saveData.equip?.[S().character]));
   };
   const enemyStats = () => {
     const st = S();
@@ -527,8 +529,6 @@ export function boot() {
     else delete e[slot];
     saveData = store.save({ equip: { ...(saveData.equip ?? {}), [id]: e } });
   };
-  /** the nameplate class for a fighter's name chip */
-  const plateClass = (id: string) => (equipOf(id).plate ? `plate-${equipOf(id).plate}` : '');
   /** the next reward a fighter is working toward */
   const nextReward = (id: string) => rewardsOf(id).find((r) => !unlocked(id, r));
   const showToast = (text: string, color: number) => {
@@ -590,7 +590,7 @@ export function boot() {
       enemies: packEnemies(),
       allies: packAllies(),
       tactics: [st.allyTactic ?? 'nearest', st.enemyTactic ?? 'nearest'],
-      playerHealth: MATCH.maxHealth * healthTrait(st.character) * PACK_SCALE[allySize() - 1].health,
+      playerHealth: MATCH.maxHealth * healthTrait(st.character, mine(st.character)) * PACK_SCALE[allySize() - 1].health,
       // (a shaped board is only its outline: no pucks, cover walls, pins or gates on it)
       pucks: shaped(st.stage) ? 0 : st.pucks,
       covers: shaped(st.stage) ? 0 : st.covers,
@@ -1508,7 +1508,6 @@ export function boot() {
     $('title-lv').innerHTML = lvHtml(saveData.settings.character);
     showRunOffer();
     showStoryCard();
-    $('title-unit').className = plateClass(saveData.settings.character);
     const nx = nextReward(saveData.settings.character);
     $('title-next').textContent = nx ? `NEXT AT LV ${nx.lv}: ${nx.name.toUpperCase()}` : 'ALL REWARDS UNLOCKED';
     showHero();
@@ -1596,7 +1595,8 @@ export function boot() {
     return `<div class="sp-move"><span class="sp-tag">★ Special</span><b>${MOVE_NAMES[base] ?? 'SPIRIT SHOT'}</b><span class="sp-kind">${mv.label} · ${mv.desc}</span></div>`;
   };
   const meters = (id: string) => {
-    const t = characterById(id).traits;
+    // (your own fighter's from the skin it wears)
+    const t = (step === 'fighter' ? mine(id) : characterById(id)).traits;
     const v = (k: (typeof TRAITS)[number][0]) => Math.max(1, Math.min(5, Math.round(t?.[k] ?? 3)));
     const out: [string, string][] = [];
     if (v('health') >= 4) out.push(['🛡', 'Tanky']);
@@ -1649,28 +1649,23 @@ export function boot() {
     $('pv-profile').classList.toggle('hidden', infoTab !== 'profile');
     $('pv-style').classList.toggle('hidden', infoTab !== 'style');
   };
-  /** the Style tab: each slot's unlocked looks to pick from, the locked ones showing their level */
+  /** the Customize tab: its five skins (each with its stats), then paint and marbles; locked ones show their level */
   const showStyle = (id: string) => {
     const e = equipOf(id);
-    const slots: Slot[] = ['paint', 'marble', 'eyes', 'plate'];
-    // the customizer: this fighter's own parts, free to swap
-    const kit = kitOf(characterById(id));
-    const gearRows = kit
-      ? (['hat', 'back', 'shoulder'] as const)
-          .map((slot) => {
-            const pill = (v: string, label: string) => `<button class="style-opt${(e[slot] ?? '') === v ? ' on' : ''}" data-slot="${slot}" data-v="${v}">${label}</button>`;
-            return `<div class="style-row"><span>${SLOT_NAME[slot]}</span><div>${pill('', 'None')}${kit[slot].map((a) => pill(a.id, a.name)).join('')}</div></div>`;
-          })
-          .join('')
-      : '';
-    $('pv-style').innerHTML = (gearRows ? `<p class="style-sub">PARTS</p>` + gearRows : '') + `<p class="style-sub">REWARDS</p>` + slots
+    const def = characterById(id);
+    const skins = skinsOf(def);
+    const rows = (['skin', 'paint', 'marble'] as Slot[])
       .map((slot) => {
         const opts = rewardsOf(id).filter((r) => r.slot === slot);
-        const pill = (v: string, label: string, ok: boolean, lv?: number) =>
-          `<button class="style-opt${(e[slot] ?? '') === v ? ' on' : ''}${ok ? '' : ' locked'}" data-slot="${slot}" data-v="${v}" ${ok ? '' : 'disabled'}>${ok ? label : `🔒 ${label} · LV ${lv}`}</button>`;
-        return `<div class="style-row"><span>${SLOT_NAME[slot]}</span><div>${pill('', 'Standard', true)}${opts.map((r) => pill(r.id, r.name.replace(/ (paint|marbles|eyes|nameplate)$/i, ''), unlocked(id, r), r.lv)).join('')}</div></div>`;
+        const sub = (v: string) => (slot === 'skin' ? skinDelta(def, skins.find((k) => k.id === (v || 'standard'))!) : '');
+        const pill = (v: string, label: string, ok: boolean, lv?: number) => {
+          const d = sub(v);
+          return `<button class="style-opt${slot === 'skin' ? ' skin' : ''}${(e[slot] ?? '') === v ? ' on' : ''}${ok ? '' : ' locked'}" data-slot="${slot}" data-v="${v}" ${ok ? '' : 'disabled'}>${ok ? label : `🔒 ${label} · LV ${lv}`}${d ? `<small>${d}</small>` : ''}</button>`;
+        };
+        return `<div class="style-row"><span>${SLOT_NAME[slot]}</span><div>${pill('', slot === 'skin' ? skins[0].name : 'Standard', true)}${opts.map((r) => pill(r.id, r.name.replace(/ (paint|marbles|skin)$/i, ''), unlocked(id, r), r.lv)).join('')}</div></div>`;
       })
       .join('');
+    $('pv-style').innerHTML = rows;
     $('pv-style')
       .querySelectorAll<HTMLButtonElement>('.style-opt:not(.locked)')
       .forEach((b) =>
@@ -1777,7 +1772,7 @@ export function boot() {
         : `<p>${pr.bio}</p>`
       : `<p>Built in the Unit Lab.</p>`;
     if (step === 'fighter') showStyle(unit);
-    $('pv-name').className = step === 'fighter' ? plateClass(unit) : '';
+    $('pv-name').className = '';
   };
   /** move to an entry: a pickable one becomes the choice straight away */
   const goTo = (i: number, dir = 0) => {

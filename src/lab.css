@@ -827,3 +827,47 @@ body[data-mode='studio'] .bar h1 {
   border: 1px solid #ffffff55;
   border-radius: 4px;
 }
+
+/* the version bar: the fighter itself, or one of its five skins */
+.skin-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 10px 0;
+}
+.skin-bar > span {
+  margin-right: 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.skin-bar button {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+.skin-bar button.on {
+  background: #ffc23d;
+  color: #14121a;
+  border-color: #ffc23d;
+}
+.skin-bar button.edited::after {
+  content: ' •';
+  color: #7affb0;
+}
+.skin-parts {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skin-parts.hidden {
+  display: none;
+}
+.skin-parts select {
+  width: 100%;
+}
+.skin-reset {
+  align-self: flex-start;
+}

@@ -5997,3 +5997,17 @@ body.cine-on #pad {
   font-size: 11px;
   white-space: nowrap;
 }
+
+/* a skin's pill: its name, and how its stats differ under it */
+.style-opt.skin {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+.style-opt.skin small {
+  font: 700 8px var(--body);
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+  text-transform: none;
+}

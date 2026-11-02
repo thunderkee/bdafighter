@@ -1,5 +1,6 @@
 import type { AddonSlot, Fit, PartSpec } from './addons';
 import type { CharacterDef } from './robot';
+import { DEFAULT_TRAITS, type Block, type Traits } from './roster';
 
 /**
  * Each fighter's own wardrobe: three head pieces, three back pieces, three shoulder pieces and
@@ -127,6 +128,68 @@ export const KITS: Record<string, Kit> = {
 };
 
 const baseOf = (def: CharacterDef) => (def.base ?? def.id).replace(/-\d+$/, '');
+
+/**
+ * Skins: five versions of each fighter. The first is the fighter as it is; the other four each
+ * wear a set of its own kit parts and trade one stat for another (+1 here, -1 there), so a skin
+ * changes how it plays, not just how it looks. Everything here can be changed per fighter in the
+ * Unit Lab (name, parts, stats, and a model of its own with blocks added, swapped or removed).
+ */
+export interface Skin {
+  id: string;
+  name: string;
+  /** the kit parts it wears, by slot (resolved) */
+  gear: Partial<Record<AddonSlot, KitPart>>;
+  /** the part ids, as the lab edits them */
+  gearIds: Partial<Record<AddonSlot, string>>;
+  traits: Traits;
+  /** its own model (blocks added, swapped or removed), if it has one */
+  blueprint?: Block;
+}
+type Delta = Partial<Record<keyof Traits, number>>;
+const SKIN_PLAN: { id: string; name: string; parts: Partial<Record<AddonSlot, number>>; delta: Delta }[] = [
+  { id: 'standard', name: 'Standard', parts: {}, delta: {} },
+  { id: 'vanguard', name: 'Vanguard', parts: { hat: 0, shoulder: 0 }, delta: { health: 1, speed: -1 } },
+  { id: 'striker', name: 'Striker', parts: { back: 1, shoulder: 2 }, delta: { fireRate: 1, health: -1 } },
+  { id: 'phantom', name: 'Phantom', parts: { hat: 2, back: 2 }, delta: { speed: 1, fireRate: -1 } },
+  { id: 'legend', name: 'Legend', parts: { hat: 1, back: 0, shoulder: 1 }, delta: { agility: 1, fireRate: 1, health: -1, speed: -1 } },
+];
+export const SKIN_IDS = SKIN_PLAN.map((p) => p.id);
+const clampTrait = (n: number) => Math.max(1, Math.min(5, Math.round(n)));
+
+/** a fighter's five skins: the plan with its own kit parts, and any lab edits on top */
+export function skinsOf(def: CharacterDef): Skin[] {
+  const kit = kitOf(def);
+  const base = { ...DEFAULT_TRAITS, ...def.traits };
+  return SKIN_PLAN.map((p) => {
+    const ed = def.skins?.[p.id];
+    const gearIds: Partial<Record<AddonSlot, string>> = {};
+    for (const slot of ['hat', 'back', 'shoulder'] as AddonSlot[]) {
+      const k = p.parts[slot];
+      const planned = k !== undefined ? kit?.[slot][k]?.id : undefined;
+      const id = ed?.gear && slot in ed.gear ? ed.gear[slot] : planned;
+      if (id) gearIds[slot] = id;
+    }
+    const gear: Partial<Record<AddonSlot, KitPart>> = {};
+    for (const [slot, id] of Object.entries(gearIds) as [AddonSlot, string][]) {
+      const part = kit?.[slot].find((q) => q.id === id);
+      if (part) gear[slot] = part;
+    }
+    const planned = Object.fromEntries((Object.keys(base) as (keyof Traits)[]).map((k) => [k, clampTrait(base[k] + (p.delta[k] ?? 0))])) as unknown as Traits;
+    return { id: p.id, name: ed?.name?.trim() || p.name, gear, gearIds, traits: ed?.traits ?? planned, blueprint: ed?.blueprint };
+  });
+}
+export const skinOf = (def: CharacterDef, id: string | undefined) => skinsOf(def).find((s) => s.id === (id ?? 'standard')) ?? skinsOf(def)[0];
+/** a skin's stats against the fighter's own, e.g. "+Health −Speed" */
+export function skinDelta(def: CharacterDef, skin: Skin) {
+  const base = { ...DEFAULT_TRAITS, ...def.traits };
+  const NAME: Record<keyof Traits, string> = { speed: 'Speed', fireRate: 'Fire rate', health: 'Health', agility: 'Agility' };
+  return (Object.keys(NAME) as (keyof Traits)[])
+    .map((k) => [k, skin.traits[k] - base[k]] as const)
+    .filter(([, d]) => d)
+    .map(([k, d]) => `${d > 0 ? '+' : '−'}${NAME[k]}`)
+    .join(' ');
+}
 /** a fighter's own wardrobe (none for a fighter outside the roster) */
 export const kitOf = (def: CharacterDef): Kit | undefined => KITS[baseOf(def)];
 

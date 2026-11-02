@@ -77,6 +77,19 @@ export interface UnitEntry {
   blueprint?: Block;
   /** its paint jobs' colours as edited in the lab, by paint job id */
   paints?: Record<string, Partial<Record<Exclude<PaletteSlot, 'ball'>, number>>>;
+  /** its skins as edited in the lab, by skin id (see kits.ts: skinsOf) */
+  skins?: Record<string, SkinEdit>;
+}
+
+/**
+ * a skin's edits from the lab: its name, its stats, the parts it wears from the fighter's kit
+ * (by slot; '' wears none there) and its own model, when its blocks were changed
+ */
+export interface SkinEdit {
+  name?: string;
+  traits?: Traits;
+  gear?: Partial<Record<'hat' | 'back' | 'shoulder', string>>;
+  blueprint?: Block;
 }
 
 export interface RosterData {

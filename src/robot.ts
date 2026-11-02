@@ -67,6 +67,8 @@ export interface CharacterDef {
   blueprint?: Block;
   /** its paint jobs' colours as edited in the lab, by paint job id */
   paints?: UnitEntry['paints'];
+  /** its skins as edited in the lab (merged skin by skin over the shipped ones) */
+  skins?: UnitEntry['skins'];
   /** custom units: the built-in they started from */
   base?: string;
   /** 2.0 body: hero proportions (V chest, narrow waist, angled armour, V brow) */
@@ -635,6 +637,7 @@ function applyEntry(def: CharacterDef, u: UnitEntry | undefined, id = def.id): C
     traits: u.traits ?? def.traits,
     blueprint: u.blueprint ?? def.blueprint,
     paints: u.paints ?? def.paints,
+    skins: u.skins || def.skins ? { ...def.skins, ...u.skins } : undefined,
     base: def.base ?? (id !== def.id ? def.id : undefined),
   };
 }

@@ -78,6 +78,8 @@
 
       <!-- inspector -->
       <section class="inspector">
+        <!-- which version is being edited: the fighter itself, or one of its five skins -->
+        <div class="skin-bar" id="skin-bar"></div>
         <div class="tabs" role="tablist">
           <button role="tab" data-tab="profile" class="on">Profile</button>
           <button role="tab" data-tab="colors">Colours</button>
@@ -91,6 +93,7 @@
           </label>
           <p class="note">Traits are 1–5; 3 is a standard unit. They apply wherever this unit fights, as you or as the CPU.</p>
           <div id="traits"></div>
+          <div id="skin-parts" class="skin-parts hidden"></div>
         </div>
 
         <div class="tab-panel hidden" data-panel="colors">

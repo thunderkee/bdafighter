@@ -4,10 +4,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { BUILTINS, DEFAULT_SIZE, ShooterMesh, blockGeometry, characterById, playable, playableId, reloadRoster, resolveColor, setPublished, studioEnv, type CharacterDef } from './robot';
 import { API, cachedPublished, fetchPublished, type PublishedRoster } from './published';
-import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry } from './roster';
+import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry, type SkinEdit } from './roster';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
 import { MATCH } from './config';
-import { kitOf, paintPalette } from './kits';
+import { kitOf, paintPalette, skinsOf } from './kits';
 import { computeStats, STARTER_BUILD } from './parts';
 import * as store from './storage';
 import type { Shooter } from './game';
@@ -68,9 +68,33 @@ let edit: { path: string; mode: EditMode; sel: number[] } | null = null;
 const def = (): CharacterDef => characterById(currentId);
 const entry = (): UnitEntry => (roster.units[currentId] ??= { id: currentId, base: def().base ?? currentId });
 
-/** a fresh design for the current unit: its saved one, or its built-in model as blocks */
+/** the skin being edited (null: the fighter itself); its blocks, name, stats and parts are its own */
+let editSkin: string | null = null;
+const curSkin = () => (editSkin ? skinsOf(def()).find((k) => k.id === editSkin) ?? null : null);
+/** change the edited skin's entry */
+function setSkin(patch: Partial<SkinEdit>) {
+  if (!editSkin) return;
+  const e = entry();
+  e.skins = { ...e.skins, [editSkin]: { ...e.skins?.[editSkin], ...patch } };
+}
+
+/** a fresh design for the current unit: its saved one, or its built-in model as blocks (a skin: its own, or a copy of the fighter's) */
 function loadDraft() {
   const d = def();
+  const sk = curSkin();
+  if (sk?.blueprint) {
+    draft = sk.blueprint;
+    return;
+  }
+  if (sk) {
+    if (d.blueprint) draft = clone(d.blueprint);
+    else {
+      const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: undefined });
+      draft = mesh.toBlueprint(d);
+      mesh.dispose();
+    }
+    return;
+  }
   if (d.blueprint) {
     draft = d.blueprint;
     return;
@@ -138,7 +162,7 @@ function restore(snap: string) {
   if (s.unit) roster.units[currentId] = s.unit;
   else delete roster.units[currentId];
   // keep the draft and the saved design the same object once linked
-  draft = s.unit?.blueprint ?? s.draft;
+  draft = (editSkin ? s.unit?.skins?.[editSkin]?.blueprint : s.unit?.blueprint) ?? s.draft;
   selected = s.selected;
   selection = s.selection ?? (s.selected ? [s.selected] : []);
   const e = s.edit ?? null;
@@ -180,7 +204,8 @@ function commit(full = false) {
 
 /** the design changed: make sure the unit owns it, then refresh */
 function designChanged(full = false) {
-  entry().blueprint = draft;
+  if (editSkin) setSkin({ blueprint: draft });
+  else entry().blueprint = draft;
   commit(full);
 }
 
@@ -282,7 +307,9 @@ function rebuildPreview() {
   // (showing one of its paint jobs, while that's being edited)
   const pj = previewPaint ? kitOf(d)?.paint.find((p) => p.id === previewPaint) : undefined;
   const palette = pj ? { ...d.palette, ...paintPalette(d, pj) } : d.palette;
-  model = new ShooterMesh(d.id, d.ball, { ...d, palette, blueprint: draft });
+  // (a skin shows with its parts on)
+  const gear = curSkin()?.gear;
+  model = new ShooterMesh(d.id, d.ball, { ...d, palette, blueprint: draft, gear: gear && (gear.hat || gear.back || gear.shoulder) ? gear : undefined });
   scene.add(model.root);
   addBallExitMarker();
   updateHelper();
@@ -1119,6 +1146,7 @@ function switchUnit(id: string) {
   syncEditBar();
   currentId = id;
   previewPaint = null;
+  editSkin = null;
   selected = null;
   selection = [];
   undo = [];
@@ -1131,6 +1159,35 @@ function switchUnit(id: string) {
   renderPalette();
   renderTree();
   renderForm();
+  renderSkins();
+}
+
+/** the version bar: the fighter itself, then its five skins (an edited one is marked) */
+function renderSkins() {
+  const bar = $('skin-bar');
+  bar.innerHTML = '<span>Editing</span>';
+  const add = (id: string | null, label: string, edited: boolean) => {
+    const b = document.createElement('button');
+    b.className = (editSkin === id ? 'on' : '') + (edited ? ' edited' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => {
+      if (editSkin === id) return;
+      flushSave();
+      editSkin = id;
+      selected = null;
+      selection = [];
+      loadDraft();
+      rebuildPreview();
+      renderProfile();
+      renderTree();
+      renderForm();
+      renderSkins();
+    });
+    bar.appendChild(b);
+  };
+  add(null, 'Fighter', false);
+  const ed = def().skins ?? {};
+  for (const sk of skinsOf(def())) add(sk.id, sk.name, !!ed[sk.id]);
 }
 
 $('new-unit').addEventListener('click', () => {
@@ -1348,13 +1405,17 @@ const TRAITS: { key: keyof Traits; label: string; sub: string; value: (m: number
 const nameInput = $<HTMLInputElement>('unit-name');
 nameInput.addEventListener('input', () => {
   pushUndo('name');
-  entry().name = nameInput.value;
+  if (editSkin) setSkin({ name: nameInput.value });
+  else entry().name = nameInput.value;
   commit();
+  renderSkins();
 });
 
 function renderProfile() {
-  nameInput.value = def().name;
-  const traits = { ...DEFAULT_TRAITS, ...def().traits };
+  const sk = curSkin();
+  nameInput.value = sk ? sk.name : def().name;
+  const traits = sk ? { ...sk.traits } : { ...DEFAULT_TRAITS, ...def().traits };
+  renderSkinParts();
   const box = $('traits');
   box.innerHTML = '';
   for (const tr of TRAITS) {
@@ -1370,7 +1431,8 @@ function renderProfile() {
       b.classList.toggle('lit', n < lvl);
       b.addEventListener('click', () => {
         pushUndo();
-        entry().traits = { ...traits, [tr.key]: n };
+        if (sk) setSkin({ traits: { ...traits, [tr.key]: n } });
+        else entry().traits = { ...traits, [tr.key]: n };
         commit();
         renderProfile();
       });
@@ -1378,6 +1440,48 @@ function renderProfile() {
     }
     box.appendChild(row);
   }
+}
+
+/** a skin's parts from the fighter's kit (one per slot, or none), and putting the skin back as it was */
+function renderSkinParts() {
+  const box = $('skin-parts');
+  const sk = curSkin();
+  box.classList.toggle('hidden', !sk);
+  if (!sk) return;
+  const kit = kitOf(def());
+  const NAME = { hat: 'Head', back: 'Back', shoulder: 'Shoulders' } as const;
+  box.innerHTML = `<p class="note">${sk.name}: its name, stats, parts and blocks are its own. Blocks it hasn't changed follow the fighter's.</p>`;
+  for (const slot of ['hat', 'back', 'shoulder'] as const) {
+    const row = document.createElement('label');
+    row.className = 'field';
+    const sel = document.createElement('select');
+    sel.innerHTML = `<option value="">None</option>` + (kit?.[slot] ?? []).map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
+    sel.value = sk.gearIds[slot] ?? '';
+    sel.addEventListener('change', () => {
+      pushUndo();
+      setSkin({ gear: { ...sk.gearIds, [slot]: sel.value } });
+      commit();
+      renderSkinParts();
+    });
+    row.append(Object.assign(document.createElement('span'), { textContent: NAME[slot] }), sel);
+    box.appendChild(row);
+  }
+  const reset = document.createElement('button');
+  reset.className = 'skin-reset';
+  reset.textContent = `Reset ${sk.name}`;
+  reset.disabled = !entry().skins?.[sk.id] && !def().skins?.[sk.id];
+  reset.addEventListener('click', () => {
+    if (!editSkin || !confirm(`Put ${sk.name} back to its original name, stats, parts and blocks?`)) return;
+    pushUndo();
+    const e = entry();
+    if (e.skins) delete e.skins[editSkin];
+    // (and the shipped edit under it, so it's the plan again)
+    e.skins = { ...e.skins, [editSkin]: {} };
+    loadDraft();
+    commit(true);
+    renderSkins();
+  });
+  box.appendChild(reset);
 }
 
 // ---------- colours ----------
@@ -2265,6 +2369,7 @@ loadDraft();
 rebuildPreview();
 renderRoster();
 renderProfile();
+renderSkins();
 renderPalette();
 renderTree();
 renderForm();
