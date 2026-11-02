@@ -1022,7 +1022,7 @@ export class ActionMode {
       let best: Unit | null = null;
       let bd = FORT_RANGE;
       for (const u of this.units) {
-        if (u.team === f.team || !u.alive || !this.sees(f.gun, u)) continue;
+        if (u.team === f.team || !u.alive || !this.targetable(f.gun, u)) continue;
         const d = Math.hypot(u.x - f.x, u.z - f.z);
         if (d < bd && this.lineFrom(f, u.x, u.z)) {
           bd = d;
@@ -1408,6 +1408,15 @@ export class ActionMode {
     if (!this.inBush(b) || b.reveal > 0) return true;
     return Math.hypot(a.x - b.x, a.z - b.z) < 2.3;
   }
+  /**
+   * a can aim at b on its own (auto aim, a CPU's target, a homing ball, a turret): not while b is
+   * in a bush, unless a is right next to it. (Firing or being hit gives a hider away for a moment,
+   * so it flashes into sight, but that's all: it can't be locked on to.)
+   */
+  private targetable(a: Unit, b: Unit) {
+    if (!this.inBush(b)) return true;
+    return Math.hypot(a.x - b.x, a.z - b.z) < 2.3;
+  }
   private clearLine(x0: number, z0: number, x1: number, z1: number) {
     const d = Math.hypot(x1 - x0, z1 - z0);
     const n = Math.ceil(d / 0.2);
@@ -1441,7 +1450,7 @@ export class ActionMode {
     let best: Unit | null = null;
     let bd = range;
     for (const o of this.units) {
-      if (!this.hostile(u, o) || !this.sees(u, o)) continue;
+      if (!this.hostile(u, o) || !this.targetable(u, o)) continue;
       const d = Math.hypot(o.x - u.x, o.z - u.z);
       if (d < bd) {
         bd = d;
@@ -1680,7 +1689,7 @@ export class ActionMode {
     let best: Unit | null = null;
     let bd = 14;
     for (const o of this.units) {
-      if (!this.hostile(u, o) || !this.sees(u, o)) continue;
+      if (!this.hostile(u, o) || !this.targetable(u, o)) continue;
       const d = Math.hypot(o.x - u.x, o.z - u.z) + (this.clearLine(u.x, u.z, o.x, o.z) ? 0 : 5);
       if (d < bd) {
         bd = d;
@@ -2076,7 +2085,7 @@ export class ActionMode {
     s.age = (s.age ?? 0) + dt;
     let head = s.head ?? Math.atan2(s.vx, -s.vz);
     const t = s.tgt;
-    if (s.home && t?.alive && s.age > (s.recover ?? 0) && (!s.bank || s.banked)) {
+    if (s.home && t?.alive && this.targetable(s.owner, t) && s.age > (s.recover ?? 0) && (!s.bank || s.banked)) {
       const want = Math.atan2(t.x - s.x, -(t.z - s.z));
       let d = want - head;
       d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -2674,7 +2683,7 @@ export class ActionMode {
       // (in free-for-all it only takes on what's near, so the stage doesn't all pile into the middle)
       let bd = this.kind === 'gauntlet' ? 13 : this.kind === 'ffa' ? 6.5 : 9;
       for (const o of this.units) {
-        if (!this.hostile(u, o) || !this.sees(u, o)) continue;
+        if (!this.hostile(u, o) || !this.targetable(u, o)) continue;
         const d = Math.hypot(o.x - u.x, o.z - u.z);
         if (d < bd) {
           bd = d;
@@ -2701,6 +2710,10 @@ export class ActionMode {
     u.cycle -= dt;
     if (u.cycle < -0.3 - Math.random() * 0.5) u.cycle = 0.5 + Math.random() * 0.8;
     let fire = false;
+    if (u.target && u.target.alive && !this.targetable(u, u.target)) {
+      u.goal = { x: u.target.x, z: u.target.z };
+      u.target = null;
+    }
     const tgt = u.target && u.target.alive ? u.target : null;
     if (tgt) {
       const ox = tgt.x - u.x;
@@ -3461,7 +3474,7 @@ export class ActionMode {
     let best: Unit | null = null;
     let bd = 12;
     for (const u of this.units) {
-      if (!this.hostile(me, u) || !this.sees(me, u)) continue;
+      if (!this.hostile(me, u) || !this.targetable(me, u)) continue;
       const d = Math.hypot(u.x - me.x, u.z - me.z) + (this.clearLine(me.x, me.z, u.x, u.z) ? 0 : 6);
       if (d < bd) {
         bd = d;
