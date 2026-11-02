@@ -43,6 +43,10 @@ const STORM_START = 20;
 const STORM_END = 95;
 const STORM_DPS = 700;
 const BEST_KEY = 'marble-fighter:action:best';
+/** the camera, shared with the other modes' setting: far (overhead), mid, near, and first (just behind your fighter) */
+export type ActionView = 'far' | 'mid' | 'near' | 'first';
+const VIEWS: ActionView[] = ['near', 'mid', 'far', 'first'];
+const VIEW_LABEL: Record<ActionView, string> = { near: 'NEAR', mid: 'MID', far: 'FAR', first: 'COCKPIT' };
 
 /** a fighter's marble as the main game has it (Arena rules magazines and balance) */
 const marbleOf = (def: CharacterDef) => {
@@ -228,6 +232,18 @@ export class ActionMode {
   private stormMesh: THREE.Mesh[] = [];
   private bushMat = new THREE.MeshStandardMaterial({ color: 0x3fae4a, roughness: 0.9, transparent: true });
   private shake = 0;
+  /** the camera, eased toward where the view puts it */
+  private camPos = new THREE.Vector3();
+  private camAt = new THREE.Vector3();
+  private camSnap = true;
+  /** which way the cockpit view looks (set as each stage starts, so the stick stays put) */
+  private camYaw = 0;
+  private localView: ActionView = 'mid';
+  private lift = 0;
+  private vw = 1;
+  private vh = 1;
+  /** the cockpit view's sky (the ink pass leaves an empty background black) */
+  private skyDome = new THREE.Mesh(new THREE.SphereGeometry(120, 24, 12), new THREE.MeshBasicMaterial({ color: 0x8fcff0, side: THREE.BackSide, fog: false }));
 
   // shots drawn as instances
   private shotMesh: THREE.InstancedMesh;
@@ -245,7 +261,7 @@ export class ActionMode {
 
   constructor(
     host: HTMLElement,
-    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
+    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; camera?: () => ActionView; setCamera?: (v: ActionView) => void; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
   ) {
     this.unitId = opts.unit;
     this.el = document.createElement('div');
@@ -256,7 +272,7 @@ export class ActionMode {
       <div class="ac-bars"></div>
       <div class="ac-hud">
         <div class="ac-top">
-          <button class="ac-quit key round" aria-label="Back">✕</button>
+          <div class="ac-left"><button class="ac-quit key round" aria-label="Back">✕</button><button class="ac-view key" aria-label="Switch view">NEAR</button></div>
           <div class="ac-title"><b></b><span></span></div>
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
@@ -305,8 +321,15 @@ export class ActionMode {
     this.aimGuide = new THREE.Mesh(guide, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
     this.aimGuide.visible = false;
     this.scene.add(this.aimGuide);
+    this.skyDome.visible = false;
+    this.scene.add(this.skyDome);
 
     this.el.querySelector('.ac-quit')!.addEventListener('click', () => this.exit());
+    this.el.querySelector('.ac-view')!.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.cycleView();
+    });
     this.canvas.addEventListener('pointerdown', this.down);
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.hud.special.addEventListener('pointerdown', this.specialDown);
@@ -325,6 +348,8 @@ export class ActionMode {
   open(unit: string) {
     this.unitId = unit;
     this.applySaver();
+    this.showView();
+    this.camSnap = true;
     this.el.classList.remove('hidden');
     this.over = true;
     this.clearStage();
@@ -371,6 +396,7 @@ export class ActionMode {
   private kos = 0;
   private startStage() {
     this.clearStage();
+    this.camSnap = true;
     this.cleared = false;
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     this.time = this.kind === 'ffa' ? 0 : this.time;
@@ -1218,6 +1244,12 @@ export class ActionMode {
         mz /= len;
       }
     }
+    // (in the cockpit view, up on the stick is the way the camera looks)
+    if (this.view === 'first' && (mx || mz)) {
+      const c = Math.cos(this.camYaw);
+      const sn = Math.sin(this.camYaw);
+      [mx, mz] = [mx * c - mz * sn, mx * sn + mz * c];
+    }
     if (me.alive) {
       const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1) * (me.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       me.vx = mx * sp;
@@ -1226,7 +1258,7 @@ export class ActionMode {
       // FIRE held: at the nearest enemy, or wherever your thumb slides off the button to aim
       const a = this.aimStick;
       const dragged = a && Math.hypot(a.x - a.x0, a.y - a.y0) > 30;
-      if (a) me.aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) : this.autoAim();
+      if (a) me.aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) + (this.view === 'first' ? this.camYaw : 0) : this.autoAim();
       if (this.mouseFire) me.aim = this.mouseAngle();
       if (this.keyFire) me.aim = this.autoAim();
       me.firing = !!a || this.mouseFire || this.keyFire || me.burst > 0;
@@ -1786,18 +1818,7 @@ export class ActionMode {
       for (const m of this.stormMesh) m.visible = s < this.W / 2 - 0.01;
     }
     this.drawAimGuide();
-    // the camera follows you from above and behind
-    // (in a Gauntlet room it stops short of the edges, so the room fills the screen)
-    const room = this.kind === 'gauntlet';
-    const view = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * 18;
-    const fx = room ? THREE.MathUtils.clamp(me ? me.x : 0, -Math.max(0, this.W / 2 - view + 0.3), Math.max(0, this.W / 2 - view + 0.3)) : me ? me.x : 0;
-    const fz = room ? THREE.MathUtils.clamp(me ? me.z : 0, -this.H / 2 + 6, this.H / 2 - 6.5) : me ? me.z : 0;
-    this.shake = Math.max(0, this.shake - dt);
-    const j = this.shake * 0.4;
-    const tall = this.camera.aspect < 1;
-    const h = this.kind === 'ffa' ? (tall ? 13.5 : 11) : tall ? 17 : 12;
-    this.camera.position.set(fx + (Math.random() - 0.5) * j, h, fz + h * 0.55 + (Math.random() - 0.5) * j);
-    this.camera.lookAt(fx, 0, fz - (tall ? 0.5 : 0));
+    this.placeCamera(dt);
     celify(this.scene, true);
     this.ink.render();
     this.placeBars();
@@ -1833,7 +1854,7 @@ export class ActionMode {
     const h = this.canvas.clientHeight;
     for (const u of this.units) {
       if (!u.alive) continue;
-      this.v.set(u.x, u.boss ? 2.4 : 1.75, u.z).project(this.camera);
+      this.v.set(u.x, (u.boss ? 2.4 : 1.75) - (this.view === 'first' ? 0.35 : 0), u.z).project(this.camera);
       u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (u.bar.querySelector('b') as HTMLElement).style.width = `${(u.hp / u.max) * 100}%`;
       u.bar.querySelector('i')!.setAttribute('data-hp', String(Math.max(0, Math.round(u.hp))));
@@ -1899,6 +1920,77 @@ export class ActionMode {
     el.classList.add('show');
     clearTimeout(this.calloutTimer);
     this.calloutTimer = window.setTimeout(() => el.classList.remove('show'), 1600);
+  }
+
+  private get view(): ActionView {
+    return this.opts.camera?.() ?? this.localView;
+  }
+  private cycleView() {
+    const next = VIEWS[(VIEWS.indexOf(this.view) + 1) % VIEWS.length];
+    if (this.opts.setCamera) this.opts.setCamera(next);
+    else this.localView = next;
+    this.camSnap = true;
+    this.showView();
+  }
+  private showView() {
+    (this.el.querySelector('.ac-view') as HTMLElement).textContent = VIEW_LABEL[this.view];
+  }
+
+  /** the camera follows you: from above and behind (far is near overhead), or low behind you in the cockpit view */
+  private placeCamera(dt: number) {
+    const me = this.me;
+    const view = this.view;
+    const tall = this.camera.aspect < 1;
+    const mx = me ? me.x : 0;
+    const mz = me ? me.z : 0;
+    this.shake = Math.max(0, this.shake - dt);
+    const j = this.shake * 0.4;
+    const pos = new THREE.Vector3();
+    const at = new THREE.Vector3();
+    // (the cockpit view starts looking into the stage: up the room, or toward the middle)
+    if (this.camSnap && me) this.camYaw = this.kind === 'ffa' && Math.hypot(me.x, me.z) > 1 ? Math.atan2(-me.x, me.z) : 0;
+    // it sees the horizon: a sky, and a haze over the far side
+    const sky = view === 'first';
+    if (sky !== !!this.scene.fog) {
+      this.skyDome.visible = sky;
+      this.scene.fog = sky ? new THREE.Fog(0x9fd6f2, 16, 42) : null;
+    }
+    if (view === 'first') {
+      const back = tall ? 5.2 : 4.6;
+      const fx = Math.sin(this.camYaw);
+      const fz = -Math.cos(this.camYaw);
+      pos.set(mx - fx * back, tall ? 3.4 : 3, mz - fz * back);
+      at.set(mx + fx * 5, 0.4, mz + fz * 5);
+    } else {
+      // (in a Gauntlet room the overhead views stop short of the edges, so the room fills the screen)
+      const h = { far: tall ? 26 : 19, mid: this.kind === 'ffa' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view];
+      const back = { far: 0.22, mid: 0.55, near: 0.85 }[view];
+      const room = this.kind === 'gauntlet' && view !== 'near';
+      const half = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * h * 1.5;
+      const fx = room ? THREE.MathUtils.clamp(mx, -Math.max(0, this.W / 2 - half + 0.3), Math.max(0, this.W / 2 - half + 0.3)) : mx;
+      const fz = room ? THREE.MathUtils.clamp(mz, -this.H / 2 + 6, this.H / 2 - 6.5) : mz;
+      pos.set(fx, h, fz + h * back);
+      at.set(fx, 0, fz - (tall ? 0.5 : 0));
+    }
+    if (this.camSnap) {
+      this.camPos.copy(pos);
+      this.camAt.copy(at);
+      this.camSnap = false;
+    } else {
+      const k = 1 - Math.exp(-dt * 9);
+      this.camPos.lerp(pos, k);
+      this.camAt.lerp(at, k);
+    }
+    this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * j, this.camPos.y, this.camPos.z + (Math.random() - 0.5) * j);
+    this.camera.lookAt(this.camAt);
+    // (the cockpit view's picture is lifted, so you stand above the thumb tray rather than behind it)
+    const lift = view === 'first' ? Math.round(this.camera.aspect < 1 ? 0.17 * this.vh : 0.08 * this.vh) : 0;
+    if (lift !== this.lift) {
+      this.lift = lift;
+      if (lift) this.camera.setViewOffset(this.vw, this.vh, 0, lift, this.vw, this.vh);
+      else this.camera.clearViewOffset();
+    }
+    this.skyDome.position.copy(this.camera.position);
   }
 
   private best(): { ffa: number; gauntlet: number } {
@@ -2026,6 +2118,11 @@ export class ActionMode {
     const h = this.el.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    this.vw = w;
+    this.vh = h;
+    // (the lift is worked out again for the new size)
+    this.lift = 0;
+    this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   };
 
@@ -2083,7 +2180,7 @@ export class ActionMode {
     // a mouse: hold to fire at the cursor (right click or shift: the special)
     if (e.pointerType === 'mouse') {
       this.mouseAt = { x: e.clientX, y: e.clientY };
-      if (e.button === 2 || e.shiftKey) this.special(this.me, this.mouseAngle());
+      if (e.button === 2) this.special(this.me, this.mouseAngle());
       else this.mouseFire = true;
       return;
     }
@@ -2132,7 +2229,8 @@ export class ActionMode {
     this.keys.add(e.code);
     if (this.over || this.paused || !this.me?.alive) return;
     if (e.code === 'Space') this.keyFire = true;
-    if (e.code === 'KeyE' || e.code === 'KeyQ') this.special(this.me, this.autoAim());
+    if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) this.special(this.me, this.autoAim());
+    if (e.code === 'KeyV') this.cycleView();
     if (e.code === 'Escape') this.exit();
   };
   private keyup = (e: KeyboardEvent) => {
