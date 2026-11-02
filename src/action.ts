@@ -217,6 +217,9 @@ interface Unit {
   back: number;
   /** an item picked up from a crate: its next shot is a Dragon Shot or a Steel Ball */
   item: 'dragon' | 'steel' | null;
+  /** health mended since the last +HP pop, and time to the next one */
+  healed: number;
+  healT: number;
 }
 interface Fort {
   team: number;
@@ -303,7 +306,9 @@ interface Wreck {
   debris: { mesh: THREE.Mesh; v: THREE.Vector3; spin: THREE.Vector3; smoke: number }[];
 }
 /** a spark or a puff of smoke */
-type Spark = { mesh: THREE.Mesh; v: THREE.Vector3; life: number; max: number; float: boolean };
+type Spark = { mesh: THREE.Mesh; v: THREE.Vector3; life: number; max: number; float: boolean; trail?: boolean };
+/** a one-off effect in the world (a shockwave ring, a pillar of light): k runs 0 to 1 over its life */
+type Fx = { mesh: THREE.Mesh; t: number; life: number; step: (k: number, m: THREE.Mesh) => void };
 
 export class ActionMode {
   private el: HTMLElement;
@@ -340,6 +345,11 @@ export class ActionMode {
   private sparks: Spark[] = [];
   private sparkGeo = new THREE.BoxGeometry(1, 1, 1);
   private sparkMats = new Map<number, THREE.MeshBasicMaterial>();
+  private fxs: Fx[] = [];
+  /** the ring on the floor under a fighter charging (gold) or mending (green) */
+  private auras = new Map<Unit, THREE.Mesh>();
+  /** the camera pushing in: for your special, and while you charge */
+  private punch = 0;
   /** seconds to the next item crate */
   private boxT = DROP.first;
   /** charging: a ball of light at the muzzle of whoever's charging (one each, made as needed) */
@@ -407,6 +417,8 @@ export class ActionMode {
     this.el.innerHTML = `
       <canvas></canvas>
       <div class="ac-flash"></div>
+      <div class="ac-vignette"></div>
+      <div class="ac-speed"></div>
       <div class="ac-bars"></div>
       <div class="ac-hud">
         <div class="ac-top">
@@ -442,7 +454,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['bars', 'title', 'score', 'callout', 'supername', 'flash', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -623,6 +635,10 @@ export class ActionMode {
     this.wrecks = [];
     for (const sp of this.sparks) sp.mesh.removeFromParent();
     this.sparks = [];
+    for (const f of this.fxs) f.mesh.removeFromParent();
+    this.fxs = [];
+    for (const a of this.auras.values()) a.removeFromParent();
+    this.auras.clear();
     for (const p of this.pops) p.el.remove();
     this.pops = [];
     this.world.traverse((o) => {
@@ -1209,6 +1225,8 @@ export class ActionMode {
       cycle: 0,
       back: 0,
       item: null,
+      healed: 0,
+      healT: 0,
     };
     this.units.push(u);
     return u;
@@ -1460,7 +1478,11 @@ export class ActionMode {
     u.pose.recoil = 1;
     u.reveal = 1.2;
     u.idle = 0;
-    if (u === this.me) this.shake = Math.max(this.shake, 0.08 + n * 0.03);
+    if (u === this.me) this.shake = Math.max(this.shake, 0.12 + n * 0.05);
+    // the blast: a burst at the muzzle and a ring along the ground, both as big as the charge
+    this.burst(this.mz.x, this.mz.y, this.mz.z, 0xffffff, 6 + n * 4, 2 + n * 0.8);
+    this.burst(this.mz.x, this.mz.y, this.mz.z, u.def.ball, 4 + n * 3, 2 + n * 0.6);
+    this.ringFx(u.x, u.z, 0xffd23e, 0.4, 1 + n * 0.45, 0.45);
     sfx.play('super', (0.7 + n * 0.1) * (u === this.me ? 1 : 0.5));
   }
 
@@ -1557,7 +1579,17 @@ export class ActionMode {
       this.slowT = 0.45;
       this.lockShow = 1.6;
       this.lockOn = tgt;
+      this.punch = 1;
+      const sl = this.hud.speed;
+      sl.classList.remove('show');
+      void sl.offsetWidth;
+      sl.classList.add('show');
     }
+    // a pillar of light and a shockwave round whoever fires one (red on the other side: you see it coming)
+    const col = u.team === (this.me?.team ?? 0) ? 0xffd23e : 0xff5a4a;
+    this.pillarFx(u.x, u.z, col, u === this.me ? 1 : 0.7);
+    this.ringFx(u.x, u.z, col, 0.3, u === this.me ? 4.5 : 3, 0.6);
+    this.burst(u.x, 0.6, u.z, col, u === this.me ? 30 : 14, 5);
     sfx.play('super');
     const name = MOVE_NAMES[baseOf(u.def)] ?? 'SPECIAL';
     if (u === this.me) this.superCallout(name);
@@ -1864,6 +1896,9 @@ export class ActionMode {
             u.ammo -= 1;
             u.stored++;
             u.idle = 0;
+            // (each marble stored sends a ring out round its feet)
+            this.ringFx(u.x, u.z, 0xffd23e, 0.3, 0.8 + u.stored * 0.18, 0.4);
+            if (human) this.shake = Math.max(this.shake, 0.04 + u.stored * 0.015);
             sfx.play('tick', (0.6 + u.stored * 0.12) * (human ? 1 : 0.4));
           }
           if (!human && u.stored > 0 && (u.stored >= u.chargeWant || u.ammo < 1)) letGo = true;
@@ -1899,7 +1934,11 @@ export class ActionMode {
     const still = Math.hypot(u.vx, u.vz) < 0.3 && !u.firing;
     u.still = still ? u.still + dt : 0;
     const mending = u.still > 0.6 && u.calm > 2 && u.hp < u.max;
-    if (mending) u.hp = Math.min(u.max, u.hp + u.max * MEND * dt);
+    if (mending) {
+      const before = u.hp;
+      u.hp = Math.min(u.max, u.hp + u.max * MEND * dt);
+      u.healed += u.hp - before;
+    }
     u.bar.classList.toggle('mend', mending);
     for (const q of u.queue) q.t -= dt;
     while (u.queue.length && u.queue[0].t <= 0) {
@@ -1919,6 +1958,11 @@ export class ActionMode {
   /** a special's ball lands on someone: its damage, and its quirk */
   private ballHits(s: Shot, u: Unit) {
     this.hurt(u, s.dmg, s.owner, true);
+    // (a special landing: a burst and a ring, and the screen jolts if it's near you)
+    this.burst(u.x, 0.6, u.z, 0xffffff, 14, 5);
+    this.burst(u.x, 0.6, u.z, s.color.getHex(), 12, 4);
+    this.ringFx(u.x, u.z, s.color.getHex(), 0.2, 1.8, 0.4);
+    if (this.me && Math.hypot(u.x - this.me.x, u.z - this.me.z) < 8) this.shake = Math.max(this.shake, 0.25);
     if (s.effect === 'drain' && s.owner.alive) s.owner.hp = Math.min(s.owner.max, s.owner.hp + s.dmg * 0.75);
     if (s.effect === 'frost') u.slowT = 3;
     if (s.effect === 'quake') {
@@ -2135,7 +2179,7 @@ export class ActionMode {
     }
   }
   /** a burst of sparks (or smoke) at a spot */
-  private burst(x: number, y: number, z: number, color: number, n: number, speed: number, o: { float?: boolean; size?: number } = {}) {
+  private burst(x: number, y: number, z: number, color: number, n: number, speed: number, o: { float?: boolean; size?: number; trail?: boolean } = {}) {
     let mat = this.sparkMats.get(color);
     if (!mat) this.sparkMats.set(color, (mat = new THREE.MeshBasicMaterial({ color })));
     for (let k = 0; k < n && this.sparks.length < 260; k++) {
@@ -2146,10 +2190,112 @@ export class ActionMode {
       const a = Math.random() * Math.PI * 2;
       const up = o.float ? 0.6 : 1 + Math.random() * 2.5;
       const sp = speed * (0.3 + Math.random() * 0.7);
-      const life = o.float ? 1 + Math.random() * 0.6 : 0.35 + Math.random() * 0.45;
-      this.sparks.push({ mesh, v: new THREE.Vector3(Math.cos(a) * sp, up * (o.float ? 1 : speed * 0.4), Math.sin(a) * sp), life, max: life, float: !!o.float });
+      const life = o.trail ? 0.3 : o.float ? 1 + Math.random() * 0.6 : 0.35 + Math.random() * 0.45;
+      this.sparks.push({ mesh, v: new THREE.Vector3(Math.cos(a) * sp, up * (o.float ? 1 : speed * 0.4), Math.sin(a) * sp), life, max: life, float: !!o.float, trail: o.trail });
     }
   }
+  /** a spark that flies in to a point (charging energy gathering at the muzzle) */
+  private swirl(x: number, y: number, z: number, color: number) {
+    if (this.sparks.length >= 260) return;
+    let mat = this.sparkMats.get(color);
+    if (!mat) this.sparkMats.set(color, (mat = new THREE.MeshBasicMaterial({ color })));
+    const mesh = new THREE.Mesh(this.sparkGeo, mat);
+    const a = Math.random() * Math.PI * 2;
+    const e = (Math.random() - 0.3) * 1.2;
+    const r = 0.45 + Math.random() * 0.45;
+    mesh.position.set(x + Math.cos(a) * r, y + e * r, z + Math.sin(a) * r);
+    mesh.scale.setScalar(0.035 + Math.random() * 0.03);
+    this.scene.add(mesh);
+    const life = 0.22;
+    const v = new THREE.Vector3(x, y, z).sub(mesh.position).divideScalar(life);
+    this.sparks.push({ mesh, v, life, max: life, float: true, trail: true });
+  }
+  /** a ring that spreads across the floor and fades (a shockwave) */
+  private ringFx(x: number, z: number, color: number, from: number, to: number, life: number) {
+    const mesh = new THREE.Mesh(this.ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false }));
+    mesh.position.set(x, 0.06, z);
+    mesh.renderOrder = 4;
+    this.scene.add(mesh);
+    this.fxs.push({ mesh, t: 0, life, step: (k, m) => {
+      m.scale.setScalar(from + (to - from) * (1 - (1 - k) ** 2));
+      (m.material as THREE.MeshBasicMaterial).opacity = 1 - k;
+    } });
+  }
+  /** a pillar of light rising from the floor */
+  private pillarFx(x: number, z: number, color: number, size: number) {
+    const mesh = new THREE.Mesh(this.pillarGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    mesh.position.set(x, 0, z);
+    this.scene.add(mesh);
+    this.fxs.push({ mesh, t: 0, life: 0.8, step: (k, m) => {
+      m.scale.set(size * (0.6 + k * 0.6) * (1 - k * 0.6), size * Math.min(1, k * 4) * 1.4, size * (0.6 + k * 0.6) * (1 - k * 0.6));
+      (m.material as THREE.MeshBasicMaterial).opacity = 0.65 * (1 - k);
+    } });
+  }
+  private ringGeo = new THREE.RingGeometry(0.86, 1, 48).rotateX(-Math.PI / 2);
+  private pillarGeo = new THREE.CylinderGeometry(0.55, 0.75, 6, 24, 1, true).translate(0, 3, 0);
+  private drawFx(dt: number) {
+    for (let n = this.fxs.length - 1; n >= 0; n--) {
+      const f = this.fxs[n];
+      f.t += dt;
+      const k = Math.min(1, f.t / f.life);
+      f.step(k, f.mesh);
+      if (k >= 1) {
+        f.mesh.removeFromParent();
+        (f.mesh.material as THREE.Material).dispose();
+        this.fxs.splice(n, 1);
+      }
+    }
+  }
+  /**
+   * charging and mending show round the fighter: a ring on the floor under it (gold while it
+   * charges, green while it mends), energy gathering at its muzzle, green sparkles rising and
+   * your +HP; and while you charge, the screen's edges glow and the camera leans in
+   */
+  private drawAuras(dt: number) {
+    const me = this.me;
+    for (const u of this.units) {
+      const charging = u.alive && u.wrap.visible && u.chargeHold >= CHARGE.hold;
+      const mending = u.alive && u.wrap.visible && u.bar.classList.contains('mend');
+      let ring = this.auras.get(u);
+      if (!charging && !mending) {
+        if (ring) ring.visible = false;
+        if (!mending) u.healT = 0;
+        continue;
+      }
+      if (!ring) {
+        ring = new THREE.Mesh(this.ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+        ring.renderOrder = 4;
+        this.scene.add(ring);
+        this.auras.set(u, ring);
+      }
+      ring.visible = true;
+      const mat = ring.material as THREE.MeshBasicMaterial;
+      if (charging) {
+        mat.color.setHex(0xffd23e);
+        const lvl = u.stored / CHARGE.max;
+        ring.scale.setScalar((0.55 + lvl * 0.35) * (1 + Math.sin(this.time * (10 + u.stored * 3)) * 0.08));
+        mat.opacity = 0.5 + lvl * 0.45;
+        // energy gathering at the muzzle (where the orb is)
+        const orb = this.orbs.get(u);
+        if (orb?.visible) for (let k = 0; k < 1 + u.stored; k++) if (Math.random() < 0.6) this.swirl(orb.position.x, orb.position.y, orb.position.z, Math.random() < 0.5 ? 0xffffff : 0xffd23e);
+      } else {
+        mat.color.setHex(0x5aff9a);
+        ring.scale.setScalar(0.6 + ((this.time * 1.4) % 1) * 0.3);
+        mat.opacity = 0.7 * (1 - ((this.time * 1.4) % 1));
+        if (Math.random() < dt * 9) this.burst(u.x + (Math.random() - 0.5) * 0.6, 0.15, u.z + (Math.random() - 0.5) * 0.6, Math.random() < 0.5 ? 0x5aff9a : 0xd8ffe8, 1, 0.1, { float: true, size: 0.045 });
+        if (u === me && (u.healT -= dt) <= 0) {
+          u.healT = 0.7;
+          if (u.healed >= 1) this.pop(u.x, u.z, `+${Math.round(u.healed)}`, 'good');
+          u.healed = 0;
+        }
+      }
+      ring.position.set(u.x, 0.05, u.z);
+    }
+    // your charge: the screen's edges glow gold, stronger with each marble
+    const lvl = me && me.alive && me.chargeHold >= CHARGE.hold ? 0.25 + (me.stored / CHARGE.max) * 0.75 : 0;
+    this.hud.vignette.style.opacity = lvl.toFixed(2);
+  }
+
   private drawSparks(dt: number) {
     for (let k = this.sparks.length - 1; k >= 0; k--) {
       const sp = this.sparks[k];
@@ -2159,12 +2305,12 @@ export class ActionMode {
         this.sparks.splice(k, 1);
         continue;
       }
-      if (!sp.float) sp.v.y -= 14 * dt;
+      if (!sp.float && !sp.trail) sp.v.y -= 14 * dt;
       sp.mesh.position.addScaledVector(sp.v, dt);
       if (sp.mesh.position.y < 0.03) sp.mesh.position.y = 0.03;
       // (smoke swells as it fades; sparks shrink)
       const f = sp.life / sp.max;
-      sp.mesh.scale.setScalar(sp.float ? sp.mesh.scale.x * (1 + dt * 0.35) : sp.mesh.scale.x * (0.96 + 0.04 * f));
+      sp.mesh.scale.setScalar(sp.trail ? sp.mesh.scale.x * (1 - dt * 3) : sp.float ? sp.mesh.scale.x * (1 + dt * 0.35) : sp.mesh.scale.x * (0.96 + 0.04 * f));
     }
   }
 
@@ -2716,6 +2862,8 @@ export class ActionMode {
     let h = 0;
     for (const s of this.shots) {
       if (!s.spirit || h >= 60) continue;
+      // (a trail of sparks behind it)
+      if (Math.random() < 0.7) this.burst(s.x, 0.55, s.z, s.color.getHex(), 1, 0.3, { trail: true, size: s.r * 0.5 });
       const y = s.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - s.left / s.dive))) * 3.2 : 0.55;
       this.dummy.position.set(s.x, y, s.z);
       this.dummy.scale.setScalar(s.r * (2.1 + Math.sin(this.time * 20 + h) * 0.2));
@@ -2756,6 +2904,8 @@ export class ActionMode {
     this.drawBoxes();
     this.drawCharge(dt);
     this.drawWrecks(dt);
+    this.drawAuras(dt);
+    this.drawFx(dt);
     this.drawSparks(dt);
     this.drawAimGuide();
     this.placeCamera(dt);
@@ -2969,7 +3119,12 @@ export class ActionMode {
       this.camPos.lerp(pos, k);
       this.camAt.lerp(at, k);
     }
-    this.camera.position.set(this.camPos.x + (Math.random() - 0.5) * j, this.camPos.y, this.camPos.z + (Math.random() - 0.5) * j);
+    // pushing in: a punch for your special (easing out), and a lean in while you charge
+    this.punch = Math.max(0, this.punch - dt * 1.6);
+    const charge = me && me.alive && me.chargeHold >= CHARGE.hold ? 0.06 + (me.stored / CHARGE.max) * 0.1 : 0;
+    const zoom = 1 - Math.max(charge, this.punch * 0.3);
+    const cp = this.camAt.clone().add(this.camPos.clone().sub(this.camAt).multiplyScalar(zoom));
+    this.camera.position.set(cp.x + (Math.random() - 0.5) * j, cp.y, cp.z + (Math.random() - 0.5) * j);
     this.camera.lookAt(this.camAt);
     // (the cockpit view's picture is lifted, so you stand above the thumb tray rather than behind it)
     const lift = view === 'first' ? Math.round(this.camera.aspect < 1 ? 0.17 * this.vh : 0.08 * this.vh) : 0;

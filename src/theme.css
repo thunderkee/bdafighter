@@ -6011,3 +6011,31 @@ body.cine-on #pad {
   opacity: 0.75;
   text-transform: none;
 }
+
+/* your charge: the screen's edges glow gold, stronger with each marble stored */
+#action .ac-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(255, 200, 60, 0.28) 78%, rgba(255, 150, 20, 0.6) 100%);
+  transition: opacity 0.1s;
+}
+/* your special: speed lines rushing out from the middle */
+#action .ac-speed {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  opacity: 0;
+  background: repeating-conic-gradient(from 0deg at 50% 52%, rgba(255, 255, 255, 0.55) 0deg 1.4deg, transparent 1.4deg 9deg);
+  -webkit-mask: radial-gradient(circle at 50% 52%, transparent 22%, #000 62%);
+  mask: radial-gradient(circle at 50% 52%, transparent 22%, #000 62%);
+}
+#action .ac-speed.show {
+  animation: ac-speed 0.9s ease-out both;
+}
+@keyframes ac-speed {
+  0% { opacity: 0; transform: scale(1.25) rotate(0deg); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1) rotate(6deg); }
+}
