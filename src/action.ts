@@ -293,6 +293,17 @@ const CRATE_ITEMS: [DropKind, number][] = [
   ['special', 0.2],
 ];
 type Pop = { el: HTMLElement; x: number; z: number; t: number };
+/** a knocked-out fighter blowing apart, as in the other modes: three pops, then it shatters into tumbling, smoking pieces */
+interface Wreck {
+  u: Unit;
+  mesh: ShooterMesh;
+  t: number;
+  pops: number;
+  shattered: boolean;
+  debris: { mesh: THREE.Mesh; v: THREE.Vector3; spin: THREE.Vector3; smoke: number }[];
+}
+/** a spark or a puff of smoke */
+type Spark = { mesh: THREE.Mesh; v: THREE.Vector3; life: number; max: number; float: boolean };
 
 export class ActionMode {
   private el: HTMLElement;
@@ -325,6 +336,10 @@ export class ActionMode {
   private shots: Shot[] = [];
   private drops: Drop[] = [];
   private boxes: ItemBox[] = [];
+  private wrecks: Wreck[] = [];
+  private sparks: Spark[] = [];
+  private sparkGeo = new THREE.BoxGeometry(1, 1, 1);
+  private sparkMats = new Map<number, THREE.MeshBasicMaterial>();
   /** seconds to the next item crate */
   private boxT = DROP.first;
   /** charging: a ball of light at the muzzle of whoever's charging (one each, made as needed) */
@@ -599,6 +614,10 @@ export class ActionMode {
     this.boxT = DROP.first;
     for (const o of this.orbs.values()) o.removeFromParent();
     this.orbs.clear();
+    for (const w of this.wrecks) this.dropWreck(w);
+    this.wrecks = [];
+    for (const sp of this.sparks) sp.mesh.removeFromParent();
+    this.sparks = [];
     for (const p of this.pops) p.el.remove();
     this.pops = [];
     this.world.traverse((o) => {
@@ -1619,10 +1638,12 @@ export class ActionMode {
   private ko(u: Unit, from: Unit | null) {
     u.alive = false;
     u.hp = 0;
-    u.wrap.visible = false;
     u.shadow.visible = false;
     u.bar.classList.add('gone');
-    sfx.play('explode', u.boss ? 1 : 0.6);
+    u.firing = false;
+    u.stored = u.chargeHold = 0;
+    // (it stays standing through the pops, then blows apart)
+    this.wrecks.push({ u, mesh: u.mesh, t: 0, pops: 0, shattered: false, debris: [] });
     if (from === this.me) this.kos++;
     if (this.kind === 'siege') {
       u.back = RESPAWN;
@@ -1636,7 +1657,7 @@ export class ActionMode {
     } else if (u.cpu && Math.random() < 0.35) this.drop(u.x, u.z, 'heal');
     if (u === this.me) {
       const place = this.units.filter((x) => x.alive).length + 1;
-      setTimeout(() => this.finish(false, place), 900);
+      setTimeout(() => this.finish(false, place), 1700);
     }
     this.updateHud();
   }
@@ -1787,6 +1808,13 @@ export class ActionMode {
     u.slowT = u.stunT = 0;
     u.queue = [];
     u.face = u.team === 0 ? 0 : Math.PI;
+    // (the last one was blown apart: a fresh body)
+    if (u.mesh.broken) {
+      const mesh = new ShooterMesh(u.def.id, u.def.ball, u.def);
+      mesh.size = u.boss ? 0.78 : 0.55;
+      u.wrap.add(mesh.root);
+      u.mesh = mesh;
+    }
     u.wrap.visible = u.shadow.visible = true;
     u.bar.classList.remove('gone');
     u.target = null;
@@ -2101,6 +2129,119 @@ export class ActionMode {
       b.root.visible = b.life > 2 || Math.sin(this.time * 20) > 0;
     }
   }
+  /** a burst of sparks (or smoke) at a spot */
+  private burst(x: number, y: number, z: number, color: number, n: number, speed: number, o: { float?: boolean; size?: number } = {}) {
+    let mat = this.sparkMats.get(color);
+    if (!mat) this.sparkMats.set(color, (mat = new THREE.MeshBasicMaterial({ color })));
+    for (let k = 0; k < n && this.sparks.length < 260; k++) {
+      const mesh = new THREE.Mesh(this.sparkGeo, mat);
+      mesh.position.set(x, y, z);
+      mesh.scale.setScalar(o.size ?? 0.05 + Math.random() * 0.07);
+      this.scene.add(mesh);
+      const a = Math.random() * Math.PI * 2;
+      const up = o.float ? 0.6 : 1 + Math.random() * 2.5;
+      const sp = speed * (0.3 + Math.random() * 0.7);
+      const life = o.float ? 1 + Math.random() * 0.6 : 0.35 + Math.random() * 0.45;
+      this.sparks.push({ mesh, v: new THREE.Vector3(Math.cos(a) * sp, up * (o.float ? 1 : speed * 0.4), Math.sin(a) * sp), life, max: life, float: !!o.float });
+    }
+  }
+  private drawSparks(dt: number) {
+    for (let k = this.sparks.length - 1; k >= 0; k--) {
+      const sp = this.sparks[k];
+      sp.life -= dt;
+      if (sp.life <= 0) {
+        sp.mesh.removeFromParent();
+        this.sparks.splice(k, 1);
+        continue;
+      }
+      if (!sp.float) sp.v.y -= 14 * dt;
+      sp.mesh.position.addScaledVector(sp.v, dt);
+      if (sp.mesh.position.y < 0.03) sp.mesh.position.y = 0.03;
+      // (smoke swells as it fades; sparks shrink)
+      const f = sp.life / sp.max;
+      sp.mesh.scale.setScalar(sp.float ? sp.mesh.scale.x * (1 + dt * 0.35) : sp.mesh.scale.x * (0.96 + 0.04 * f));
+    }
+  }
+
+  /** the knockout, as in the other modes: three pops round the body, then it blows apart */
+  private drawWrecks(dt: number) {
+    for (let n = this.wrecks.length - 1; n >= 0; n--) {
+      const w = this.wrecks[n];
+      const u = w.u;
+      w.t += dt;
+      const color = TEAM_COLOR[u.team === (this.me?.team ?? 0) ? 0 : 1];
+      const near = !this.me || Math.hypot(u.x - this.me.x, u.z - this.me.z) < 9;
+      const big = u.boss ? 1.5 : 1;
+      const popAt = [0.05, 0.25, 0.45];
+      while (w.pops < popAt.length && w.t >= popAt[w.pops]) {
+        if (near) sfx.play('pop', 0.6 + w.pops * 0.1);
+        const ox = (Math.random() - 0.5) * 0.6;
+        const oz = (Math.random() - 0.5) * 0.6;
+        this.burst(u.x + ox, 0.4 + Math.random() * 0.5, u.z + oz, 0xffd27a, 12, 3 * big);
+        this.burst(u.x + ox, 0.6, u.z + oz, color, 6, 2.5 * big);
+        if (u === this.me) this.shake = Math.max(this.shake, 0.2);
+        w.pops++;
+      }
+      // (shaking as it goes)
+      if (!w.shattered) {
+        u.wrap.position.set(u.x + (Math.random() - 0.5) * 0.05 * w.t, 0, u.z + (Math.random() - 0.5) * 0.05 * w.t);
+        if (w.t >= 0.6) {
+          w.shattered = true;
+          if (near) {
+            sfx.play('explode', u.boss ? 1 : 0.75);
+            setTimeout(() => sfx.play('clatter', 0.6), 500);
+          }
+          const centre = new THREE.Vector3(u.x, 0.5, u.z);
+          for (const mesh of w.mesh.shatter(this.scene)) {
+            const out = mesh.getWorldPosition(new THREE.Vector3()).sub(centre);
+            out.y = Math.max(0.2, out.y);
+            out.normalize();
+            const v = out.multiplyScalar((1.2 + Math.random() * 2.6) * big);
+            v.y += 1.6 + Math.random() * 2.6;
+            const spin = new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+            // (some of the pieces smoke)
+            w.debris.push({ mesh, v, spin, smoke: Math.random() < 0.35 ? Math.random() * 0.3 : 99 });
+          }
+          u.wrap.visible = false;
+          this.burst(u.x, 0.5, u.z, 0xffffff, 22, 6 * big);
+          this.burst(u.x, 0.5, u.z, 0xff8a2a, 26, 5 * big);
+          this.burst(u.x, 0.6, u.z, color, 14, 4.5 * big);
+          if (near) this.shake = Math.max(this.shake, u === this.me || u.boss ? 0.7 : 0.35);
+        }
+      }
+      // tumbling pieces with gravity, floor bounces and smoke; after a while they sink away
+      for (const d of w.debris) {
+        d.v.y -= 16 * dt;
+        d.mesh.position.addScaledVector(d.v, dt);
+        d.mesh.rotation.x += d.spin.x * dt;
+        d.mesh.rotation.y += d.spin.y * dt;
+        d.mesh.rotation.z += d.spin.z * dt;
+        const floor = w.t > 3.4 ? 0.04 - (w.t - 3.4) * 0.4 : 0.04;
+        if (d.mesh.position.y < floor) {
+          d.mesh.position.y = floor;
+          d.v.y *= w.t > 3.4 ? 0 : -0.32;
+          d.v.x *= 0.7;
+          d.v.z *= 0.7;
+          d.spin.multiplyScalar(0.6);
+        }
+        d.smoke -= dt;
+        if (d.smoke <= 0 && w.t < 2.2) {
+          d.smoke = 0.4 + Math.random() * 0.5;
+          const wp = d.mesh.position;
+          this.burst(wp.x, wp.y, wp.z, Math.random() < 0.3 ? 0xff8a2a : 0x8a8a94, 1, 0.2, { float: true, size: 0.04 });
+        }
+      }
+      if (w.t > 4.2) {
+        this.dropWreck(w);
+        this.wrecks.splice(n, 1);
+      }
+    }
+  }
+  private dropWreck(w: Wreck) {
+    for (const d of w.debris) d.mesh.removeFromParent();
+    if (w.mesh !== w.u.mesh || !this.units.includes(w.u)) w.mesh.dispose();
+  }
+
   /** the nearest item crate this fighter has a clear shot at */
   private nearBox(u: Unit, range: number) {
     let best: ItemBox | null = null;
@@ -2609,6 +2750,8 @@ export class ActionMode {
     this.drawLock(dt);
     this.drawBoxes();
     this.drawCharge(dt);
+    this.drawWrecks(dt);
+    this.drawSparks(dt);
     this.drawAimGuide();
     this.placeCamera(dt);
     celify(this.scene, true);
