@@ -10,6 +10,7 @@ import { skinned } from './cosmetics';
 import { kitOf } from './kits';
 import { DROP, DRAGON, ITEMS, MISSILE } from './items';
 import { stageById } from './stage';
+import { decorate } from './scenery';
 
 /**
  * Action: walk the whole stage freely and take the other fighters down, seen from above.
@@ -1148,6 +1149,15 @@ export class ActionMode {
           this.gateMeshes.push(bars);
         }
       }
+    // round the outside: props after the theme (trees, palms, buildings...)
+    const edges: { x: number; z: number; side: number }[] = [];
+    for (let j = 0; j < H; j++)
+      for (let i = 0; i < W; i++) {
+        if (this.grid[this.idx(i, j)] !== WALL) continue;
+        const side = i === 0 ? 0 : i === W - 1 ? 1 : j === 0 ? 2 : j === H - 1 ? 3 : -1;
+        if (side >= 0) edges.push({ ...this.center(i, j), side });
+      }
+    decorate(this.world, th.id, W, H, edges);
     for (const f of this.pendingForts) this.makeFort(f.team, f.z, f.tiles);
     this.pendingForts = [];
     if (this.kind === 'ffa') {
