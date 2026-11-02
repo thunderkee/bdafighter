@@ -243,11 +243,13 @@ export class ActionMode {
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
         <p class="ac-callout"></p>
-        <p class="ac-hint">LEFT THUMB WALKS · RIGHT THUMB AIMS AND FIRES · TAP TO AUTO-FIRE · STAND STILL TO MEND</p>
+        <p class="ac-hint">LEFT THUMB WALKS · HOLD FIRE TO SHOOT (SLIDE OFF IT TO AIM) · STAND STILL TO MEND</p>
       </div>
       <div class="ac-stick ac-move hidden"><i></i></div>
-      <div class="ac-stick ac-aim hidden"><i></i></div>
-      <button class="ac-super" aria-label="Special"><b>SPECIAL</b><i></i></button>
+      <div class="ac-pad">
+        <button class="ac-special" aria-label="Special move">SPECIAL</button>
+        <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
+      </div>
       <div class="ac-panel">
         <h2>Action</h2>
         <p class="ac-unit"></p>
@@ -258,7 +260,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['bars', 'title', 'score', 'callout', 'hint', 'panel', 'super']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['bars', 'title', 'score', 'callout', 'hint', 'panel', 'special', 'fire']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -286,7 +288,8 @@ export class ActionMode {
     this.el.querySelector('.ac-quit')!.addEventListener('click', () => this.exit());
     this.canvas.addEventListener('pointerdown', this.down);
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    this.hud.super.addEventListener('pointerdown', this.superDown);
+    this.hud.special.addEventListener('pointerdown', this.specialDown);
+    this.hud.fire.addEventListener('pointerdown', this.fireDown);
     window.addEventListener('pointermove', this.pmove);
     window.addEventListener('pointerup', this.up);
     window.addEventListener('pointercancel', this.up);
@@ -741,7 +744,7 @@ export class ActionMode {
       this.me.refill *= 1 + 0.2 * (this.ups.rapid ?? 0);
     }
     this.el.querySelector('.ac-unit')!.textContent = def.name;
-    this.hud.super.querySelector('b')!.textContent = MOVE_NAMES[baseOf(def)] ?? 'SPECIAL';
+    this.hud.special.textContent = MOVE_NAMES[baseOf(def)] ?? 'SPECIAL';
   }
 
   private pickFoes(n: number) {
@@ -1113,12 +1116,13 @@ export class ActionMode {
       me.vx = mx * sp;
       me.vz = mz * sp;
       // the trigger: held on the aim stick (once dragged), the mouse button, or Space
+      // FIRE held: at the nearest enemy, or wherever your thumb slides off the button to aim
       const a = this.aimStick;
-      const dragged = a && !a.big && Math.hypot(a.x - a.x0, a.y - a.y0) > 14;
-      if (dragged) me.aim = Math.atan2(a.x - a.x0, -(a.y - a.y0));
+      const dragged = a && Math.hypot(a.x - a.x0, a.y - a.y0) > 30;
+      if (a) me.aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) : this.autoAim();
       if (this.mouseFire) me.aim = this.mouseAngle();
       if (this.keyFire) me.aim = this.autoAim();
-      me.firing = !!dragged || this.mouseFire || this.keyFire || me.burst > 0;
+      me.firing = !!a || this.mouseFire || this.keyFire || me.burst > 0;
       this.walk(me, me.vx * dt, me.vz * dt);
       if ((mx || mz) && !me.firing && !this.aimStick) me.face = Math.atan2(mx, -mz);
     }
@@ -1651,7 +1655,7 @@ export class ActionMode {
     }
     const dx = a.x - a.x0;
     const dy = a.y - a.y0;
-    if (Math.hypot(dx, dy) < 14) {
+    if (Math.hypot(dx, dy) < 30) {
       this.aimGuide.visible = false;
       return;
     }
@@ -1717,8 +1721,9 @@ export class ActionMode {
     }
     this.hud.score.querySelector('b')!.textContent = String(this.kos);
     const c = this.me?.charge ?? 0;
-    this.hud.super.classList.toggle('ready', c >= 1);
-    (this.hud.super.querySelector('i') as HTMLElement).style.height = `${c * 100}%`;
+    // (the SPECIAL button fills from the bottom, then burns once it's ready, as in the main game)
+    this.hud.special.classList.toggle('ready', c >= 1);
+    this.hud.special.style.setProperty('--p', String(Math.round(c * 100)));
   }
 
   private calloutTimer = 0;
@@ -1781,7 +1786,7 @@ export class ActionMode {
     bestEl.textContent = '';
     if (kind === 'start') {
       h.textContent = 'Action';
-      text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks; right thumb aims and fires while you hold it (a tap auto-fires). Your marbles, magazine and special are your fighter’s own. Landing hits charges the special; standing still mends you.';
+      text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks; hold FIRE to shoot at the nearest fighter, or slide your thumb off it to aim. SPECIAL fires your fighter’s own move once it’s charged. Standing still mends you.';
       const mode = (k: ActionKind, title: string, sub: string) => {
         const c = document.createElement('button');
         c.className = 'ac-mode';
@@ -1876,7 +1881,7 @@ export class ActionMode {
     return me.face;
   }
 
-  private stickEl(which: 'move' | 'aim', s: { x0: number; y0: number; x: number; y: number } | null) {
+  private stickEl(which: 'move', s: { x0: number; y0: number; x: number; y: number } | null) {
     const el = this.el.querySelector(`.ac-${which}`) as HTMLElement;
     el.classList.toggle('hidden', !s);
     if (!s) return;
@@ -1917,20 +1922,19 @@ export class ActionMode {
     if (left && !this.moveStick) {
       this.moveStick = s;
       this.stickEl('move', s);
-    } else if (!left && !this.aimStick) {
-      this.aimStick = { ...s, t0: performance.now(), big: false };
-      this.stickEl('aim', s);
     }
   };
-  private superDown = (e: PointerEvent) => {
+  private fireDown = (e: PointerEvent) => {
     e.stopPropagation();
-    if (this.over || this.paused || !this.me?.alive || this.me.charge < 1) return;
-    if (e.pointerType === 'mouse') {
-      this.special(this.me, this.autoAim());
-      return;
-    }
-    this.aimStick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), big: true };
-    this.stickEl('aim', this.aimStick);
+    if (this.over || this.paused || !this.me?.alive || this.aimStick) return;
+    sfx.unlock();
+    this.aimStick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), big: false };
+    this.hud.fire.classList.add('held');
+  };
+  private specialDown = (e: PointerEvent) => {
+    e.stopPropagation();
+    if (this.over || this.paused || !this.me?.alive) return;
+    this.special(this.me, this.autoAim());
   };
   private pmove = (e: PointerEvent) => {
     if (e.pointerType === 'mouse') this.mouseAt = { x: e.clientX, y: e.clientY };
@@ -1941,7 +1945,6 @@ export class ActionMode {
       }
     }
     if (this.moveStick) this.stickEl('move', this.moveStick);
-    if (this.aimStick) this.stickEl('aim', this.aimStick);
   };
   private up = (e: PointerEvent) => {
     if (e.pointerType === 'mouse') this.mouseFire = false;
@@ -1949,20 +1952,9 @@ export class ActionMode {
       this.moveStick = null;
       this.stickEl('move', null);
     }
-    const a = this.aimStick;
-    if (a?.id === e.pointerId) {
+    if (this.aimStick?.id === e.pointerId) {
       this.aimStick = null;
-      this.stickEl('aim', null);
-      if (this.over || this.paused || !this.me?.alive) return;
-      const dx = a.x - a.x0;
-      const dy = a.y - a.y0;
-      const dragged = Math.hypot(dx, dy) > 14;
-      if (a.big) this.special(this.me, dragged ? Math.atan2(dx, -dy) : this.autoAim());
-      else if (!dragged) {
-        // a quick tap: a short burst at the nearest enemy
-        this.me.aim = this.autoAim();
-        this.me.burst = 0.4;
-      }
+      this.hud.fire.classList.remove('held');
     }
   };
   private keydown = (e: KeyboardEvent) => {
