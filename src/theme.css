@@ -6039,3 +6039,15 @@ body.cine-on #pad {
   15% { opacity: 1; }
   100% { opacity: 0; transform: scale(1) rotate(6deg); }
 }
+
+/* the fighter your charge is going for: its bar outlined red with a crosshair */
+#action .ac-bar.aimed span {
+  color: #ff8a7a;
+}
+#action .ac-bar.aimed span::before {
+  content: '⌖ ';
+}
+#action .ac-bar.aimed i {
+  border-color: #ff4a3a;
+  box-shadow: 0 0 0 1.5px #ff4a3a, 0 0 8px #ff4a3a;
+}

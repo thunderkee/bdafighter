@@ -376,6 +376,9 @@ export class ActionMode {
   /** the lock-on ring: on whoever your special will go for once it's charged, and on its target while it flies */
   private lockRing!: THREE.Group;
   private lockOn: Unit | null = null;
+  /** who your charged shot is going for (marked while you charge) */
+  private chargeTarget: Unit | null = null;
+  private aimRing!: THREE.Group;
   private lockShow = 0;
   /** the camera, eased toward where the view puts it */
   private camPos = new THREE.Vector3();
@@ -504,6 +507,32 @@ export class ActionMode {
     this.lockRing.traverse((o) => (o.renderOrder = 5));
     this.lockRing.visible = false;
     this.scene.add(this.lockRing);
+    // the charge target: a red crosshair on the floor, its corners closing in as the charge builds
+    this.aimRing = new THREE.Group();
+    const aimMat = new THREE.MeshBasicMaterial({ color: 0xff4a3a, transparent: true, opacity: 0.95, depthTest: false });
+    const aring = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.58, 40), aimMat);
+    aring.rotation.x = -Math.PI / 2;
+    this.aimRing.add(aring);
+    for (let k = 0; k < 4; k++) {
+      const corner = new THREE.Group();
+      const a = (k * Math.PI) / 2 + Math.PI / 4;
+      for (const [w, d, ox, oz] of [
+        [0.26, 0.07, 0.1, 0],
+        [0.07, 0.26, 0, 0.1],
+      ]) {
+        const bar = new THREE.Mesh(new THREE.PlaneGeometry(w, d), aimMat);
+        bar.rotation.x = -Math.PI / 2;
+        bar.position.set(ox, 0, oz);
+        corner.add(bar);
+      }
+      corner.rotation.y = -a + Math.PI / 4;
+      corner.position.set(Math.sin(a) * 0.85, 0, Math.cos(a) * 0.85);
+      corner.name = 'corner';
+      this.aimRing.add(corner);
+    }
+    this.aimRing.traverse((o) => (o.renderOrder = 6));
+    this.aimRing.visible = false;
+    this.scene.add(this.aimRing);
 
     this.el.querySelector('.ac-quit')!.addEventListener('click', () => this.exit());
     this.el.querySelector('.ac-view')!.addEventListener('pointerdown', (e) => {
@@ -1814,6 +1843,16 @@ export class ActionMode {
       if (this.mouseFire) me.aim = this.mouseAngle();
       if (this.keyFire) me.aim = this.autoAim();
       me.firing = !!a || this.mouseFire || this.keyFire || me.burst > 0;
+      // charging: turned to face the closest enemy (unless you're aiming by hand), and it's marked
+      this.chargeTarget = null;
+      if (me.chargeHold > 0.12 && !dragged && !this.mouseFire) {
+        const t = this.nearestEnemy().u;
+        if (t) {
+          me.aim = Math.atan2(t.x - me.x, -(t.z - me.z));
+          this.chargeTarget = t;
+        }
+      }
+      if (me.chargeHold > 0.12) me.face = me.aim;
       this.walk(me, me.vx * dt, me.vz * dt);
       if ((mx || mz) && !me.firing && !this.aimStick) me.face = Math.atan2(mx, -mz);
     }
@@ -2918,6 +2957,21 @@ export class ActionMode {
   /** the lock-on ring: on your special's target while it's ready, and while the special flies at it */
   private drawLock(dt: number) {
     const me = this.me;
+    // your charge's target: the corners close in as marbles are stored, and its bar goes red
+    const ct = me?.alive && me.chargeHold > 0.12 && this.chargeTarget?.alive ? this.chargeTarget : null;
+    this.aimRing.visible = !!ct;
+    for (const u of this.units) u.bar.classList.toggle('aimed', u === ct);
+    if (ct && me) {
+      const lvl = me.stored / CHARGE.max;
+      this.aimRing.position.set(ct.x, 0.07, ct.z);
+      this.aimRing.scale.setScalar((ct.boss ? 1.4 : 1) * (1 + Math.sin(this.time * 12) * 0.04));
+      this.aimRing.rotation.y -= dt * (1.5 + lvl * 4);
+      for (const c of this.aimRing.children) if (c.name === 'corner') {
+        const a = Math.atan2(c.position.x, c.position.z);
+        const r = 0.95 - lvl * 0.3;
+        c.position.set(Math.sin(a) * r, 0, Math.cos(a) * r);
+      }
+    }
     this.lockShow = Math.max(0, this.lockShow - dt);
     let t: Unit | null = null;
     if (this.lockShow > 0 && this.lockOn?.alive) t = this.lockOn;
@@ -3298,19 +3352,25 @@ export class ActionMode {
   };
 
   /** the nearest enemy you can see, for a tap or the keyboard */
-  private autoAim(): number {
+  /** the closest enemy you can see (one behind a wall counts as further away, so a clear shot wins), and how far */
+  private nearestEnemy(): { u: Unit | null; d: number } {
     const me = this.me!;
     let best: Unit | null = null;
     let bd = 12;
     for (const u of this.units) {
       if (!this.hostile(me, u) || !this.sees(me, u)) continue;
-      // (one behind a wall counts as further away, so a clear shot wins)
       const d = Math.hypot(u.x - me.x, u.z - me.z) + (this.clearLine(me.x, me.z, u.x, u.z) ? 0 : 6);
       if (d < bd) {
         bd = d;
         best = u;
       }
     }
+    return { u: best, d: bd };
+  }
+
+  private autoAim(): number {
+    const me = this.me!;
+    const { u: best, d: bd } = this.nearestEnemy();
     // (an enemy in shooting range first; then an item crate in reach, before one further off)
     const box = this.nearBox(me, me.range + 1);
     if (box && (!best || bd > me.range + 1)) return Math.atan2(box.x - me.x, -(box.z - me.z));
