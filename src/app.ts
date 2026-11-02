@@ -15,6 +15,7 @@ import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import { SquadRun } from './squadrun';
+import { ActionMode } from './action';
 import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
@@ -1426,6 +1427,15 @@ export function boot() {
     squadRun.open(playableId(S().character));
     if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
   });
+  // Action: walk the stage freely (Gauntlet rooms or a free-for-all), over the top like Squad Run
+  let actionMode: ActionMode | null = null;
+  $('action-btn').addEventListener('click', () => {
+    sfx.unlock();
+    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
+    show('');
+    actionMode.open(playableId(S().character));
+    if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;
+  });
   $('arcade-btn').addEventListener('click', (e) => {
     const mine = runOf(saveData.settings.character);
     if (mine && (e.target as Element).closest('.card-new-run')) {
@@ -2342,6 +2352,11 @@ export function boot() {
     const st = S();
     music.setEnabled(st.music !== false);
     music.setDucked(paused);
+    if (actionMode?.active) {
+      music.play(actionMode.bossOn ? 'boss' : 'fight');
+      music.intensity(actionMode.bossOn ? 1 : 0.7);
+      return;
+    }
     if (squadRun?.active) {
       music.play(squadRun.bossOn ? 'boss' : 'squad');
       music.intensity(squadRun.bossOn ? 1 : 0.55);
@@ -2534,7 +2549,7 @@ export function boot() {
     }
     // (the menus, the select screen, options, results and pause are opaque: the arena behind them
     // isn't drawn at all, nor while Squad Run is up)
-    const covered = screen !== 'playing' || paused || !!squadRun?.active;
+    const covered = screen !== 'playing' || paused || !!squadRun?.active || !!actionMode?.active;
     if (!covered) view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
       const shown = [view.game.shooters[0], view.game.shooters[focus().slot] ?? view.game.shooters[1]];
