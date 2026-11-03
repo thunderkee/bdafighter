@@ -79,20 +79,25 @@ function setSkin(patch: Partial<SkinEdit>) {
 }
 
 /** a fresh design for the current unit: its saved one, or its built-in model as blocks (a skin: its own, or a copy of the fighter's) */
+/** the skin's parts are in the draft as blocks (so the preview doesn't add them a second time) */
+let draftHasParts = false;
 function loadDraft() {
   const d = def();
   const sk = curSkin();
+  draftHasParts = false;
   if (sk?.blueprint) {
     draft = sk.blueprint;
+    draftHasParts = true;
     return;
   }
   if (sk) {
-    if (d.blueprint) draft = clone(d.blueprint);
-    else {
-      const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: undefined });
-      draft = mesh.toBlueprint(d);
-      mesh.dispose();
-    }
+    // a skin with no model of its own: the fighter's, with the skin's parts already in as blocks
+    // (so they can be picked and changed straight away; nothing is saved until something is)
+    const anyGear = !!(sk.gear.hat || sk.gear.back || sk.gear.shoulder);
+    const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: d.blueprint, gear: anyGear ? sk.gear : undefined });
+    draft = mesh.toBlueprint(d);
+    mesh.dispose();
+    draftHasParts = anyGear;
     return;
   }
   if (d.blueprint) {
@@ -204,7 +209,8 @@ function commit(full = false) {
 
 /** the design changed: make sure the unit owns it, then refresh */
 function designChanged(full = false) {
-  if (editSkin) setSkin({ blueprint: draft });
+  // (a skin's first change: its parts are blocks of its own model from now on)
+  if (editSkin) setSkin({ blueprint: draft, gear: { hat: '', back: '', shoulder: '' } });
   else entry().blueprint = draft;
   commit(full);
 }
@@ -308,7 +314,7 @@ function rebuildPreview() {
   const pj = previewPaint ? kitOf(d)?.paint.find((p) => p.id === previewPaint) : undefined;
   const palette = pj ? { ...d.palette, ...paintPalette(d, pj) } : d.palette;
   // (a skin shows with its parts on)
-  const gear = curSkin()?.gear;
+  const gear = draftHasParts ? undefined : curSkin()?.gear;
   model = new ShooterMesh(d.id, d.ball, { ...d, palette, blueprint: draft, gear: gear && (gear.hat || gear.back || gear.shoulder) ? gear : undefined });
   scene.add(model.root);
   addBallExitMarker();
@@ -1522,7 +1528,9 @@ function renderSkinParts() {
   if (!sk) return;
   const kit = kitOf(def());
   const NAME = { hat: 'Head', back: 'Back', shoulder: 'Shoulders' } as const;
-  box.innerHTML = `<p class="note">${sk.name}: its name, stats, parts and blocks are its own. Blocks it hasn't changed follow the fighter's.</p>`;
+  box.innerHTML = sk.blueprint
+    ? `<p class="note">${sk.name} has a model of its own: its parts are blocks (pick them on the model or in Blocks to move, resize, recolour or delete). Add another part below and it goes in as blocks too.</p>`
+    : `<p class="note">${sk.name}: its name, stats and parts are its own. Its parts are blocks you can pick and change straight away (Blocks tab, or click them on the model); the first change gives it a model of its own.</p>`;
   for (const slot of ['hat', 'back', 'shoulder'] as const) {
     const row = document.createElement('label');
     row.className = 'field';
@@ -1531,34 +1539,28 @@ function renderSkinParts() {
     sel.value = sk.gearIds[slot] ?? '';
     sel.addEventListener('change', () => {
       pushUndo();
-      setSkin({ gear: { ...sk.gearIds, [slot]: sel.value } });
-      commit();
+      const own = !!curSkin()?.blueprint;
+      if (!own) {
+        // not changed yet: the skin's parts, re-chosen (and back in as blocks)
+        setSkin({ gear: { ...sk.gearIds, [slot]: sel.value } });
+        reloadRoster(roster);
+        loadDraft();
+      } else if (sel.value) {
+        // its own model: the part goes in as blocks, alongside what's there
+        const d = def();
+        const part = kitOf(d)?.[slot].find((q) => q.id === sel.value);
+        const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: draft, gear: part ? { [slot]: part } : undefined });
+        draft = mesh.toBlueprint(d);
+        mesh.dispose();
+        setSkin({ blueprint: draft, gear: { hat: '', back: '', shoulder: '' } });
+      }
+      commit(true);
       renderSkinParts();
+      renderSkins();
     });
     row.append(Object.assign(document.createElement('span'), { textContent: NAME[slot] }), sel);
     box.appendChild(row);
   }
-  // the parts as blocks: then they're the skin's own, to move, resize, recolour or remove like any other
-  const bake = document.createElement('button');
-  bake.className = 'skin-bake';
-  bake.textContent = 'Edit these parts as blocks';
-  bake.disabled = !sk.gear.hat && !sk.gear.back && !sk.gear.shoulder;
-  bake.title = 'Turns the head, back and shoulder parts into blocks of this skin (Blocks tab), so you can change them';
-  bake.addEventListener('click', () => {
-    if (!editSkin) return;
-    pushUndo();
-    const d = def();
-    const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: draft, gear: sk.gear });
-    draft = mesh.toBlueprint(d);
-    mesh.dispose();
-    setSkin({ blueprint: draft, gear: { hat: '', back: '', shoulder: '' } });
-    selected = null;
-    selection = [];
-    commit(true);
-    renderSkins();
-    showTab('blocks');
-  });
-  box.appendChild(bake);
   const reset = document.createElement('button');
   reset.className = 'skin-reset';
   reset.textContent = `Reset ${sk.name}`;
