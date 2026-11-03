@@ -6051,3 +6051,13 @@ body.cine-on #pad {
   border-color: #ff4a3a;
   box-shadow: 0 0 0 1.5px #ff4a3a, 0 0 8px #ff4a3a;
 }
+
+/* the Action menu's six modes: two to a row */
+#action .ac-cards.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+#action .ac-cards.modes .ac-mode small {
+  font-size: 10px;
+}

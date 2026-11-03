@@ -24,7 +24,7 @@ import { decorate } from './scenery';
  * the main game (Arena rules), scaled to Action's health. Standing still mends you.
  */
 
-export type ActionKind = 'gauntlet' | 'ffa' | 'siege';
+export type ActionKind = 'gauntlet' | 'ffa' | 'siege' | 'knockout' | 'zone' | 'boss';
 
 // tiles
 const FLOOR = 0;
@@ -59,6 +59,16 @@ const FORT_FIRE = 0.6;
 const FORT_DMG = 300;
 const SIEGE_TIME = 150;
 const RESPAWN = 4;
+// Knockout: best of three rounds, no respawns; a round runs out at ROUND_TIME (the side with more health left takes it)
+const ROUND_TIME = 60;
+// Hot Zone: hold the ring in the middle with nobody of theirs in it; first to 100% (or the most at the bell)
+const ZONE_TIME = 150;
+const ZONE_R = 2.4;
+/** % a second for one fighter alone in the zone, and for each more */
+const ZONE_RATE = [1.9, 0.6];
+// Boss Fight: you and two more against one giant fighter, before the clock runs out
+const BOSS_TIME = 150;
+const BOSS_HP = 22;
 /**
  * the special's power-up pose before its balls leave (game seconds): yours plays through the slow
  * motion as a little cinematic; the others' quicker, as a warning
@@ -232,6 +242,8 @@ interface Unit {
   /** its special's power-up pose, as in the other modes: seconds in, and how long it lasts (-1: not posing) */
   spT: number;
   spLen: number;
+  /** Boss Fight's giant */
+  giant: boolean;
 }
 interface Fort {
   team: number;
@@ -620,6 +632,13 @@ export class ActionMode {
     this.time = 0;
     this.fortDealt = 0;
     this.warned = false;
+    this.zoneScore = [0, 0];
+    this.zoneHold = -1;
+    this.kRound = 1;
+    this.kWins = [0, 0];
+    this.kRoundT = 0;
+    this.kBreak = 0;
+    this.giantPhase = 0;
     this.startStage();
     this.showPanel(null);
     this.hud.hint.classList.remove('gone');
@@ -649,7 +668,8 @@ export class ActionMode {
     this.spawnFoes();
     this.over = false;
     const where = themeName(this.theme).toUpperCase();
-    this.callout(this.kind === 'siege' ? `SIEGE · ${where}` : this.kind === 'ffa' ? `FREE-FOR-ALL · ${where}` : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room} · ${where}`);
+    const TEAM_NAME: Partial<Record<ActionKind, string>> = { knockout: 'KNOCKOUT · ROUND 1', zone: 'HOT ZONE · HOLD THE RING', boss: 'BOSS FIGHT · TAKE IT DOWN' };
+    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `SIEGE · ${where}` : this.kind === 'ffa' ? `FREE-FOR-ALL · ${where}` : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room} · ${where}`);
     sfx.play(this.isBossRoom() ? 'gong' : 'go');
     this.updateHud();
   }
@@ -669,6 +689,8 @@ export class ActionMode {
       f.gun.mesh.dispose();
     }
     this.forts = [];
+    this.zoneDisc = this.zoneRing = null;
+    this.giant = null;
     this.me = null;
     this.shots = [];
     for (const d of this.drops) d.mesh.removeFromParent();
@@ -726,9 +748,9 @@ export class ActionMode {
     if (this.kind === 'ffa') {
       this.W = this.H = 28;
       this.layoutFfa();
-    } else if (this.kind === 'siege') {
+    } else if (this.teams) {
       this.W = 15;
-      this.H = 25;
+      this.H = this.kind === 'boss' ? 21 : 25;
       this.layoutSiege();
     } else {
       this.W = 11;
@@ -919,7 +941,19 @@ export class ActionMode {
     for (let i = 1; i < W - 1; i++)
       for (const j of [1, 2, 3, 4, 5, H - 2, H - 3, H - 4, H - 5, H - 6])
         if (Math.abs(i - mid) <= 3) g[this.idx(i, j)] = FLOOR;
-    // the fortresses: three tiles across, two deep
+    // Hot Zone: its ring kept clear; Boss Fight: a wide open middle to fight the giant in
+    const clearR = this.kind === 'zone' ? ZONE_R + 0.8 : this.kind === 'boss' ? 4.5 : 0;
+    if (clearR)
+      for (let j = 1; j < H - 1; j++)
+        for (let i = 1; i < W - 1; i++) {
+          const c = this.center(i, j);
+          if (Math.hypot(c.x, c.z) < clearR && g[this.idx(i, j)] !== FLOOR) {
+            g[this.idx(i, j)] = FLOOR;
+            this.crateHp.delete(this.idx(i, j));
+          }
+        }
+    // the fortresses (Siege only): three tiles across, two deep
+    if (this.kind !== 'siege') return;
     for (const [team, j0] of [
       [0, H - 4],
       [1, 2],
@@ -934,6 +968,17 @@ export class ActionMode {
     }
   }
   private pendingForts: { team: number; z: number; tiles: number[] }[] = [];
+  // Hot Zone and Knockout's score, and the giant
+  private zoneDisc: THREE.Mesh | null = null;
+  private zoneRing: THREE.Mesh | null = null;
+  private zoneScore = [0, 0];
+  private zoneHold = -1;
+  private kRound = 1;
+  private kWins = [0, 0];
+  private kRoundT = 0;
+  private kBreak = 0;
+  private giant: Unit | null = null;
+  private giantPhase = 0;
 
   /** a fortress: a stone keep in its side's colours, with a turret on top that turns to shoot */
   private makeFort(team: number, z: number, tiles: number[]) {
@@ -1059,6 +1104,15 @@ export class ActionMode {
       if (this.blocksShot(tile)) return null;
     }
     return null;
+  }
+  /** the three-on-three modes (Siege, Knockout, Hot Zone, Boss Fight): two sides, an end each */
+  private get teams() {
+    return this.kind === 'siege' || this.kind === 'knockout' || this.kind === 'zone' || this.kind === 'boss';
+  }
+  /** where a side starts (and comes back): by its fortress in Siege, at its own end otherwise */
+  private teamSpot(team: number, k: number) {
+    if (this.kind === 'siege') return this.siegeSpot(team, k);
+    return { x: [0, -2.2, 2.2][k % 3], z: team === 0 ? this.H / 2 - 3 : -this.H / 2 + 3 };
   }
   /** Siege starts: your side at the bottom by your fortress, theirs at the top */
   private siegeSpot(team: number, k: number) {
@@ -1188,6 +1242,16 @@ export class ActionMode {
       }
     decorate(this.world, th.id, W, H, edges, inner, open);
     for (const f of this.pendingForts) this.makeFort(f.team, f.z, f.tiles);
+    if (this.kind === 'zone') {
+      // the zone: a glowing ring and a disc that takes the colour of whoever holds it
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(ZONE_R, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.18, depthWrite: false }));
+      disc.position.y = 0.03;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(ZONE_R - 0.12, ZONE_R, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd23e }));
+      ring.position.y = 0.04;
+      this.zoneDisc = disc;
+      this.zoneRing = ring;
+      this.world.add(disc, ring);
+    }
     this.pendingForts = [];
     if (this.kind === 'ffa') {
       // the storm: four walls of green cloud closing in from the edges
@@ -1203,13 +1267,13 @@ export class ActionMode {
 
   // ---------- fighters ----------
 
-  private makeUnit(def: CharacterDef, x: number, z: number, cpu: boolean, team: number, opts: { hp?: number; dmg?: number; boss?: boolean } = {}): Unit {
+  private makeUnit(def: CharacterDef, x: number, z: number, cpu: boolean, team: number, opts: { hp?: number; dmg?: number; boss?: boolean; giant?: boolean } = {}): Unit {
     const mesh = new ShooterMesh(def.id, def.ball, def);
     const boss = !!opts.boss;
-    mesh.size = boss ? 0.78 : 0.55;
+    mesh.size = opts.giant ? 1.25 : boss ? 0.78 : 0.55;
     const wrap = new THREE.Group();
     wrap.add(mesh.root);
-    const shadow = new THREE.Mesh(new THREE.CircleGeometry(boss ? 0.62 : 0.44, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }));
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(opts.giant ? 1 : boss ? 0.62 : 0.44, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }));
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.02;
     this.world.add(wrap, shadow);
@@ -1217,7 +1281,7 @@ export class ActionMode {
     const mb = marbleOf(def);
     const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1) * (this.kind === 'ffa' ? FFA_HP : 1));
     const bar = document.createElement('div');
-    bar.className = 'ac-bar' + (cpu ? (team === 0 && this.kind === 'siege' ? ' ally' : '') : ' me');
+    bar.className = 'ac-bar' + (cpu ? (team === 0 && this.teams ? ' ally' : '') : ' me');
     bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
     bar.querySelector('span')!.textContent = cpu ? def.name : 'YOU';
     this.hud.bars.appendChild(bar);
@@ -1235,11 +1299,11 @@ export class ActionMode {
       vx: 0,
       vz: 0,
       face: Math.PI,
-      r: boss ? 0.6 : UNIT_R,
+      r: opts.giant ? 0.95 : boss ? 0.6 : UNIT_R,
       hp: max,
       max,
       // (each fighter's Speed, as on the rail in the other modes: half as fast at 1, 1.6 times at 5)
-      speed: 3.3 * traitMul(t?.speed, 'speed') * (boss ? 0.85 : 1),
+      speed: 3.3 * traitMul(t?.speed, 'speed') * (opts.giant ? 0.7 : boss ? 0.85 : 1),
       // (the main game's marble: its damage per hit as a share of health, its magazine and cadence)
       dmg: BASE_STATS.damage * SCALE * mb.damage * mb.balance,
       power: opts.dmg ?? 1,
@@ -1297,6 +1361,7 @@ export class ActionMode {
       healT: 0,
       spT: -1,
       spLen: 1,
+      giant: !!opts.giant,
     };
     this.units.push(u);
     return u;
@@ -1304,9 +1369,9 @@ export class ActionMode {
 
   private spawnMe() {
     const def = this.opts.skin?.(this.unitId) ?? characterById(this.unitId);
-    const start = this.kind === 'ffa' ? this.ffaStarts()[0] : this.kind === 'siege' ? this.siegeSpot(0, 0) : { x: 0, z: this.H / 2 - 2 };
+    const start = this.kind === 'ffa' ? this.ffaStarts()[0] : this.teams ? this.teamSpot(0, 0) : { x: 0, z: this.H / 2 - 2 };
     this.me = this.makeUnit(def, start.x, start.z, false, 0);
-    this.me.face = this.kind === 'siege' ? 0 : Math.PI;
+    this.me.face = this.teams ? 0 : Math.PI;
     if (this.kind === 'gauntlet') {
       const vital = this.ups.vital ?? 0;
       this.me.max = Math.round(this.me.max * (1 + 0.25 * vital));
@@ -1336,12 +1401,27 @@ export class ActionMode {
   }
 
   private spawnFoes() {
-    if (this.kind === 'siege') {
+    if (this.kind === 'boss') {
+      // two on your side; on theirs, one giant
+      this.pickFoes(2).forEach((d, k) => {
+        const p = this.teamSpot(0, k + 1);
+        const u = this.makeUnit(d, p.x, p.z, true, 0);
+        u.face = 0;
+      });
+      const [d] = this.pickFoes(1);
+      const g = this.makeUnit(d, 0, -this.H / 2 + 4.5, true, 1, { hp: BOSS_HP, dmg: 1.5, boss: true, giant: true });
+      g.face = Math.PI;
+      g.aimError = 0.08;
+      g.aimDelay = 0.25;
+      this.giant = g;
+      return;
+    }
+    if (this.teams) {
       // two on your side, three on theirs
       const picks = this.pickFoes(5);
       picks.forEach((d, k) => {
         const team = k < 2 ? 0 : 1;
-        const p = this.siegeSpot(team, team === 0 ? k + 1 : k - 2);
+        const p = this.teamSpot(team, team === 0 ? k + 1 : k - 2);
         const u = this.makeUnit(d, p.x, p.z, true, team);
         u.face = team === 0 ? 0 : Math.PI;
         u.aimError = 0.1 + Math.random() * 0.08;
@@ -1772,9 +1852,14 @@ export class ActionMode {
     // (it stays standing through the pops, then blows apart)
     this.wrecks.push({ u, mesh: u.mesh, t: 0, pops: 0, shattered: false, debris: [] });
     if (from === this.me) this.kos++;
-    if (this.kind === 'siege') {
-      u.back = RESPAWN;
-      if (u === this.me) this.callout(`BACK IN ${RESPAWN}`, 1);
+    if (this.teams) {
+      // respawns: Siege and Hot Zone, and your side in Boss Fight; never in Knockout
+      const back = this.kind === 'siege' || this.kind === 'zone' || (this.kind === 'boss' && u.team === 0);
+      if (back) {
+        u.back = RESPAWN;
+        if (u === this.me) this.callout(`BACK IN ${RESPAWN}`, 1);
+      } else if (u === this.me) this.callout('KNOCKED OUT · YOUR SIDE FIGHTS ON', 1);
+      if (u === this.giant) this.finishSiege(1);
       this.updateHud();
       return;
     }
@@ -1922,8 +2007,11 @@ export class ActionMode {
     if (this.kind === 'siege') {
       this.tickForts(dt);
       this.tickCrates(dt);
-      for (const u of this.units) if (!u.alive && u.back > 0 && (u.back -= dt) <= 0) this.respawn(u);
     }
+    if (this.teams) for (const u of this.units) if (!u.alive && u.back > 0 && (u.back -= dt) <= 0) this.respawn(u);
+    if (this.kind === 'zone') this.tickZone(dt);
+    if (this.kind === 'boss') this.tickGiant(dt);
+    if (this.kind === 'knockout') this.kRoundT += dt;
     for (const u of this.units) if (u.cpu && u.alive) this.think(u, dt);
     for (const u of this.units) this.tickUnit(u, dt);
     this.tickBoxes(dt);
@@ -1936,7 +2024,7 @@ export class ActionMode {
 
   /** Siege: back on its feet by its own fortress */
   private respawn(u: Unit) {
-    const p = this.siegeSpot(u.team, Math.floor(Math.random() * 3));
+    const p = this.teamSpot(u.team, Math.floor(Math.random() * 3));
     u.x = p.x;
     u.z = p.z;
     u.vx = u.vz = 0;
@@ -1950,7 +2038,7 @@ export class ActionMode {
     // (the last one was blown apart: a fresh body)
     if (u.mesh.broken) {
       const mesh = new ShooterMesh(u.def.id, u.def.ball, u.def);
-      mesh.size = u.boss ? 0.78 : 0.55;
+      mesh.size = u.giant ? 1.25 : u.boss ? 0.78 : 0.55;
       u.wrap.add(mesh.root);
       u.mesh = mesh;
     }
@@ -2035,7 +2123,8 @@ export class ActionMode {
     // standing still mends: not moving, not firing, and not hit for a moment
     const still = Math.hypot(u.vx, u.vz) < 0.3 && !u.firing;
     u.still = still ? u.still + dt : 0;
-    const mending = u.still > 0.6 && u.calm > 2 && u.hp < u.max;
+    // (not the giant: its health only goes down)
+    const mending = !u.giant && u.still > 0.6 && u.calm > 2 && u.hp < u.max;
     if (mending) {
       const before = u.hp;
       u.hp = Math.min(u.max, u.hp + u.max * MEND * dt);
@@ -2108,6 +2197,8 @@ export class ActionMode {
   private moveShots(dt: number) {
     for (let k = this.shots.length - 1; k >= 0; k--) {
       const s = this.shots[k];
+      // (a hit can end the match, which clears the marbles mid-loop)
+      if (!s) continue;
       if (s.spirit) this.steerBall(s, dt);
       const speed = Math.hypot(s.vx, s.vz);
       const steps = Math.max(1, Math.ceil((speed * dt) / 0.2));
@@ -2186,7 +2277,7 @@ export class ActionMode {
           }
         }
       }
-      if (dead) this.shots.splice(k, 1);
+      if (dead && this.shots[k] === s) this.shots.splice(k, 1);
     }
   }
 
@@ -2618,7 +2709,101 @@ export class ActionMode {
     }
   }
 
+  /** Hot Zone: whoever has fighters in the ring, and nobody of the other side, fills their meter */
+  private tickZone(dt: number) {
+    const inside = [0, 1].map((t) => this.units.filter((u) => u.team === t && u.alive && Math.hypot(u.x, u.z) < ZONE_R).length);
+    const hold = inside[0] && !inside[1] ? 0 : inside[1] && !inside[0] ? 1 : inside[0] && inside[1] ? 2 : -1;
+    if (hold === 0 || hold === 1) {
+      this.zoneScore[hold] = Math.min(100, this.zoneScore[hold] + dt * (ZONE_RATE[0] + ZONE_RATE[1] * (inside[hold] - 1)));
+      if (this.zoneScore[hold] >= 100 && !this.over) this.finishSiege(hold === 0 ? 1 : -1);
+    }
+    if (hold !== this.zoneHold) {
+      if (hold === 0) this.callout('YOU HOLD THE ZONE');
+      else if (hold === 1) this.callout('THEY HOLD THE ZONE', 1);
+      else if (hold === 2) this.callout('CONTESTED');
+      this.zoneHold = hold;
+    }
+    if (this.zoneDisc && this.zoneRing) {
+      const col = hold === 0 ? 0x4aa8f0 : hold === 1 ? 0xff5a5a : hold === 2 ? 0xffffff : 0xffd23e;
+      (this.zoneDisc.material as THREE.MeshBasicMaterial).color.setHex(col);
+      (this.zoneDisc.material as THREE.MeshBasicMaterial).opacity = hold >= 0 ? 0.28 + Math.sin(this.time * 6) * 0.06 : 0.16;
+      (this.zoneRing.material as THREE.MeshBasicMaterial).color.setHex(col);
+    }
+  }
+  /** Boss Fight: the giant grows wilder as it's hurt (at two thirds and a third), calling in two fighters each time */
+  private tickGiant(dt: number) {
+    const g = this.giant;
+    if (!g?.alive) return;
+    // (its special charges by itself, a little at a time)
+    g.charge = Math.min(1, g.charge + dt * (0.05 + this.giantPhase * 0.03));
+    const phase = g.hp < g.max / 3 ? 2 : g.hp < (g.max * 2) / 3 ? 1 : 0;
+    if (phase <= this.giantPhase) return;
+    this.giantPhase = phase;
+    g.power *= 1.25;
+    g.fireInt /= 1.25;
+    g.speed *= 1.15;
+    this.shake = Math.max(this.shake, 0.5);
+    this.ringFx(g.x, g.z, 0xff3a3a, 0.5, 6, 0.7);
+    this.pillarFx(g.x, g.z, 0xff3a3a, 1.4);
+    sfx.play('gong');
+    this.callout(phase === 1 ? 'THE BOSS IS ENRAGED!' : 'THE BOSS GOES BERSERK!', 1);
+    this.pickFoes(2).forEach((d, k) => {
+      const u = this.makeUnit(d, g.x + (k ? 1.6 : -1.6), g.z + 1, true, 1, { hp: 0.6, dmg: 0.8 });
+      u.aimError = 0.14;
+    });
+  }
+  /** Knockout: everyone back on their feet at their own end for the next round */
+  private nextRound() {
+    if (this.over || this.kind !== 'knockout') return;
+    this.kRound++;
+    this.kRoundT = 0;
+    this.kBreak = 0;
+    this.shots = [];
+    for (const u of this.units) {
+      u.back = 0;
+      this.respawn(u);
+    }
+    this.camSnap = true;
+    this.callout(`ROUND ${this.kRound}`);
+    sfx.play('go');
+  }
+
   private checkEnd() {
+    if (this.kind === 'zone' || this.kind === 'boss') {
+      const T = this.kind === 'zone' ? ZONE_TIME : BOSS_TIME;
+      if (!this.over && this.time >= T) {
+        // the bell: the zone to whoever has more; the giant, if it's still standing, wins
+        const [a, b] = this.zoneScore;
+        this.finishSiege(this.kind === 'boss' ? -1 : Math.abs(a - b) < 0.5 ? 0 : a > b ? 1 : -1);
+      }
+      if (!this.over && this.time >= T - 30 && !this.warned) {
+        this.warned = true;
+        this.callout('30 SECONDS LEFT');
+      }
+      return;
+    }
+    if (this.kind === 'knockout') {
+      if (this.over || this.kBreak > 0) return;
+      const left = [0, 1].map((t) => this.units.filter((u) => u.team === t && u.alive).length);
+      let winner = -1;
+      if (!left[0] || !left[1]) winner = left[0] ? 0 : left[1] ? 1 : -1;
+      else if (this.kRoundT >= ROUND_TIME) {
+        // out of time: the side with more health left
+        const hp = [0, 1].map((t) => this.units.filter((u) => u.team === t && u.alive).reduce((n, u) => n + u.hp / u.max, 0));
+        winner = Math.abs(hp[0] - hp[1]) < 0.01 ? -1 : hp[0] > hp[1] ? 0 : 1;
+        if (winner < 0) winner = 2;
+      }
+      if (winner === -1 && (left[0] && left[1])) return;
+      if (winner === 0 || winner === 1) this.kWins[winner]++;
+      if (this.kWins[0] >= 2 || this.kWins[1] >= 2) {
+        this.finishSiege(this.kWins[0] >= 2 ? 1 : -1);
+        return;
+      }
+      this.callout(winner === 0 ? `ROUND ${this.kRound} TO YOUR SIDE` : winner === 1 ? `ROUND ${this.kRound} TO THEIRS` : `ROUND ${this.kRound} · A DRAW`, winner === 1 ? 1 : 0);
+      this.kBreak = 1.8;
+      setTimeout(() => this.nextRound(), 1800);
+      return;
+    }
     if (this.kind === 'siege') {
       if (!this.over && this.time >= SIEGE_TIME) {
         // the bell: whichever fortress has more left
@@ -2681,7 +2866,7 @@ export class ActionMode {
       u.think = 0.25;
       let best: Unit | null = null;
       // (in free-for-all it only takes on what's near, so the stage doesn't all pile into the middle)
-      let bd = this.kind === 'gauntlet' ? 13 : this.kind === 'ffa' ? 6.5 : 9;
+      let bd = this.kind === 'gauntlet' || this.kind === 'boss' ? 13 : this.kind === 'ffa' ? 6.5 : 9;
       for (const o of this.units) {
         if (!this.hostile(u, o) || !this.targetable(u, o)) continue;
         const d = Math.hypot(o.x - u.x, o.z - u.z);
@@ -2695,6 +2880,7 @@ export class ActionMode {
       // (the Gauntlet's fighters always know where you are, and come for you)
       if (!best && this.kind === 'gauntlet' && this.me?.alive) u.goal = { x: this.me.x, z: this.me.z };
       else if (this.kind === 'siege') u.goal = this.siegeGoal(u, best);
+      else if (this.teams) u.goal = this.teamGoal(u, best);
       else if (!best && (!u.goal || Math.hypot(u.goal.x - u.x, u.goal.z - u.z) < 0.8 || Math.random() < 0.02)) u.goal = this.wanderGoal(u);
       // where it's headed, if a wall is in the way: the way round
       const to = best ?? u.goal;
@@ -2893,6 +3079,25 @@ export class ActionMode {
     const side = (this.units.indexOf(u) % 3) - 1;
     const dir = away.z > home.z ? -1 : 1;
     return { x: side * 2.4, z: away.z + dir * (u.range * 0.7 + 1) };
+  }
+
+  /** Knockout, Hot Zone and Boss Fight: where a CPU heads when it has nobody in its sights */
+  private teamGoal(u: Unit, foe: Unit | null) {
+    if (foe) return u.goal;
+    const side = (this.units.indexOf(u) % 3) - 1;
+    if (this.kind === 'zone') return { x: side * 1.1, z: side * 0.6 };
+    // the giant (and its helpers) and Knockout: after the nearest of the other side, wherever they are
+    let best: Unit | null = null;
+    let bd = 99;
+    for (const o of this.units) {
+      if (!this.hostile(u, o)) continue;
+      const d = Math.hypot(o.x - u.x, o.z - u.z);
+      if (d < bd) {
+        bd = d;
+        best = o;
+      }
+    }
+    return best ? { x: best.x + side * 1.5, z: best.z } : { x: 0, z: 0 };
   }
 
   private nearCrate(u: Unit) {
@@ -3095,7 +3300,7 @@ export class ActionMode {
     const h = this.canvas.clientHeight;
     for (const u of this.units) {
       if (!u.alive) continue;
-      this.v.set(u.x, (u.boss ? 2.4 : 1.75) - (this.view === 'first' ? 0.35 : 0), u.z).project(this.camera);
+      this.v.set(u.x, (u.giant ? 3.4 : u.boss ? 2.4 : 1.75) - (this.view === 'first' ? 0.35 : 0), u.z).project(this.camera);
       u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (u.bar.querySelector('b') as HTMLElement).style.width = `${(u.hp / u.max) * 100}%`;
       u.bar.querySelector('i')!.setAttribute('data-hp', String(Math.max(0, Math.round(u.hp))));
@@ -3139,7 +3344,20 @@ export class ActionMode {
   private updateHud() {
     const title = this.hud.title;
     const alive = this.units.filter((u) => u.alive).length;
-    if (this.kind === 'siege') {
+    const clock = (T: number) => {
+      const left = Math.max(0, Math.ceil(T));
+      return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    };
+    if (this.kind === 'knockout') {
+      title.querySelector('b')!.textContent = clock(ROUND_TIME - this.kRoundT);
+      title.querySelector('span')!.textContent = `ROUND ${this.kRound} · ${this.kWins[0]}–${this.kWins[1]}`;
+    } else if (this.kind === 'zone') {
+      title.querySelector('b')!.textContent = clock(ZONE_TIME - this.time);
+      title.querySelector('span')!.textContent = `OURS ${Math.floor(this.zoneScore[0])}% · THEIRS ${Math.floor(this.zoneScore[1])}%`;
+    } else if (this.kind === 'boss') {
+      title.querySelector('b')!.textContent = clock(BOSS_TIME - this.time);
+      title.querySelector('span')!.textContent = `BOSS ${Math.ceil(((this.giant?.hp ?? 0) / (this.giant?.max ?? 1)) * 100)}%`;
+    } else if (this.kind === 'siege') {
       const left = Math.max(0, Math.ceil(SIEGE_TIME - this.time));
       title.querySelector('b')!.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
       const pct = (t: number) => Math.ceil(((this.forts.find((f) => f.team === t)?.hp ?? 0) / FORT_HP) * 100);
@@ -3306,16 +3524,17 @@ export class ActionMode {
     this.skyDome.position.copy(this.camera.position);
   }
 
-  private best(): { ffa: number; gauntlet: number; siege: number } {
+  private best(): { ffa: number; gauntlet: number; siege: number; knockout: number; zone: number; boss: number } {
+    const zero = { ffa: 0, gauntlet: 0, siege: 0, knockout: 0, zone: 0, boss: 0 };
     try {
-      return { ffa: 0, gauntlet: 0, siege: 0, ...JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') };
+      return { ...zero, ...JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') };
     } catch {
-      return { ffa: 0, gauntlet: 0, siege: 0 };
+      return zero;
     }
   }
   private bestLine() {
     const b = this.best();
-    return `Best: ${b.gauntlet}/${ROOMS} rooms · ${b.ffa} free-for-all win${b.ffa === 1 ? '' : 's'} · ${b.siege} siege win${b.siege === 1 ? '' : 's'}`;
+    return `Best: ${b.gauntlet}/${ROOMS} rooms · wins: ${b.ffa} free-for-all, ${b.siege} siege, ${b.knockout} knockout, ${b.zone} hot zone, ${b.boss} boss`;
   }
 
   /** Siege over: 1 your side won, -1 theirs, 0 a draw at the bell */
@@ -3325,14 +3544,21 @@ export class ActionMode {
     if (this.over) return;
     this.siegeOutcome = result;
     setTimeout(() => this.finish(result > 0, result > 0 ? 1 : result < 0 ? 2 : 0), result ? 1200 : 300);
-    this.callout(result > 0 ? 'THEIR FORTRESS FALLS!' : result < 0 ? 'YOUR FORTRESS FALLS' : 'TIME · A DRAW', result < 0 ? 1 : 0);
+    const SAY: Record<string, [string, string]> = {
+      siege: ['THEIR FORTRESS FALLS!', 'YOUR FORTRESS FALLS'],
+      knockout: ['YOUR SIDE TAKES IT!', 'THEIR SIDE TAKES IT'],
+      zone: ['THE ZONE IS YOURS!', 'THEY TAKE THE ZONE'],
+      boss: ['THE BOSS IS DOWN!', 'TIME · THE BOSS STANDS'],
+    };
+    const say = SAY[this.kind] ?? SAY.siege;
+    this.callout(result > 0 ? say[0] : result < 0 ? say[1] : 'TIME · A DRAW', result < 0 ? 1 : 0);
     this.over = true;
     this.shots = [];
   }
 
   private finish(win: boolean, place: number) {
-    if (this.over && this.kind !== 'siege') return;
-    if (this.kind === 'siege' && !this.hud.panel.classList.contains('hidden')) return;
+    if (this.over && !this.teams) return;
+    if (this.teams && !this.hud.panel.classList.contains('hidden')) return;
     this.over = true;
     this.shots = [];
     sfx.play(win ? 'win' : 'lose');
@@ -3340,7 +3566,7 @@ export class ActionMode {
     // best: the most rooms cleared, or the most free-for-all wins
     if (this.kind === 'gauntlet') best.gauntlet = Math.max(best.gauntlet, win ? ROOMS : this.room - 1);
     else if (win && this.kind === 'ffa') best.ffa += 1;
-    else if (win) best.siege += 1;
+    else if (win) best[this.kind as 'siege' | 'knockout' | 'zone' | 'boss'] = (best[this.kind as 'siege'] ?? 0) + 1;
     try {
       localStorage.setItem(BEST_KEY, JSON.stringify(best));
     } catch {
@@ -3353,6 +3579,8 @@ export class ActionMode {
         ? (win ? ROOMS : this.room - 1) * 5 + this.kos * 2 + (win ? 30 : 0)
         : this.kind === 'siege'
           ? (win ? 60 : place === 0 ? 35 : 20) + this.kos * 4 + Math.round((this.fortDealt / FORT_HP) * 40)
+          : this.teams
+            ? (win ? (this.kind === 'boss' ? 80 : 60) : place === 0 ? 35 : 20) + this.kos * 4
           : (7 - place) * 8 + this.kos * 5 + (win ? 20 : 0);
     const box = this.hud.panel.querySelector('.ac-xp') as HTMLElement;
     box.classList.toggle('hidden', !this.opts.reward);
@@ -3370,6 +3598,7 @@ export class ActionMode {
     const buttons = p.querySelector('.ac-buttons') as HTMLElement;
     const bestEl = p.querySelector('.ac-best') as HTMLElement;
     cards.innerHTML = '';
+    cards.classList.remove('modes');
     buttons.innerHTML = '';
     (p.querySelector('.ac-xp') as HTMLElement).classList.add('hidden');
     const button = (label: string, fn: () => void, cls = '') => {
@@ -3393,6 +3622,10 @@ export class ActionMode {
       mode('gauntlet', 'Gauntlet', `Clear ${ROOMS} rooms, pick an upgrade after each, a boss every fifth room`);
       mode('ffa', 'Free-for-all', 'You and five fighters, one stage, bushes, crates and a closing storm');
       mode('siege', 'Siege', 'Three on three: knock down their fortress before they knock down yours');
+      mode('knockout', 'Knockout', 'Three on three, no respawns: last side standing takes the round, best of three');
+      mode('zone', 'Hot Zone', 'Three on three: hold the ring in the middle with none of theirs in it, first to 100%');
+      mode('boss', 'Boss Fight', 'You and two more against one giant fighter with huge health, before time runs out');
+      cards.classList.add('modes');
       bestEl.textContent = this.bestLine();
       button('Back', () => this.exit());
     } else if (kind === 'upgrade') {
@@ -3409,13 +3642,26 @@ export class ActionMode {
       }
     } else {
       const ffa = this.kind === 'ffa';
-      if (this.kind === 'siege') {
+      if (this.teams && this.kind !== 'siege') {
+        const o = this.siegeOutcome;
+        const head: Record<string, [string, string]> = { knockout: ['Knockout won!', 'Knockout lost'], zone: ['Zone held!', 'Zone lost'], boss: ['Boss defeated!', 'The boss wins'] };
+        h.textContent = o > 0 ? head[this.kind][0] : o < 0 ? head[this.kind][1] : 'A draw';
+        const kos = `${this.kos} fighter${this.kos === 1 ? '' : 's'} down by you`;
+        text.textContent =
+          this.kind === 'knockout'
+            ? `Rounds ${this.kWins[0]}–${this.kWins[1]}. ${kos}.`
+            : this.kind === 'zone'
+              ? `Yours ${Math.floor(this.zoneScore[0])}%, theirs ${Math.floor(this.zoneScore[1])}%. ${kos}.`
+              : o > 0
+                ? `Down in ${Math.floor(this.time / 60)}:${String(Math.floor(this.time % 60)).padStart(2, '0')}. ${kos}.`
+                : `It had ${Math.ceil(((this.giant?.hp ?? 0) / (this.giant?.max ?? 1)) * 100)}% left. ${kos}.`;
+      } else if (this.kind === 'siege') {
         const o = this.siegeOutcome;
         h.textContent = o > 0 ? 'Fortress down!' : o < 0 ? 'Fortress lost' : 'A draw';
         const pct = (t: number) => Math.ceil(((this.forts.find((f) => f.team === t)?.hp ?? 0) / FORT_HP) * 100);
         text.textContent = `${o > 0 ? 'Your side knocked theirs down' : o < 0 ? 'Their side knocked yours down' : 'Time ran out'}: yours ${pct(0)}%, theirs ${pct(1)}%. You knocked off ${Math.round((this.fortDealt / FORT_HP) * 100)}% and took down ${this.kos} fighter${this.kos === 1 ? '' : 's'}.`;
       } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Gauntlet cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
-      if (this.kind !== 'siege') text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${ROOMS} rooms, ${this.kos} fighters down.` : `You reached room ${this.room} with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
+      if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${ROOMS} rooms, ${this.kos} fighters down.` : `You reached room ${this.room} with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
       bestEl.textContent = this.bestLine();
       button('Play again', () => this.begin(this.kind), 'primary');
       button('Modes', () => {
