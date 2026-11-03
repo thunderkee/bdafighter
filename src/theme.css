@@ -7189,7 +7189,7 @@ body.cine-on #pad {
 /* (and the card keeps one height on Info, Story and a locked fighter, so the fighter stays put
    between the arrows; only Customize grows it) */
 #select:not([data-side='arena']) .car-band {
-  min-height: 236px;
+  min-height: 252px;
 }
 /* the special: the card's full width on every fighter, however long its line */
 #select .sp-move {
@@ -7200,4 +7200,15 @@ body.cine-on #pad {
   margin-left: 0;
   margin-right: 0;
   box-sizing: border-box;
+}
+/* the special's line on one row (cut short if it must), so every fighter's card is one height */
+#select .sp-move {
+  min-width: 0;
+}
+#select .sp-move .sp-kind {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
