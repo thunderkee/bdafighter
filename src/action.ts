@@ -10,7 +10,7 @@ import { skinned } from './cosmetics';
 import { kitOf } from './kits';
 import { DROP, DRAGON, ITEMS, MISSILE } from './items';
 import { stageById } from './stage';
-import { decorate } from './scenery';
+import { coverProp, decorate } from './scenery';
 
 /**
  * Action: walk the whole stage freely and take the other fighters down, seen from above.
@@ -1165,6 +1165,24 @@ export class ActionMode {
         c.fillStyle = tones[(i + j) % 2];
         c.fillRect(i * 32, j * 32, 32, 32);
       }
+    // paving: here and there a tile is laid as stones, a shade off the floor (as the arenas' cobbles)
+    c.fillStyle = 'rgba(0,0,0,0.07)';
+    for (let i = 0; i < W; i++)
+      for (let j = 0; j < H; j++) {
+        if ((i * 7 + j * 13) % 5 > 1) continue;
+        const r = (n: number) => ((i * 31 + j * 17 + n * 7) % 9) / 9;
+        const cut = 10 + r(1) * 12;
+        const cut2 = 8 + r(2) * 14;
+        const pad = 3;
+        const round = (x: number, y: number, w: number, h: number) => {
+          c.beginPath();
+          c.roundRect(i * 32 + x, j * 32 + y, w, h, 4);
+          c.fill();
+        };
+        round(pad, pad, cut - pad, cut2 - pad);
+        round(cut + 2, pad, 32 - cut - pad - 2, cut2 - pad);
+        round(pad, cut2 + 2, 32 - pad * 2, 32 - cut2 - pad - 2);
+      }
     c.strokeStyle = th.line;
     c.lineWidth = 1.5;
     for (let i = 0; i <= W; i++) {
@@ -1192,14 +1210,20 @@ export class ActionMode {
     this.world.add(apron);
 
     const count = (t: number) => this.grid.reduce((n, v) => n + (v === t ? 1 : 0), 0);
+    // about a third of the walls inside the stage are drawn as cover props (barrels, crates,
+    // pillars...) after the theme; they block exactly like a wall
+    const cover = new Set<number>();
+    for (let j = 1; j < H - 1; j++)
+      for (let i = 1; i < W - 1; i++) if (this.grid[this.idx(i, j)] === WALL && Math.random() < 0.34) cover.add(this.idx(i, j));
     const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, t: number, place: (o: THREE.Object3D, i: number, j: number) => void) => {
-      const n = count(t);
-      if (!n) return;
+      const skip = t === WALL ? cover : null;
+      const n = count(t) - (skip?.size ?? 0);
+      if (n <= 0) return;
       const m = new THREE.InstancedMesh(geo, mat, n);
       let k = 0;
       for (let j = 0; j < H; j++)
         for (let i = 0; i < W; i++) {
-          if (this.grid[this.idx(i, j)] !== t) continue;
+          if (this.grid[this.idx(i, j)] !== t || skip?.has(this.idx(i, j))) continue;
           const p = this.center(i, j);
           this.dummy.position.set(p.x, 0, p.z);
           this.dummy.rotation.set(0, 0, 0);
@@ -1213,6 +1237,15 @@ export class ActionMode {
     const wallGeo = new THREE.BoxGeometry(1, 1.1, 1);
     wallGeo.translate(0, 0.55, 0);
     inst(wallGeo, new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8 }), WALL, () => {});
+    for (const k of cover) {
+      const o = coverProp(th.id, Math.random);
+      if (!o) continue;
+      const j = Math.floor(k / W);
+      const c = this.center(k - j * W, j);
+      o.position.x += c.x;
+      o.position.z += c.z;
+      this.world.add(o);
+    }
     if (th.wallGlow) {
       // a glowing band round the top of each wall (the main game's rail glow)
       // (a band round the sides just under the top, so it never shares a face with the wall)

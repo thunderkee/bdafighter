@@ -168,21 +168,6 @@ const puddle = (color: number, glow = false): Make => (rnd) => {
   g.rotation.y = rnd() * 3;
   return group(g);
 };
-const crack = (color: number): Make => (rnd) => {
-  const g = new THREE.Group();
-  let x = 0;
-  let z = 0;
-  for (let k = 0; k < 4; k++) {
-    const a = rnd() * Math.PI * 2;
-    const l = 0.2 + rnd() * 0.25;
-    const seg = mesh(new THREE.PlaneGeometry(l, 0.05).rotateX(-Math.PI / 2), M(color, true), x + (Math.cos(a) * l) / 2, 0.014, z + (Math.sin(a) * l) / 2);
-    seg.rotation.y = -a;
-    g.add(seg);
-    x += Math.cos(a) * l;
-    z += Math.sin(a) * l;
-  }
-  return g;
-};
 const pebbles = (color: number): Make => (rnd) => {
   const g = new THREE.Group();
   for (let k = 0; k < 4; k++) g.add(mesh(ball(0.06 + rnd() * 0.05), M(color), (rnd() - 0.5) * 0.6, 0.04, (rnd() - 0.5) * 0.6));
@@ -211,31 +196,31 @@ const smallCrystal = (color: number): Make => (rnd) => {
 /** each theme's floor touches */
 const FLOOR: Record<string, Make[]> = {
   meadow: [flowers, tuft(0x3f9e3e), pebbles(0x9a9a8a)],
-  dungeon: [pebbles(0x4a4458), puddle(0x5a6488), crack(0x8a7aff)],
+  dungeon: [pebbles(0x4a4458), puddle(0x5a6488), tuft(0x5a7a5a)],
   beach: [pebbles(0xf2ead8), puddle(0x8ae8ff), flowers],
   snow: [puddle(0xffffff), smallCrystal(0x9fe0ff), pebbles(0xb8c8d8)],
-  lava: [crack(0xff5a1a), crack(0xffa02a), pebbles(0x1e1418)],
+  lava: [puddle(0xff5a1a, true), pebbles(0x1e1418), pebbles(0x5a3a30)],
   forest: [smallShroom, tuft(0x2f6a3a), puddle(0x2a4a4a)],
   river: [tuft(0x7a9a4a), puddle(0x5a7ab8), pebbles(0x8a6a4a)],
-  cyber: [crack(0xff2bd6), crack(0x2bf0ff), smallCrystal(0xff2bd6)],
-  space: [smallCrystal(0x3ef0ff), crack(0x3ef0ff), pebbles(0x4a5674)],
-  city: [puddle(0x3a3c48), crack(0xffcf3e), pebbles(0x8a8f98)],
+  cyber: [puddle(0xff2bd6, true), smallCrystal(0x2bf0ff), smallCrystal(0xff2bd6)],
+  space: [smallCrystal(0x3ef0ff), puddle(0x3ef0ff, true), pebbles(0x4a5674)],
+  city: [puddle(0x3a3c48), pebbles(0x8a8f98), puddle(0x5a5c66)],
   soccer: [chalk, tuft(0x2f8a3a)],
 };
 
 /** each theme's props: tall ones (sides and far end) and low ones (anywhere, the near edge too) */
 const SETS: Record<string, { tall: Make[]; low: Make[]; n: number }> = {
-  meadow: { tall: [roundTree, roundTree, pine(0x3f8e3e)], low: [flowers, rock(0x9a9a8a), flowers], n: 34 },
-  dungeon: { tall: [torch, banner], low: [rock(0x5a5468), rock(0x4a4458)], n: 22 },
-  beach: { tall: [palm, palm, parasol], low: [rock(0xb8a888), flowers], n: 26 },
-  snow: { tall: [pine(0x2f6a5a, 0xffffff), pine(0x3a7a6a, 0xffffff), snowman], low: [crystal(0x9fe0ff), rock(0xdfe8f2)], n: 30 },
-  lava: { tall: [spike, rock(0x2e2220, 0xff5a1a)], low: [rock(0x3a2a26, 0xff7a2a), rock(0x2e2220)], n: 26 },
-  forest: { tall: [pine(0x2a5a32), pine(0x24502c), roundTree], low: [mushroom, log, mushroom], n: 36 },
-  river: { tall: [lantern, roundTree], low: [reeds, post, reeds], n: 26 },
-  cyber: { tall: [neonTower, neonTower], low: [crystal(0xff2bd6), crystal(0x2bf0ff)], n: 20 },
-  space: { tall: [dish, mast], low: [crystal(0x3ef0ff), rock(0x4a5674)], n: 22 },
-  city: { tall: [building(0x6a6c78, 0xffe08a), building(0x4a4c58, 0x8ae8ff), lamp], low: [post], n: 22 },
-  soccer: { tall: [stand, stand, goal], low: [flag], n: 14 },
+  meadow: { tall: [roundTree, roundTree, pine(0x3f8e3e)], low: [flowers, rock(0x9a9a8a), flowers], n: 48 },
+  dungeon: { tall: [torch, banner], low: [rock(0x5a5468), rock(0x4a4458)], n: 32 },
+  beach: { tall: [palm, palm, parasol], low: [rock(0xb8a888), flowers], n: 38 },
+  snow: { tall: [pine(0x2f6a5a, 0xffffff), pine(0x3a7a6a, 0xffffff), snowman], low: [crystal(0x9fe0ff), rock(0xdfe8f2)], n: 42 },
+  lava: { tall: [spike, rock(0x2e2220, 0xff5a1a)], low: [rock(0x3a2a26, 0xff7a2a), rock(0x2e2220)], n: 36 },
+  forest: { tall: [pine(0x2a5a32), pine(0x24502c), roundTree], low: [mushroom, log, mushroom], n: 50 },
+  river: { tall: [lantern, roundTree], low: [reeds, post, reeds], n: 38 },
+  cyber: { tall: [neonTower, neonTower], low: [crystal(0xff2bd6), crystal(0x2bf0ff)], n: 30 },
+  space: { tall: [dish, mast], low: [crystal(0x3ef0ff), rock(0x4a5674)], n: 32 },
+  city: { tall: [building(0x6a6c78, 0xffe08a), building(0x4a4c58, 0x8ae8ff), lamp], low: [post], n: 32 },
+  soccer: { tall: [stand, stand, goal], low: [flag], n: 22 },
 };
 
 /**
@@ -305,10 +290,10 @@ export function decorate(
     wrap.rotation.y = rnd() * Math.PI * 2;
     g.add(wrap);
   }
-  // and flat touches about the floor (flowers, puddles, glowing cracks...), walked straight over
+  // and flat touches about the floor (flowers, puddles, pebbles...), walked straight over
   const touches = FLOOR[theme] ?? [];
   if (touches.length && open.length) {
-    const n = Math.min(open.length, Math.round(open.length * 0.06) + 4);
+    const n = Math.min(open.length, Math.round(open.length * 0.12) + 6);
     const spots = [...open];
     for (let k = 0; k < n; k++) {
       const p = spots.splice(Math.floor(rnd() * spots.length), 1)[0];
@@ -319,4 +304,50 @@ export function decorate(
     }
   }
   world.add(g);
+}
+
+// ---------- cover: some of the walls inside a stage, drawn as props instead of plain blocks ----------
+// (each fills its one tile and stands about as tall as a wall, so it blocks just the same)
+const barrel = (body: number, band: number): Make => () =>
+  group(mesh(cyl(0.38, 0.38, 1, 14), M(body)), mesh(cyl(0.4, 0.4, 0.08, 14), M(band), 0, 0.2, 0), mesh(cyl(0.4, 0.4, 0.08, 14), M(band), 0, 0.75, 0), mesh(cyl(0.3, 0.3, 0.02, 14), M(band), 0, 1, 0));
+const emblem = (body: number, mark: number): Make => () =>
+  group(
+    mesh(box(0.96, 1.1, 0.96), M(body)),
+    mesh(new THREE.CircleGeometry(0.26, 5).rotateZ(Math.PI / 2), M(mark), 0, 0.6, 0.485),
+    mesh(new THREE.CircleGeometry(0.26, 5).rotateZ(Math.PI / 2).rotateY(Math.PI), M(mark), 0, 0.6, -0.485),
+    mesh(box(1, 0.08, 1), M(mark), 0, 1.06, 0),
+  );
+const crates = (wood: number, edge: number): Make => () => {
+  const one = (x: number, y: number, z: number, sz: number) => [mesh(box(sz, sz, sz), M(wood), x, y, z), mesh(box(sz + 0.02, 0.06, sz + 0.02), M(edge), x, y + sz * 0.5, z)];
+  return group(...one(0, 0, 0, 0.62), ...one(0.18, 0.62, 0.1, 0.48), ...one(-0.2, 0, -0.22, 0.4));
+};
+const stump: Make = (rnd) => group(mesh(cyl(0.42, 0.46, 0.7, 10), M(0x7a5232)), mesh(cyl(0.38, 0.38, 0.02, 10), M(0xc8a46a), 0, 0.7, 0), mesh(ball(0.32), M(rnd() < 0.5 ? 0x4fb84a : 0x3f9e3e), 0.15, 0.95, 0.1));
+const iceBlock: Make = () => group(mesh(box(0.92, 1.05, 0.92), new THREE.MeshStandardMaterial({ color: 0xbfe8ff, roughness: 0.15, transparent: true, opacity: 0.85 })), mesh(box(0.96, 0.12, 0.96), M(0xffffff), 0, 1.0, 0));
+const pillar = (color: number, cap: number): Make => () => group(mesh(box(0.9, 0.12, 0.9), M(cap)), mesh(cyl(0.32, 0.36, 0.95, 12), M(color), 0, 0.1, 0), mesh(box(0.9, 0.12, 0.9), M(cap), 0, 1.0, 0));
+const container = (color: number): Make => () => {
+  const g = group(mesh(box(0.96, 1.05, 0.96), M(color)));
+  for (let k = -3; k <= 3; k++) g.add(mesh(box(0.04, 1.0, 0.98), M(0x2a2c34), k * 0.13, 0.02, 0));
+  return g;
+};
+const pylon = (glow: number): Make => () => group(mesh(box(0.85, 1.1, 0.85), M(0x24182e)), mesh(box(0.88, 0.08, 0.88), M(glow, true), 0, 0.35, 0), mesh(box(0.88, 0.08, 0.88), M(glow, true), 0, 0.8, 0));
+const COVER: Record<string, Make[]> = {
+  meadow: [barrel(0x8a5a32, 0x3a3c44), stump, crates(0xc8925a, 0x6a3f1e)],
+  dungeon: [barrel(0x6a4a2a, 0x2a2734), emblem(0x6a5a8a, 0xe8b43a), pillar(0x8a93b8, 0x5a4a8a)],
+  beach: [barrel(0x9b7a55, 0x3a6a8a), crates(0xd8b47a, 0x8a5a32), emblem(0xf2ead8, 0x2fc6d6)],
+  snow: [iceBlock, barrel(0x5a7ab8, 0xf4f9fd), crates(0xb8a888, 0x5a4a3a)],
+  lava: [barrel(0x2e2220, 0xff5a1a), emblem(0x3a2a26, 0xff7a2a), pillar(0x3a2a26, 0xff5a1a)],
+  forest: [stump, barrel(0x5a3e22, 0x2a2a2a), crates(0x8a6a3a, 0x3a2a1a)],
+  river: [barrel(0x6a4a2a, 0x2a3a5a), crates(0xb0805a, 0x5a3e26), stump],
+  cyber: [pylon(0xff2bd6), pylon(0x2bf0ff), container(0x3a2a52)],
+  space: [container(0x4a5674), emblem(0x34405e, 0x3ef0ff), barrel(0x4a5674, 0x3ef0ff)],
+  city: [container(0xd8502a), container(0x2a6ad8), barrel(0x4a4c58, 0xffcf3e)],
+  soccer: [emblem(0xe8e8ee, 0x2f8a3a), barrel(0xe8e8ee, 0xff5a5a), crates(0xe8e8ee, 0x2f8a3a)],
+};
+/** a cover prop for one wall tile in this theme (null: the theme has none, keep the plain wall) */
+export function coverProp(theme: string, rnd: () => number): THREE.Object3D | null {
+  const set = COVER[theme];
+  if (!set) return null;
+  const o = set[Math.floor(rnd() * set.length)](rnd);
+  o.rotation.y = Math.floor(rnd() * 4) * (Math.PI / 2);
+  return o;
 }
