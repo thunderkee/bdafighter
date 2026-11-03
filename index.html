@@ -207,23 +207,24 @@
           <span id="run-offer-text"></span>
           <div><button class="key orange" id="run-continue">Continue ▶</button><button class="key" id="run-drop">New run</button></div>
         </div>
-        <!-- PLAY: the featured mode (Duel or Arena), and the two doors: Campaign and Events -->
+        <!-- the lobby, as Brawl Stars has it: Fighters on the left; the mode and PLAY on the right -->
         <div class="home-play">
-          <div class="play-row">
-            <button id="play-modes" class="play-modes" aria-label="Change mode"><i id="play-art"></i><span><small id="play-kind">DUEL</small><b id="play-name">Versus</b></span><em>▾</em></button>
+          <button id="home-fighters" class="bs-fighters"><i class="bs-face" id="fighters-face"></i><b>Fighters</b></button>
+          <div class="bs-right">
+            <button id="play-modes" class="bs-mode"><i id="play-art"></i><span><b id="play-name">Versus</b><small id="play-sub">Tap to change</small></span></button>
             <button id="play-main" class="play-main">PLAY</button>
           </div>
-          <div class="door-row">
-            <button id="door-campaign" class="door" data-door="campaign"><b>Campaign</b><small>Story · Arcade · Gauntlet</small></button>
-            <button id="door-events" class="door" data-door="events"><i class="door-new">EVENT</i><b id="event-name">Siege</b><small id="event-time">New in 2h</small></button>
-          </div>
         </div>
-        <!-- every mode, by kind: tap one to put it on PLAY (Campaign and Events go straight in) -->
-        <div id="mode-sheet" class="mode-sheet hidden" role="dialog" aria-label="Modes">
-          <div class="sheet-card">
-            <header><b id="sheet-title">Modes</b><button id="sheet-close" class="key round" aria-label="Close">✕</button></header>
-            <div id="sheet-body" class="sheet-body"></div>
-          </div>
+        <!-- Game Modes: a grid of cards, by tab (Duel / Arena / Campaign); tap one, it's on PLAY -->
+        <div id="mode-sheet" class="bs-screen hidden" role="dialog" aria-label="Game modes">
+          <header class="bs-head"><button id="sheet-close" class="key round" aria-label="Back">◀</button><b>Game Modes</b></header>
+          <div id="sheet-body" class="bs-grid modes"></div>
+          <nav class="bs-tabs" id="sheet-tabs"><button data-tab="duel">Duel</button><button data-tab="arena">Arena</button><button data-tab="campaign">Campaign</button></nav>
+        </div>
+        <!-- Fighters: every fighter as a card; tap one to see it and pick it -->
+        <div id="fighter-grid" class="bs-screen hidden" role="dialog" aria-label="Fighters">
+          <header class="bs-head"><button id="fighters-close" class="key round" aria-label="Back">◀</button><b>Fighters</b><small id="fighters-count"></small></header>
+          <div id="fighters-body" class="bs-grid fighters"></div>
         </div>
         <!-- (the launchers: each mode's own card, kept hidden; the new home presses them) -->
         <nav class="home-cards hidden" id="home-cards">

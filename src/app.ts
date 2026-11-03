@@ -1944,60 +1944,98 @@ export function boot() {
     const id = S().playMode ?? 'versus';
     return modeById(id) && available(id) ? modeById(id)! : modeById('versus')!;
   };
-  const KIND_NAME = { duel: 'DUEL', arena: 'ARENA', campaign: 'CAMPAIGN', more: 'MORE' } as const;
   const showHome = () => {
     const f = featured();
     $('play-art').textContent = f.icon;
-    $('play-kind').textContent = KIND_NAME[f.kind];
     $('play-name').textContent = f.name;
     $('play-modes').dataset.kind = f.kind;
     const r = rotation();
-    $('event-name').textContent = modeById(r.now)!.name;
-    $('event-time').textContent = `${modeById(r.next)!.name} in ${hhmm(r.left)}`;
+    $('play-sub').textContent = ROTATION.includes(f.id) ? `Event · ${hhmm(r.left)} left` : 'Tap to change';
+    // (the Fighters button wears your fighter's face)
+    const face = $('fighters-face');
+    if (face.dataset.id !== S().character) {
+      face.dataset.id = S().character;
+      face.innerHTML = `<i data-portrait="${S().character}" data-crop="bust"></i>`;
+      fillPortraits(face);
+    }
   };
   setInterval(() => !$('title').classList.contains('hidden') && showHome(), 20000);
-  /** the sheet: every mode by kind; 'pick' puts the tapped one on PLAY, 'go' plays it */
-  const openSheet = (what: 'all' | 'campaign') => {
+  /** Game Modes: one tab at a time, a grid of cards; tap one and it's the mode on PLAY */
+  let modeTab: 'duel' | 'arena' | 'campaign' = 'duel';
+  const showModes = () => {
     const body = $('sheet-body');
     body.innerHTML = '';
-    $('sheet-title').textContent = what === 'campaign' ? 'Campaign' : 'Modes';
     const r = rotation();
-    const groups: [HomeMode['kind'], string][] = what === 'campaign' ? [['campaign', 'Your own progress']] : [['duel', 'Duel · one on one on the rail'], ['arena', 'Arena · walk the stage'], ['campaign', 'Campaign'], ['more', 'More']];
-    for (const [kind, label] of groups) {
-      const h = document.createElement('p');
-      h.className = 'sheet-head';
-      h.textContent = label;
-      body.appendChild(h);
-      for (const m of MODES.filter((x) => x.kind === kind)) {
-        const live = available(m.id);
-        const b = document.createElement('button');
-        b.className = 'sheet-mode' + (m.id === featured().id ? ' on' : '') + (live ? '' : ' off');
-        b.dataset.kind = m.kind;
-        const tag = ROTATION.includes(m.id) ? (live ? `<em class="live">EVENT · ${hhmm(r.left)} left</em>` : `<em>${m.id === r.next ? `in ${hhmm(r.left)}` : 'later'}</em>`) : '';
-        b.innerHTML = `<i>${m.icon}</i><span><b>${m.name}</b><small>${m.sub}</small></span>${tag}`;
-        b.disabled = !live;
-        b.addEventListener('click', () => {
-          sfx.play('tick', 0.5);
-          $('mode-sheet').classList.add('hidden');
-          // (campaign, tutorial and the lab go straight in; the rest become the PLAY mode)
-          if (what === 'campaign' || m.kind === 'campaign' || m.kind === 'more') return m.go();
-          saveSetting({ playMode: m.id });
-          showHome();
-        });
-        body.appendChild(b);
-      }
+    document.querySelectorAll<HTMLElement>('#sheet-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === modeTab));
+    const list = MODES.filter((m) => m.kind === modeTab || (modeTab === 'campaign' && m.kind === 'more'));
+    for (const m of list) {
+      const live = available(m.id);
+      const b = document.createElement('button');
+      b.className = 'bs-card mode' + (m.id === featured().id ? ' on' : '') + (live ? '' : ' off');
+      b.dataset.kind = m.kind;
+      // the strip over the card: when a rotating mode changes
+      const strip = ROTATION.includes(m.id) ? (live ? `Event · ends in ${hhmm(r.left)}` : m.id === r.next ? `Next · in ${hhmm(r.left)}` : 'Coming later') : m.kind === 'more' ? '' : 'Always on';
+      b.innerHTML = `${strip ? `<em class="${live && ROTATION.includes(m.id) ? 'live' : ''}">${strip}</em>` : ''}<i>${m.icon}</i><b>${m.name}</b><small>${m.sub}</small>`;
+      b.disabled = !live;
+      b.addEventListener('click', () => {
+        sfx.play('tick', 0.5);
+        $('mode-sheet').classList.add('hidden');
+        // (the Unit Lab and the tutorial open straight away; anything else goes on PLAY)
+        if (m.id === 'lab' || m.id === 'tutorial') return m.go();
+        saveSetting({ playMode: m.id });
+        showHome();
+      });
+      body.appendChild(b);
     }
+  };
+  document.querySelectorAll<HTMLElement>('#sheet-tabs button').forEach((b) =>
+    b.addEventListener('click', () => {
+      modeTab = b.dataset.tab as typeof modeTab;
+      sfx.play('tick', 0.4);
+      showModes();
+    }),
+  );
+  const openModes = () => {
+    const k = featured().kind;
+    modeTab = k === 'more' ? 'campaign' : k;
+    showModes();
     $('mode-sheet').classList.remove('hidden');
+  };
+  /** Fighters: every fighter as a card (face, name, level; a lock if it isn't yours yet) */
+  const openFighters = () => {
+    const body = $('fighters-body');
+    body.innerHTML = '';
+    const all = playable().filter((c) => !BOSS_IDS.has(c.id));
+    $('fighters-count').textContent = `${all.filter((c) => !isLocked(c.id)).length}/${all.length}`;
+    for (const c of all) {
+      const locked = isLocked(c.id);
+      const L = levelOf(xpOf(c.id));
+      const b = document.createElement('button');
+      b.className = 'bs-card fighter' + (c.id === S().character ? ' on' : '') + (locked ? ' locked' : '');
+      b.style.setProperty('--tint', `#${(c.palette.body & 0xffffff).toString(16).padStart(6, '0')}`);
+      b.innerHTML = `<i class="${locked ? 'dark' : ''}"><i data-portrait="${c.id}" data-crop="bust"></i></i><b>${c.name}</b><small>${locked ? '🔒 Locked' : `LV ${L.lv}`}</small>`;
+      b.addEventListener('click', () => {
+        sfx.play('tick', 0.5);
+        $('fighter-grid').classList.add('hidden');
+        // its card: the fighter big, with its info, story and customizing (pick it there)
+        if (!locked) saveSetting({ character: c.id });
+        openSelect('home');
+        const k = entries.findIndex((e) => e.id === c.id);
+        if (k >= 0 && k !== cur) goTo(k);
+      });
+      body.appendChild(b);
+    }
+    fillPortraits(body);
+    $('fighter-grid').classList.remove('hidden');
   };
   $('play-main').addEventListener('click', () => {
     sfx.unlock();
     featured().go();
   });
-  $('play-modes').addEventListener('click', () => openSheet('all'));
-  $('door-campaign').addEventListener('click', () => openSheet('campaign'));
-  $('door-events').addEventListener('click', () => modeById(rotation().now)!.go());
+  $('play-modes').addEventListener('click', openModes);
+  $('home-fighters').addEventListener('click', openFighters);
   $('sheet-close').addEventListener('click', () => $('mode-sheet').classList.add('hidden'));
-  $('mode-sheet').addEventListener('click', (e) => e.target === $('mode-sheet') && $('mode-sheet').classList.add('hidden'));
+  $('fighters-close').addEventListener('click', () => $('fighter-grid').classList.add('hidden'));
   showHome();
 
   const SCREENS = ['title', 'select', 'setup', 'result', 'paused', 'settings'];
