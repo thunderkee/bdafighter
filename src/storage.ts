@@ -73,6 +73,8 @@ export interface Settings {
   batterySaver: boolean;
   /** Action mode across the whole screen, turned on its side (it asks the phone to rotate where it can) */
   landscape?: boolean;
+  /** the mode on the home screen's PLAY button */
+  playMode?: string;
   /** frame-rate meter in the corner */
   showFps: boolean;
   /** marbles per magazine for both robots (3-10), when magazines are equal */

@@ -15,7 +15,7 @@ import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import { SquadRun } from './squadrun';
-import { ActionMode } from './action';
+import { ActionMode, type ActionKind } from './action';
 import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
@@ -1426,11 +1426,15 @@ export function boot() {
   });
   // Action: walk the stage freely (Gauntlet rooms or a free-for-all), over the top like Squad Run
   let actionMode: ActionMode | null = null;
+  /** a mode to go straight into when Action opens (from the home screen) */
+  let actionKind: ActionKind | null = null;
   $('action-btn').addEventListener('click', () => {
     sfx.unlock();
     actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), landscape: () => !!S().landscape, cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
     show('');
     actionMode.open(playableId(S().character));
+    if (actionKind) actionMode.start(actionKind);
+    actionKind = null;
     if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;
   });
   $('arcade-btn').addEventListener('click', (e) => {
@@ -1897,54 +1901,111 @@ export function boot() {
   // tap your fighter (or its name) to pick another
   // (a drag on your fighter turns it instead)
   for (const el of [$('title-hero'), document.querySelector<HTMLElement>('.home-name')!]) el.addEventListener('click', () => !(el.id === 'title-hero' && hero.wasDrag) && openSelect('home'));
-  const cards = [...document.querySelectorAll<HTMLElement>('#home-cards .mode-card')];
-  let cardIdx = 0;
-  // every card the same wide rectangle; the one scrolled to the middle is the mode, and a tap on
-  // it plays (a tap on another slides that one to the middle)
-  cards.forEach((c) => c.classList.add('on'));
-  const row = $('home-cards');
-  const centre = (k: number, smooth = true) => {
-    const c = cards[k];
-    row.scrollTo({ left: c.offsetLeft - (row.clientWidth - c.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' });
-  };
-  const markActive = () => {
-    const mid = row.scrollLeft + row.clientWidth / 2;
-    let best = 0;
-    cards.forEach((c, k) => {
-      if (Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid) < Math.abs(cards[best].offsetLeft + cards[best].offsetWidth / 2 - mid)) best = k;
-    });
-    cardIdx = best;
-    cards.forEach((c, k) => c.classList.toggle('sel', k === best));
-  };
-  row.addEventListener('scroll', markActive, { passive: true });
-  const focusCard = (i: number, smooth = true) => {
-    cardIdx = (i + cards.length) % cards.length;
-    centre(cardIdx, smooth);
-  };
-  row.addEventListener(
-    'click',
-    (e) => {
-      const c = (e.target as Element).closest<HTMLElement>('.mode-card');
-      const k = c ? cards.indexOf(c) : -1;
-      if (k < 0 || k === cardIdx) return;
-      e.preventDefault();
-      e.stopPropagation();
-      focusCard(k);
-    },
-    { capture: true },
-  );
+  // ---------- home: PLAY with its featured mode, the Campaign and Events doors, the modes sheet ----------
   fillPortraits($('home-cards'));
-  // (a saved arcade run: its card in the middle)
-  requestAnimationFrame(() => {
-    centre(runOf(saveData.settings.character) ? cards.indexOf($('arcade-btn')) : 0, false);
-    markActive();
+  type HomeMode = { id: string; name: string; sub: string; kind: 'duel' | 'arena' | 'campaign' | 'more'; icon: string; go: () => void };
+  const press = (id: string) => () => $(id).click();
+  const arena = (kind: ActionKind) => () => {
+    actionKind = kind;
+    $('action-btn').click();
+  };
+  const MODES: HomeMode[] = [
+    { id: 'versus', name: 'Versus', sub: 'Arena rules: grab ammo, fill Overdrive, unleash a special', kind: 'duel', icon: '⚔️', go: press('play-btn') },
+    { id: 'classic', name: 'Classic', sub: 'The original rules: auto-reload, no specials', kind: 'duel', icon: '🎱', go: press('classic-btn') },
+    { id: 'squad', name: 'Squad Run', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', icon: '🛡️', go: press('squad-btn') },
+    { id: 'duo', name: '2 Players', sub: 'Head to head on one device', kind: 'duel', icon: '👥', go: press('duo-btn') },
+    { id: 'ffa', name: 'Free-for-all', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', icon: '💥', go: arena('ffa') },
+    { id: 'knockout', name: 'Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', icon: '🎯', go: arena('knockout') },
+    { id: 'siege', name: 'Siege', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', icon: '🏰', go: arena('siege') },
+    { id: 'zone', name: 'Hot Zone', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', icon: '🔥', go: arena('zone') },
+    { id: 'boss', name: 'Boss Fight', sub: 'You and two more against one giant fighter', kind: 'arena', icon: '👹', go: arena('boss') },
+    { id: 'story', name: 'Story', sub: 'Your fighter’s path through the League', kind: 'campaign', icon: '📖', go: press('story-btn') },
+    { id: 'arcade', name: 'Arcade', sub: 'A ladder of stages and four bosses', kind: 'campaign', icon: '🏆', go: press('arcade-btn') },
+    { id: 'gauntlet', name: 'Gauntlet', sub: 'Ten rooms, an upgrade after each, a boss every fifth', kind: 'campaign', icon: '🚪', go: arena('gauntlet') },
+    { id: 'tutorial', name: 'Tutorial', sub: 'Move, shoot, shield and parry in a minute', kind: 'more', icon: '🎓', go: press('tut-card') },
+    { id: 'lab', name: 'Unit Lab', sub: 'Edit and build fighters', kind: 'more', icon: '🔧', go: () => (location.href = './editor.html') },
+  ];
+  const modeById = (id: string) => MODES.find((m) => m.id === id);
+  // the rotation: Siege, Hot Zone and Boss Fight take turns as the event, a few hours each
+  const ROTATION = ['siege', 'zone', 'boss'];
+  const ROT_MS = 3 * 3600 * 1000;
+  const rotation = () => {
+    const now = Date.now();
+    const slot = Math.floor(now / ROT_MS);
+    return { now: ROTATION[slot % ROTATION.length], next: ROTATION[(slot + 1) % ROTATION.length], left: ROT_MS - (now % ROT_MS) };
+  };
+  const hhmm = (ms: number) => {
+    const m = Math.ceil(ms / 60000);
+    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  };
+  /** a mode can be played right now (the event modes only while it's their turn) */
+  const available = (id: string) => !ROTATION.includes(id) || rotation().now === id;
+  const featured = () => {
+    const id = S().playMode ?? 'versus';
+    return modeById(id) && available(id) ? modeById(id)! : modeById('versus')!;
+  };
+  const KIND_NAME = { duel: 'DUEL', arena: 'ARENA', campaign: 'CAMPAIGN', more: 'MORE' } as const;
+  const showHome = () => {
+    const f = featured();
+    $('play-art').textContent = f.icon;
+    $('play-kind').textContent = KIND_NAME[f.kind];
+    $('play-name').textContent = f.name;
+    $('play-modes').dataset.kind = f.kind;
+    const r = rotation();
+    $('event-name').textContent = modeById(r.now)!.name;
+    $('event-time').textContent = `${modeById(r.next)!.name} in ${hhmm(r.left)}`;
+  };
+  setInterval(() => !$('title').classList.contains('hidden') && showHome(), 20000);
+  /** the sheet: every mode by kind; 'pick' puts the tapped one on PLAY, 'go' plays it */
+  const openSheet = (what: 'all' | 'campaign') => {
+    const body = $('sheet-body');
+    body.innerHTML = '';
+    $('sheet-title').textContent = what === 'campaign' ? 'Campaign' : 'Modes';
+    const r = rotation();
+    const groups: [HomeMode['kind'], string][] = what === 'campaign' ? [['campaign', 'Your own progress']] : [['duel', 'Duel · one on one on the rail'], ['arena', 'Arena · walk the stage'], ['campaign', 'Campaign'], ['more', 'More']];
+    for (const [kind, label] of groups) {
+      const h = document.createElement('p');
+      h.className = 'sheet-head';
+      h.textContent = label;
+      body.appendChild(h);
+      for (const m of MODES.filter((x) => x.kind === kind)) {
+        const live = available(m.id);
+        const b = document.createElement('button');
+        b.className = 'sheet-mode' + (m.id === featured().id ? ' on' : '') + (live ? '' : ' off');
+        b.dataset.kind = m.kind;
+        const tag = ROTATION.includes(m.id) ? (live ? `<em class="live">EVENT · ${hhmm(r.left)} left</em>` : `<em>${m.id === r.next ? `in ${hhmm(r.left)}` : 'later'}</em>`) : '';
+        b.innerHTML = `<i>${m.icon}</i><span><b>${m.name}</b><small>${m.sub}</small></span>${tag}`;
+        b.disabled = !live;
+        b.addEventListener('click', () => {
+          sfx.play('tick', 0.5);
+          $('mode-sheet').classList.add('hidden');
+          // (campaign, tutorial and the lab go straight in; the rest become the PLAY mode)
+          if (what === 'campaign' || m.kind === 'campaign' || m.kind === 'more') return m.go();
+          saveSetting({ playMode: m.id });
+          showHome();
+        });
+        body.appendChild(b);
+      }
+    }
+    $('mode-sheet').classList.remove('hidden');
+  };
+  $('play-main').addEventListener('click', () => {
+    sfx.unlock();
+    featured().go();
   });
+  $('play-modes').addEventListener('click', () => openSheet('all'));
+  $('door-campaign').addEventListener('click', () => openSheet('campaign'));
+  $('door-events').addEventListener('click', () => modeById(rotation().now)!.go());
+  $('sheet-close').addEventListener('click', () => $('mode-sheet').classList.add('hidden'));
+  $('mode-sheet').addEventListener('click', (e) => e.target === $('mode-sheet') && $('mode-sheet').classList.add('hidden'));
+  showHome();
 
   const SCREENS = ['title', 'select', 'setup', 'result', 'paused', 'settings'];
   const show = (id: string) => {
     for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id);
     if (id !== 'select') preview.release();
     showHero();
+    if (id === 'title') showHome();
   };
   const goStep = (next: Step) => {
     step = next;
@@ -2259,12 +2320,11 @@ export function boot() {
     if (e.code === 'Escape' || e.code === 'KeyP') setPaused(!paused);
     if (e.code === 'KeyV' && screen === 'playing') cycleView();
     if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && screen !== 'playing' && !$('select').classList.contains('hidden')) go(e.code === 'ArrowLeft' ? -1 : 1);
-    if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && !$('title').classList.contains('hidden')) focusCard(cardIdx + (e.code === 'ArrowLeft' ? -1 : 1));
     if ((e.code === 'Enter' || e.code === 'Space') && screen !== 'playing') {
       e.preventDefault();
       if (!$('setup').classList.contains('hidden')) $('fight-btn').click();
       else if (!$('select').classList.contains('hidden')) $('select-next').click();
-      else if (!$('title').classList.contains('hidden')) cards[cardIdx].click();
+      else if (!$('title').classList.contains('hidden') && $('mode-sheet').classList.contains('hidden')) $('play-main').click();
       else if (!$('result').classList.contains('hidden')) $('again-btn').click();
     }
   });

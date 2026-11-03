@@ -207,8 +207,26 @@
           <span id="run-offer-text"></span>
           <div><button class="key orange" id="run-continue">Continue ▶</button><button class="key" id="run-drop">New run</button></div>
         </div>
-        <!-- the modes, one featured at a time: tap a card to bring it up, tap it again to play -->
-        <nav class="home-cards" id="home-cards">
+        <!-- PLAY: the featured mode (Duel or Arena), and the two doors: Campaign and Events -->
+        <div class="home-play">
+          <div class="play-row">
+            <button id="play-modes" class="play-modes" aria-label="Change mode"><i id="play-art"></i><span><small id="play-kind">DUEL</small><b id="play-name">Versus</b></span><em>▾</em></button>
+            <button id="play-main" class="play-main">PLAY</button>
+          </div>
+          <div class="door-row">
+            <button id="door-campaign" class="door" data-door="campaign"><b>Campaign</b><small>Story · Arcade · Gauntlet</small></button>
+            <button id="door-events" class="door" data-door="events"><i class="door-new">EVENT</i><b id="event-name">Siege</b><small id="event-time">New in 2h</small></button>
+          </div>
+        </div>
+        <!-- every mode, by kind: tap one to put it on PLAY (Campaign and Events go straight in) -->
+        <div id="mode-sheet" class="mode-sheet hidden" role="dialog" aria-label="Modes">
+          <div class="sheet-card">
+            <header><b id="sheet-title">Modes</b><button id="sheet-close" class="key round" aria-label="Close">✕</button></header>
+            <div id="sheet-body" class="sheet-body"></div>
+          </div>
+        </div>
+        <!-- (the launchers: each mode's own card, kept hidden; the new home presses them) -->
+        <nav class="home-cards hidden" id="home-cards">
           <button id="tut-card" class="mode-card" data-art="tutorial"><i class="new-badge">NEW</i><i class="card-art"><em>🎯</em></i><span class="card-text"><b>Tutorial</b><small>Move, shoot, shield and parry in a minute</small></span><span class="card-go">START ▶</span></button>
           <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Arena rules: grab ammo, fill Overdrive, unleash a special</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
           <button id="classic-btn" class="mode-card" data-art="classic"><i class="card-art"><em>🎱</em></i><span class="card-text"><b>Classic</b><small>The original rules: auto-reload, no specials</small></span><span class="card-go">PLAY ▶</span></button>

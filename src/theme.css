@@ -6090,3 +6090,240 @@ body.cine-on #pad {
     top: 26%;
   }
 }
+
+/* ================= home: PLAY, the two doors, the modes sheet (after Brawl Stars' lobby) ================= */
+#title.home .home-cards.hidden {
+  display: none;
+}
+.home-play {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  width: calc(100% + 32px);
+  margin: 0 -16px;
+  padding: 14px 14px max(18px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.1) 0 5px, transparent 6px) 0 0 / 34px 34px, linear-gradient(#2f5fe6, #1f45c0);
+}
+.play-row {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 10px;
+}
+.play-modes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ff7a3a, #e8452a);
+  box-shadow: 0 5px 0 var(--line);
+  color: #fff;
+  text-align: left;
+  min-width: 0;
+}
+.play-modes[data-kind='arena'] {
+  background: linear-gradient(135deg, #ff5a8a, #8a2ad8);
+}
+.play-modes[data-kind='campaign'] {
+  background: linear-gradient(135deg, #22c3b8, #12707a);
+}
+.play-modes > i {
+  font-size: 26px;
+  font-style: normal;
+}
+.play-modes span {
+  display: grid;
+  min-width: 0;
+}
+.play-modes small {
+  font: 700 9px var(--body);
+  letter-spacing: 0.14em;
+  opacity: 0.9;
+}
+.play-modes b {
+  font: 800 17px/1.05 var(--display);
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.play-modes em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 14px;
+}
+.play-main {
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(#ffe066, #ffc21a);
+  box-shadow: 0 6px 0 var(--line), inset 0 -6px 0 rgba(0, 0, 0, 0.12);
+  font: 800 32px var(--display);
+  color: #fff;
+  -webkit-text-stroke: 6px var(--line);
+  paint-order: stroke fill;
+  letter-spacing: 0.04em;
+  min-height: 68px;
+}
+.play-main:active,
+.play-modes:active,
+.door:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--line);
+}
+.door-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.door {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 1px;
+  padding: 8px 12px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 4px 0 var(--line);
+  color: #fff;
+  text-align: left;
+  background: linear-gradient(135deg, #22c3b8, #12707a);
+}
+.door[data-door='events'] {
+  background: linear-gradient(135deg, #b44aff, #6a1ad8);
+}
+.door b {
+  font: 800 16px var(--display);
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+}
+.door small {
+  font: 700 10px var(--body);
+  opacity: 0.92;
+}
+.door-new {
+  position: absolute;
+  right: 8px;
+  top: -9px;
+  padding: 1px 7px;
+  border: 2px solid var(--line);
+  border-radius: 99px;
+  background: #ffd23e;
+  color: var(--line);
+  font: 800 9px var(--display);
+  font-style: normal;
+}
+/* the sheet: every mode by kind */
+.mode-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(10, 12, 30, 0.55);
+}
+.mode-sheet.hidden {
+  display: none;
+}
+.sheet-card {
+  width: 100%;
+  max-height: 82%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px 22px 0 0;
+  border: 3px solid var(--line);
+  border-bottom: 0;
+  background: #fbf8f1;
+  padding: 12px 14px max(16px, env(safe-area-inset-bottom));
+}
+.sheet-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.sheet-card header b {
+  font: 800 22px var(--display);
+  color: var(--line);
+}
+.sheet-card header .key {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+}
+.sheet-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sheet-head {
+  margin: 8px 2px 0;
+  font: 700 10px var(--body);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sheet-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 var(--line);
+  background: linear-gradient(135deg, #ff7a3a, #e8452a);
+  color: #fff;
+  text-align: left;
+}
+.sheet-mode[data-kind='arena'] {
+  background: linear-gradient(135deg, #ff5a8a, #8a2ad8);
+}
+.sheet-mode[data-kind='campaign'] {
+  background: linear-gradient(135deg, #22c3b8, #12707a);
+}
+.sheet-mode[data-kind='more'] {
+  background: linear-gradient(135deg, #6a7488, #3a4258);
+}
+.sheet-mode.on {
+  outline: 4px solid #ffd23e;
+  outline-offset: 1px;
+}
+.sheet-mode.off {
+  filter: grayscale(0.85) brightness(0.8);
+}
+.sheet-mode > i {
+  font-size: 24px;
+  font-style: normal;
+}
+.sheet-mode span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.sheet-mode b {
+  font: 800 15px var(--display);
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+}
+.sheet-mode small {
+  font: 600 10px var(--body);
+  opacity: 0.92;
+}
+.sheet-mode em {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.35);
+  font: 700 9px var(--body);
+  font-style: normal;
+  white-space: nowrap;
+}
+.sheet-mode em.live {
+  background: #ffd23e;
+  color: var(--line);
+}

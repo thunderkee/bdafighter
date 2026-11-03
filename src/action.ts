@@ -647,6 +647,11 @@ export class ActionMode {
     return !this.over && this.units.some((u) => u.boss && u.alive);
   }
 
+  /** straight into a mode (from the home screen), past Action's own menu */
+  start(kind: ActionKind) {
+    this.begin(kind);
+  }
+
   private begin(kind: ActionKind) {
     sfx.unlock();
     this.kind = kind;
