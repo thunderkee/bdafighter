@@ -6743,9 +6743,13 @@ body.cine-on #pad {
   gap: 12px;
   align-items: flex-start;
 }
+/* (the strip is the header's width and scrolls inside it, so the last tab reaches the right edge) */
 #settings .tabs {
   display: flex;
   gap: 6px;
+  align-self: stretch;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
 }
