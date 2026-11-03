@@ -25,6 +25,10 @@ import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
 import { REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, type Equip, type Slot } from './cosmetics';
 import { skinDelta, skinsOf } from './kits';
 
+/** the sound button's icon: a speaker, with waves or crossed out */
+const speakerIcon = (muted: boolean) =>
+  `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>${muted ? '<path d="M17 9l5 6M22 9l-5 6"/>' : '<path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/>'}</svg>`;
+
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const params = new URLSearchParams(location.search);
@@ -1480,9 +1484,9 @@ export function boot() {
     sfx.unlock();
     saveData = store.save({ muted: !saveData.muted });
     sfx.setMuted(saveData.muted);
-    $('mute-btn').textContent = saveData.muted ? 'OFF' : 'SND';
+    $('mute-btn').innerHTML = speakerIcon(saveData.muted);
   });
-  $('mute-btn').textContent = saveData.muted ? 'OFF' : 'SND';
+  $('mute-btn').innerHTML = speakerIcon(saveData.muted);
 
   // ---------- settings ----------
   const padDir = document.querySelectorAll<HTMLElement>('.pad-dir .pad-btn');
@@ -1973,8 +1977,8 @@ export function boot() {
       const b = document.createElement('button');
       b.className = 'bs-card mode' + (m.id === featured().id ? ' on' : '') + (live ? '' : ' off');
       b.dataset.kind = m.kind;
-      // the strip over the card: when a rotating mode changes
-      const strip = ROTATION.includes(m.id) ? (live ? `Event · ends in ${hhmm(r.left)}` : m.id === r.next ? `Next · in ${hhmm(r.left)}` : 'Coming later') : m.kind === 'more' ? '' : 'Always on';
+      // the strip over the card, only on the rotating modes: when it changes
+      const strip = ROTATION.includes(m.id) ? (live ? `Event · ends in ${hhmm(r.left)}` : m.id === r.next ? `Next · in ${hhmm(r.left)}` : 'Coming later') : '';
       b.innerHTML = `${strip ? `<em class="${live && ROTATION.includes(m.id) ? 'live' : ''}">${strip}</em>` : ''}<i>${m.icon}</i><b>${m.name}</b><small>${m.sub}</small>`;
       b.disabled = !live;
       b.addEventListener('click', () => {
@@ -2061,6 +2065,7 @@ export function boot() {
       step === 'fighter' ? (selectMode === 'duo' ? 'Player 1 fighter' : 'Select fighter') : step === 'rival' ? (selectMode === 'duo' ? 'Player 2 fighter' : 'Select rival') : 'Select arena';
     $('select-next').textContent = arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : selectMode === 'home' ? 'Use this fighter ✓' : 'Next ▶';
     if (selectMode === 'home') $('select-title').textContent = 'Your fighter';
+    $('select').classList.toggle('from-home', selectMode === 'home');
     if (arcadeSwap) $('select-title').textContent = 'Change fighter';
     buildGrid();
   };

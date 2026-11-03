@@ -6360,3 +6360,494 @@ body.cine-on #pad {
 .bs-card.fighter.locked small {
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* ================= one menu system: the lobby's look on every menu screen =================
+   One ground (blue, dotted), one panel (navy, ink edge, hard shadow), one accent (gold for
+   the main action and the current choice), one header (back, then the title in outlined
+   type), Lilita for anything loud and Nunito for reading, and a 16px gutter on every screen. */
+:root {
+  --ui-ground: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.06) 0 4px, transparent 5px) 0 0 / 34px 34px, linear-gradient(#3a6cf0, #1f45c0);
+  --ui-panel: linear-gradient(#3a3452, #252038);
+  --ui-panel-lo: #1a1630;
+  --ui-gold: #ffd23e;
+  --ui-gold-grad: linear-gradient(#ffe066, #ffc21a);
+  --ui-dim: rgba(255, 255, 255, 0.72);
+  --ui-gutter: 16px;
+  --ui-r: 16px;
+}
+#title.home,
+.bs-screen,
+#select.screen.device,
+#setup.screen.device,
+#settings.screen.device,
+#result.screen.device,
+#paused.screen.device {
+  background: var(--ui-ground);
+  color: #fff;
+}
+/* titles: white outlined type, no bar */
+.bs-head b,
+#select .step-head h2,
+#setup .step-head h2,
+#settings .screen-title {
+  margin: 0;
+  padding: 0;
+  background: none;
+  clip-path: none;
+  align-self: auto;
+  font: 400 26px/1.1 var(--display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #fff;
+  -webkit-text-stroke: 6px var(--line);
+  paint-order: stroke fill;
+}
+.bs-head {
+  gap: 12px;
+  padding: max(16px, env(safe-area-inset-top)) var(--ui-gutter) 12px;
+}
+.bs-head .key {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 16px;
+}
+.bs-head small {
+  padding: 4px 10px;
+  border: 3px solid var(--line);
+  border-radius: 99px;
+  background: var(--ui-panel-lo);
+  font: 400 14px var(--display);
+}
+
+/* ---- buttons: gold is the one main action; white is everything else ---- */
+.screen.device .key.orange,
+.play-main {
+  border: 3px solid var(--line);
+  background: var(--ui-gold-grad);
+  color: #fff;
+  -webkit-text-stroke: 5px var(--line);
+  paint-order: stroke fill;
+  box-shadow: 0 5px 0 var(--line), inset 0 -5px 0 rgba(0, 0, 0, 0.12);
+  font-family: var(--display);
+  font-weight: 400;
+}
+.screen.device .key:not(.orange) {
+  font-weight: 400;
+}
+
+/* ================= the lobby ================= */
+#title.home {
+  padding: 0 var(--ui-gutter);
+}
+#title.home .home-top {
+  padding-top: max(16px, env(safe-area-inset-top));
+  align-items: center;
+}
+.home-logo {
+  rotate: -3deg;
+  margin: 0;
+}
+.home-logo b {
+  font-size: 30px;
+  -webkit-text-stroke: 7px #fff;
+}
+.home-logo b + b {
+  margin-left: 10px;
+}
+.home-icons {
+  gap: 8px;
+}
+.home-icon,
+#settings-btn.home-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 3px solid var(--line);
+  background: var(--ui-panel);
+  box-shadow: 0 4px 0 var(--line);
+  color: #fff;
+  font: 400 22px var(--display);
+}
+.home-icon svg {
+  display: block;
+}
+/* the fighter's name and level: one tidy block under the hero */
+.home-name {
+  margin: -4px 0 12px;
+  gap: 6px;
+}
+.home-name > span:first-child {
+  display: none;
+}
+#title.home .home-name b#title-unit {
+  padding: 2px 14px 4px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font: 400 28px/1.1 var(--display);
+  letter-spacing: 0.01em;
+  color: #fff;
+  -webkit-text-stroke: 6px var(--line);
+  paint-order: stroke fill;
+}
+#title.home .home-lv {
+  margin: 0;
+  padding: 4px 10px 4px 4px;
+  gap: 8px;
+  border: 3px solid var(--line);
+  border-radius: 99px;
+  background: var(--ui-panel-lo);
+}
+#title.home .home-lv em {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--ui-gold);
+  color: var(--line);
+  font: 400 12px var(--display);
+}
+#title.home .home-lv i {
+  width: 120px;
+  height: 10px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.16);
+}
+#title.home .home-lv small {
+  font: 700 11px var(--body);
+  letter-spacing: 0;
+  color: var(--ui-dim);
+}
+#title.home .home-next {
+  font: 700 12px var(--body);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ui-dim);
+}
+/* Fighters on the left, as tall as the mode and PLAY stacked */
+.home-play {
+  width: 100%;
+  margin: 0;
+  padding: 0 0 max(16px, env(safe-area-inset-bottom));
+  grid-template-columns: 104px 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+.bs-fighters {
+  align-content: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--ui-r);
+  background: var(--ui-panel);
+}
+.bs-fighters b {
+  font-weight: 400;
+  font-size: 15px;
+}
+.bs-face {
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.bs-face img.portrait,
+.bs-card.fighter img.portrait {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+.bs-right {
+  gap: 12px;
+}
+.bs-mode {
+  min-height: 56px;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: var(--ui-r);
+}
+.bs-mode > i {
+  font-size: 26px;
+}
+.bs-mode b {
+  font-weight: 400;
+  font-size: 18px;
+}
+.bs-mode small {
+  font: 700 11px var(--body);
+}
+.play-main {
+  min-height: 72px;
+  border-radius: 18px;
+  font-size: 36px;
+  -webkit-text-stroke: 7px var(--line);
+}
+
+/* ================= Game Modes and Fighters ================= */
+.bs-grid {
+  gap: 12px;
+  padding: 4px var(--ui-gutter) 24px;
+}
+.bs-card {
+  border-radius: var(--ui-r);
+}
+.bs-card b {
+  font-weight: 400;
+}
+.bs-card.on {
+  outline: 0;
+  box-shadow: 0 4px 0 var(--line), 0 0 0 4px var(--ui-gold);
+}
+/* a mode card: the icon, the name and two lines, always laid out the same */
+.bs-card.mode {
+  grid-template-rows: auto auto 1fr;
+  align-content: start;
+  gap: 4px;
+  min-height: 148px;
+  padding: 16px 10px 12px;
+}
+.bs-card.mode:has(em) {
+  padding-top: 30px;
+}
+.bs-card.mode > i {
+  font-size: 36px;
+  line-height: 1.1;
+}
+.bs-card.mode b {
+  font-size: 18px;
+}
+.bs-card.mode small {
+  font: 600 11px/1.3 var(--body);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bs-card.mode em {
+  padding: 4px 6px;
+  border-radius: var(--ui-r) var(--ui-r) 0 0;
+  font: 700 10px var(--body);
+  letter-spacing: 0;
+}
+.bs-tabs {
+  padding: 8px var(--ui-gutter) max(12px, env(safe-area-inset-bottom));
+  border-top: 3px solid var(--line);
+}
+.bs-tabs button {
+  padding: 10px 0;
+  font-weight: 400;
+  font-size: 16px;
+}
+/* a fighter card: the face on its own colour, the name, the level */
+.bs-card.fighter {
+  gap: 2px;
+  padding: 6px 6px 8px;
+  background: var(--ui-panel);
+}
+.bs-card.fighter > i {
+  border: 2px solid var(--line);
+}
+.bs-card.fighter > i.dark {
+  background: radial-gradient(circle at 50% 40%, #4a4466, #24203a);
+}
+.bs-card.fighter > i.dark img {
+  filter: brightness(0) opacity(0.55);
+}
+.bs-card.fighter b {
+  font-size: 13px;
+  margin-top: 4px;
+}
+.bs-card.fighter small {
+  font: 700 11px var(--body);
+}
+
+/* ================= the fighter screen ================= */
+#select {
+  --band: #2a2545;
+  padding-left: var(--ui-gutter);
+  padding-right: var(--ui-gutter);
+}
+#select .step-head {
+  padding-top: max(16px, env(safe-area-inset-top));
+  margin-bottom: 8px;
+}
+/* (from the lobby, the Fighters grid is the way to jump: no thumbnail strip, no rings) */
+#select.from-home .pick-strip {
+  display: none;
+}
+.car-rings {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0 33%, transparent 33% 47%, rgba(255, 255, 255, 0.08) 47% 63%, transparent 63%);
+}
+.car-rings i {
+  display: none;
+}
+.car-band {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--ui-panel);
+  box-shadow: 0 5px 0 var(--line);
+}
+#select[data-side='p2'] .car-band {
+  background: linear-gradient(#d9364a, #9e2033);
+}
+.car-tag,
+.car-tag span {
+  font: 700 11px var(--body);
+  letter-spacing: 0.02em;
+  color: var(--ui-dim);
+}
+#pv-name {
+  font-weight: 400;
+  -webkit-text-stroke: 6px var(--line);
+  paint-order: stroke fill;
+}
+.car-info .info-tabs {
+  background: var(--ui-panel-lo);
+  border: 3px solid var(--line);
+  border-radius: 99px;
+}
+.car-info .info-tabs button {
+  font: 400 13px var(--display);
+  letter-spacing: 0.02em;
+  color: var(--ui-dim);
+  border-radius: 99px;
+}
+.car-info .info-tabs button.on {
+  background: var(--ui-gold);
+  color: var(--line);
+}
+#select .dev-actions,
+#setup .dev-actions {
+  gap: 12px;
+  padding: 0 0 max(16px, env(safe-area-inset-bottom));
+}
+#select #select-back,
+#setup .dev-actions .key:not(.orange) {
+  flex: 0 0 34%;
+  border: 3px solid var(--line);
+  background: #fff;
+  color: var(--line);
+  box-shadow: 0 5px 0 var(--line);
+}
+#select .arena-width,
+#select .arena-width > b {
+  color: #fff;
+}
+
+/* ================= Options ================= */
+#settings {
+  padding: max(16px, env(safe-area-inset-top)) var(--ui-gutter) 0;
+  gap: 12px;
+}
+#settings .settings-head {
+  width: 100%;
+  gap: 12px;
+  align-items: flex-start;
+}
+#settings .tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#settings .tabs button {
+  flex: none;
+  padding: 8px 14px;
+  clip-path: none;
+  border: 3px solid var(--line);
+  border-radius: 99px;
+  background: var(--ui-panel-lo);
+  color: var(--ui-dim);
+  font: 400 13px var(--display);
+  letter-spacing: 0.02em;
+}
+#settings .tabs button.on {
+  background: var(--ui-gold);
+  color: var(--line);
+}
+#settings .panels {
+  width: 100%;
+  padding-bottom: 104px;
+}
+#settings .setting,
+#setup .setting {
+  gap: 8px;
+  padding: 14px 16px;
+  border: 3px solid var(--line);
+  border-radius: var(--ui-r);
+  background: var(--ui-panel);
+  box-shadow: 0 4px 0 var(--line);
+  color: #fff;
+}
+#settings .setting + .setting {
+  margin-top: 12px;
+}
+#settings .setting b,
+#setup .setting b {
+  font: 400 17px var(--display);
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+#settings .setting > span,
+#setup .setting > span {
+  font: 600 13px/1.35 var(--body);
+  color: var(--ui-dim);
+}
+#settings .seg,
+#setup .seg,
+#select .seg {
+  border: 3px solid var(--line);
+  border-radius: 99px;
+  background: var(--ui-panel-lo);
+  padding: 3px;
+}
+#settings .seg button,
+#setup .seg button,
+#select .seg button {
+  border: 0;
+  border-radius: 99px;
+  background: none;
+  box-shadow: none;
+  color: var(--ui-dim);
+  font: 400 14px var(--display);
+  -webkit-text-stroke: 0;
+}
+#settings .seg button.on,
+#setup .seg button.on,
+#select .seg button.on {
+  background: var(--ui-gold);
+  color: var(--line);
+}
+/* DONE sits in its own footer: the list scrolls under a fade, never under the button */
+#settings #settings-done {
+  position: absolute;
+  left: var(--ui-gutter);
+  right: var(--ui-gutter);
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: auto;
+  min-height: 60px;
+  font-size: 22px;
+  z-index: 3;
+}
+#settings::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 108px;
+  background: linear-gradient(rgba(31, 69, 192, 0), #1f45c0 45%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ================= result and pause ================= */
+#result .sys-line,
+#paused .sys-line {
+  font: 700 12px var(--body);
+  letter-spacing: 0.04em;
+  color: var(--ui-dim);
+}
+#result .key,
+#paused .key {
+  width: min(360px, 100%);
+}
