@@ -2239,6 +2239,8 @@ export function boot() {
   const showTab = (tab: string) => {
     document.querySelectorAll<HTMLElement>('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
     document.querySelectorAll<HTMLElement>('.panels section').forEach((p) => p.classList.toggle('on', p.dataset.panel === tab));
+    // (each tab starts at its top)
+    document.querySelector('#settings .panels')!.scrollTop = 0;
   };
   document.querySelectorAll<HTMLElement>('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab!)));
   // Options opens on the basics; the full set of tabs comes out with More settings
@@ -2254,6 +2256,7 @@ export function boot() {
     settingsFrom = from;
     for (const k of SCREENS) $(k).classList.add('hidden');
     $('settings').classList.remove('hidden');
+    document.querySelector('#settings .panels')!.scrollTop = 0;
     showHero();
   };
   $('settings-btn').addEventListener('click', () => openSettings('title'));

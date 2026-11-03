@@ -7546,3 +7546,326 @@ body.cine-on #pad {
   white-space: nowrap;
   font-size: 15px;
 }
+
+/* ================= audit pass: menu, pause, Options ================= */
+/* one drawn icon set: 2.6 stroke, round caps, the text's colour */
+.ui-ic {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.2em;
+}
+.ui-ic.solid {
+  fill: currentColor;
+}
+.bs-head .key .ui-ic {
+  width: 22px;
+  height: 22px;
+  stroke-width: 3.2;
+}
+#settings-btn.home-icon .ui-ic {
+  width: 22px;
+  height: 22px;
+}
+/* on a gold key the icon is outlined like the label beside it */
+.key.orange .ui-ic {
+  fill: #fff;
+  stroke: var(--line);
+  stroke-width: 2.4;
+}
+#paused .pause-card .key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Options: the title and tabs stay put, the list scrolls between them and DONE */
+#settings.screen.device {
+  overflow: hidden;
+}
+#settings .settings-head {
+  flex: none;
+}
+#settings .panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  /* (room for the shadows of the first and last cards) */
+  margin: 0 calc(-1 * var(--ui-gutter));
+  padding: 4px var(--ui-gutter) 112px;
+  width: calc(100% + 2 * var(--ui-gutter));
+}
+#settings .panels::-webkit-scrollbar {
+  display: none;
+}
+
+/* a card's own rhythm: the name and its line together, the control a step below */
+#settings .setting {
+  gap: 2px;
+}
+#settings .setting > .seg,
+#settings .setting > .key,
+#settings .setting > .level {
+  margin-top: 10px;
+}
+
+/* an on/off choice is one row: the name and its line on the left, the switch on the right */
+#settings .set-row,
+#settings .setting:not(.set-group):has(> .seg > button[data-value='true']:first-child + button[data-value='false']:last-child) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 124px;
+  grid-template-areas: 'head seg' 'desc desc';
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
+}
+#settings .set-row > .set-head,
+#settings .setting:not(.set-group) > .set-head {
+  grid-area: head;
+}
+#settings .set-row > span,
+#settings .setting:not(.set-group) > span {
+  grid-area: desc;
+}
+#settings .set-row > .seg,
+#settings .setting:not(.set-group):has(> .seg > button[data-value='true']:first-child + button[data-value='false']:last-child) > .seg {
+  grid-area: seg;
+  margin: 0;
+}
+#settings .set-row:not(:has(> span)) {
+  grid-template-areas: 'head seg';
+}
+#settings .set-row .seg button,
+#settings .setting:has(> .seg > button[data-value='true']:first-child + button[data-value='false']:last-child) .seg button {
+  padding: 6px 0;
+  font-size: 13px;
+}
+#settings .set-row b {
+  font: 400 17px var(--display);
+}
+#settings .set-row > span {
+  font: 600 13px/1.3 var(--body);
+  color: var(--ui-dim);
+}
+/* related switches share one card, a hairline between rows */
+#settings .set-group {
+  display: block;
+  padding: 2px 16px;
+}
+#settings .set-group .set-row {
+  padding: 12px 0;
+}
+#settings .set-group .set-row + .set-row {
+  border-top: 2px solid rgba(255, 255, 255, 0.08);
+}
+/* the way on: tutorial and More settings side by side, quieter than the cards */
+#settings .set-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+#settings .set-links .more-settings {
+  margin: 0;
+  min-height: 48px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* all six tabs in view: a 3 x 2 grid of pills, no hidden strip to scroll */
+#settings .tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+#settings .tabs button {
+  padding: 7px 4px;
+  text-align: center;
+}
+/* small notes and tags read as quiet labels, not faded olive */
+#settings .set-head em {
+  font: 700 11px var(--body);
+  font-style: normal;
+  letter-spacing: 0;
+  color: var(--ui-dim);
+}
+#settings .adv-note {
+  margin: 0 0 12px;
+  font: 600 13px/1.35 var(--body);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* pause: the context line close to the title, a step down to Resume, Quit tucked under the pair */
+#paused .pause-info {
+  margin-bottom: 4px;
+}
+#paused .pause-main .key.quit {
+  margin-top: -4px;
+}
+
+/* lobby: the fighter's name and level a clear step above the play row */
+.home-name {
+  margin-bottom: 20px;
+}
+
+/* ================= phones held sideways: the menu, Options and pause use the whole window =================
+   (the portrait column stays for the match itself and for desktop; these screens break out of it, as Action does) */
+@media (orientation: landscape) and (max-height: 600px) {
+  #title.home,
+  #settings.screen.device,
+  #paused.screen.device {
+    position: fixed;
+    inset: 0;
+    width: auto;
+  }
+  :root {
+    --land-l: max(var(--ui-gutter), env(safe-area-inset-left));
+    --land-r: max(var(--ui-gutter), env(safe-area-inset-right));
+  }
+
+  /* lobby: your fighter fills the left; the name, level, mode and PLAY stack on the right */
+  #title.home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'top top' 'hero name' 'hero play';
+    column-gap: 24px;
+    padding: 0 var(--land-r) 0 var(--land-l);
+  }
+  #title.home .home-top {
+    grid-area: top;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+  #title.home .home-hero {
+    grid-area: hero;
+    align-self: stretch;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: -24px 0 0;
+  }
+  #title.home .home-name {
+    grid-area: name;
+    align-self: end;
+    margin: 0 0 16px;
+  }
+  #title.home .home-play {
+    grid-area: play;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  #title.home .tut-offer {
+    grid-area: name;
+    align-self: center;
+    z-index: 2;
+  }
+  #title.home .home-record {
+    grid-area: top;
+  }
+
+  /* Game Modes and Fighters: the same header, more cards to a row */
+  .bs-head {
+    padding: max(12px, env(safe-area-inset-top)) var(--land-r) 10px var(--land-l);
+  }
+  #mode-sheet .bs-tabs {
+    max-width: 480px;
+    margin: 0 var(--land-r) 12px var(--land-l);
+  }
+  .bs-grid {
+    padding: 4px var(--land-r) 20px var(--land-l);
+  }
+  .bs-grid.modes {
+    grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  }
+  .bs-card.mode {
+    min-height: 132px;
+  }
+  #fighters-body {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  }
+
+  /* Options: title and DONE share the top line, the tabs one row under it, the cards two to a row */
+  #settings.screen.device {
+    padding: max(12px, env(safe-area-inset-top)) var(--land-r) 0 var(--land-l);
+    gap: 10px;
+  }
+  #settings .settings-head {
+    padding-right: 156px;
+    min-height: 44px;
+    justify-content: center;
+  }
+  #settings.expert .settings-head {
+    padding-right: 0;
+  }
+  #settings.expert .settings-head .screen-title {
+    padding-right: 156px;
+  }
+  /* (the title line is DONE's height, so the tabs start below the button) */
+  #settings .settings-head .screen-title {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  #settings .tabs {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  #settings #settings-done {
+    top: max(12px, env(safe-area-inset-top));
+    bottom: auto;
+    left: auto;
+    right: var(--land-r);
+    width: 140px;
+    min-height: 44px;
+    font-size: 18px;
+  }
+  #settings::after {
+    height: 28px;
+  }
+  #settings .panels {
+    margin: 0 calc(-1 * var(--land-r)) 0 calc(-1 * var(--land-l));
+    padding: 4px var(--land-r) 28px var(--land-l);
+    width: auto;
+    align-self: stretch;
+  }
+  #settings .panels section.on {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  #settings .panels section.on > * {
+    margin: 0;
+  }
+  #settings .panels section.on > .set-links,
+  #settings .panels section.on > .adv-note,
+  #settings .panels section.on > .lab-link {
+    grid-column: 1 / -1;
+  }
+
+  /* pause: the card in the middle of the frozen match, the same card as portrait */
+  #paused.screen.device {
+    justify-content: center;
+    padding: 44px var(--land-r) 16px var(--land-l);
+  }
+}
+/* (Basics' grouped rows have short lines: the switch spans name and line, so the two read as one) */
+#settings .set-row {
+  grid-template-areas: 'head seg' 'desc seg';
+}
