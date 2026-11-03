@@ -6027,6 +6027,38 @@ export class ShooterMesh {
     this.turret.rotation.z = this.rest.turretZ + dir * Math.sign(s.vx) * side * 0.06 + Math.sin(this.stride) * 0.05 * side;
     // leaning into a forward march (on top of the shield's hunch)
     this.turret.rotation.x -= fwd * 0.12 * Math.sign(vy * (s.team === 0 ? 1 : -1) || 1);
+    // the body walks with the legs, not as a block carried on top of them
+    // (treads and hovering units glide, so only legged ones)
+    if (this.legs.length >= 2 && !this.treadPlates.length && !this.hoverLift) {
+      const march = fwd * (1 - brace);
+      const step = side * (1 - brace);
+      const ph = Math.sin(this.stride);
+      const footfall = Math.abs(Math.cos(this.stride));
+      // weight over the planted foot: the torso rolls to it, a nod as each foot lands
+      this.turret.rotation.z += ph * (0.045 * march + 0.02 * step);
+      this.turret.rotation.x += (1 - footfall) * 0.035 * Math.max(march, step * 0.6);
+      if (this.legs.length === 2) {
+        // a biped: shoulders turn against the hips, the pelvis rolls under the step
+        this.turret.rotation.y += ph * (0.16 * march + 0.05 * step);
+        this.root.rotation.z += ph * 0.025 * march;
+        // the free arm swings opposite its leg (the aiming arm holds its line); a side-step
+        // flares the hanging arms out a little for balance
+        if (this.armR && this.armL) {
+          const swingR = (1 - this.raise.r) * moving * (1 - brace);
+          const swingL = (1 - this.raise.l) * moving * (1 - brace);
+          this.armR.rotation.x += -ph * 0.5 * swingR * Math.max(fwd, 0.5);
+          this.armL.rotation.x += ph * 0.5 * swingL * Math.max(fwd, 0.5);
+          this.armR.rotation.z += -footfall * 0.12 * step * (1 - this.raise.r);
+          this.armL.rotation.z += footfall * 0.12 * step * (1 - this.raise.l);
+        }
+        // a swordsman's ready arm sways with the stride (left alone mid-cut)
+        if (this.slashArm && !this.slashArmL && (s.kickT ?? 9) > 0.5) this.slashArm.rotation.x += -ph * 0.22 * moving * (1 - brace);
+        // units whose arms are the guns themselves pump them as they go (not mid-wind-up)
+        if (this.punchArms.length && (s.windT ?? 9) > this.windup + 0.5) {
+          this.punchArms.forEach((a, i) => (a.rotation.x += (i % 2 ? ph : -ph) * 0.3 * moving * (1 - brace)));
+        }
+      }
+    }
     if (this.treadPlates.length) {
       // the tracks roll with the ground speed: plates slide along (wrapping every plate pitch),
       // the top run one way and the bottom run the other, and the wheels turn
