@@ -7869,3 +7869,92 @@ body.cine-on #pad {
 #settings .set-row {
   grid-template-areas: 'head seg' 'desc seg';
 }
+
+/* ================= the match held sideways: the whole window, not the portrait column ================= */
+@media (orientation: landscape) and (max-height: 600px) {
+  #app {
+    width: 100vw;
+  }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  /* the scoreboard stays a readable width in the middle of the top edge */
+  .vs-bar {
+    left: max(10px, calc(50% - 320px));
+    right: max(10px, calc(50% - 320px));
+  }
+  /* the VS cards come in from their own sides, not as full-width bands */
+  .intro-card {
+    max-width: 440px;
+  }
+  .intro-card.p1 {
+    right: auto;
+    left: max(0px, env(safe-area-inset-left));
+  }
+  .intro-card.p2 {
+    left: auto;
+    right: max(0px, env(safe-area-inset-right));
+  }
+  /* result: the word and your fighter on the left; XP, stats, what's next and the buttons on the right */
+  #result.screen.device {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    grid-auto-rows: min-content;
+    align-content: center;
+    column-gap: 32px;
+    row-gap: 10px;
+    padding: max(12px, env(safe-area-inset-top)) var(--land-r) max(12px, env(safe-area-inset-bottom)) var(--land-l);
+    overflow-y: auto;
+  }
+  #result > * {
+    grid-column: 2;
+    width: 100%;
+    margin: 0;
+  }
+  #result > .sys-line,
+  #result > .result-title,
+  #result > .result-face {
+    grid-column: 1;
+    justify-self: center;
+    width: auto;
+  }
+  #result > .sys-line {
+    grid-row: 1;
+    align-self: end;
+  }
+  #result > .result-title {
+    grid-row: 2;
+  }
+  #result > .result-face {
+    grid-row: 3 / span 6;
+    align-self: start;
+  }
+  #result .result-actions {
+    margin-top: 6px;
+  }
+  #result .record {
+    text-align: center;
+  }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  /* (two columns of near-equal height: who and against whom on the left, the numbers and the buttons on the right) */
+  #result > .sys-line { grid-row: 1; }
+  #result > .result-title { grid-row: 2; font-size: 44px; }
+  #result > .result-face { grid-row: 3; width: 96px; height: 96px; }
+  #result > .result-foe,
+  #result > .arcade-next { grid-column: 1; grid-row: 4; justify-self: stretch; }
+  #result > .result-next { grid-column: 1; grid-row: 5; justify-self: stretch; }
+  #result > .xp-gain { grid-row: 1 / span 2; align-self: end; }
+  #result > .stats { grid-row: 3; align-self: center; }
+  #result > .result-tip { grid-row: 4; align-self: center; }
+  #result > .result-actions { grid-row: 4 / span 2; align-self: end; }
+  #result > .result-tip:not(.hidden) ~ .result-actions { grid-row: 5; }
+  #result > .record { grid-row: 6; }
+  #result #again-btn { min-height: 52px; font-size: 22px; }
+  #result .result-actions .key { min-height: 44px; }
+  #result .stats.lcd > div { padding: 6px 4px; }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  /* (a loss's tip sits under the next reward, so the buttons keep their place) */
+  #result > .result-tip { grid-column: 1; grid-row: 6; font-size: 12px; }
+  #result > .result-tip:not(.hidden) ~ .result-actions { grid-row: 4 / span 2; }
+}
