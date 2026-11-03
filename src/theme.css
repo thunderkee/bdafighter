@@ -7258,3 +7258,287 @@ body.cine-on #pad {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ================= design review pass: result, pause, intro, tabs ================= */
+/* result: the portrait wins or loses with you */
+.result-face.win {
+  box-shadow: 0 5px 0 var(--line), 0 0 0 5px var(--ui-gold), 0 0 34px rgba(255, 210, 62, 0.75);
+  animation: rf-win 1.6s ease-in-out infinite alternate;
+}
+@keyframes rf-win {
+  to {
+    box-shadow: 0 5px 0 var(--line), 0 0 0 5px var(--ui-gold), 0 0 52px rgba(255, 210, 62, 0.95);
+  }
+}
+.result-face.lose {
+  rotate: -4deg;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.2));
+}
+.result-face.lose img.portrait {
+  filter: grayscale(0.7) brightness(0.7);
+}
+/* (the stat row is three tiles; no frame around the row) */
+#result .stats.lcd {
+  outline: 0;
+  border-image: none;
+}
+/* who you fought, and the next reward: two slim navy rows */
+#result .result-foe,
+#result .result-next,
+#result .result-tip {
+  width: min(380px, 100%);
+}
+.result-foe,
+.result-next {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 8px 8px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: var(--ui-panel);
+  box-shadow: 0 4px 0 var(--line);
+  color: #fff;
+}
+.result-foe.hidden,
+.result-next.hidden,
+.result-tip.hidden,
+.pause-confirm.hidden,
+.pause-main.hidden {
+  display: none;
+}
+.rf-face {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.14);
+}
+.rf-face img.portrait {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  object-fit: cover;
+}
+.result-foe span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.result-foe small,
+.result-next small {
+  font: 700 11px var(--body);
+  color: var(--ui-dim);
+}
+.result-foe b {
+  font: 400 18px/1.1 var(--display);
+}
+.result-foe em,
+.result-next em {
+  font: 700 11px var(--body);
+  font-style: normal;
+  color: var(--ui-dim);
+  white-space: nowrap;
+}
+.result-next {
+  padding-left: 14px;
+}
+.result-next small {
+  flex: none;
+}
+.result-next b {
+  flex: 1;
+  font: 400 16px var(--display);
+  color: var(--ui-gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-next em {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--ui-panel-lo);
+  color: #fff;
+}
+.result-tip {
+  margin: 0;
+  padding: 0 8px;
+  font: 700 13px/1.35 var(--body);
+  color: #fff;
+  text-align: center;
+}
+.result-row {
+  grid-template-columns: 1fr 1fr;
+}
+#result #result-swap.hidden + * {
+  grid-column: auto;
+}
+.result-row:has(#result-swap.hidden) {
+  grid-template-columns: 1fr;
+}
+#result .record {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* pause: the card low, in thumb reach, with where the match stands */
+#paused.screen.device {
+  justify-content: flex-end;
+  padding-bottom: max(18vh, 96px);
+}
+.pause-info {
+  justify-self: center;
+  margin: -6px 0 2px;
+  padding: 3px 12px;
+  border-radius: 99px;
+  background: var(--ui-panel-lo);
+  font: 700 12px var(--body);
+  color: var(--ui-dim);
+}
+.pause-main,
+.pause-confirm {
+  display: grid;
+  gap: 12px;
+}
+.pause-row .ic {
+  display: inline-block;
+  width: 1.1em;
+  font-style: normal;
+  font-size: 1.15em;
+  line-height: 1;
+}
+.pause-confirm {
+  padding-bottom: 8px;
+  text-align: center;
+  color: #fff;
+}
+.pause-confirm b {
+  font: 400 24px var(--display);
+}
+.pause-confirm > span {
+  margin-top: -8px;
+  font: 700 13px var(--body);
+  color: var(--ui-dim);
+}
+#paused .pause-card .key.danger {
+  background: var(--coral);
+  color: #fff;
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+}
+
+/* the VS intro: navy plates, outlined white names, like every menu */
+#intro .intro-card.p1,
+#intro .intro-card.p2 {
+  border: 3px solid var(--line);
+  background: var(--ui-panel);
+  color: #fff;
+  box-shadow: 0 5px 0 var(--line), 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+#intro .intro-card.p1 {
+  border-left: 10px solid var(--ui-gold);
+}
+#intro .intro-card.p2 {
+  border-right: 10px solid var(--coral);
+}
+#intro .intro-card b {
+  font: 400 34px/1.05 var(--display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #fff;
+  -webkit-text-stroke: 6px var(--line);
+  paint-order: stroke fill;
+}
+#intro .ic-tag {
+  font: 700 11px var(--body);
+  letter-spacing: 0.08em;
+  color: var(--ui-gold);
+}
+#intro .p2 .ic-tag,
+#intro.boss .p2 b {
+  color: var(--coral);
+}
+#intro .ic-sub {
+  font: 700 12px var(--body);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ui-dim);
+}
+#intro .intro-vs {
+  font: 400 96px var(--display);
+  color: var(--ui-gold);
+  -webkit-text-stroke: 12px var(--line);
+  paint-order: stroke fill;
+  text-shadow: 0 8px 0 var(--line);
+}
+#intro .intro-skip {
+  font: 700 11px var(--body);
+  color: rgba(255, 255, 255, 0.8);
+}
+/* the round and win banners in the same outlined caps */
+#banner {
+  text-transform: uppercase;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: #fff;
+  -webkit-text-stroke: 10px var(--line);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 var(--line);
+}
+
+/* Game Modes: the tabs under the title, a pill like Options' */
+#mode-sheet .bs-tabs {
+  margin: 0 var(--ui-gutter) 12px;
+  padding: 3px;
+  border: 3px solid var(--line);
+  border-radius: 99px;
+  background: var(--ui-panel-lo);
+}
+#mode-sheet .bs-tabs button {
+  padding: 8px 0;
+  border-radius: 99px;
+}
+#mode-sheet .bs-tabs button.on {
+  background: var(--ui-gold-grad);
+  color: #fff;
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+}
+
+/* Customize: Skin / Paint / Marbles sit under Info / Story / Customize, so they read quieter: text, underlined */
+.st-tabs {
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0;
+  background: none;
+}
+.st-tabs button {
+  padding: 6px 0 8px;
+  border-radius: 0;
+  margin-bottom: -2px;
+  border-bottom: 3px solid transparent;
+}
+.st-tabs button.on {
+  background: none;
+  color: #fff;
+  border-bottom-color: var(--ui-gold);
+}
+
+/* fighter cards: names and levels a size up */
+.bs-card.fighter b {
+  font-size: 14px;
+}
+.bs-card.fighter small {
+  font-size: 12px;
+}
+.result-foe span {
+  text-align: left;
+}
+#paused .pause-confirm .key {
+  white-space: nowrap;
+  font-size: 15px;
+}

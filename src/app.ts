@@ -707,9 +707,9 @@ export function boot() {
     $('intro-p2').textContent = eName;
     $('intro-p1-sub').textContent =
       allySize() > 1
-        ? `PACK OF ${allySize()} // ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
-        : `${stageById(st.stage).name.toUpperCase()} // BEST OF 3`;
-    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} // ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : duo ? 'PLAYER 2 // TOP END' : `CPU // ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
+        ? `PACK OF ${allySize()} · ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
+        : `${stageById(st.stage).name.toUpperCase()} · BEST OF 3`;
+    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} · ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : duo ? 'PLAYER 2 · TOP END' : `CPU · ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
     // a boss stage: a red warning card for the challenger
     introEl.classList.toggle('boss', isBoss());
     if (isBoss()) sfx.play('gong');
@@ -719,8 +719,8 @@ export function boot() {
       $('enemy-name').textContent = boss()!.title;
     }
     if (arcade) {
-      $('intro-p1-sub').textContent = `ARCADE STAGE ${arcade.stage} // ${$('intro-p1-sub').textContent}`;
-      $('intro-p2-sub').textContent = packSize() > 1 ? `${stageLabel(arcade.stage)} // ${$('intro-p2-sub').textContent}` : `CPU // ${stageLabel(arcade.stage)}`;
+      $('intro-p1-sub').textContent = `ARCADE STAGE ${arcade.stage} · ${$('intro-p1-sub').textContent}`;
+      $('intro-p2-sub').textContent = packSize() > 1 ? `${stageLabel(arcade.stage)} · ${$('intro-p2-sub').textContent}` : `CPU · ${stageLabel(arcade.stage)}`;
     }
     faces[0].setCharacter(st.character);
     faces[1].setCharacter(enemyCharacter());
@@ -854,7 +854,10 @@ export function boot() {
     // your fighter on the result, as the lobby has it
     const face = $('result-face');
     face.innerHTML = `<i data-portrait="${saveData.settings.character}" data-crop="bust"></i>`;
+    face.className = 'result-face ' + (w === 0 ? 'win' : w === 1 ? 'lose' : '');
+    showResultExtras(w);
     fillPortraits(face);
+    fillPortraits($('result-foe'));
     $('r-dealt').textContent = Math.round(totals.dealt).toString();
     $('r-acc').textContent = totals.shots ? Math.round((totals.hits / totals.shots) * 100) + '%' : '–';
     $('r-hp').textContent = Math.ceil(player.hpFrac * 100) + '%';
@@ -869,6 +872,32 @@ export function boot() {
     updateRecord();
   };
 
+  /** under the stats (not in arcade, which has its next stage there, or 2 players): the opponent, the next reward, a tip after a loss */
+  const RESULT_TIPS = [
+    'Hold FIRE to charge a heavier shot.',
+    'Pull back to raise your shield, then answer.',
+    'Push forward to step up and close the gap.',
+    'Fill Overdrive, then unleash your special.',
+    'Drag to aim: shots off the walls come in at angles.',
+  ];
+  const showResultExtras = (w: -1 | 0 | 1) => {
+    const solo = !arcade && !duo;
+    const foe = $('result-foe');
+    foe.classList.toggle('hidden', !solo);
+    if (solo) {
+      const id = enemyCharacter();
+      const name = (isBoss() ? boss()!.title : characterById(id).name).toUpperCase() + (packSize() > 1 ? ` +${packSize() - 1}` : '');
+      foe.innerHTML = `<i class="rf-face"><i data-portrait="${id}" data-crop="bust"></i></i><span><small>${w === 0 ? 'You beat' : w === 1 ? 'Beaten by' : 'Drawn with'}</small><b>${name}</b></span><em>${stageById(S().stage).name}</em>`;
+    }
+    const next = $('result-next');
+    const nx = solo ? nextReward(saveData.settings.character) : undefined;
+    next.classList.toggle('hidden', !nx);
+    if (nx) next.innerHTML = `<small>Next reward</small><b>${nx.name}</b><em>LV ${nx.lv}</em>`;
+    const tip = $('result-tip');
+    tip.classList.toggle('hidden', !(solo && w === 1));
+    tip.textContent = `Tip: ${RESULT_TIPS[sessionMatches % RESULT_TIPS.length]}`;
+    $('result-swap').classList.toggle('hidden', !!arcade || !!story || duo);
+  };
   /** XP for your fighter: more for a win, a little for every round taken (not in 2 players) */
   const awardXp = (w: -1 | 0 | 1) => {
     const box = $('xp-gain');
@@ -1381,6 +1410,9 @@ export function boot() {
     paused = p;
     $('paused').classList.toggle('hidden', !p);
     if (p) {
+      const mode = arcade ? `Arcade stage ${arcade.stage}` : story ? 'Story' : duo ? '2 Players' : arenaRules ? 'Versus' : 'Classic';
+      $('pause-info').textContent = `Round ${roundNo} · ${roundWins[0]}–${roundWins[1]} · ${mode}`;
+      askPause(null);
       input.release();
       pad.clear();
       sfx.suspend();
@@ -1471,6 +1503,33 @@ export function boot() {
     goStep('fighter');
   });
   $('pause-btn').addEventListener('click', () => setPaused(true));
+  // Restart and Quit throw the match away, so the card asks first; Yes runs the button for real
+  let pauseAsk: string | null = null;
+  let pauseSure = false;
+  const askPause = (id: string | null) => {
+    pauseAsk = id;
+    $('pause-confirm').classList.toggle('hidden', !id);
+    $('pause-main').classList.toggle('hidden', !!id);
+    if (!id) return;
+    const quit = id === 'pause-menu-btn';
+    $('pause-q').textContent = quit ? 'Quit match?' : 'Restart match?';
+    $('pause-yes').textContent = quit ? 'Quit' : 'Restart';
+  };
+  for (const id of ['restart-btn', 'pause-menu-btn'])
+    $(id).addEventListener('click', (e) => {
+      if (pauseSure) return;
+      e.stopImmediatePropagation();
+      askPause(id);
+    });
+  $('pause-no').addEventListener('click', () => askPause(null));
+  $('pause-yes').addEventListener('click', () => {
+    const id = pauseAsk;
+    askPause(null);
+    if (!id) return;
+    pauseSure = true;
+    $(id).click();
+    pauseSure = false;
+  });
   $('resume-btn').addEventListener('click', () => setPaused(false));
   // restart from round 1, straight into the fight (no intro this time)
   $('restart-btn').addEventListener('click', () => {
@@ -1489,8 +1548,19 @@ export function boot() {
     saveData = store.save({ muted: !saveData.muted });
     sfx.setMuted(saveData.muted);
     $('mute-btn').innerHTML = speakerIcon(saveData.muted);
+    showSound();
   });
   $('mute-btn').innerHTML = speakerIcon(saveData.muted);
+  // Options' Sound row is the same switch as the speaker
+  const showSound = () =>
+    document.querySelectorAll<HTMLElement>('#sound-seg button').forEach((b) => b.classList.toggle('on', b.dataset.value === String(!saveData.muted)));
+  document.querySelectorAll<HTMLElement>('#sound-seg button').forEach((b) =>
+    b.addEventListener('click', () => {
+      if (b.dataset.value === String(!saveData.muted)) return;
+      $('mute-btn').click();
+    }),
+  );
+  showSound();
 
   // ---------- settings ----------
   const padDir = document.querySelectorAll<HTMLElement>('.pad-dir .pad-btn');
@@ -1541,7 +1611,7 @@ export function boot() {
     }
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
     padDir[1].textContent = st.arrows === 'aim' ? '↷' : '▶';
-    document.querySelectorAll<HTMLElement>('.seg').forEach((seg) => {
+    document.querySelectorAll<HTMLElement>('.seg[data-setting]').forEach((seg) => {
       const current = String(st[seg.dataset.setting as keyof store.Settings]);
       const levelSeg = seg.classList.contains('level');
       seg.querySelectorAll<HTMLElement>('button').forEach((b) => {
@@ -1560,6 +1630,7 @@ export function boot() {
   document.querySelectorAll<HTMLElement>('.seg button').forEach((b) =>
     b.addEventListener('click', () => {
       const key = (b.parentElement as HTMLElement).dataset.setting as keyof store.Settings;
+      if (!key) return;
       const raw = b.dataset.value!;
       const value = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? Number(raw) : raw;
       // Difficulty sets the whole opponent; tuning one part of it by hand makes it custom
@@ -1872,6 +1943,8 @@ export function boot() {
         const color = hexc(c.palette.body);
         // the arcade's bosses stay a surprise: they can't be picked for a run
         if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
+        // from the lobby: the same fighters as the Fighters grid (so its count and this one agree)
+        if (selectMode === 'home' && BOSS_IDS.has(c.id)) continue;
         // retrying a stage: the opponent waiting there shows, but can't be your pick
         if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) tile({ id: c.id, color, lock: 'Opponent' }, `<i><i data-portrait="${c.id}" data-crop="bust"></i></i><em class="lock">⚔</em>`);
         // a locked unit shows (so there's something to chase) but can't be picked
@@ -2198,7 +2271,11 @@ export function boot() {
     // storage unavailable
   }
   $('pause-settings-btn').addEventListener('click', () => openSettings('paused'));
-  $('result-settings-btn').addEventListener('click', () => openSettings('result'));
+  // after a match: back to the lobby with the Fighters grid open
+  $('result-swap').addEventListener('click', () => {
+    quitArcade();
+    openFighters();
+  });
   $('settings-done').addEventListener('click', () => {
     $('settings').classList.add('hidden');
     $(settingsFrom).classList.remove('hidden');

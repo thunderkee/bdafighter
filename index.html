@@ -218,8 +218,8 @@
         <!-- Game Modes: a grid of cards, by tab (Duel / Arena / Campaign); tap one, it's on PLAY -->
         <div id="mode-sheet" class="bs-screen hidden" role="dialog" aria-label="Game modes">
           <header class="bs-head"><button id="sheet-close" class="key round" aria-label="Back">◀</button><b>Game Modes</b></header>
-          <div id="sheet-body" class="bs-grid modes"></div>
           <nav class="bs-tabs" id="sheet-tabs"><button data-tab="duel">Duel</button><button data-tab="arena">Arena</button><button data-tab="campaign">Campaign</button></nav>
+          <div id="sheet-body" class="bs-grid modes"></div>
         </div>
         <!-- Fighters: every fighter as a card; tap one to see it and pick it -->
         <div id="fighter-grid" class="bs-screen hidden" role="dialog" aria-label="Fighters">
@@ -334,12 +334,16 @@
           <div><span>ARMOR LEFT</span><b id="r-hp">0</b></div>
         </div>
         <div id="arcade-next" class="lcd arcade-next hidden"></div>
+        <!-- outside arcade: who you fought, and the next reward to chase (a tip after a loss) -->
+        <div class="result-foe hidden" id="result-foe"></div>
+        <div class="result-next hidden" id="result-next"></div>
+        <p class="result-tip hidden" id="result-tip"></p>
         <div class="result-actions">
           <button id="again-btn" class="key orange">REMATCH</button>
           <button id="arcade-swap" class="key hidden">CHANGE FIGHTER</button>
           <div class="result-row">
             <button id="arcade-quit" class="key">◀ MENU</button>
-            <button id="result-settings-btn" class="key" aria-label="Options">⚙</button>
+            <button id="result-swap" class="key">Change fighter</button>
           </div>
         </div>
         <p id="session" class="record"></p>
@@ -350,12 +354,23 @@
         <!-- a card over the frozen match: back in, start over, options, or leave -->
         <div class="pause-card">
           <div class="result-title">Paused</div>
-          <button id="resume-btn" class="key orange">▶ Resume</button>
-          <div class="pause-row">
-            <button id="restart-btn" class="key">↻ Restart</button>
-            <button id="pause-settings-btn" class="key">⚙ Options</button>
+          <div class="pause-info" id="pause-info"></div>
+          <div class="pause-main" id="pause-main">
+            <button id="resume-btn" class="key orange">▶ Resume</button>
+            <div class="pause-row">
+              <button id="restart-btn" class="key"><i class="ic">↻</i> Restart</button>
+              <button id="pause-settings-btn" class="key"><i class="ic">⚙</i> Options</button>
+            </div>
+            <button id="pause-menu-btn" class="key quit">Quit to menu</button>
           </div>
-          <button id="pause-menu-btn" class="key quit">Quit to menu</button>
+          <div class="pause-confirm hidden" id="pause-confirm">
+            <b id="pause-q">Quit match?</b>
+            <span>This match's progress is lost.</span>
+            <div class="pause-row">
+              <button id="pause-no" class="key">Keep playing</button>
+              <button id="pause-yes" class="key danger">Quit</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -387,7 +402,13 @@
               <div class="seg" data-setting="camera"><button data-value="far">Far</button><button data-value="mid">Mid</button><button data-value="near">Near</button><button data-value="first">Cockpit</button></div>
             </div>
             <div class="setting">
+              <div class="set-head"><b>Sound</b></div>
+              <span>Everything: effects and music (the speaker on the home screen).</span>
+              <div class="seg" id="sound-seg"><button data-value="true">On</button><button data-value="false">Off</button></div>
+            </div>
+            <div class="setting">
               <div class="set-head"><b>Music</b></div>
+              <span>Just the soundtrack. Effects stay on.</span>
               <div class="seg" data-setting="music"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
             <div class="setting">
@@ -449,7 +470,7 @@
             </div>
             <div class="setting">
               <div class="set-head"><b>Music</b></div>
-              <span>A soundtrack for the menus, fights, bosses and Squad Run that builds as a fight heats up. Sound effects stay on either way (SND on the title mutes everything).</span>
+              <span>A soundtrack for the menus, fights, bosses and Squad Run that builds as a fight heats up. Sound effects stay on either way (the speaker on the home screen mutes everything).</span>
               <div class="seg" data-setting="music"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
           </section>
