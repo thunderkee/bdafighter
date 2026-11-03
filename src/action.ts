@@ -1577,9 +1577,31 @@ export class ActionMode {
       }
     return false;
   }
+  /**
+   * a step, wall by wall. Walking uses a slimmer body than being hit does, so a fighter fits a
+   * one-tile gap with room to spare; and one that catches a corner slides toward the middle of the
+   * gap it's lining up with (if the way on is clear), rather than sticking on the edge
+   */
+  private moveR = (u: Unit) => (u.giant ? 0.85 : Math.min(u.r, 0.34));
   private walk(u: Unit, dx: number, dz: number) {
-    if (!this.blocked(u.x + dx, u.z, u.r)) u.x += dx;
-    if (!this.blocked(u.x, u.z + dz, u.r)) u.z += dz;
+    const r = this.moveR(u);
+    const movedX = !this.blocked(u.x + dx, u.z, r);
+    if (movedX) u.x += dx;
+    const movedZ = !this.blocked(u.x, u.z + dz, r);
+    if (movedZ) u.z += dz;
+    const lane = (v: number, half: number) => Math.floor(v + half) + 0.5 - half;
+    if (!movedX && Math.abs(dx) > 1e-4) {
+      const lz = lane(u.z, this.H / 2);
+      const off = lz - u.z;
+      const step = Math.sign(off) * Math.min(Math.abs(off), Math.abs(dx) + Math.abs(dz) * 0.5);
+      if (step && !this.blocked(u.x + dx, lz, r) && !this.blocked(u.x, u.z + step, r)) u.z += step;
+    }
+    if (!movedZ && Math.abs(dz) > 1e-4) {
+      const lx = lane(u.x, this.W / 2);
+      const off = lx - u.x;
+      const step = Math.sign(off) * Math.min(Math.abs(off), Math.abs(dz) + Math.abs(dx) * 0.5);
+      if (step && !this.blocked(lx, u.z + dz, r) && !this.blocked(u.x + step, u.z, r)) u.x += step;
+    }
   }
 
   /** the nearest enemy it can see (what a special homes on) */
@@ -3056,13 +3078,13 @@ export class ActionMode {
       let az = dz / len;
       // round a wall: try turning a little each way
       const step = u.speed * dt;
-      if (this.blocked(u.x + ax * step * 3, u.z + az * step * 3, u.r)) {
+      if (this.blocked(u.x + ax * step * 3, u.z + az * step * 3, this.moveR(u))) {
         for (const turn of [0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
           const c = Math.cos(turn * u.strafe);
           const sn = Math.sin(turn * u.strafe);
           const bx = ax * c - az * sn;
           const bz = ax * sn + az * c;
-          if (!this.blocked(u.x + bx * step * 3, u.z + bz * step * 3, u.r)) {
+          if (!this.blocked(u.x + bx * step * 3, u.z + bz * step * 3, this.moveR(u))) {
             ax = bx;
             az = bz;
             break;
