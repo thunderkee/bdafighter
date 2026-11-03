@@ -7179,3 +7179,25 @@ body.cine-on #pad {
 .carousel.locked .car-stage canvas {
   visibility: visible;
 }
+
+/* the arrows and the neighbours peeking in sit at one height on every fighter and every tab
+   (a fixed distance under the title, not a share of a carousel that grows with the card) */
+#select .carousel .car-arrow,
+#select .carousel .peek {
+  top: min(26vh, 230px);
+}
+/* (and the card keeps one height on Info, Story and a locked fighter, so the fighter stays put
+   between the arrows; only Customize grows it) */
+#select:not([data-side='arena']) .car-band {
+  min-height: 236px;
+}
+/* the special: the card's full width on every fighter, however long its line */
+#select .sp-move {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  width: auto;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  box-sizing: border-box;
+}
