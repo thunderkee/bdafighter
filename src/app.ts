@@ -22,7 +22,7 @@ import * as store from './storage';
 import { CEL } from './cel';
 import { SHAPES } from './shapes';
 import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
-import { REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, type Equip, type Slot } from './cosmetics';
+import { REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, swatchOf, type Equip, type Slot } from './cosmetics';
 import { skinDelta, skinsOf } from './kits';
 
 /** the sound button's icon: a speaker, with waves or crossed out */
@@ -850,11 +850,15 @@ export function boot() {
     const title = $('result-title');
     title.textContent = duo ? (w === -1 ? 'DRAW' : `PLAYER ${w + 1} WINS`) : w === 0 ? 'VICTORY' : w === 1 ? 'DEFEAT' : 'DRAW';
     title.className = 'result-title ' + (w === 0 ? 'win' : w === 1 ? 'lose' : '');
-    $('result-sub').textContent = `ROUNDS ${roundWins[0]} – ${roundWins[1]} // ${w === 0 ? 'MISSION COMPLETE' : w === 1 ? 'UNIT DOWN' : 'STALEMATE'}`;
+    $('result-sub').textContent = `Rounds ${roundWins[0]} – ${roundWins[1]}`;
+    // your fighter on the result, as the lobby has it
+    const face = $('result-face');
+    face.innerHTML = `<i data-portrait="${saveData.settings.character}" data-crop="bust"></i>`;
+    fillPortraits(face);
     $('r-dealt').textContent = Math.round(totals.dealt).toString();
     $('r-acc').textContent = totals.shots ? Math.round((totals.hits / totals.shots) * 100) + '%' : '–';
     $('r-hp').textContent = Math.ceil(player.hpFrac * 100) + '%';
-    $('session').textContent = `SESSION ${sessionWins} / ${sessionMatches} WON`;
+    $('session').textContent = `This session: ${sessionWins} of ${sessionMatches} won`;
     showArcadeResult(w);
     saveRun('result');
     awardXp(w);
@@ -923,7 +927,7 @@ export function boot() {
       arcade.cleared = arcade.stage;
       if (arcade.cleared > best) saveData = store.save({ arcadeBest: arcade.cleared });
       title.textContent = 'ARCADE CLEAR';
-      $('result-sub').textContent = `ARCADE // ALL ${FINAL_STAGE} STAGES CLEARED`;
+      $('result-sub').textContent = `ARCADE · ALL ${FINAL_STAGE} STAGES CLEARED`;
       arcade.next = undefined;
       arcade.done = true;
       $('again-btn').textContent = 'NEW RUN ▶';
@@ -936,14 +940,14 @@ export function boot() {
       const record = arcade.cleared > best;
       if (record) saveData = store.save({ arcadeBest: arcade.cleared });
       title.textContent = bossAt(arcade.stage) ? 'BOSS DEFEATED' : `STAGE ${arcade.stage} CLEAR`;
-      $('result-sub').textContent = `ARCADE // ${arcade.cleared} CLEARED${record ? ' · NEW BEST' : ''}`;
+      $('result-sub').textContent = `ARCADE · ${arcade.cleared} CLEARED${record ? ' · NEW BEST' : ''}`;
       arcade.next = arcade.plan[arcade.stage] ?? rollStage(arcade.stage + 1, arcade.cfg);
       stageCfg = arcade.next;
       head = bossAt(arcade.stage + 1) ? `⚠ BOSS AHEAD // STAGE ${arcade.stage + 1}` : `NEXT // STAGE ${arcade.stage + 1}`;
       $('again-btn').textContent = 'NEXT STAGE ▶';
     } else {
       title.textContent = w === 1 ? 'GAME OVER' : 'DRAW';
-      $('result-sub').textContent = `ARCADE // REACHED STAGE ${arcade.stage} · BEST ${Math.max(best, arcade.cleared)}`;
+      $('result-sub').textContent = `ARCADE · REACHED STAGE ${arcade.stage} · BEST ${Math.max(best, arcade.cleared)}`;
       arcade.next = undefined;
       head = `RETRY // STAGE ${arcade.stage}`;
       $('again-btn').textContent = 'RETRY STAGE';
@@ -1166,7 +1170,7 @@ export function boot() {
       $('result-title').textContent = w === 1 ? 'TRY AGAIN' : 'DRAW';
       $('again-btn').textContent = 'RETRY CHAPTER';
     }
-    $('result-sub').textContent = `STORY // ${p.title.toUpperCase()}`;
+    $('result-sub').textContent = `STORY · ${p.title.toUpperCase()}`;
     storyWon = w === 0;
     afterShown = false;
   };
@@ -1658,28 +1662,54 @@ export function boot() {
     $('pv-profile').classList.toggle('hidden', infoTab !== 'profile');
     $('pv-style').classList.toggle('hidden', infoTab !== 'style');
   };
-  /** the Customize tab: its five skins (each with its stats), then paint and marbles; locked ones show their level */
+  /** the Customize tab: one slot at a time (skin, paint, marbles), its choices as tiles; locked ones show their level */
+  let styleSlot: Slot = 'skin';
+  const SKIN_TIER = ['Default', 'Rare', 'Super rare', 'Epic', 'Legendary'];
   const showStyle = (id: string) => {
     const e = equipOf(id);
     const def = characterById(id);
     const skins = skinsOf(def);
-    const rows = (['skin', 'paint', 'marble'] as Slot[])
-      .map((slot) => {
-        const opts = rewardsOf(id).filter((r) => r.slot === slot);
-        const sub = (v: string) => (slot === 'skin' ? skinDelta(def, skins.find((k) => k.id === (v || 'standard'))!) : '');
-        const pill = (v: string, label: string, ok: boolean, lv?: number) => {
-          const d = sub(v);
-          return `<button class="style-opt${slot === 'skin' ? ' skin' : ''}${(e[slot] ?? '') === v ? ' on' : ''}${ok ? '' : ' locked'}" data-slot="${slot}" data-v="${v}" ${ok ? '' : 'disabled'}>${ok ? label : `🔒 ${label} · LV ${lv}`}${d ? `<small>${d}</small>` : ''}</button>`;
-        };
-        return `<div class="style-row"><span>${SLOT_NAME[slot]}</span><div>${pill('', slot === 'skin' ? skins[0].name : 'Standard', true)}${opts.map((r) => pill(r.id, r.name.replace(/ (paint|marbles|skin)$/i, ''), unlocked(id, r), r.lv)).join('')}</div></div>`;
-      })
+    const opts = [
+      { v: '', name: styleSlot === 'skin' ? skins[0].name : 'Standard', ok: true, lv: 0 },
+      ...rewardsOf(id)
+        .filter((r) => r.slot === styleSlot)
+        .map((r) => ({ v: r.id, name: r.name.replace(/ (paint|marbles|skin)$/i, ''), ok: unlocked(id, r), lv: r.lv })),
+    ];
+    const tile = (o: (typeof opts)[number], k: number) => {
+      let art: string;
+      let sub: string;
+      if (styleSlot === 'skin') {
+        art = `<i class="st-art skin t${k}"><em>${'★'.repeat(k) || '●'}</em></i>`;
+        sub = skinDelta(def, skins.find((s) => s.id === (o.v || 'standard'))!) || SKIN_TIER[k];
+      } else {
+        const c = swatchOf(id, styleSlot, o.v);
+        art =
+          styleSlot === 'marble'
+            ? `<i class="st-art marble" style="--c:${c[0]}"></i>`
+            : `<i class="st-art paint" style="--a:${c[0]};--b:${c[1]};--c:${c[2]}"></i>`;
+        sub = k ? (styleSlot === 'paint' ? 'Paint job' : 'Marbles') : 'Default';
+      }
+      const on = (e[styleSlot] ?? '') === o.v;
+      return `<button class="st-tile${on ? ' on' : ''}${o.ok ? '' : ' locked'}" data-v="${o.v}" ${o.ok ? '' : 'disabled'}>${art}<b>${o.name}</b><small>${o.ok ? sub : `🔒 LV ${o.lv}`}</small></button>`;
+    };
+    const tabs = (['skin', 'paint', 'marble'] as Slot[])
+      .map((sl) => `<button data-slot="${sl}" class="${sl === styleSlot ? 'on' : ''}">${SLOT_NAME[sl]}</button>`)
       .join('');
-    $('pv-style').innerHTML = rows;
+    $('pv-style').innerHTML = `<div class="st-tabs">${tabs}</div><div class="st-grid">${opts.map(tile).join('')}</div>`;
     $('pv-style')
-      .querySelectorAll<HTMLButtonElement>('.style-opt:not(.locked)')
+      .querySelectorAll<HTMLButtonElement>('.st-tabs button')
       .forEach((b) =>
         b.addEventListener('click', () => {
-          setEquip(id, b.dataset.slot as Slot, b.dataset.v || undefined);
+          styleSlot = b.dataset.slot as Slot;
+          sfx.play('tick', 0.4);
+          showStyle(id);
+        }),
+      );
+    $('pv-style')
+      .querySelectorAll<HTMLButtonElement>('.st-tile:not(.locked)')
+      .forEach((b) =>
+        b.addEventListener('click', () => {
+          setEquip(id, styleSlot, b.dataset.v || undefined);
           sfx.play('tick', 0.5);
           preview.showUnit(id, mine(id));
           showStyle(id);

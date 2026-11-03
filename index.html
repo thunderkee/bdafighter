@@ -323,8 +323,9 @@
 
       <!-- ================= RESULT ================= -->
       <div id="result" class="screen device hidden">
-        <div class="sys-line" id="result-sub">MISSION COMPLETE</div>
+        <div class="sys-line" id="result-sub"></div>
         <div id="result-title" class="result-title">VICTORY</div>
+        <div class="result-face" id="result-face"></div>
         <!-- your fighter's XP for the match -->
         <div class="xp-gain hidden" id="xp-gain"></div>
         <div class="stats lcd">
@@ -333,10 +334,14 @@
           <div><span>ARMOR LEFT</span><b id="r-hp">0</b></div>
         </div>
         <div id="arcade-next" class="lcd arcade-next hidden"></div>
-        <button id="again-btn" class="key orange">REMATCH</button>
-        <button id="arcade-swap" class="key hidden">CHANGE FIGHTER</button>
-        <button id="arcade-quit" class="key">◀ MENU</button>
-        <button id="result-settings-btn" class="key">OPTIONS</button>
+        <div class="result-actions">
+          <button id="again-btn" class="key orange">REMATCH</button>
+          <button id="arcade-swap" class="key hidden">CHANGE FIGHTER</button>
+          <div class="result-row">
+            <button id="arcade-quit" class="key">◀ MENU</button>
+            <button id="result-settings-btn" class="key" aria-label="Options">⚙</button>
+          </div>
+        </div>
         <p id="session" class="record"></p>
       </div>
 

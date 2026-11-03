@@ -79,3 +79,13 @@ export function skinned(id: string, equip: Equip | undefined): CharacterDef {
 
 /** a short key for an equip, to tell when a model needs rebuilding */
 export const equipKey = (e: Equip | undefined) => (e ? `${e.skin ?? ''}|${e.paint ?? ''}|${e.marble ?? ''}` : '');
+
+const hex = (n: number) => `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
+/** the colours a choice shows on its Customize tile: a paint job's body, trim and accent, or a marble's colour */
+export function swatchOf(id: string, slot: Slot, v: string): string[] {
+  const def = characterById(id);
+  if (slot === 'marble') return [hex(MARBLES[v]?.ball ?? def.ball)];
+  const pj = v ? kitOf(def)?.paint.find((k) => k.id === v) : undefined;
+  const pal = pj ? { ...def.palette, ...paintPalette(def, pj) } : def.palette;
+  return [hex(pal.body), hex(pal.trim), hex(pal.accent)];
+}
