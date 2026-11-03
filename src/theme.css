@@ -7119,14 +7119,60 @@ body.cine-on #pad {
   color: var(--ui-dim);
 }
 
-/* ================= pause ================= */
-#paused .sys-line {
-  font: 700 12px var(--body);
-  letter-spacing: 0.04em;
-  color: var(--ui-dim);
+/* ================= pause: a card over the frozen match ================= */
+#paused.screen.device {
+  justify-content: center;
+  padding: var(--ui-gutter);
+  background: rgba(10, 14, 40, 0.62);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
 }
-#paused .key {
+.pause-card {
   width: min(360px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 20px 16px 8px;
+  border: 3px solid var(--line);
+  border-radius: 22px;
+  background: var(--ui-panel);
+  box-shadow: 0 6px 0 var(--line), 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+.pause-card .result-title {
+  justify-self: center;
+  margin: -44px 0 4px;
+  rotate: -3deg;
+  font: 400 48px/1 var(--display);
+  color: #fff;
+  -webkit-text-stroke: 9px var(--line);
+}
+#paused .pause-card .key {
+  width: 100%;
+  max-width: none;
+  min-height: 52px;
+  margin: 0;
+  font-size: 17px;
+}
+#paused .pause-card #resume-btn {
+  min-height: 64px;
+  font-size: 24px;
+}
+.pause-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+/* leaving is the quiet choice: no fill, red on hover/press */
+#paused .pause-card .key.quit {
+  min-height: 40px;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--ui-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+#paused .pause-card .key.quit:active {
+  color: var(--coral);
 }
 
 /* the fighter screen on the 16px gutter: title, card and buttons share one left and right edge */

@@ -347,12 +347,16 @@
 
       <!-- ================= PAUSE ================= -->
       <div id="paused" class="screen device hidden">
-        <div class="sys-line">SYSTEM HOLD</div>
-        <div class="result-title">PAUSED</div>
-        <button id="resume-btn" class="key orange">RESUME</button>
-        <button id="restart-btn" class="key">↻ RESTART MATCH</button>
-        <button id="pause-settings-btn" class="key">OPTIONS</button>
-        <button id="pause-menu-btn" class="key">◀ MAIN MENU</button>
+        <!-- a card over the frozen match: back in, start over, options, or leave -->
+        <div class="pause-card">
+          <div class="result-title">Paused</div>
+          <button id="resume-btn" class="key orange">▶ Resume</button>
+          <div class="pause-row">
+            <button id="restart-btn" class="key">↻ Restart</button>
+            <button id="pause-settings-btn" class="key">⚙ Options</button>
+          </div>
+          <button id="pause-menu-btn" class="key quit">Quit to menu</button>
+        </div>
       </div>
 
       <!-- ================= OPTIONS ================= -->
