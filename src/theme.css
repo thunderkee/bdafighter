@@ -7959,9 +7959,20 @@ body.cine-on #pad {
   #result > .result-tip:not(.hidden) ~ .result-actions { grid-row: 4 / span 2; }
 }
 @media (orientation: landscape) and (max-height: 600px) {
-  /* the move control a little closer to the left edge (never under the notch or the rounded corner) */
-  #pad {
-    padding-left: max(6px, env(safe-area-inset-left));
+  /* the match sits inside the phone's safe area, dark bars at the curved ends (as console-style
+     mobile games do), so neither thumb control ever reaches the edge of the glass */
+  :root {
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+  #app {
+    width: calc(100vw - var(--sal) - var(--sar));
+    margin: 0 var(--sar) 0 var(--sal);
+  }
+  /* (and a thumb's breadth of room inside it, both sides) */
+  #app #pad {
+    padding-left: 16px;
+    padding-right: 16px;
   }
   body.slider .pad-dir {
     padding-left: 0;
