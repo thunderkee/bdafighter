@@ -1730,6 +1730,7 @@ const ROLE_LABEL: Record<Role, string> = {
   fistL: 'FIST L',
   head: 'SWEEPING HEAD',
   tilt: 'TILTS ON SHOT',
+  swing: 'SWINGS WHEN WALKING',
 };
 const blockColor = (b: Block) => (b.mat ? resolveColor(b.mat.color, def(), def().ball) : null);
 

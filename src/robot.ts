@@ -817,6 +817,9 @@ export class ShooterMesh {
   private guard = 0;
   /** a puncher's arms (both thrust forward in the wind-up before each shot) and their rest angles */
   punchArms: THREE.Object3D[] = [];
+  /** arms that do nothing but swing as the unit walks (the ones not holding a gun or a sword) */
+  private swingArms: THREE.Object3D[] = [];
+  private swingRest: THREE.Euler[] = [];
   private punchRest: number[] = [];
   private windup = 0;
   /** two-handed units: each arm aims straight out when its hand is up and rests otherwise; the
@@ -1746,6 +1749,10 @@ export class ShooterMesh {
         case 'slashL':
           this.slashArmL = o;
           break;
+        case 'swing':
+          this.swingArms.push(o);
+          this.swingRest.push(o.rotation.clone());
+          break;
         case 'jawL':
           this.jaw2 = o;
           break;
@@ -1820,6 +1827,7 @@ export class ShooterMesh {
       if (o === this.tiltHead) return 'head';
       if (o === this.tilter) return 'tilt';
       if (this.punchArms.includes(o)) return 'punch';
+      if (this.swingArms.includes(o)) return 'swing';
       if (o === this.armR) return 'armR';
       if (o === this.armL) return 'armL';
       if (o === this.barrel2) return 'barrelL';
@@ -6051,6 +6059,13 @@ export class ShooterMesh {
           this.armR.rotation.z += -footfall * 0.12 * step * (1 - this.raise.r);
           this.armL.rotation.z += footfall * 0.12 * step * (1 - this.raise.l);
         }
+        // free arms swing opposite their leg from the shoulder, flaring out a little on a side-step
+        this.swingArms.forEach((a, i) => {
+          const out = Math.sign(a.position.x) || (i % 2 ? 1 : -1);
+          const r = this.swingRest[i];
+          a.rotation.x = r.x - out * ph * 0.5 * moving * (1 - brace) * Math.max(fwd, 0.5);
+          a.rotation.z = r.z + out * footfall * 0.12 * step;
+        });
         // a swordsman's ready arm sways with the stride (left alone mid-cut)
         if (this.slashArm && !this.slashArmL && (s.kickT ?? 9) > 0.5) this.slashArm.rotation.x += -ph * 0.22 * moving * (1 - brace);
         // units whose arms are the guns themselves pump them as they go (not mid-wind-up)
