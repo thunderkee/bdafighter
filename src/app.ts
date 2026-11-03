@@ -1943,8 +1943,6 @@ export function boot() {
         const color = hexc(c.palette.body);
         // the arcade's bosses stay a surprise: they can't be picked for a run
         if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
-        // from the lobby: the same fighters as the Fighters grid (so its count and this one agree)
-        if (selectMode === 'home' && BOSS_IDS.has(c.id)) continue;
         // retrying a stage: the opponent waiting there shows, but can't be your pick
         if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) tile({ id: c.id, color, lock: 'Opponent' }, `<i><i data-portrait="${c.id}" data-crop="bust"></i></i><em class="lock">⚔</em>`);
         // a locked unit shows (so there's something to chase) but can't be picked
@@ -2112,7 +2110,8 @@ export function boot() {
   const openFighters = () => {
     const body = $('fighters-body');
     body.innerHTML = '';
-    const all = playable().filter((c) => !BOSS_IDS.has(c.id));
+    // (the bosses too: the same list as the fighter screen, so the counts agree)
+    const all = playable();
     $('fighters-count').textContent = `${all.filter((c) => !isLocked(c.id)).length}/${all.length}`;
     for (const c of all) {
       const locked = isLocked(c.id);
