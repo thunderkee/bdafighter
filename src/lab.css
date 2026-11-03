@@ -902,3 +902,24 @@ body[data-mode='studio'] .bar h1 {
 .skin-tag.skin b {
   color: #ffc23d;
 }
+
+/* a custom fighter's rename: a pencil in its row, and the name turned into a field */
+.unit .rename {
+  margin-left: auto;
+  font-style: normal;
+  opacity: 0.55;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.unit .rename:hover {
+  opacity: 1;
+}
+.unit .rename-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 2px 4px;
+}
+.skin-bake {
+  align-self: flex-start;
+}

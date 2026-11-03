@@ -585,7 +585,30 @@ const isInside = (o: THREE.Object3D, root: THREE.Object3D) => {
   return false;
 };
 
+// hold Space: dragging pans the view (and never picks or moves a block)
+let panHeld = false;
+function setPan(on: boolean) {
+  if (panHeld === on) return;
+  panHeld = on;
+  controls.mouseButtons.LEFT = on ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+  gizmo.enabled = !on;
+  renderer.domElement.style.cursor = on ? 'grab' : '';
+}
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
+  e.preventDefault();
+  setPan(true);
+});
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') setPan(false);
+});
+window.addEventListener('blur', () => setPan(false));
+
 renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (panHeld) {
+    downAt = null;
+    return;
+  }
   downAt = { x: e.clientX, y: e.clientY };
   gizmoUsed = false;
   if (edit || draw) return;
@@ -664,6 +687,7 @@ const endFree = (e: PointerEvent) => {
 window.addEventListener('pointercancel', (e) => endFree(e));
 
 window.addEventListener('pointerup', (e) => {
+  if (panHeld) return;
   const dragged = endFree(e);
   // a press that worked the gizmo or dragged a block never changes the selection
   if (gizmoUsed || dragged) {
@@ -1132,6 +1156,49 @@ function renderRoster() {
       b.querySelector('span')!.textContent = c.name;
       b.title = `${c.name}${ver ? ` (${ver})` : ''}`;
       b.addEventListener('click', () => switchUnit(c.id));
+      // a custom fighter: double-click (or its pencil) to rename it right there
+      if (!isBuiltin(c.id)) {
+        const pen = document.createElement('i');
+        pen.className = 'rename';
+        pen.textContent = '✎';
+        pen.title = 'Rename';
+        b.appendChild(pen);
+        const rename = (ev: Event) => {
+          ev.stopPropagation();
+          if (c.id !== currentId) switchUnit(c.id);
+          const row = [...document.querySelectorAll<HTMLElement>('#unit-list .unit')].find((x) => x.dataset.id === c.id);
+          const span = row?.querySelector('span');
+          if (!row || !span) return;
+          const input = document.createElement('input');
+          input.className = 'rename-input';
+          input.value = def().name;
+          input.maxLength = 22;
+          span.replaceWith(input);
+          input.focus();
+          input.select();
+          let done = false;
+          const finish = (keep: boolean) => {
+            if (done) return;
+            done = true;
+            const v = input.value.trim();
+            if (keep && v && v !== def().name) {
+              pushUndo();
+              entry().name = v;
+              commit(true);
+            } else renderRoster();
+          };
+          input.addEventListener('keydown', (k) => {
+            k.stopPropagation();
+            if (k.key === 'Enter') finish(true);
+            if (k.key === 'Escape') finish(false);
+          });
+          input.addEventListener('blur', () => finish(true));
+          input.addEventListener('click', (k) => k.stopPropagation());
+        };
+        pen.addEventListener('click', rename);
+        b.addEventListener('dblclick', rename);
+      }
+      b.dataset.id = c.id;
       list.appendChild(b);
     }
   }
@@ -1471,6 +1538,27 @@ function renderSkinParts() {
     row.append(Object.assign(document.createElement('span'), { textContent: NAME[slot] }), sel);
     box.appendChild(row);
   }
+  // the parts as blocks: then they're the skin's own, to move, resize, recolour or remove like any other
+  const bake = document.createElement('button');
+  bake.className = 'skin-bake';
+  bake.textContent = 'Edit these parts as blocks';
+  bake.disabled = !sk.gear.hat && !sk.gear.back && !sk.gear.shoulder;
+  bake.title = 'Turns the head, back and shoulder parts into blocks of this skin (Blocks tab), so you can change them';
+  bake.addEventListener('click', () => {
+    if (!editSkin) return;
+    pushUndo();
+    const d = def();
+    const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: draft, gear: sk.gear });
+    draft = mesh.toBlueprint(d);
+    mesh.dispose();
+    setSkin({ blueprint: draft, gear: { hat: '', back: '', shoulder: '' } });
+    selected = null;
+    selection = [];
+    commit(true);
+    renderSkins();
+    showTab('blocks');
+  });
+  box.appendChild(bake);
   const reset = document.createElement('button');
   reset.className = 'skin-reset';
   reset.textContent = `Reset ${sk.name}`;
@@ -2227,8 +2315,8 @@ function copySelected(mirror: boolean) {
     const b = getBlock(p);
     if (!b) continue;
     const copy = clone(b);
+    // (a duplicate sits exactly where the original is: drag it off; a mirror goes to the other side)
     if (mirror) mirrorBlock(copy);
-    else copy.p[0] += 0.08;
     // one-per-unit roles stay on the original
     const strip = (n: Block) => {
       if (n.role && n.role !== 'leg') delete n.role;

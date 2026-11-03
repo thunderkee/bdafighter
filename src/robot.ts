@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { meshGeometry } from './meshkit';
+import { fromGeometry, meshGeometry } from './meshkit';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Shooter } from './game';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
@@ -1840,7 +1840,9 @@ export class ShooterMesh {
       const mesh = o as THREE.Mesh;
       let b: Block;
       if (mesh.isMesh) {
-        const meshData = mesh.geometry.userData.meshData as Block['mesh'] | undefined;
+        // (a shape with no block of its own, like a disc or a gem, comes over as an editable mesh)
+        let meshData = mesh.geometry.userData.meshData as Block['mesh'] | undefined;
+        if (!meshData && !SHAPE_OF[mesh.geometry.type]) meshData = fromGeometry(mesh.geometry);
         const shape = meshData ? 'mesh' : SHAPE_OF[mesh.geometry.type];
         if (!shape) return null;
         const mat = mesh.material as THREE.MeshLambertMaterial;
