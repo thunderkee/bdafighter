@@ -1905,9 +1905,10 @@ export class ActionMode {
     u.pose.flash = 1;
     if (from === this.me || u === this.me) this.pop(u.x, u.z, `-${dmg}`, from === this.me ? 'hit' : 'ouch');
     // the special's gauge, as in the main game: a marble that lands fills 8%, one taken 4.5%
-    if (!spirit) u.charge = Math.min(1, u.charge + 0.045);
+    // (the giant fills half as fast again, from the marbles it takes and the ones it lands)
+    if (!spirit) u.charge = Math.min(1, u.charge + 0.045 * (u.giant ? 1.5 : 1));
     if (from && from.alive) {
-      if (!spirit) from.charge = Math.min(1, from.charge + 0.08);
+      if (!spirit) from.charge = Math.min(1, from.charge + 0.08 * (from.giant ? 1.5 : 1));
       if (from === this.me && this.kind === 'gauntlet' && this.ups.leech) from.hp = Math.min(from.max, from.hp + amount * 0.08 * this.ups.leech);
     }
     if (u === this.me) {
@@ -2811,8 +2812,8 @@ export class ActionMode {
   private tickGiant(dt: number) {
     const g = this.giant;
     if (!g?.alive) return;
-    // (its special charges by itself, a little at a time)
-    g.charge = Math.min(1, g.charge + dt * (0.05 + this.giantPhase * 0.03));
+    // (its special charges by itself, quickly: about every 10 s, then 6, then 4 once it's berserk)
+    g.charge = Math.min(1, g.charge + dt * (0.1 + this.giantPhase * 0.07));
     const phase = g.hp < g.max / 3 ? 2 : g.hp < (g.max * 2) / 3 ? 1 : 0;
     if (phase <= this.giantPhase) return;
     this.giantPhase = phase;
