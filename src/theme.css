@@ -7128,3 +7128,54 @@ body.cine-on #pad {
 #paused .key {
   width: min(360px, 100%);
 }
+
+/* the fighter screen on the 16px gutter: title, card and buttons share one left and right edge */
+#select .step-head {
+  width: 100%;
+  max-width: none;
+  margin: 0 0 4px;
+  align-self: stretch;
+}
+#select .car-band {
+  margin: 0 var(--ui-gutter) 16px;
+  padding: 14px 16px 16px;
+}
+#select .car-tag {
+  margin-bottom: 2px;
+}
+#select .car-info {
+  gap: 12px;
+  margin-top: 8px;
+}
+#select .car-info .badges {
+  gap: 8px;
+}
+#select .dev-actions {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 12px;
+  padding: 0 0 max(16px, env(safe-area-inset-bottom));
+}
+#select .dev-actions .key {
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+}
+#select #select-back {
+  flex: none;
+}
+
+/* a locked fighter: its black 3D self on show, the lock and its note over it */
+.carousel.locked .car-stage {
+  visibility: visible;
+}
+.car-shadow:empty {
+  display: none;
+}
+.carousel.locked .car-stage canvas {
+  visibility: visible;
+}

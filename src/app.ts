@@ -1781,10 +1781,10 @@ export function boot() {
       return;
     }
     const unit = id === 'auto' ? enemyCharacter() : id;
-    // (a locked fighter isn't shown in 3D: only its portrait, blacked out)
+    // (a locked fighter is its 3D self, moving as usual, painted all black)
     if (locked) {
-      $('car-shadow').innerHTML = `<i data-portrait="${unit}"></i>`;
-      fillPortraits($('car-lock'));
+      $('car-shadow').innerHTML = '';
+      preview.showUnit(unit, undefined, true);
     } else preview.showUnit(unit, step === 'fighter' ? mine(unit) : undefined);
     $('pv-tag').textContent = step === 'fighter' ? `PLAYER 1 · LV ${levelOf(xpOf(unit)).lv}` : selectMode === 'duo' ? 'PLAYER 2' : id === 'auto' ? 'RIVAL · AUTO' : 'RIVAL';
     if (locked && e) {

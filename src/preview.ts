@@ -119,12 +119,20 @@ export class Preview {
   }
 
   /** a unit on show; skin is the unit in its cosmetics (your fighter) */
-  showUnit(id: string, skin?: CharacterDef) {
+  showUnit(id: string, skin?: CharacterDef, silhouette = false) {
     this.ensure();
     this.clear();
     this.mode = 'unit';
     const def = skin && skin.id === characterById(id).id ? skin : characterById(id);
     this.unit = new ShooterMesh(def.id, def.ball, def);
+    // a locked fighter: the whole of it painted black, moving as it would
+    if (silhouette) {
+      const black = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      this.unit.root.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.material) m.material = black;
+      });
+    }
     this.pivot.add(this.unit.root);
     // (no plinth: the unit stands on its own, at the roster's shared framing)
     this.scene.add(this.pivot);
@@ -137,7 +145,7 @@ export class Preview {
     this.windLeft = 0;
     this.swapT = 0;
     this.wobbleN = 0;
-    this.ballMat.color.setHex(def.ball);
+    this.ballMat.color.setHex(silhouette ? 0x000000 : def.ball);
     // it powers up as it's picked: the special-move spring and glow, then its routine
     this.act = { ...this.act, x: 0, aim: 0, vx: 0, recoil: 0, kickT: 9, heavyT: 0, flash: 0, hand: 1, lastHand: 1, windT: 9, wobble: 0 };
     this.at = 0;
