@@ -7958,3 +7958,12 @@ body.cine-on #pad {
   #result > .result-tip { grid-column: 1; grid-row: 6; font-size: 12px; }
   #result > .result-tip:not(.hidden) ~ .result-actions { grid-row: 4 / span 2; }
 }
+@media (orientation: landscape) and (max-height: 600px) {
+  /* the move control a little closer to the left edge (never under the notch or the rounded corner) */
+  #pad {
+    padding-left: max(6px, env(safe-area-inset-left));
+  }
+  body.slider .pad-dir {
+    padding-left: 0;
+  }
+}
