@@ -71,6 +71,8 @@ export interface Settings {
   cel: boolean;
   /** battery saver: a lighter render (less resolution and post) and 30 fps (on by default on phones) */
   batterySaver: boolean;
+  /** Action mode across the whole screen, turned on its side (it asks the phone to rotate where it can) */
+  landscape?: boolean;
   /** frame-rate meter in the corner */
   showFps: boolean;
   /** marbles per magazine for both robots (3-10), when magazines are equal */
@@ -157,6 +159,7 @@ export const DEFAULT_SETTINGS: Settings = {
   realism: true,
   cel: true,
   batterySaver: typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0),
+  landscape: false,
   showFps: false,
   magazine: 10,
   magPer: true,

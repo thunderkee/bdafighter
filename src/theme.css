@@ -6061,3 +6061,32 @@ body.cine-on #pad {
 #action .ac-cards.modes .ac-mode small {
   font-size: 10px;
 }
+
+/* Action in landscape: the whole window, not the portrait column; the menu wider and scrolling */
+#action.wide {
+  position: fixed;
+  inset: 0;
+}
+#action.wide .ac-panel {
+  max-width: 680px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+}
+#action.wide .ac-cards.modes {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+#action.wide .ac-text {
+  font-size: 12px;
+}
+@media (max-height: 520px) {
+  /* a short landscape screen: the hint and the charge meter sit lower, clear of the thumb trays' tops */
+  #action.wide .ac-hint {
+    margin-bottom: 12px;
+  }
+  #action.wide .ac-charge {
+    bottom: 18px;
+  }
+  #action.wide .ac-supername {
+    top: 26%;
+  }
+}

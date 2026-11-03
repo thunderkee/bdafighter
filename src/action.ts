@@ -374,13 +374,8 @@ export class ActionMode {
   private auras = new Map<Unit, THREE.Mesh>();
   /** the camera pushing in: for your special, and while you charge */
   private punch = 0;
-  /**
-   * your special's cinematic: close behind you for the pose, then chasing its ball until it hits,
-   * a beat on the hit, then back to your view (spMax: a safety cut-off)
-   */
+  /** your special's cinematic: close behind you for the pose, then back to your view (spMax: a safety cut-off) */
   private spCine = false;
-  private spFlew = false;
-  private spHold = -1;
   private spMax = 0;
   private spYaw = 0;
   /** seconds to the next item crate */
@@ -444,7 +439,7 @@ export class ActionMode {
 
   constructor(
     host: HTMLElement,
-    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; camera?: () => ActionView; setCamera?: (v: ActionView) => void; cpuCharge?: () => boolean; allyCharge?: () => boolean; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
+    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; camera?: () => ActionView; setCamera?: (v: ActionView) => void; cpuCharge?: () => boolean; allyCharge?: () => boolean; landscape?: () => boolean; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
   ) {
     this.unitId = opts.unit;
     this.el = document.createElement('div');
@@ -591,6 +586,7 @@ export class ActionMode {
   open(unit: string) {
     this.unitId = unit;
     this.applySaver();
+    this.goWide(!!this.opts.landscape?.());
     this.showView();
     this.camSnap = true;
     this.el.classList.remove('hidden');
@@ -612,7 +608,35 @@ export class ActionMode {
     cancelAnimationFrame(this.raf);
     this.clearStage();
     this.el.classList.add('hidden');
+    this.goWide(false);
     this.opts.onExit();
+  }
+
+  /**
+   * landscape: the whole window rather than the portrait column, and (where the phone allows it:
+   * Android, in fullscreen) turned on its side; back again on the way out
+   */
+  private wideLock = false;
+  private goWide(on: boolean) {
+    this.el.classList.toggle('wide', on);
+    const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+    if (on && !this.wideLock && orient?.lock) {
+      const fs = document.fullscreenElement ? Promise.resolve() : document.documentElement.requestFullscreen?.() ?? Promise.resolve();
+      fs.then(() => orient.lock!('landscape'))
+        .then(() => (this.wideLock = true))
+        .catch(() => {
+          // (not allowed here: iPhones, desktop) — it's still the full window, turn the phone by hand
+        });
+    } else if (!on && this.wideLock) {
+      this.wideLock = false;
+      try {
+        orient.unlock();
+      } catch {
+        // nothing to unlock
+      }
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    }
+    requestAnimationFrame(() => this.resize());
   }
 
   get active() {
@@ -1744,9 +1768,7 @@ export class ActionMode {
       this.punch = 1;
       // the camera drops behind you, looking where it'll go, for the pose; then back to your view
       this.spCine = true;
-      this.spFlew = false;
-      this.spHold = -1;
-      this.spMax = 4.5;
+      this.spMax = 3;
       this.spYaw = angle;
       const sl = this.hud.speed;
       sl.classList.remove('show');
@@ -3428,14 +3450,10 @@ export class ActionMode {
   private placeCamera(dt: number) {
     const me = this.me;
     // (your special's cinematic: the cockpit framing, behind you and looking at its target)
-    // (the cinematic ends a beat after its last ball has hit, or at the cut-off)
-    const balls = me ? this.shots.filter((s) => s.owner === me && s.spirit) : [];
+    // (the cinematic is the pose: when it's done and the balls leave, back to your view)
     if (this.spCine) {
       this.spMax -= dt;
-      if (balls.length) this.spFlew = true;
-      if (this.spFlew && !balls.length && me && me.spT < 0 && !me.queue.length && this.spHold < 0) this.spHold = 0.45;
-      if (this.spHold >= 0 && (this.spHold -= dt) < 0) this.spCine = false;
-      if (this.spMax <= 0 || !me?.alive) this.spCine = false;
+      if (!me?.alive || me.spT < 0 || this.spMax <= 0) this.spCine = false;
     }
     const cine = this.spCine && !!me?.alive;
     const view: ActionView = cine ? 'first' : this.view;
@@ -3456,22 +3474,7 @@ export class ActionMode {
       (this.skyDome.material as THREE.MeshBasicMaterial).color.setHex(this.theme.sky);
       this.scene.fog = sky ? new THREE.Fog(this.theme.sky, 16, 42) : null;
     }
-    if (cine && this.spHold >= 0) {
-      // the hit: hold where it was
-      pos.copy(this.camPos);
-      at.copy(this.camAt);
-    } else if (cine && balls.length && me!.spT < 0) {
-      // chasing the ball: just behind and above it, looking where it's going
-      const b = balls[0];
-      const sp = Math.hypot(b.vx, b.vz) || 1;
-      const dx = b.vx / sp;
-      const dz = b.vz / sp;
-      const y = b.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - b.left / b.dive))) * 3.2 : 0.55;
-      // (further back for a big ball, so it doesn't fill the screen)
-      const off = 3.2 + b.r * 4;
-      pos.set(b.x - dx * off, y + 2.1 + b.r * 2, b.z - dz * off);
-      at.set(b.x + dx * 2, y * 0.6, b.z + dz * 2);
-    } else if (cine) {
+    if (cine) {
       // the pose: close in behind you, looking where it'll go (closer than the cockpit view)
       const fx = Math.sin(this.spYaw);
       const fz = -Math.cos(this.spYaw);
@@ -3487,7 +3490,9 @@ export class ActionMode {
       at.set(mx + fx * 5.5, 0.3, mz + fz * 5.5);
     } else {
       // (in a Gauntlet room the overhead views stop short of the edges, so the room fills the screen)
-      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view];
+      // (a short, wide landscape screen sees little front to back: a little higher up)
+      const wideK = this.camera.aspect > 1.6 ? 1.25 : 1;
+      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view] * wideK;
       const back = { far: 0.22, mid: 0.55, near: 0.85 }[view];
       const room = this.kind === 'gauntlet' && view !== 'near';
       const half = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * h * 1.5;
@@ -3501,8 +3506,7 @@ export class ActionMode {
       this.camAt.copy(at);
       this.camSnap = false;
     } else {
-      // (quicker while chasing a ball, so it keeps up)
-      const k = 1 - Math.exp(-dt * (cine && balls.length ? 14 : 9));
+      const k = 1 - Math.exp(-dt * 9);
       this.camPos.lerp(pos, k);
       this.camAt.lerp(at, k);
     }
