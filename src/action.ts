@@ -1372,7 +1372,8 @@ export class ActionMode {
       mag: mb.mag,
       ammo: mb.mag,
       fireInt: (BASE_STATS.fireInterval * mb.fire) / traitMul(t?.fireRate, 'fireRate'),
-      refill: mb.mag / (BASE_STATS.reloadTime * mb.reload * 1.6),
+      // (a full magazine back in the main game's reload time: quicker than it was, so fights keep moving)
+      refill: mb.mag / (BASE_STATS.reloadTime * mb.reload),
       fireT: 0,
       firing: false,
       aim: Math.PI,
@@ -2201,7 +2202,7 @@ export class ActionMode {
     }
     if (!u.firing && u.stored === 0) {
       u.idle += dt;
-      if (u.idle > 0.45 && u.ammo < u.mag) u.ammo = Math.min(u.mag, u.ammo + dt * u.refill);
+      if (u.idle > 0.3 && u.ammo < u.mag) u.ammo = Math.min(u.mag, u.ammo + dt * u.refill);
     }
     // standing still mends: not moving, not firing, and not hit for a moment
     const still = Math.hypot(u.vx, u.vz) < 0.3 && !u.firing;
