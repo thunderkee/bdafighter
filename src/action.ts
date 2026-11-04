@@ -40,7 +40,7 @@ const UNIT_R = 0.42;
 const BASE_HP = 3600;
 /** the main game's health is 100: its damage numbers scale by this */
 const SCALE = BASE_HP / MATCH.maxHealth;
-const SHOT_SPEED = 13;
+const SHOT_SPEED = 22; // (was 13: raised with the run speed so a marble still well outpaces a fighter)
 const SHOT_RANGE = 7.5;
 /** standing still (not firing, not hit for a moment) mends this share of health a second */
 const MEND = 0.12;
