@@ -7881,6 +7881,9 @@ body.cine-on #pad {
   .vs-bar {
     left: max(10px, calc(50% - 320px));
     right: max(10px, calc(50% - 320px));
+    /* (smaller sideways: the arena gets the height back) */
+    transform: scale(0.78);
+    transform-origin: top center;
   }
   /* the VS cards come in from their own sides, not as full-width bands */
   .intro-card {

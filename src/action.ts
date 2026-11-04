@@ -3554,7 +3554,9 @@ export class ActionMode {
       // (in a Gauntlet room the overhead views stop short of the edges, so the room fills the screen)
       // (a short, wide landscape screen sees little front to back: a little higher up)
       const wideK = this.camera.aspect > 1.6 ? 1.25 : 1;
-      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view] * wideK;
+      // (near is the exception: sideways it comes in closer, so your fighter reads big)
+      const k = view === 'near' ? (this.camera.aspect > 1.2 ? 0.78 : 1) : wideK;
+      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view] * k;
       const back = { far: 0.22, mid: 0.55, near: 0.85 }[view];
       const room = this.kind === 'gauntlet' && view !== 'near';
       const half = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * h * 1.5;

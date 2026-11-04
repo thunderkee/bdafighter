@@ -2071,10 +2071,13 @@ export class View {
         this.camGoal.set(follow(0.9, 3.15) - lean * 0.9, 6.4, -p.y + 6.4);
         this.lookGoal.set(follow(0.6, 2.1) + lean * 3, 0.2, -p.y - 7.5);
         break;
-      case 'near':
-        this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, 3.8, -p.y + 3.9);
-        this.lookGoal.set(follow(0.7, 2.3) + lean * 3.5, 0.5, -p.y - 8.5);
+      case 'near': {
+        // (held sideways the screen shows plenty of width: the chase camera comes in closer behind you)
+        const k = this.host.clientWidth > this.host.clientHeight ? 0.72 : 1;
+        this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, 3.8 * k, -p.y + 3.9 * k);
+        this.lookGoal.set(follow(0.7, 2.3) + lean * 3.5, 0.5 + (1 - k) * 0.8, -p.y - 8.5);
         break;
+      }
       case 'arena':
         // the anime-style angle: low, behind and off to one side of your robot, the table running away
         this.camGoal.set(follow(0.85, 3.2) + 2.1 - lean * 0.5, 2.3, -p.y + 3.6);
