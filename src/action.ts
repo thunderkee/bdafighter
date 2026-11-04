@@ -3848,7 +3848,9 @@ export class ActionMode {
       else this.mouseFire = true;
       return;
     }
-    const left = e.clientX < this.el.clientWidth / 2;
+    // (the left half of the view itself: it can sit inset from the window's edge)
+    const box = this.el.getBoundingClientRect();
+    const left = e.clientX - box.left < box.width / 2;
     const s = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
     if (left && !this.moveStick) {
       this.moveStick = s;

@@ -7728,7 +7728,7 @@ body.cine-on #pad {
 
 /* ================= phones held sideways: the menu, Options and pause use the whole window =================
    (the portrait column stays for the match itself and for desktop; these screens break out of it, as Action does) */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) {
   #title.home,
   #settings.screen.device,
   #paused.screen.device {
@@ -7871,12 +7871,12 @@ body.cine-on #pad {
 }
 
 /* ================= the match held sideways: the whole window, not the portrait column ================= */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) {
   #app {
     width: 100vw;
   }
 }
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) {
   /* the scoreboard stays a readable width in the middle of the top edge */
   .vs-bar {
     left: max(10px, calc(50% - 320px));
@@ -7935,7 +7935,7 @@ body.cine-on #pad {
     text-align: center;
   }
 }
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) {
   /* (two columns of near-equal height: who and against whom on the left, the numbers and the buttons on the right) */
   #result > .sys-line { grid-row: 1; }
   #result > .result-title { grid-row: 2; font-size: 44px; }
@@ -7953,12 +7953,12 @@ body.cine-on #pad {
   #result .result-actions .key { min-height: 44px; }
   #result .stats.lcd > div { padding: 6px 4px; }
 }
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) {
   /* (a loss's tip sits under the next reward, so the buttons keep their place) */
   #result > .result-tip { grid-column: 1; grid-row: 6; font-size: 12px; }
   #result > .result-tip:not(.hidden) ~ .result-actions { grid-row: 4 / span 2; }
 }
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) {
   /* the match sits inside the phone's safe area, dark bars at the curved ends (as console-style
      mobile games do), so neither thumb control ever reaches the edge of the glass */
   :root {
@@ -7976,5 +7976,27 @@ body.cine-on #pad {
   }
   body.slider .pad-dir {
     padding-left: 0;
+  }
+}
+@media (orientation: landscape) {
+  /* Action fills the window sideways, but inside the safe area like the match, thumbs 16px in */
+  #action.wide {
+    left: var(--sal);
+    right: var(--sar);
+  }
+  #action .ac-tray {
+    left: 16px;
+    right: 16px;
+  }
+  /* the thumb controls: sized for a short screen, and down at the bottom edge (no lifted band under them) */
+  #app #pad {
+    bottom: max(6px, env(safe-area-inset-bottom));
+    padding-bottom: 6px;
+    zoom: 0.8;
+  }
+  #action .ac-tray {
+    bottom: max(6px, env(safe-area-inset-bottom));
+    padding-bottom: 6px;
+    zoom: 0.8;
   }
 }
