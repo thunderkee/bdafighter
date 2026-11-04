@@ -40,7 +40,7 @@ const UNIT_R = 0.42;
 const BASE_HP = 3600;
 /** the main game's health is 100: its damage numbers scale by this */
 const SCALE = BASE_HP / MATCH.maxHealth;
-const SHOT_SPEED = 19.8; // (was 13, then 22; now 0.9x of that)
+const SHOT_SPEED = 22; // (was 13: raised with the run speed so a marble still well outpaces a fighter)
 const SHOT_RANGE = 7.5;
 /** standing still (not firing, not hit for a moment) mends this share of health a second */
 const MEND = 0.12;
@@ -1365,8 +1365,8 @@ export class ActionMode {
       hp: max,
       max,
       // (each fighter's Speed, as on the rail in the other modes: half as fast at 1, 1.6 times at 5)
-      // (4.4: the old standard pace, 3.3, is now what a slow fighter moves at)
-      speed: 4.4 * traitMul(t?.speed, 'speed') * (opts.giant ? 0.7 : boss ? 0.85 : 1),
+      // (3.96: 0.9x of 4.4, which made the old standard pace, 3.3, the slow one)
+      speed: 3.96 * traitMul(t?.speed, 'speed') * (opts.giant ? 0.7 : boss ? 0.85 : 1),
       // (the main game's marble: its damage per hit as a share of health, its magazine and cadence)
       dmg: BASE_STATS.damage * SCALE * mb.damage * mb.balance,
       power: opts.dmg ?? 1,
