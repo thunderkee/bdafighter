@@ -1365,7 +1365,8 @@ export class ActionMode {
       hp: max,
       max,
       // (each fighter's Speed, as on the rail in the other modes: half as fast at 1, 1.6 times at 5)
-      speed: 3.3 * traitMul(t?.speed, 'speed') * (opts.giant ? 0.7 : boss ? 0.85 : 1),
+      // (4.4: the old standard pace, 3.3, is now what a slow fighter moves at)
+      speed: 4.4 * traitMul(t?.speed, 'speed') * (opts.giant ? 0.7 : boss ? 0.85 : 1),
       // (the main game's marble: its damage per hit as a share of health, its magazine and cadence)
       dmg: BASE_STATS.damage * SCALE * mb.damage * mb.balance,
       power: opts.dmg ?? 1,
