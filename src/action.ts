@@ -404,6 +404,9 @@ export class ActionMode {
   private time = 0;
   private over = true;
   private paused = false;
+  /** which panel is up (the gear card and the upgrade pick close with FIRE) */
+  private panelKind: string | null = null;
+  private panelAt = 0;
   private room = 1;
   private cleared = false;
   private ups: Partial<Record<UpgradeId, number>> = {};
@@ -4203,6 +4206,8 @@ export class ActionMode {
   private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | 'loot' | null, place = 0) {
     const p = this.hud.panel;
     p.classList.toggle('hidden', !kind);
+    this.panelKind = kind;
+    this.panelAt = performance.now();
     this.paused = kind === 'upgrade' || kind === 'loot';
     if (!kind) return;
     const h = p.querySelector('h2')!;
@@ -4248,11 +4253,7 @@ export class ActionMode {
       cards.classList.add('gear');
       cards.append(this.gearCard(l.gear, this.gear, 'Found'), this.gearCard(this.gear, null, 'Equipped'));
       button('Equip', () => this.equip(l), 'primary');
-      button('Leave it', () => {
-        l.away = true;
-        this.lootOpen = null;
-        this.showPanel(null);
-      });
+      button('Leave it · FIRE', () => this.dismissBonus());
     } else if (kind === 'upgrade') {
       h.textContent = 'Room clear';
       text.textContent = 'Pick an upgrade for the rest of the run.';
@@ -4265,6 +4266,7 @@ export class ActionMode {
         c.addEventListener('click', () => this.takeUpgrade(up.id));
         cards.appendChild(c);
       }
+      button('Skip · FIRE', () => this.dismissBonus());
     } else {
       const ffa = this.kind === 'ffa';
       if (this.teams && this.kind !== 'siege') {
@@ -4297,6 +4299,20 @@ export class ActionMode {
         this.showPanel('start');
       });
       button('Back', () => this.exit());
+    }
+  }
+
+  /** FIRE on the gear card leaves the launcher where it lies; on the upgrade pick, it skips the upgrade */
+  private dismissBonus(byFire = false) {
+    // (a FIRE already being hammered as the panel comes up doesn't throw it away)
+    if (byFire && performance.now() - this.panelAt < 450) return;
+    if (this.panelKind === 'loot') {
+      if (this.lootOpen) this.lootOpen.away = true;
+      this.lootOpen = null;
+      this.showPanel(null);
+    } else if (this.panelKind === 'upgrade') {
+      this.showPanel(null);
+      this.openDoor();
     }
   }
 
@@ -4418,6 +4434,7 @@ export class ActionMode {
   };
   private fireDown = (e: PointerEvent) => {
     e.stopPropagation();
+    if (this.panelKind === 'loot' || this.panelKind === 'upgrade') return this.dismissBonus(true);
     if (this.over || this.paused || !this.me?.alive || this.aimStick) return;
     sfx.unlock();
     this.aimStick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), big: false };
@@ -4452,6 +4469,7 @@ export class ActionMode {
   private keydown = (e: KeyboardEvent) => {
     if (!this.running) return;
     this.keys.add(e.code);
+    if (e.code === 'Space' && !e.repeat && (this.panelKind === 'loot' || this.panelKind === 'upgrade')) return this.dismissBonus(true);
     if (this.over || this.paused || !this.me?.alive) return;
     if (e.code === 'Space') this.keyFire = true;
     if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) this.special(this.me, this.autoAim());
