@@ -419,6 +419,9 @@ export class ActionMode {
   private gear: Gear = STARTER;
   private rageT = 0;
   private hasKey = false;
+  /** Dungeon Run: lives left, and where you come back (the middle of the last room you cleared) */
+  private lives = 3;
+  private checkpoint = { x: 0, z: 0 };
   private lockMeshes: THREE.Object3D[] = [];
   private doorMeshes: THREE.Object3D[] = [];
   private chests: Chest[] = [];
@@ -710,6 +713,7 @@ export class ActionMode {
     this.giantPhase = 0;
     this.gear = STARTER;
     this.rageT = 0;
+    this.lives = 3;
     this.startStage();
     this.showPanel(null);
     this.hud.hint.classList.remove('gone');
@@ -732,6 +736,7 @@ export class ActionMode {
     this.buildStage();
     (this.el.querySelector('.ac-map') as HTMLElement).classList.toggle('on', this.kind === 'gauntlet');
     this.spawnMe();
+    this.checkpoint = { x: this.me!.x, z: this.me!.z };
     if (keep && this.kind === 'gauntlet' && this.room > 1) {
       this.me!.hp = Math.max(1, this.me!.max * Math.min(1, keep.hp + 0.08));
       this.me!.charge = keep.charge;
@@ -2006,6 +2011,14 @@ export class ActionMode {
       // its power cubes spill out (at least one)
       for (let k = 0; k < Math.max(1, u.cubes); k++) this.drop(u.x + (Math.random() - 0.5) * 0.8, u.z + (Math.random() - 0.5) * 0.8, 'cube');
     } else if (u.cpu && Math.random() < 0.35) this.drop(u.x, u.z, 'heal');
+    // Dungeon Run: a life gone, and back at the checkpoint (the last one ends the run)
+    if (u === this.me && this.kind === 'gauntlet' && this.lives > 1) {
+      this.lives--;
+      this.callout(`DOWN · ${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`, 1);
+      setTimeout(() => this.backToCheckpoint(), 1800);
+      this.updateHud();
+      return;
+    }
     if (u === this.me) {
       const place = this.units.filter((x) => x.alive).length + 1;
       setTimeout(() => this.finish(false, place), 1700);
@@ -2163,8 +2176,8 @@ export class ActionMode {
   }
 
   /** Siege: back on its feet by its own fortress */
-  private respawn(u: Unit) {
-    const p = this.teamSpot(u.team, Math.floor(Math.random() * 3));
+  private respawn(u: Unit, at?: { x: number; z: number }) {
+    const p = at ?? this.teamSpot(u.team, Math.floor(Math.random() * 3));
     u.x = p.x;
     u.z = p.z;
     u.vx = u.vz = 0;
@@ -2175,6 +2188,7 @@ export class ActionMode {
     u.slowT = u.stunT = 0;
     u.queue = [];
     u.face = u.team === 0 ? 0 : Math.PI;
+    u.calm = u.still = 0;
     // (the last one was blown apart: a fresh body)
     if (u.mesh.broken) {
       const mesh = new ShooterMesh(u.def.id, u.def.ball, u.def);
@@ -2976,7 +2990,8 @@ export class ActionMode {
         setTimeout(() => this.finish(true, 1), 1000);
         return;
       }
-      this.callout(r.kind === 'key' ? 'ROOM CLEAR · TAKE THE KEY' : 'ROOM CLEAR');
+      this.callout(r.kind === 'key' ? 'ROOM CLEAR · TAKE THE KEY' : 'ROOM CLEAR · CHECKPOINT');
+      this.checkpoint = this.roomMiddle(r);
       this.roomReward(r);
       setTimeout(() => this.offerUpgrades(), 700);
     }
@@ -3355,6 +3370,39 @@ export class ActionMode {
       this.mapT = 0.15;
       this.drawMap();
     }
+  }
+
+  /**
+   * Dungeon Run: back on your feet at the checkpoint. The room you went down in starts over:
+   * its fighters go, its doors open, and it fills again when you walk back in
+   */
+  private backToCheckpoint() {
+    if (this.over || this.kind !== 'gauntlet' || !this.me) return;
+    const r = this.activeRoom;
+    if (r) {
+      for (const u of this.units.filter((x) => x !== this.me && x.alive)) {
+        u.mesh.dispose();
+        u.bar.remove();
+        u.wrap.removeFromParent();
+        u.shadow.removeFromParent();
+        this.auras.get(u)?.removeFromParent();
+        this.auras.delete(u);
+        this.orbs.get(u)?.removeFromParent();
+        this.orbs.delete(u);
+      }
+      this.units = this.units.filter((x) => x === this.me || !x.alive);
+      for (const k of r.doors) this.grid[k] = FLOOR;
+      for (const g of this.doorMeshes) g.removeFromParent();
+      this.doorMeshes = [];
+      this.activeRoom = null;
+      this.cleared = false;
+    }
+    this.shots = [];
+    this.respawn(this.me, this.checkpoint);
+    this.me.charge = Math.max(this.me.charge, 0.5);
+    this.trapHit.set(this.me, this.time + 1.5);
+    this.callout(`BACK AT THE CHECKPOINT · ${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`);
+    sfx.play('go');
   }
 
   /** a trap catches someone: a share of their health, and a shove */
@@ -3999,7 +4047,7 @@ export class ActionMode {
       title.querySelector('span')!.textContent = 'FIGHTERS LEFT';
     } else {
       title.querySelector('b')!.textContent = `${this.room - 1}/${this.fightRooms()}`;
-      title.querySelector('span')!.textContent = this.isBossRoom() ? 'BOSS ROOM' : this.hasKey ? 'ROOMS · KEY FOUND' : 'ROOMS CLEARED';
+      title.querySelector('span')!.textContent = `${this.isBossRoom() ? 'BOSS ROOM' : this.hasKey ? 'ROOMS · KEY FOUND' : 'ROOMS CLEARED'} · ${'♥'.repeat(this.lives)}`;
     }
     this.hud.score.querySelector('b')!.textContent = String(this.kos);
     const c = this.me?.charge ?? 0;
