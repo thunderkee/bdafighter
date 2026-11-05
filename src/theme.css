@@ -8003,3 +8003,108 @@ body.cine-on #pad {
     zoom: 0.8;
   }
 }
+
+/* ================= Dungeon Run: the map in the corner, and the gear cards ================= */
+#action canvas.ac-map {
+  display: none;
+  position: absolute;
+  inset: auto;
+  top: calc(max(12px, env(safe-area-inset-top)) + 58px);
+  right: 12px;
+  width: 92px;
+  height: auto;
+  aspect-ratio: 53 / 70;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(8, 6, 12, 0.62);
+  border: 1px solid rgba(255, 220, 160, 0.22);
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+#action canvas.ac-map.on {
+  display: block;
+}
+@media (orientation: landscape) {
+  #action canvas.ac-map {
+    top: calc(max(10px, env(safe-area-inset-top)) + 52px);
+    right: calc(12px + var(--sar, 0px));
+    width: 84px;
+  }
+}
+#action .ac-cards.gear {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+#action .ac-gear {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid var(--rar);
+  background: linear-gradient(180deg, #221a2c, #15101c);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--rar) 35%, transparent) inset;
+  color: #f1ece4;
+  text-align: left;
+}
+#action .ac-gear > small {
+  font: 700 9px var(--body);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(241, 236, 228, 0.55);
+}
+#action .ac-gear > b {
+  font: 700 17px var(--display);
+  line-height: 1.1;
+  color: var(--rar);
+}
+#action .ac-gear .rar {
+  font: 600 11px var(--body);
+  color: var(--rar);
+  opacity: 0.85;
+}
+#action .ac-gear .pow {
+  margin: 4px 0 2px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font: 700 14px var(--body);
+}
+#action .ac-gear ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+  font: 600 12px var(--body);
+  color: #9fe8ff;
+}
+#action .ac-gear li.neg {
+  color: #ff8a7a;
+}
+#action .ac-gear li.none {
+  color: rgba(241, 236, 228, 0.5);
+}
+#action .ac-gear em {
+  font-style: normal;
+  margin-left: 4px;
+  font-size: 11px;
+}
+#action .ac-gear em.up {
+  color: #5aff8a;
+}
+#action .ac-gear em.down {
+  color: #ff5a5a;
+}
+#action .ac-gear .perk {
+  margin: 4px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font: 500 11px/1.4 var(--body);
+  color: #e8d7ff;
+}
+#action .ac-gear .perk b {
+  display: block;
+  font: 700 12px var(--body);
+  color: var(--rar);
+}

@@ -11,6 +11,7 @@ import { kitOf } from './kits';
 import { DROP, DRAGON, ITEMS, MISSILE } from './items';
 import { stageById } from './stage';
 import { coverProp, decorate } from './scenery';
+import { makeDungeon, rollGear, gearPower, RARITY, PERKS, STARTER, D_ROCK, type Dungeon, type DRoom, type Gear } from './dungeon';
 
 /**
  * Action: walk the whole stage freely and take the other fighters down, seen from above.
@@ -35,6 +36,8 @@ const WATER = 4;
 const GATE = 5;
 /** a fortress's footprint (Siege): blocks walking, and takes the marbles that hit it */
 const FORT = 6;
+/** Dungeon Run: the rock beyond the walls (blocks everything, drawn as darkness) */
+const ROCK = D_ROCK;
 
 const UNIT_R = 0.42;
 const BASE_HP = 3600;
@@ -48,7 +51,6 @@ const ACTION_SPEED = [0.75, 0.9, 1, 1.3, 1.6];
 const CPU_SPECIAL_FILL = 18;
 /** standing still (not firing, not hit for a moment) mends this share of health a second */
 const MEND = 0.12;
-const ROOMS = 10;
 const CRATE_HP = 2600;
 const STORM_START = 45;
 const STORM_END = 165;
@@ -119,6 +121,8 @@ const THEMES: Theme[] = [
   { id: 'city', stage: 'city', floor: ['#5a5c66', '#53555f'], line: 'rgba(255,207,62,0.3)', wall: 0x8a8f98, wallGlow: 0xff3e8e, bush: 0x4a8a4a, water: 0x3a5a7a, apron: 0x16171d, sky: 0x0f1326 },
   { id: 'soccer', stage: 'soccer', floor: ['#3fa04a', '#379142'], line: 'rgba(255,255,255,0.35)', wall: 0xe8e8ee, bush: 0x2f7a36, water: 0x3ac8ef, apron: 0x2f7a36, sky: 0x8cc8ff },
 ];
+/** Dungeon Run's look: warm stone, brick walls, darkness all round */
+const CRYPT: Theme = { id: 'crypt', name: 'The Crypt', floor: ['#7d6e5c', '#766754'], line: 'rgba(0,0,0,0.16)', wall: 0x6e4229, bush: 0x3a6a3a, water: 0x2a4a6a, apron: 0x050407, sky: 0x0a0806 };
 const themeName = (t: Theme) => t.name ?? stageById(t.stage ?? '').name;
 /** the camera, shared with the other modes' setting: far (overhead), mid, near, and first (just behind your fighter) */
 export type ActionView = 'far' | 'mid' | 'near' | 'first';
@@ -324,6 +328,13 @@ const CRATE_ITEMS: [DropKind, number][] = [
   ['special', 0.2],
 ];
 type Pop = { el: HTMLElement; x: number; z: number; t: number };
+/** Dungeon Run: a trap at work */
+type TrapRt =
+  | { kind: 'spikes'; tiles: number[]; phase: number; mesh: THREE.Object3D; cyc: number; hit: Set<Unit> }
+  | { kind: 'axe'; x: number; z: number; along: 'i' | 'j'; phase: number; arm: THREE.Object3D }
+  | { kind: 'boulder'; x0: number; z0: number; x1: number; z1: number; phase: number; mesh: THREE.Mesh; rolling: boolean };
+type Chest = { x: number; z: number; open: boolean; root: THREE.Object3D; lid: THREE.Object3D; gear: Gear; t: number };
+type Loot = { x: number; z: number; gear: Gear; root: THREE.Object3D; gem: THREE.Object3D; away: boolean };
 /** a knocked-out fighter blowing apart, as in the other modes: three pops, then it shatters into tumbling, smoking pieces */
 interface Wreck {
   u: Unit;
@@ -396,6 +407,26 @@ export class ActionMode {
   private room = 1;
   private cleared = false;
   private ups: Partial<Record<UpgradeId, number>> = {};
+  // Dungeon Run: the map, the room you're fighting in, what you've seen, your launcher, the key
+  private dg: Dungeon | null = null;
+  private activeRoom: DRoom | null = null;
+  private seen = new Uint8Array(0);
+  private seenT = 0;
+  private mapT = 0;
+  private gear: Gear = STARTER;
+  private rageT = 0;
+  private hasKey = false;
+  private lockMeshes: THREE.Object3D[] = [];
+  private doorMeshes: THREE.Object3D[] = [];
+  private chests: Chest[] = [];
+  private loot: Loot[] = [];
+  private lootOpen: Loot | null = null;
+  private keyItem: { x: number; z: number; root: THREE.Object3D } | null = null;
+  private traps: TrapRt[] = [];
+  private trapHit = new Map<Unit, number>();
+  private lockedT = 0;
+  private lamp: THREE.PointLight | null = null;
+  private lightK = 1;
   private storm = 0;
   private stormMesh: THREE.Mesh[] = [];
   private bushMat = new THREE.MeshStandardMaterial({ color: 0x3fae4a, roughness: 0.9, transparent: true });
@@ -455,6 +486,7 @@ export class ActionMode {
       <div class="ac-vignette"></div>
       <div class="ac-speed"></div>
       <div class="ac-bars"></div>
+      <canvas class="ac-map" aria-hidden="true"></canvas>
       <div class="ac-hud">
         <div class="ac-top">
           <div class="ac-left"><button class="ac-quit key round" aria-label="Back">✕</button></div>
@@ -598,6 +630,7 @@ export class ActionMode {
     this.clearStage();
     this.kind = 'gauntlet';
     this.buildStage();
+    (this.el.querySelector('.ac-map') as HTMLElement).classList.remove('on');
     this.spawnMe();
     this.showPanel('start');
     this.resize();
@@ -672,6 +705,8 @@ export class ActionMode {
     this.kRoundT = 0;
     this.kBreak = 0;
     this.giantPhase = 0;
+    this.gear = STARTER;
+    this.rageT = 0;
     this.startStage();
     this.showPanel(null);
     this.hud.hint.classList.remove('gone');
@@ -688,10 +723,11 @@ export class ActionMode {
     this.cleared = false;
     // a new look each time: a fresh shuffle for a new run (the Gauntlet walks through them room by room)
     if (this.kind !== 'gauntlet' || this.room === 1 || !this.themeOrder.length) this.themeOrder = [...THEMES].sort(() => Math.random() - 0.5);
-    this.theme = this.kind === 'gauntlet' ? this.themeOrder[(this.room - 1) % this.themeOrder.length] : this.themeOrder[0];
+    this.theme = this.kind === 'gauntlet' ? CRYPT : this.themeOrder[0];
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     this.time = this.kind === 'gauntlet' ? this.time : 0;
     this.buildStage();
+    (this.el.querySelector('.ac-map') as HTMLElement).classList.toggle('on', this.kind === 'gauntlet');
     this.spawnMe();
     if (keep && this.kind === 'gauntlet' && this.room > 1) {
       this.me!.hp = Math.max(1, this.me!.max * Math.min(1, keep.hp + 0.08));
@@ -702,13 +738,13 @@ export class ActionMode {
     this.over = false;
     const where = themeName(this.theme).toUpperCase();
     const TEAM_NAME: Partial<Record<ActionKind, string>> = { knockout: 'TEAM KNOCKOUT · ROUND 1', zone: 'KING OF THE RING · HOLD IT', boss: 'GIANT SLAYER · TAKE IT DOWN' };
-    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `CASTLE CRASH · ${where}` : this.kind === 'ffa' ? `STORM BRAWL · ${where}` : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room} · ${where}`);
+    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `CASTLE CRASH · ${where}` : this.kind === 'ffa' ? `STORM BRAWL · ${where}` : 'DUNGEON RUN · FIND THE KEY');
     sfx.play(this.isBossRoom() ? 'gong' : 'go');
     this.updateHud();
   }
 
   private isBossRoom() {
-    return this.kind === 'gauntlet' && this.room % 5 === 0;
+    return this.kind === 'gauntlet' && this.activeRoom?.kind === 'boss';
   }
 
   private clearStage() {
@@ -756,6 +792,17 @@ export class ActionMode {
     this.crateBack = [];
     this.gateMeshes = [];
     this.stormMesh = [];
+    this.lockMeshes = [];
+    this.doorMeshes = [];
+    this.chests = [];
+    this.loot = [];
+    this.lootOpen = null;
+    this.keyItem = null;
+    this.traps = [];
+    this.trapHit.clear();
+    this.activeRoom = null;
+    if (this.lamp) this.lamp.removeFromParent();
+    this.lamp = null;
   }
 
   // ---------- the stage ----------
@@ -774,8 +821,8 @@ export class ActionMode {
   private center(i: number, j: number) {
     return { x: i - this.W / 2 + 0.5, z: j - this.H / 2 + 0.5 };
   }
-  private blocksMove = (t: number) => t === WALL || t === CRATE || t === WATER || t === GATE || t === FORT;
-  private blocksShot = (t: number) => t === WALL || t === CRATE || t === GATE || t === FORT;
+  private blocksMove = (t: number) => t === WALL || t === CRATE || t === WATER || t === GATE || t === FORT || t === ROCK;
+  private blocksShot = (t: number) => t === WALL || t === CRATE || t === GATE || t === FORT || t === ROCK;
 
   private buildStage() {
     if (this.kind === 'ffa') {
@@ -786,62 +833,35 @@ export class ActionMode {
       this.H = this.kind === 'boss' ? 21 : 25;
       this.layoutSiege();
     } else {
-      this.W = 11;
-      this.H = 17;
-      this.layoutRoom();
+      this.theme = CRYPT;
+      this.layoutDungeon();
     }
+    this.lightK = 1;
     this.drawStage();
   }
 
-  /** a Gauntlet room: walls round the edge with a door at the top, a mirrored layout inside */
-  private layoutRoom() {
-    const { W, H } = this;
-    const g = (this.grid = new Uint8Array(W * H));
-    for (let i = 0; i < W; i++) {
-      g[this.idx(i, 0)] = WALL;
-      g[this.idx(i, H - 1)] = WALL;
+  /** Dungeon Run: a fresh dungeon (see dungeon.ts); the boss room's door is locked */
+  private layoutDungeon() {
+    // (rolled until it has one of each trap and a key room, so every run shows the lot)
+    let dg = makeDungeon();
+    for (let n = 0; n < 30; n++) {
+      const has = (k: string) => dg.traps.some((t) => t.kind === k);
+      if (has('boulder') && has('axe') && has('spikes') && dg.rooms.some((r) => r.kind === 'key')) break;
+      dg = makeDungeon();
     }
-    for (let j = 0; j < H; j++) {
-      g[this.idx(0, j)] = WALL;
-      g[this.idx(W - 1, j)] = WALL;
-    }
-    // the door: shut until the room is clear
-    for (let i = 4; i <= 6; i++) g[this.idx(i, 0)] = GATE;
-    // mirrored pieces left and right, kept off the middle column, the door and the start
-    const put = (i: number, j: number, t: number) => {
-      if (i < 1 || i > 4 || j < 2 || j > H - 4) return;
-      g[this.idx(i, j)] = t;
-      g[this.idx(W - 1 - i, j)] = t;
-      if (t === CRATE) {
-        this.crateHp.set(this.idx(i, j), CRATE_HP);
-        this.crateHp.set(this.idx(W - 1 - i, j), CRATE_HP);
-      }
-    };
-    const rnd = (n: number) => Math.floor(Math.random() * n);
-    const pieces = 2 + rnd(2);
-    for (let p = 0; p < pieces; p++) {
-      const j = 3 + rnd(H - 8);
-      const i = 1 + rnd(3);
-      if (Math.random() < 0.5) {
-        put(i, j, WALL);
-        put(i + 1, j, WALL);
-      } else {
-        put(i, j, WALL);
-        put(i, j + 1, WALL);
-      }
-    }
-    for (let b = 0; b < 2; b++) {
-      const j = 3 + rnd(H - 8);
-      const i = 1 + rnd(3);
-      for (const [di, dj] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (g[this.idx(i + di, j + dj)] === FLOOR) put(i + di, j + dj, BUSH);
-    }
-    const c = { i: 1 + rnd(3), j: 4 + rnd(H - 9) };
-    if (g[this.idx(c.i, c.j)] === FLOOR) put(c.i, c.j, CRATE);
-    if (this.room >= 3 && Math.random() < 0.5) {
-      const j = 5 + rnd(H - 11);
-      put(2, j, WATER);
-      put(3, j, WATER);
-    }
+    this.dg = dg;
+    this.W = dg.W;
+    this.H = dg.H;
+    this.grid = dg.grid as typeof this.grid;
+    for (let k = 0; k < this.grid.length; k++) if (this.grid[k] === CRATE) this.crateHp.set(k, CRATE_HP);
+    for (const k of dg.lock) this.grid[k] = GATE;
+    this.seen = new Uint8Array(this.W * this.H);
+    this.activeRoom = null;
+    this.hasKey = false;
+  }
+  /** how many rooms there are to fight through, and how many are done */
+  private fightRooms() {
+    return this.dg?.rooms.filter((r) => r.kind === 'fight' || r.kind === 'key' || r.kind === 'boss').length ?? 0;
   }
 
   /** the free-for-all stage: four mirrored quarters of walls, bushes, crates and a pond */
@@ -1206,6 +1226,11 @@ export class ActionMode {
       c.lineTo(W * 32, j * 32);
       c.stroke();
     }
+    // (Dungeon Run: the rock beyond the walls is darkness)
+    if (this.kind === 'gauntlet') {
+      c.fillStyle = '#060508';
+      for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (this.grid[this.idx(i, j)] === ROCK) c.fillRect(i * 32, j * 32, 32, 32);
+    }
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.magFilter = THREE.NearestFilter;
@@ -1223,7 +1248,7 @@ export class ActionMode {
     // pillars...) after the theme; they block exactly like a wall
     const cover = new Set<number>();
     for (let j = 1; j < H - 1; j++)
-      for (let i = 1; i < W - 1; i++) if (this.grid[this.idx(i, j)] === WALL && Math.random() < 0.34) cover.add(this.idx(i, j));
+      for (let i = 1; i < W - 1; i++) if (this.kind !== 'gauntlet' && this.grid[this.idx(i, j)] === WALL && Math.random() < 0.34) cover.add(this.idx(i, j));
     const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, t: number, place: (o: THREE.Object3D, i: number, j: number) => void) => {
       const skip = t === WALL ? cover : null;
       const n = count(t) - (skip?.size ?? 0);
@@ -1280,13 +1305,13 @@ export class ActionMode {
     for (let j = 0; j < H; j++)
       for (let i = 0; i < W; i++) {
         const t = this.grid[this.idx(i, j)];
-        const p = this.center(i, j);
         if (t === CRATE) this.makeCrate(this.idx(i, j));
         else if (t === GATE) {
-          const bars = new THREE.Mesh(new THREE.BoxGeometry(1, 1.1, 0.3), new THREE.MeshStandardMaterial({ color: 0xff5a5a, emissive: 0x801010, roughness: 0.5 }));
-          bars.position.set(p.x, 0.55, p.z);
-          this.world.add(bars);
-          this.gateMeshes.push(bars);
+          // (Dungeon Run's only door at the start is the boss room's: gold, locked)
+          const dg = this.kind === 'gauntlet';
+          const bars = this.barsAt(this.idx(i, j), dg ? 0xe8b43a : 0xff5a5a, dg ? 0x5a3a08 : 0x801010);
+          if (dg) this.lockMeshes.push(bars);
+          else this.gateMeshes.push(bars);
         }
       }
     // round the outside: props after the theme (trees, palms, buildings...)
@@ -1306,7 +1331,8 @@ export class ActionMode {
         if (t === WALL) inner.push(this.center(i, j));
         else if (t === FLOOR) open.push(this.center(i, j));
       }
-    decorate(this.world, th.id, W, H, edges, inner, open);
+    if (this.kind === 'gauntlet') this.drawDungeon();
+    else decorate(this.world, th.id, W, H, edges, inner, open);
     for (const f of this.pendingForts) this.makeFort(f.team, f.z, f.tiles);
     if (this.kind === 'zone') {
       // the zone: a glowing ring and a disc that takes the colour of whoever holds it
@@ -1437,7 +1463,8 @@ export class ActionMode {
 
   private spawnMe() {
     const def = this.opts.skin?.(this.unitId) ?? characterById(this.unitId);
-    const start = this.kind === 'ffa' ? this.ffaStarts()[0] : this.teams ? this.teamSpot(0, 0) : { x: 0, z: this.H / 2 - 2 };
+    const sr = this.dg?.rooms.find((r) => r.kind === 'start');
+    const start = this.kind === 'ffa' ? this.ffaStarts()[0] : this.teams ? this.teamSpot(0, 0) : sr ? this.center((sr.i0 + sr.i1) >> 1, (sr.j0 + sr.j1) >> 1) : { x: 0, z: this.H / 2 - 2 };
     this.me = this.makeUnit(def, start.x, start.z, false, 0);
     this.me.face = this.teams ? 0 : Math.PI;
     if (this.kind === 'gauntlet') {
@@ -1448,6 +1475,7 @@ export class ActionMode {
       this.me.power *= 1 + 0.2 * (this.ups.power ?? 0);
       this.me.fireInt /= 1 + 0.2 * (this.ups.rapid ?? 0);
       this.me.refill *= 1 + 0.2 * (this.ups.rapid ?? 0);
+      this.applyGear(STARTER, this.gear);
     }
     this.el.querySelector('.ac-unit')!.textContent = def.name;
   }
@@ -1506,38 +1534,43 @@ export class ActionMode {
       });
       return;
     }
+    // (Dungeon Run: nobody yet; each room fills as you walk into it)
+  }
+
+  /** Dungeon Run: a room's fighters, on its far side from you (tougher the further you've got) */
+  private spawnRoom(room: DRoom) {
     const r = this.room;
     const hp = 0.45 + 0.07 * r;
     const dmg = 0.45 + 0.05 * r;
-    // (in the top half, well away from where you come in)
-    const spots = this.freeSpots(1, -1);
-    if (this.isBossRoom()) {
+    const me = this.me!;
+    const spots: { x: number; z: number }[] = [];
+    for (let j = room.j0; j <= room.j1; j++)
+      for (let i = room.i0; i <= room.i1; i++) {
+        if (this.grid[this.idx(i, j)] !== FLOOR) continue;
+        const p = this.center(i, j);
+        if (Math.hypot(p.x - me.x, p.z - me.z) > 4.5) spots.push(p);
+      }
+    spots.sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z));
+    // (the far half, shuffled)
+    const far = spots.slice(Math.floor(spots.length / 2)).sort(() => Math.random() - 0.5);
+    if (room.kind === 'boss') {
       const [d] = this.pickFoes(1);
-      const b = this.makeUnit(d, 0, -this.H / 2 + 4, true, 1, { hp: hp * 5, dmg: dmg * 1.3, boss: true });
+      const p = far.pop() ?? this.center((room.i0 + room.i1) >> 1, (room.j0 + room.j1) >> 1);
+      const b = this.makeUnit(d, p.x, p.z, true, 1, { hp: hp * 5, dmg: dmg * 1.3, boss: true });
       b.aimError = 0.07;
       b.aimDelay = 0.25;
-      if (r === ROOMS) this.pickFoes(2).forEach((e) => this.makeUnit(e, ...this.spotOf(spots), true, 1, { hp, dmg }));
+      this.pickFoes(2).forEach((e) => this.makeUnit(e, ...this.spotOf(far), true, 1, { hp, dmg }));
       return;
     }
-    const n = [1, 2, 2, 3, 0, 3, 3, 4, 4][r - 1] ?? 4;
+    const n = ([1, 2, 2, 3, 3, 3, 4][r - 1] ?? 4) + (room.kind === 'key' ? 1 : 0);
     this.pickFoes(n).forEach((d) => {
-      const u = this.makeUnit(d, ...this.spotOf(spots), true, 1, { hp, dmg });
+      const u = this.makeUnit(d, ...this.spotOf(far), true, 1, { hp, dmg });
       u.aimError = Math.max(0.06, 0.2 - r * 0.015);
       u.aimDelay = Math.max(0.25, 0.7 - r * 0.05);
+      u.face = Math.atan2(me.x - u.x, -(me.z - u.z));
     });
   }
 
-  /** open floor tiles in a band of rows (shuffled) */
-  private freeSpots(j0: number, j1: number) {
-    const out: { x: number; z: number }[] = [];
-    for (let j = j0; j < this.H; j++)
-      for (let i = 1; i < this.W - 1; i++) {
-        const p = this.center(i, j);
-        if (p.z > j1) continue;
-        if (this.grid[this.idx(i, j)] === FLOOR) out.push(p);
-      }
-    return out.sort(() => Math.random() - 0.5);
-  }
   private spotOf(spots: { x: number; z: number }[]): [number, number] {
     const p = spots.pop() ?? { x: 0, z: -this.H / 2 + 3 };
     return [p.x, p.z];
@@ -1664,8 +1697,8 @@ export class ActionMode {
     const twin = !!u.def.twin;
     const mine = u === this.me && this.kind === 'gauntlet';
     const color = new THREE.Color(u.def.ball);
-    const bounce = u.bounce + (mine ? (this.ups.bounce ?? 0) : 0);
-    const pierce = mine ? (this.ups.pierce ?? 0) : 0;
+    const bounce = u.bounce + (mine ? (this.ups.bounce ?? 0) + (this.gear.perk === 'bounce' ? 1 : 0) : 0);
+    const pierce = mine ? (this.ups.pierce ?? 0) + (this.gear.perk === 'pierce' ? 1 : 0) : 0;
     const handed = !!(sp?.alternate || sp?.triple || sp?.swap || sp?.hand);
     const r = u.shotR * (bite ? BITE.radius : 1);
     const speed = u.shotSpeed * wind.speed;
@@ -1909,12 +1942,26 @@ export class ActionMode {
 
   private hurt(u: Unit, amount: number, from: Unit | null, spirit = false) {
     if (!u.alive) return;
+    // Dungeon Run: your launcher's critical hits and perks
+    let crit = false;
+    if (from && from === this.me && this.kind === 'gauntlet' && u !== from) {
+      if (this.rageT > 0) amount *= 1.4;
+      if (this.gear.crit && Math.random() < this.gear.crit) {
+        amount *= 1.8;
+        crit = true;
+      }
+      if (this.gear.perk === 'fury' && Math.random() < 0.2) {
+        if (this.rageT <= 0) this.pop(from.x, from.z, 'FURY', 'good');
+        this.rageT = 5;
+      }
+      if (this.gear.perk === 'leech') from.hp = Math.min(from.max, from.hp + amount * 0.06);
+    }
     const dmg = Math.round(amount);
     u.hp -= dmg;
     u.reveal = Math.max(u.reveal, 1);
     u.calm = 0;
     u.pose.flash = 1;
-    if (from === this.me || u === this.me) this.pop(u.x, u.z, `-${dmg}`, from === this.me ? 'hit' : 'ouch');
+    if (from === this.me || u === this.me) this.pop(u.x, u.z, crit ? `-${dmg}!` : `-${dmg}`, from === this.me ? 'hit' : 'ouch');
     // the special's gauge, as in the main game: a marble that lands fills 8%, one taken 4.5%
     // (the giant fills half as fast again, from the marbles it takes and the ones it lands)
     if (!spirit) u.charge = Math.min(1, u.charge + 0.045 * (u.giant ? 1.5 : 1));
@@ -2107,6 +2154,7 @@ export class ActionMode {
     this.moveShots(dt);
     this.pickups();
     if (this.kind === 'ffa') this.tickStorm(dt);
+    if (this.kind === 'gauntlet') this.tickDungeon(dt);
     this.checkEnd();
     this.updateHud();
   }
@@ -2391,6 +2439,7 @@ export class ActionMode {
   // ---------- item crates (the main game's air drops) ----------
 
   private tickBoxes(dt: number) {
+    if (this.kind === 'gauntlet' && !this.activeRoom) this.boxT = Math.max(this.boxT, 4);
     if ((this.boxT -= dt) <= 0 && this.boxes.length < 2) {
       this.boxT = DROP.every[0] + Math.random() * (DROP.every[1] - DROP.every[0]);
       this.dropBox();
@@ -2406,8 +2455,9 @@ export class ActionMode {
   /** an item crate drops onto open floor, away from everyone (and inside the storm) */
   private dropBox() {
     for (let n = 0; n < 40; n++) {
-      const i = 1 + Math.floor(Math.random() * (this.W - 2));
-      const j = 2 + Math.floor(Math.random() * (this.H - 4));
+      const ar = this.kind === 'gauntlet' ? this.activeRoom : null;
+      const i = ar ? ar.i0 + Math.floor(Math.random() * (ar.i1 - ar.i0 + 1)) : 1 + Math.floor(Math.random() * (this.W - 2));
+      const j = ar ? ar.j0 + Math.floor(Math.random() * (ar.j1 - ar.j0 + 1)) : 2 + Math.floor(Math.random() * (this.H - 4));
       if (this.grid[this.idx(i, j)] !== FLOOR) continue;
       const p = this.center(i, j);
       if (this.kind === 'ffa' && (Math.abs(p.x) > this.storm - 2 || Math.abs(p.z) > this.storm - 2)) continue;
@@ -2704,8 +2754,8 @@ export class ActionMode {
     const yours = !!me && me.alive && me.chargeHold >= CHARGE.hold;
     const lvl = yours ? Math.min(1, me.stored / CHARGE.max) : 0;
     this.dim += ((yours ? 0.1 + lvl * 0.15 : 0) - this.dim) * Math.min(1, dt * (yours ? 5 : 9));
-    this.hemi.intensity = 1.5 * (1 - 0.45 * this.dim);
-    this.sun.intensity = 2 * (1 - 0.5 * this.dim);
+    this.hemi.intensity = 1.5 * this.lightK * (1 - 0.45 * this.dim);
+    this.sun.intensity = 2 * this.lightK * (1 - 0.5 * this.dim);
     for (const u of this.units) {
       const charging = u.alive && u.wrap.visible && u.chargeHold >= CHARGE.hold;
       let orb = this.orbs.get(u);
@@ -2911,29 +2961,517 @@ export class ActionMode {
       if (!foes) this.finish(true, 1);
       return;
     }
-    if (!foes && !this.cleared) {
+    // Dungeon Run: the room you're sealed in is clear
+    const r = this.activeRoom;
+    if (r && !foes && !this.cleared) {
       this.cleared = true;
+      r.cleared = true;
+      this.room++;
       sfx.play('win', 0.6);
-      if (this.room >= ROOMS) {
-        setTimeout(() => this.finish(true, 1), 800);
+      if (r.kind === 'boss') {
+        this.callout('BOSS DOWN');
+        setTimeout(() => this.finish(true, 1), 1000);
         return;
       }
-      this.callout('ROOM CLEAR');
+      this.callout(r.kind === 'key' ? 'ROOM CLEAR · TAKE THE KEY' : 'ROOM CLEAR');
+      this.roomReward(r);
       setTimeout(() => this.offerUpgrades(), 700);
-    }
-    // through the open door: the next room
-    if (this.cleared && this.gateMeshes.length === 0 && this.me.z < -this.H / 2 + 0.6) {
-      this.room++;
-      this.startStage();
     }
   }
 
   private openDoor() {
-    for (let i = 4; i <= 6; i++) this.grid[this.idx(i, 0)] = FLOOR;
-    for (const g of this.gateMeshes) g.removeFromParent();
-    this.gateMeshes = [];
-    this.callout('THE DOOR IS OPEN ▲');
+    const r = this.activeRoom;
+    if (!r) return;
+    for (const k of r.doors) this.grid[k] = FLOOR;
+    for (const g of this.doorMeshes) g.removeFromParent();
+    this.doorMeshes = [];
+    this.activeRoom = null;
+    this.callout('THE DOORS ARE OPEN');
     sfx.play('whoosh');
+  }
+
+  // ---------- Dungeon Run ----------
+
+  /** a barred door across tile k (turned to fit a door in a side wall) */
+  private barsAt(k: number, color: number, glow: number) {
+    const i = k % this.W;
+    const j = Math.floor(k / this.W);
+    const p = this.center(i, j);
+    const bars = new THREE.Mesh(new THREE.BoxGeometry(1, 1.1, 0.3), new THREE.MeshStandardMaterial({ color, emissive: glow, roughness: 0.5 }));
+    bars.position.set(p.x, 0.55, p.z);
+    // (a door in a side wall: open floor left and right of it means it runs up and down)
+    const side = this.grid[this.idx(i - 1, j)] === WALL || this.grid[this.idx(i + 1, j)] === WALL || this.grid[this.idx(i - 1, j)] === ROCK;
+    const updown = !side && (this.grid[this.idx(i, j - 1)] === WALL || this.grid[this.idx(i, j + 1)] === WALL);
+    if (updown || (!side && this.isSideDoor(k))) bars.rotation.y = Math.PI / 2;
+    this.world.add(bars);
+    return bars;
+  }
+  /** a door in a room's left or right wall */
+  private isSideDoor(k: number) {
+    const i = k % this.W;
+    return !!this.dg?.rooms.some((r) => r.doors.includes(k) && (i === r.i0 - 1 || i === r.i1 + 1));
+  }
+
+  /** the dungeon's dressing: torches on the room walls, the traps, a chest at the start and in the vault, a lamp on you */
+  private drawDungeon() {
+    const dg = this.dg;
+    if (!dg) return;
+    // torches round each room, every few tiles along the walls (not by the doors)
+    const bracket = new THREE.BoxGeometry(0.16, 0.5, 0.16);
+    const flame = new THREE.ConeGeometry(0.14, 0.34, 6);
+    const halo = new THREE.SphereGeometry(0.34, 10, 8);
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x2a2226, roughness: 0.7 });
+    const fireMat = new THREE.MeshBasicMaterial({ color: 0xffb040 });
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (const r of dg.rooms) {
+      const ring: [number, number][] = [];
+      for (let i = r.i0 + 1; i < r.i1; i += 3) ring.push([i, r.j0 - 1]);
+      for (let j = r.j0 + 2; j < r.j1; j += 4) ring.push([r.i0 - 1, j], [r.i1 + 1, j]);
+      for (const [i, j] of ring) {
+        const k = this.idx(i, j);
+        if (this.grid[k] !== WALL || r.doors.some((d) => Math.abs((d % this.W) - i) + Math.abs(Math.floor(d / this.W) - j) < 2)) continue;
+        const p = this.center(i, j);
+        const t = new THREE.Group();
+        const b = new THREE.Mesh(bracket, ironMat);
+        b.position.y = 1.25;
+        const f = new THREE.Mesh(flame, fireMat);
+        f.position.y = 1.62;
+        const h = new THREE.Mesh(halo, haloMat);
+        h.position.y = 1.62;
+        t.add(b, f, h);
+        // (on the room's side of the wall)
+        const dx = i < r.i0 ? 0.55 : i > r.i1 ? -0.55 : 0;
+        const dz = j < r.j0 ? 0.55 : j > r.j1 ? -0.55 : 0;
+        t.position.set(p.x + dx, 0, p.z + dz);
+        this.world.add(t);
+      }
+    }
+    // the traps
+    const spikeGeo = new THREE.ConeGeometry(0.11, 0.5, 5);
+    spikeGeo.translate(0, 0.25, 0);
+    const spikeMat = new THREE.MeshStandardMaterial({ color: 0xb8bcc8, metalness: 0.6, roughness: 0.35 });
+    const plateGeo = new THREE.BoxGeometry(0.94, 0.04, 0.94);
+    const plateMat = new THREE.MeshStandardMaterial({ color: 0x3a3430, roughness: 0.9 });
+    for (const t of dg.traps) {
+      if (t.kind === 'spikes') {
+        const g = new THREE.Group();
+        const m = new THREE.InstancedMesh(spikeGeo, spikeMat, t.tiles.length * 4);
+        let n = 0;
+        for (const k of t.tiles) {
+          const p = this.center(k % this.W, Math.floor(k / this.W));
+          const plate = new THREE.Mesh(plateGeo, plateMat);
+          plate.position.set(p.x, 0.02, p.z);
+          this.world.add(plate);
+          for (const [ox, oz] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]) {
+            this.dummy.position.set(p.x + ox, 0, p.z + oz);
+            this.dummy.rotation.set(0, 0, 0);
+            this.dummy.scale.set(1, 1, 1);
+            this.dummy.updateMatrix();
+            m.setMatrixAt(n++, this.dummy.matrix);
+          }
+        }
+        g.add(m);
+        g.position.y = -0.5;
+        this.world.add(g);
+        this.traps.push({ kind: 'spikes', tiles: t.tiles, phase: t.phase, mesh: g, cyc: -1, hit: new Set() });
+      } else if (t.kind === 'axe') {
+        const p = this.center(t.i, t.j);
+        // a beam across the corridor up high, and the blade on its arm hung from it
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(t.along === 'j' ? 4.2 : 0.3, 0.3, t.along === 'j' ? 0.3 : 4.2), new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.8 }));
+        beam.position.set(p.x, 2.85, p.z);
+        const arm = new THREE.Group();
+        arm.position.set(p.x, 2.7, p.z);
+        const rod = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.3, 0.1), ironMat);
+        rod.position.y = -1.15;
+        const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.08, 16, 1, false, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xc8ccd6, metalness: 0.7, roughness: 0.3 }));
+        blade.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+        blade.position.y = -2.25;
+        arm.add(rod, blade);
+        // (the blade's flat faces down the corridor)
+        if (t.along === 'i') arm.rotation.y = Math.PI / 2;
+        this.world.add(beam, arm);
+        this.traps.push({ kind: 'axe', x: p.x, z: p.z, along: t.along, phase: t.phase, arm });
+      } else {
+        const a = this.center(t.from.i, t.from.j);
+        const b = this.center(t.to.i, t.to.j);
+        const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95, 1), new THREE.MeshStandardMaterial({ color: 0x8a847a, roughness: 0.95, flatShading: true }));
+        mesh.visible = false;
+        this.world.add(mesh);
+        this.traps.push({ kind: 'boulder', x0: a.x, z0: a.z, x1: b.x, z1: b.z, phase: t.phase, mesh, rolling: false });
+      }
+    }
+    // a chest by the start, and the vault's (always Epic or better)
+    const start = dg.rooms.find((r) => r.kind === 'start');
+    if (start) {
+      const p = this.center(start.i0 + 1, start.j0 + 1);
+      this.makeChest(p.x, p.z, rollGear(0, 0));
+    }
+    for (const v of dg.rooms.filter((r) => r.kind === 'vault')) {
+      const p = this.roomMiddle(v);
+      this.makeChest(p.x, p.z, rollGear(2, v.depth));
+    }
+    // a warm lamp that goes with you, and the rest of the light turned down
+    this.lightK = 0.62;
+    this.lamp = new THREE.PointLight(0xffb070, 30, 13, 1.6);
+    this.scene.add(this.lamp);
+  }
+
+  /** the open floor tile nearest a room's middle */
+  private roomMiddle(r: DRoom) {
+    const ci = (r.i0 + r.i1) >> 1;
+    const cj = (r.j0 + r.j1) >> 1;
+    for (let d = 0; d < 6; d++)
+      for (let dj = -d; dj <= d; dj++)
+        for (let di = -d; di <= d; di++) if (this.grid[this.idx(ci + di, cj + dj)] === FLOOR) return this.center(ci + di, cj + dj);
+    return this.center(ci, cj);
+  }
+
+  private makeChest(x: number, z: number, gear: Gear) {
+    const root = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0xa8302a, roughness: 0.7 });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xe8b43a, metalness: 0.6, roughness: 0.35 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.42, 0.56), wood);
+    base.position.y = 0.21;
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.08, 0.6), gold);
+    band.position.y = 0.34;
+    const lid = new THREE.Group();
+    lid.position.set(0, 0.42, -0.28);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.22, 0.58), wood);
+    top.position.set(0, 0.11, 0.29);
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.06), gold);
+    latch.position.set(0, 0.02, 0.6);
+    lid.add(top, latch);
+    root.add(base, band, lid);
+    root.position.set(x, 0, z);
+    this.world.add(root);
+    this.chests.push({ x, z, open: false, root, lid, gear, t: 0 });
+  }
+
+  /** a launcher on the floor: a gem in its rarity's colour with a beam of light over it */
+  private dropLoot(x: number, z: number, gear: Gear) {
+    const root = new THREE.Group();
+    const c = RARITY[gear.rarity].hex;
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.6, roughness: 0.3 }));
+    gem.position.y = 0.6;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.32, 3.2, 12, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.y = 1.6;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.5, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.7, depthWrite: false }));
+    ring.position.y = 0.03;
+    root.add(gem, beam, ring);
+    root.position.set(x, 0, z);
+    this.world.add(root);
+    const l: Loot = { x, z, gear, root, gem, away: true };
+    this.loot.push(l);
+    return l;
+  }
+
+  /** what a cleared room leaves: the key in the key room, sometimes a chest */
+  private roomReward(r: DRoom) {
+    const p = this.roomMiddle(r);
+    if (r.kind === 'key') {
+      const root = new THREE.Group();
+      const stone = new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 0.9 });
+      const red = new THREE.MeshStandardMaterial({ color: 0xa8302a, roughness: 0.6 });
+      const gold = new THREE.MeshStandardMaterial({ color: 0xffc83e, metalness: 0.7, roughness: 0.25, emissive: 0x5a3a00 });
+      const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.55, 10), stone);
+      ped.position.y = 0.27;
+      const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), red);
+      cushion.position.y = 0.6;
+      const key = new THREE.Group();
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.04, 6, 14), gold);
+      bow.position.x = -0.2;
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.06), gold);
+      shaft.position.x = 0.06;
+      const bit = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.06), gold);
+      bit.position.set(0.2, -0.07, 0);
+      key.add(bow, shaft, bit);
+      key.position.y = 0.95;
+      key.name = 'key';
+      root.add(ped, cushion, key);
+      root.position.set(p.x, 0, p.z);
+      this.world.add(root);
+      this.keyItem = { x: p.x, z: p.z, root };
+      this.ringFx(p.x, p.z, 0xffc83e, 0.3, 1.6, 0.6);
+    } else if (Math.random() < 0.5) {
+      this.makeChest(p.x, p.z, rollGear(0, r.depth));
+    }
+  }
+
+  /** walk into a room you haven't cleared: its doors shut and its fighters appear */
+  private enterRoom(r: DRoom) {
+    this.activeRoom = r;
+    this.cleared = false;
+    for (const k of r.doors) {
+      this.grid[k] = GATE;
+      this.doorMeshes.push(this.barsAt(k, 0xff5a5a, 0x801010));
+    }
+    this.spawnRoom(r);
+    this.callout(r.kind === 'boss' ? 'THE BOSS' : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
+    sfx.play(r.kind === 'boss' ? 'gong' : 'go');
+  }
+
+  /** your launcher's bonuses on (and the last one's off) */
+  private applyGear(prev: Gear, next: Gear) {
+    const me = this.me;
+    if (!me) return;
+    me.power = (me.power / (1 + prev.dmg)) * (1 + next.dmg);
+    me.fireInt = (me.fireInt * (1 + prev.rate)) / (1 + next.rate);
+    me.refill = (me.refill / (1 + prev.rate)) * (1 + next.rate);
+  }
+
+  private equip(l: Loot) {
+    const old = this.gear;
+    this.applyGear(old, l.gear);
+    this.gear = l.gear;
+    sfx.play('charge');
+    this.pop(this.me!.x, this.me!.z, l.gear.name.toUpperCase(), 'good');
+    // (what you were holding goes down where the new one was, so you can change your mind)
+    l.root.removeFromParent();
+    this.loot.splice(this.loot.indexOf(l), 1);
+    if (old !== STARTER) this.dropLoot(l.x, l.z, old);
+    this.lootOpen = null;
+    this.showPanel(null);
+  }
+
+  /** a launcher's card, its numbers against another's (green better, red worse) */
+  private gearCard(g: Gear, vs: Gear | null, label: string) {
+    const el = document.createElement('div');
+    el.className = 'ac-gear';
+    el.style.setProperty('--rar', RARITY[g.rarity].color);
+    const pct = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`;
+    const diff = (a: number, b: number) => (Math.abs(a - b) < 0.005 ? '' : `<em class="${a > b ? 'up' : 'down'}">${a > b ? '▲' : '▼'}</em>`);
+    const pw = gearPower(g);
+    const vp = vs ? gearPower(vs) : 0;
+    const rows: string[] = [];
+    const stat = (v: number, w: number, name: string) => {
+      if (Math.abs(v) < 0.005 && (!vs || Math.abs(w) < 0.005)) return;
+      rows.push(`<li class="${v < 0 ? 'neg' : ''}">${pct(v)} ${name}${vs ? diff(v, w) : ''}</li>`);
+    };
+    stat(g.dmg, vs?.dmg ?? 0, 'damage');
+    stat(g.rate, vs?.rate ?? 0, 'fire rate');
+    stat(g.crit, vs?.crit ?? 0, 'critical hit chance');
+    const change = vs && vp ? Math.round((pw / vp - 1) * 100) : 0;
+    el.innerHTML = `<small>${label}</small><b>${g.name}</b><span class="rar">${RARITY[g.rarity].name}</span>
+      <p class="pow">Power ${pw}${vs && change ? ` <em class="${change > 0 ? 'up' : 'down'}">${change > 0 ? '+' : ''}${change}%</em>` : ''}</p>
+      ${rows.length ? `<ul>${rows.join('')}</ul>` : '<ul><li class="none">No bonuses</li></ul>'}
+      ${g.perk ? `<p class="perk"><b>${PERKS[g.perk].name}</b> ${PERKS[g.perk].text}</p>` : ''}`;
+    return el;
+  }
+
+  private tickDungeon(dt: number) {
+    const dg = this.dg;
+    const me = this.me;
+    if (!dg || !me) return;
+    this.rageT = Math.max(0, this.rageT - dt);
+    this.tickTraps();
+    // the lamp goes with you
+    if (this.lamp) this.lamp.position.set(me.x, 3.2, me.z + 0.6);
+    // chests spring open, loot spins
+    for (const c of this.chests) if (c.open && c.t < 1) {
+      c.t = Math.min(1, c.t + dt * 3);
+      c.lid.rotation.x = -1.9 * c.t;
+    }
+    for (const l of this.loot) {
+      l.gem.rotation.y += dt * 2;
+      l.gem.position.y = 0.6 + Math.sin(this.time * 3 + l.x) * 0.08;
+    }
+    if (this.keyItem) {
+      const k = this.keyItem.root.getObjectByName('key');
+      if (k) {
+        k.rotation.y += dt * 2.2;
+        k.position.y = 0.95 + Math.sin(this.time * 3) * 0.06;
+      }
+    }
+    if (!me.alive) return;
+    const i = Math.floor(me.x + this.W / 2);
+    const j = Math.floor(me.z + this.H / 2);
+    // the rooms: seen as you step in, and an uncleared one shuts you in once you're well inside
+    for (const r of dg.rooms) {
+      const inside = i >= r.i0 && i <= r.i1 && j >= r.j0 && j <= r.j1;
+      if (!inside) continue;
+      if (!r.seen) {
+        r.seen = true;
+        for (let y = r.j0 - 1; y <= r.j1 + 1; y++) for (let x = r.i0 - 1; x <= r.i1 + 1; x++) this.seen[this.idx(x, y)] = 1;
+      }
+      if (!r.cleared && !this.activeRoom && i > r.i0 && i < r.i1 && j > r.j0 && j < r.j1) this.enterRoom(r);
+    }
+    // the corridors: seen a few tiles round you
+    if ((this.seenT -= dt) <= 0) {
+      this.seenT = 0.2;
+      for (let y = j - 4; y <= j + 4; y++)
+        for (let x = i - 4; x <= i + 4; x++) if (x >= 0 && y >= 0 && x < this.W && y < this.H && (x - i) ** 2 + (y - j) ** 2 <= 20) this.seen[this.idx(x, y)] = 1;
+    }
+    const calm = !this.activeRoom;
+    // a chest opens as you reach it (once the room's quiet)
+    for (const c of this.chests) {
+      if (c.open || !calm || Math.hypot(c.x - me.x, c.z - me.z) > 1.1) continue;
+      c.open = true;
+      sfx.play('charge', 0.7);
+      this.burst(c.x, 0.6, c.z, RARITY[c.gear.rarity].hex, 16, 3);
+      // (the launcher lands in front of the chest, toward you)
+      const a = Math.atan2(me.x - c.x, me.z - c.z);
+      this.dropLoot(c.x + Math.sin(a) * 0.9, c.z + Math.cos(a) * 0.9, c.gear).away = true;
+    }
+    // loot: step on it to look (stepping off and on again to look again)
+    for (const l of this.loot) {
+      const d = Math.hypot(l.x - me.x, l.z - me.z);
+      if (d > 1.2) l.away = false;
+      if (!l.away && calm && !this.paused && d < 0.7) {
+        l.away = true;
+        this.lootOpen = l;
+        this.showPanel('loot');
+        break;
+      }
+    }
+    // the key
+    if (this.keyItem && Math.hypot(this.keyItem.x - me.x, this.keyItem.z - me.z) < 0.9) {
+      this.keyItem.root.getObjectByName('key')?.removeFromParent();
+      this.keyItem = null;
+      this.hasKey = true;
+      sfx.play('win', 0.5);
+      this.callout('KEY FOUND · THE BOSS DOOR AWAITS');
+    }
+    // the boss's door: opens to the key
+    this.lockedT -= dt;
+    if (this.lockMeshes.length && dg.lock.some((k) => {
+      const p = this.center(k % this.W, Math.floor(k / this.W));
+      return Math.hypot(p.x - me.x, p.z - me.z) < 1.7;
+    })) {
+      if (this.hasKey) {
+        for (const k of dg.lock) this.grid[k] = FLOOR;
+        for (const m of this.lockMeshes) m.removeFromParent();
+        this.lockMeshes = [];
+        sfx.play('whoosh');
+        this.callout('UNLOCKED');
+      } else if (this.lockedT <= 0) {
+        this.lockedT = 3;
+        this.callout('LOCKED · FIND THE KEY', 1);
+      }
+    }
+    if ((this.mapT -= dt) <= 0) {
+      this.mapT = 0.15;
+      this.drawMap();
+    }
+  }
+
+  /** a trap catches someone: a share of their health, and a shove */
+  private trapHurt(u: Unit, share: number, push?: { x: number; z: number }) {
+    const t = this.trapHit.get(u) ?? -9;
+    if (this.time - t < 0.7) return;
+    this.trapHit.set(u, this.time);
+    this.hurt(u, u.max * share, null);
+    u.pose.flash = 1;
+    if (push) this.walk(u, push.x, push.z);
+    if (u === this.me) {
+      this.shake = Math.max(this.shake, 0.25);
+      this.opts.vibrate?.(30);
+    }
+  }
+
+  private tickTraps() {
+    const live = this.units.filter((u) => u.alive);
+    for (const t of this.traps) {
+      if (t.kind === 'spikes') {
+        // down, a warning peek, up, back down: three seconds round
+        const T = (this.time + t.phase) % 3;
+        const cyc = Math.floor((this.time + t.phase) / 3);
+        const h = T < 1.7 ? 0 : T < 2 ? 0.35 : T < 2.8 ? 1 : 1 - (T - 2.8) / 0.2;
+        t.mesh.position.y = -0.5 + 0.5 * h;
+        if (cyc !== t.cyc) {
+          t.cyc = cyc;
+          t.hit.clear();
+        }
+        if (T >= 2 && T < 2.8)
+          for (const u of live) {
+            if (t.hit.has(u) || !t.tiles.includes(this.tileOf(u.x, u.z))) continue;
+            t.hit.add(u);
+            this.trapHurt(u, 0.09);
+          }
+      } else if (t.kind === 'axe') {
+        const th = 1.05 * Math.sin(this.time * 2.4 + t.phase);
+        // (it swings across the corridor: about z when the corridor runs along z, about x otherwise)
+        if (t.along === 'j') t.arm.rotation.z = th;
+        else t.arm.rotation.x = th;
+        if (Math.abs(th) > 0.7) continue;
+        const lat = 2.3 * Math.sin(th);
+        const dir = Math.sign(Math.cos(this.time * 2.4 + t.phase)) || 1;
+        for (const u of live) {
+          const along = t.along === 'j' ? u.z - t.z : u.x - t.x;
+          const side = t.along === 'j' ? u.x - t.x : u.z - t.z;
+          if (Math.abs(along) < 0.45 && Math.abs(side - lat) < 0.55) this.trapHurt(u, 0.14, t.along === 'j' ? { x: dir * 0.8, z: 0 } : { x: 0, z: dir * 0.8 });
+        }
+      } else {
+        // the boulder: a wait, then a roll from one end to the other, then it sinks away
+        const len = Math.hypot(t.x1 - t.x0, t.z1 - t.z0);
+        const roll = len / 6.5;
+        const T = (this.time + t.phase) % (roll + 2.4);
+        const on = T < roll;
+        t.mesh.visible = on;
+        if (on && !t.rolling && this.me && Math.hypot(this.me.x - t.x0, this.me.z - t.z0) < 12) sfx.play('whoosh', 0.6);
+        t.rolling = on;
+        if (!on) continue;
+        const k = T / roll;
+        const x = t.x0 + (t.x1 - t.x0) * k;
+        const z = t.z0 + (t.z1 - t.z0) * k;
+        t.mesh.position.set(x, 0.95, z);
+        const d = k * len;
+        if (Math.abs(t.x1 - t.x0) > Math.abs(t.z1 - t.z0)) t.mesh.rotation.z = -Math.sign(t.x1 - t.x0) * d / 0.95;
+        else t.mesh.rotation.x = Math.sign(t.z1 - t.z0) * d / 0.95;
+        for (const u of live) {
+          if (Math.hypot(u.x - x, u.z - z) > 0.95 + u.r * 0.8) continue;
+          // (shoved to whichever side of it they're on)
+          const sx = Math.abs(t.x1 - t.x0) > Math.abs(t.z1 - t.z0) ? 0 : Math.sign(u.x - x) || 1;
+          const sz = sx ? 0 : Math.sign(u.z - z) || 1;
+          this.trapHurt(u, 0.18, { x: sx * 1.2, z: sz * 1.2 });
+        }
+      }
+    }
+  }
+
+  /** the map in the corner: what you've seen, you, the fighters in your room, chests, loot, the key */
+  private drawMap() {
+    const cv = this.el.querySelector('.ac-map') as HTMLCanvasElement;
+    const dg = this.dg;
+    if (!cv || !dg) return;
+    const s = 3;
+    if (cv.width !== this.W * s) {
+      cv.width = this.W * s;
+      cv.height = this.H * s;
+    }
+    const c = cv.getContext('2d')!;
+    c.clearRect(0, 0, cv.width, cv.height);
+    for (let j = 0; j < this.H; j++)
+      for (let i = 0; i < this.W; i++) {
+        const k = this.idx(i, j);
+        if (!this.seen[k]) continue;
+        const t = this.grid[k];
+        c.fillStyle = t === WALL ? '#5a4232' : t === GATE ? (dg.lock.includes(k) ? '#ffc83e' : '#ff5a5a') : t === ROCK ? 'transparent' : '#c8ab80';
+        if (t !== ROCK) c.fillRect(i * s, j * s, s, s);
+      }
+    const dot = (x: number, z: number, color: string, r: number) => {
+      const i = x + this.W / 2;
+      const j = z + this.H / 2;
+      if (!this.seen[this.idx(Math.floor(i), Math.floor(j))]) return;
+      c.fillStyle = color;
+      c.beginPath();
+      c.arc(i * s, j * s, r, 0, Math.PI * 2);
+      c.fill();
+    };
+    for (const ch of this.chests) if (!ch.open) dot(ch.x, ch.z, '#ffb02a', 3);
+    for (const l of this.loot) dot(l.x, l.z, RARITY[l.gear.rarity].color, 3);
+    if (this.keyItem) dot(this.keyItem.x, this.keyItem.z, '#fff27a', 3.5);
+    for (const u of this.units) if (u.alive && u !== this.me) dot(u.x, u.z, '#ff4a4a', u.boss ? 4.5 : 3);
+    if (this.me) {
+      c.strokeStyle = '#0a2a12';
+      c.lineWidth = 2;
+      const i = this.me.x + this.W / 2;
+      const j = this.me.z + this.H / 2;
+      c.fillStyle = '#5aff8a';
+      c.beginPath();
+      c.arc(i * s, j * s, 4, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    }
   }
 
   // ---------- the CPU ----------
@@ -3457,8 +3995,8 @@ export class ActionMode {
       title.querySelector('b')!.textContent = `${alive}`;
       title.querySelector('span')!.textContent = 'FIGHTERS LEFT';
     } else {
-      title.querySelector('b')!.textContent = `${this.room}/${ROOMS}`;
-      title.querySelector('span')!.textContent = this.isBossRoom() ? 'BOSS ROOM' : 'ROOM';
+      title.querySelector('b')!.textContent = `${this.room - 1}/${this.fightRooms()}`;
+      title.querySelector('span')!.textContent = this.isBossRoom() ? 'BOSS ROOM' : this.hasKey ? 'ROOMS · KEY FOUND' : 'ROOMS CLEARED';
     }
     this.hud.score.querySelector('b')!.textContent = String(this.kos);
     const c = this.me?.charge ?? 0;
@@ -3563,9 +4101,9 @@ export class ActionMode {
       const wideK = this.camera.aspect > 1.6 ? 1.25 : 1;
       // (near is the exception: sideways it comes in closer, so your fighter reads big)
       const k = view === 'near' ? (this.camera.aspect > 1.2 ? 0.78 : 1) : wideK;
-      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 12, near: tall ? 10.5 : 8.5 }[view] * k;
+      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 13, near: tall ? 10.5 : 8.5 }[view] * k;
       const back = { far: 0.22, mid: 0.55, near: 0.85 }[view];
-      const room = this.kind === 'gauntlet' && view !== 'near';
+      const room = false;
       const half = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * h * 1.5;
       const fx = room ? THREE.MathUtils.clamp(mx, -Math.max(0, this.W / 2 - half + 0.3), Math.max(0, this.W / 2 - half + 0.3)) : mx;
       const fz = room ? THREE.MathUtils.clamp(mz, -this.H / 2 + 6, this.H / 2 - 6.5) : mz;
@@ -3609,7 +4147,7 @@ export class ActionMode {
   }
   private bestLine() {
     const b = this.best();
-    return `Best: ${b.gauntlet}/${ROOMS} rooms · wins: ${b.ffa} free-for-all, ${b.siege} siege, ${b.knockout} knockout, ${b.zone} hot zone, ${b.boss} boss`;
+    return `Best: ${b.gauntlet} dungeon rooms · wins: ${b.ffa} Storm Brawl, ${b.siege} Castle Crash, ${b.knockout} Team Knockout, ${b.zone} King of the Ring, ${b.boss} Giant Slayer`;
   }
 
   /** Siege over: 1 your side won, -1 theirs, 0 a draw at the bell */
@@ -3639,7 +4177,7 @@ export class ActionMode {
     sfx.play(win ? 'win' : 'lose');
     const best = this.best();
     // best: the most rooms cleared, or the most free-for-all wins
-    if (this.kind === 'gauntlet') best.gauntlet = Math.max(best.gauntlet, win ? ROOMS : this.room - 1);
+    if (this.kind === 'gauntlet') best.gauntlet = Math.max(best.gauntlet, this.room - 1);
     else if (win && this.kind === 'ffa') best.ffa += 1;
     else if (win) best[this.kind as 'siege' | 'knockout' | 'zone' | 'boss'] = (best[this.kind as 'siege'] ?? 0) + 1;
     try {
@@ -3651,7 +4189,7 @@ export class ActionMode {
     // XP for your fighter, as in the other modes: rooms cleared (gauntlet) or how high you placed (free-for-all), plus KOs
     const gain =
       this.kind === 'gauntlet'
-        ? (win ? ROOMS : this.room - 1) * 5 + this.kos * 2 + (win ? 30 : 0)
+        ? (this.room - 1) * 6 + this.kos * 2 + (win ? 30 : 0)
         : this.kind === 'siege'
           ? (win ? 60 : place === 0 ? 35 : 20) + this.kos * 4 + Math.round((this.fortDealt / FORT_HP) * 40)
           : this.teams
@@ -3662,10 +4200,10 @@ export class ActionMode {
     this.opts.reward?.(box, this.unitId, Math.max(10, gain));
   }
 
-  private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | null, place = 0) {
+  private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | 'loot' | null, place = 0) {
     const p = this.hud.panel;
     p.classList.toggle('hidden', !kind);
-    this.paused = kind === 'upgrade';
+    this.paused = kind === 'upgrade' || kind === 'loot';
     if (!kind) return;
     const h = p.querySelector('h2')!;
     const text = p.querySelector('.ac-text') as HTMLElement;
@@ -3673,7 +4211,7 @@ export class ActionMode {
     const buttons = p.querySelector('.ac-buttons') as HTMLElement;
     const bestEl = p.querySelector('.ac-best') as HTMLElement;
     cards.innerHTML = '';
-    cards.classList.remove('modes');
+    cards.classList.remove('modes', 'gear');
     buttons.innerHTML = '';
     (p.querySelector('.ac-xp') as HTMLElement).classList.add('hidden');
     const button = (label: string, fn: () => void, cls = '') => {
@@ -3694,7 +4232,7 @@ export class ActionMode {
         c.addEventListener('click', () => this.begin(k));
         cards.appendChild(c);
       };
-      mode('gauntlet', 'Dungeon Run', `Clear ${ROOMS} rooms, pick an upgrade after each, a boss every fifth room`);
+      mode('gauntlet', 'Dungeon Run', 'A new dungeon every run: traps, chests of gear, a key to find and a boss behind the locked door');
       mode('ffa', 'Storm Brawl', 'You and five fighters, one stage, bushes, crates and a closing storm');
       mode('siege', 'Castle Crash', 'Three on three: knock down their fortress before they knock down yours');
       mode('knockout', 'Team Knockout', 'Three on three, no respawns: last side standing takes the round, best of three');
@@ -3703,6 +4241,18 @@ export class ActionMode {
       cards.classList.add('modes');
       bestEl.textContent = this.bestLine();
       button('Back', () => this.exit());
+    } else if (kind === 'loot') {
+      const l = this.lootOpen!;
+      h.textContent = 'Gear found';
+      text.textContent = '';
+      cards.classList.add('gear');
+      cards.append(this.gearCard(l.gear, this.gear, 'Found'), this.gearCard(this.gear, null, 'Equipped'));
+      button('Equip', () => this.equip(l), 'primary');
+      button('Leave it', () => {
+        l.away = true;
+        this.lootOpen = null;
+        this.showPanel(null);
+      });
     } else if (kind === 'upgrade') {
       h.textContent = 'Room clear';
       text.textContent = 'Pick an upgrade for the rest of the run.';
@@ -3736,7 +4286,7 @@ export class ActionMode {
         const pct = (t: number) => Math.ceil(((this.forts.find((f) => f.team === t)?.hp ?? 0) / FORT_HP) * 100);
         text.textContent = `${o > 0 ? 'Your side knocked theirs down' : o < 0 ? 'Their side knocked yours down' : 'Time ran out'}: yours ${pct(0)}%, theirs ${pct(1)}%. You knocked off ${Math.round((this.fortDealt / FORT_HP) * 100)}% and took down ${this.kos} fighter${this.kos === 1 ? '' : 's'}.`;
       } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Dungeon cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
-      if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${ROOMS} rooms, ${this.kos} fighters down.` : `You reached room ${this.room} with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
+      if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `${this.fightRooms()} rooms, the boss included, and ${this.kos} fighters down.` : `You cleared ${this.room - 1} of ${this.fightRooms()} rooms with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
       bestEl.textContent = this.bestLine();
       button('Play again', () => this.begin(this.kind), 'primary');
       button('Modes', () => {
