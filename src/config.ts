@@ -79,6 +79,11 @@ export const MARBLES: Record<MarbleType, { name: string; radius: number; mass: n
 };
 /** each fighter's marble (by its base unit); anything not listed fires standard */
 export const MARBLE_OF: Record<string, MarbleType> = {
+  // Dungeon Run's monsters
+  bonewalker: 'light',
+  gloop: 'bouncy',
+  duskwing: 'light',
+  golem: 'heavy',
   pioneer: 'light',
   nightshade: 'light',
   ember: 'light',

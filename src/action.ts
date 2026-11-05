@@ -11,6 +11,7 @@ import { kitOf } from './kits';
 import { DROP, DRAGON, ITEMS, MISSILE } from './items';
 import { stageById } from './stage';
 import { coverProp, decorate } from './scenery';
+import { MONSTERS } from './monsters';
 import { makeDungeon, rollGear, gearPower, RARITY, PERKS, STARTER, D_ROCK, type Dungeon, type DRoom, type Gear } from './dungeon';
 
 /**
@@ -1497,6 +1498,12 @@ export class ActionMode {
     }
     return out;
   }
+  /** Dungeon Run's foes: its monsters (a room mixes them; the first rooms keep to the weaker ones) */
+  private pickMonsters(n: number) {
+    // (the golem and the wraith wait until the third room)
+    const pool = this.room < 3 ? MONSTERS.filter((m) => m.id !== 'golem' && m.id !== 'wraith') : MONSTERS;
+    return Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)]);
+  }
   /** the other fighters wear one of their paint jobs (never the plain one), so no two matches look alike */
   private painted(def: CharacterDef) {
     const jobs = kitOf(def)?.paint ?? [];
@@ -1562,16 +1569,18 @@ export class ActionMode {
     // (the far half, shuffled)
     const far = spots.slice(Math.floor(spots.length / 2)).sort(() => Math.random() - 0.5);
     if (room.kind === 'boss') {
-      const [d] = this.pickFoes(1);
+      // an elder of one kind of monster, with two of the others
+      const [kind] = this.pickMonsters(1);
+      const d = { ...kind, name: `Elder ${kind.name}` };
       const p = far.pop() ?? this.center((room.i0 + room.i1) >> 1, (room.j0 + room.j1) >> 1);
       const b = this.makeUnit(d, p.x, p.z, true, 1, { hp: hp * 5, dmg: dmg * 1.3, boss: true });
       b.aimError = 0.07;
       b.aimDelay = 0.25;
-      this.pickFoes(2).forEach((e) => this.makeUnit(e, ...this.spotOf(far), true, 1, { hp, dmg }));
+      this.pickMonsters(2).forEach((e) => this.makeUnit(e, ...this.spotOf(far), true, 1, { hp, dmg }));
       return;
     }
     const n = ([1, 2, 2, 3, 3, 3, 4][r - 1] ?? 4) + (room.kind === 'key' ? 1 : 0);
-    this.pickFoes(n).forEach((d) => {
+    this.pickMonsters(n).forEach((d) => {
       const u = this.makeUnit(d, ...this.spotOf(far), true, 1, { hp, dmg });
       u.aimError = Math.max(0.06, 0.2 - r * 0.015);
       u.aimDelay = Math.max(0.25, 0.7 - r * 0.05);

@@ -152,11 +152,14 @@ export const SPIRIT_MOVES: Record<SpiritKind, { label: string; desc: string }> =
 export const MOVE_NAMES: Record<string, string> = {
   angel: 'ZERO EXCALIBUR', dragon: 'DINO FORCE CANNON', pioneer: 'SIREN BUSTER', liberty: 'DEEP DIVE RAIL', monoceros: 'GENIUS TWIN BLAST', baron: 'CRIMSON LOOP DIVE', bastion: 'SCYTHE CROSS',
   nightshade: 'ECLIPSE FALL', violet: 'SILVERBACK QUAKE', kabuto: 'ROYAL ROAR', tyrant: 'HELLHOUND CERBERUS', rex: 'FROST BITE', liger: 'FANG RICOCHET', ember: 'BLOSSOM BURST',
+  // Dungeon Run's monsters
+  bonewalker: 'BONE STORM', gloop: 'GLOOP SPLIT', duskwing: 'SONIC SCREECH', golem: 'EARTHSHAKER', wraith: 'SOUL FROST',
 };
 /** each fighter's own spirit shot (by base unit) */
 export const SPIRIT_OF: Record<string, SpiritKind> = {
   angel: 'triple', dragon: 'giant', pioneer: 'barrage', liberty: 'rail', monoceros: 'twin', baron: 'dive', bastion: 'cross',
   nightshade: 'zigzag', violet: 'quake', kabuto: 'split', tyrant: 'chain', rex: 'frost', liger: 'ricochet', ember: 'drain',
+  bonewalker: 'triple', gloop: 'split', duskwing: 'zigzag', golem: 'quake', wraith: 'frost',
 };
 export const ARENA_RULES = { tilt: 5, friction: 1.6, grab: 0.5, spiritMax: 100, hit: 8, hurt: 4.5, parry: 12, catch: 4.5, pick: 1.5, dryRefill: 3, dryWait: 3, curve: 9, cine: 1.6 };
 
