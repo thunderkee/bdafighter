@@ -545,7 +545,7 @@ export function boot() {
   };
 
   const updateRecord = () => {
-    const arcadeBest = saveData.arcadeBest ? ` · ARCADE BEST STAGE ${saveData.arcadeBest}` : '';
+    const arcadeBest = saveData.arcadeBest ? ` · BOSS LADDER BEST STAGE ${saveData.arcadeBest}` : '';
     $('record').textContent = saveData.matches ? `RECORD ${saveData.wins} W / ${saveData.matches - saveData.wins} L${arcadeBest}` : '';
   };
   updateRecord();
@@ -719,7 +719,7 @@ export function boot() {
       $('enemy-name').textContent = boss()!.title;
     }
     if (arcade) {
-      $('intro-p1-sub').textContent = `ARCADE STAGE ${arcade.stage} · ${$('intro-p1-sub').textContent}`;
+      $('intro-p1-sub').textContent = `BOSS LADDER STAGE ${arcade.stage} · ${$('intro-p1-sub').textContent}`;
       $('intro-p2-sub').textContent = packSize() > 1 ? `${stageLabel(arcade.stage)} · ${$('intro-p2-sub').textContent}` : `CPU · ${stageLabel(arcade.stage)}`;
     }
     faces[0].setCharacter(st.character);
@@ -955,8 +955,8 @@ export function boot() {
       // the last boss is down: the run is cleared
       arcade.cleared = arcade.stage;
       if (arcade.cleared > best) saveData = store.save({ arcadeBest: arcade.cleared });
-      title.textContent = 'ARCADE CLEAR';
-      $('result-sub').textContent = `ARCADE · ALL ${FINAL_STAGE} STAGES CLEARED`;
+      title.textContent = 'BOSS LADDER CLEAR';
+      $('result-sub').textContent = `BOSS LADDER · ALL ${FINAL_STAGE} STAGES CLEARED`;
       arcade.next = undefined;
       arcade.done = true;
       $('again-btn').textContent = 'NEW RUN ▶';
@@ -969,14 +969,14 @@ export function boot() {
       const record = arcade.cleared > best;
       if (record) saveData = store.save({ arcadeBest: arcade.cleared });
       title.textContent = bossAt(arcade.stage) ? 'BOSS DEFEATED' : `STAGE ${arcade.stage} CLEAR`;
-      $('result-sub').textContent = `ARCADE · ${arcade.cleared} CLEARED${record ? ' · NEW BEST' : ''}`;
+      $('result-sub').textContent = `BOSS LADDER · ${arcade.cleared} CLEARED${record ? ' · NEW BEST' : ''}`;
       arcade.next = arcade.plan[arcade.stage] ?? rollStage(arcade.stage + 1, arcade.cfg);
       stageCfg = arcade.next;
       head = bossAt(arcade.stage + 1) ? `⚠ BOSS AHEAD // STAGE ${arcade.stage + 1}` : `NEXT // STAGE ${arcade.stage + 1}`;
       $('again-btn').textContent = 'NEXT STAGE ▶';
     } else {
       title.textContent = w === 1 ? 'GAME OVER' : 'DRAW';
-      $('result-sub').textContent = `ARCADE · REACHED STAGE ${arcade.stage} · BEST ${Math.max(best, arcade.cleared)}`;
+      $('result-sub').textContent = `BOSS LADDER · REACHED STAGE ${arcade.stage} · BEST ${Math.max(best, arcade.cleared)}`;
       arcade.next = undefined;
       head = `RETRY // STAGE ${arcade.stage}`;
       $('again-btn').textContent = 'RETRY STAGE';
@@ -1261,7 +1261,7 @@ export function boot() {
       );
     }
     const me = characterById(saveData.settings.character);
-    towerEl.innerHTML = `<header><span>ARCADE</span><h2>${a.stage === FINAL_STAGE ? 'Final battle' : `Stage ${a.stage}`}</h2></header><div class="tw-col"><ol>${rows.join('')}</ol><div class="tw-you"><i class="tw-face"><i data-portrait="${me.id}"></i></i><b>${me.name}</b></div></div><p>TAP TO CONTINUE</p>`;
+    towerEl.innerHTML = `<header><span>BOSS LADDER</span><h2>${a.stage === FINAL_STAGE ? 'Final battle' : `Stage ${a.stage}`}</h2></header><div class="tw-col"><ol>${rows.join('')}</ol><div class="tw-you"><i class="tw-face"><i data-portrait="${me.id}"></i></i><b>${me.name}</b></div></div><p>TAP TO CONTINUE</p>`;
     towerEl.classList.remove('hidden');
     fillPortraits(towerEl);
     // the marker starts at the stage below and climbs to this one; the column scrolls to it
@@ -1410,7 +1410,7 @@ export function boot() {
     paused = p;
     $('paused').classList.toggle('hidden', !p);
     if (p) {
-      const mode = arcade ? `Arcade stage ${arcade.stage}` : story ? 'Story' : duo ? '2 Players' : arenaRules ? 'Versus' : 'Classic';
+      const mode = arcade ? `Boss Ladder stage ${arcade.stage}` : story ? 'League Story' : duo ? 'Couch Clash' : arenaRules ? 'Duel' : 'Classic Duel';
       $('pause-info').textContent = `Round ${roundNo} · ${roundWins[0]}–${roundWins[1]} · ${mode}`;
       askPause(null);
       input.release();
@@ -2015,18 +2015,18 @@ export function boot() {
     $('action-btn').click();
   };
   const MODES: HomeMode[] = [
-    { id: 'versus', name: 'Versus', sub: 'Arena rules: grab ammo, fill Overdrive, unleash a special', kind: 'duel', icon: '⚔️', go: press('play-btn') },
-    { id: 'classic', name: 'Classic', sub: 'The original rules: auto-reload, no specials', kind: 'duel', icon: '🎱', go: press('classic-btn') },
-    { id: 'squad', name: 'Squad Run', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', icon: '🛡️', go: press('squad-btn') },
-    { id: 'duo', name: '2 Players', sub: 'Head to head on one device', kind: 'duel', icon: '👥', go: press('duo-btn') },
-    { id: 'ffa', name: 'Free-for-all', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', icon: '💥', go: arena('ffa') },
-    { id: 'knockout', name: 'Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', icon: '🎯', go: arena('knockout') },
-    { id: 'siege', name: 'Siege', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', icon: '🏰', go: arena('siege') },
-    { id: 'zone', name: 'Hot Zone', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', icon: '🔥', go: arena('zone') },
-    { id: 'boss', name: 'Boss Fight', sub: 'You and two more against one giant fighter', kind: 'arena', icon: '👹', go: arena('boss') },
-    { id: 'story', name: 'Story', sub: 'Your fighter’s path through the League', kind: 'campaign', icon: '📖', go: press('story-btn') },
-    { id: 'arcade', name: 'Arcade', sub: 'A ladder of stages and four bosses', kind: 'campaign', icon: '🏆', go: press('arcade-btn') },
-    { id: 'gauntlet', name: 'Gauntlet', sub: 'Ten rooms, an upgrade after each, a boss every fifth', kind: 'campaign', icon: '🚪', go: arena('gauntlet') },
+    { id: 'versus', name: 'Duel', sub: 'Arena rules: grab ammo, fill Overdrive, unleash a special', kind: 'duel', icon: '⚔️', go: press('play-btn') },
+    { id: 'classic', name: 'Classic Duel', sub: 'The original rules: auto-reload, no specials', kind: 'duel', icon: '🎱', go: press('classic-btn') },
+    { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', icon: '🛡️', go: press('squad-btn') },
+    { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'duel', icon: '👥', go: press('duo-btn') },
+    { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', icon: '💥', go: arena('ffa') },
+    { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', icon: '🎯', go: arena('knockout') },
+    { id: 'siege', name: 'Castle Crash', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', icon: '🏰', go: arena('siege') },
+    { id: 'zone', name: 'King of the Ring', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', icon: '🔥', go: arena('zone') },
+    { id: 'boss', name: 'Giant Slayer', sub: 'You and two more against one giant fighter', kind: 'arena', icon: '👹', go: arena('boss') },
+    { id: 'story', name: 'League Story', sub: 'Your fighter’s path through the League', kind: 'campaign', icon: '📖', go: press('story-btn') },
+    { id: 'arcade', name: 'Boss Ladder', sub: 'A ladder of stages and four bosses', kind: 'campaign', icon: '🏆', go: press('arcade-btn') },
+    { id: 'gauntlet', name: 'Dungeon Run', sub: 'Ten rooms, an upgrade after each, a boss every fifth', kind: 'campaign', icon: '🚪', go: arena('gauntlet') },
     { id: 'tutorial', name: 'Tutorial', sub: 'Move, shoot, shield and parry in a minute', kind: 'more', icon: '🎓', go: press('tut-card') },
     { id: 'lab', name: 'Unit Lab', sub: 'Edit and build fighters', kind: 'more', icon: '🔧', go: () => (location.href = './editor.html') },
   ];
@@ -2046,7 +2046,7 @@ export function boot() {
   /** a mode can be played right now (the event modes only while it's their turn) */
   const available = (id: string) => !ROTATION.includes(id) || rotation().now === id;
   const featured = () => {
-    const id = S().playMode ?? 'versus';
+    const id = S().playMode ?? 'ffa';
     return modeById(id) && available(id) ? modeById(id)! : modeById('versus')!;
   };
   const showHome = () => {
@@ -2375,10 +2375,10 @@ export function boot() {
     tutEl.classList.add('done');
     tutEl.querySelector('.tut-step')!.textContent = 'TUTORIAL COMPLETE';
     tutEl.querySelector('.tut-title')!.textContent = "You're ready!";
-    tutEl.querySelector('.tut-text')!.textContent = 'That is everything you need. Now win a real fight: Arcade is a ladder of rivals and bosses.';
+    tutEl.querySelector('.tut-text')!.textContent = 'That is everything you need. Now win a real fight: Boss Ladder is a ladder of rivals and bosses.';
     tutEl.querySelector<HTMLElement>('.tut-bar i')!.style.width = '100%';
     const next = tutEl.querySelector('.tut-next')!;
-    next.textContent = 'Play Arcade ▸';
+    next.textContent = 'Play Boss Ladder ▸';
     next.classList.remove('hidden');
     tutEl.querySelector('.tut-skip')!.textContent = 'Main menu';
     saveData = store.save({ tutorialDone: true });

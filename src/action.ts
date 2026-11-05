@@ -701,8 +701,8 @@ export class ActionMode {
     this.spawnFoes();
     this.over = false;
     const where = themeName(this.theme).toUpperCase();
-    const TEAM_NAME: Partial<Record<ActionKind, string>> = { knockout: 'KNOCKOUT · ROUND 1', zone: 'HOT ZONE · HOLD THE RING', boss: 'BOSS FIGHT · TAKE IT DOWN' };
-    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `SIEGE · ${where}` : this.kind === 'ffa' ? `FREE-FOR-ALL · ${where}` : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room} · ${where}`);
+    const TEAM_NAME: Partial<Record<ActionKind, string>> = { knockout: 'TEAM KNOCKOUT · ROUND 1', zone: 'KING OF THE RING · HOLD IT', boss: 'GIANT SLAYER · TAKE IT DOWN' };
+    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `CASTLE CRASH · ${where}` : this.kind === 'ffa' ? `STORM BRAWL · ${where}` : this.isBossRoom() ? `ROOM ${this.room} · BOSS` : `ROOM ${this.room} · ${where}`);
     sfx.play(this.isBossRoom() ? 'gong' : 'go');
     this.updateHud();
   }
@@ -3694,12 +3694,12 @@ export class ActionMode {
         c.addEventListener('click', () => this.begin(k));
         cards.appendChild(c);
       };
-      mode('gauntlet', 'Gauntlet', `Clear ${ROOMS} rooms, pick an upgrade after each, a boss every fifth room`);
-      mode('ffa', 'Free-for-all', 'You and five fighters, one stage, bushes, crates and a closing storm');
-      mode('siege', 'Siege', 'Three on three: knock down their fortress before they knock down yours');
-      mode('knockout', 'Knockout', 'Three on three, no respawns: last side standing takes the round, best of three');
-      mode('zone', 'Hot Zone', 'Three on three: hold the ring in the middle with none of theirs in it, first to 100%');
-      mode('boss', 'Boss Fight', 'You and two more against one giant fighter with huge health, before time runs out');
+      mode('gauntlet', 'Dungeon Run', `Clear ${ROOMS} rooms, pick an upgrade after each, a boss every fifth room`);
+      mode('ffa', 'Storm Brawl', 'You and five fighters, one stage, bushes, crates and a closing storm');
+      mode('siege', 'Castle Crash', 'Three on three: knock down their fortress before they knock down yours');
+      mode('knockout', 'Team Knockout', 'Three on three, no respawns: last side standing takes the round, best of three');
+      mode('zone', 'King of the Ring', 'Three on three: hold the ring in the middle with none of theirs in it, first to 100%');
+      mode('boss', 'Giant Slayer', 'You and two more against one giant fighter with huge health, before time runs out');
       cards.classList.add('modes');
       bestEl.textContent = this.bestLine();
       button('Back', () => this.exit());
@@ -3735,7 +3735,7 @@ export class ActionMode {
         h.textContent = o > 0 ? 'Fortress down!' : o < 0 ? 'Fortress lost' : 'A draw';
         const pct = (t: number) => Math.ceil(((this.forts.find((f) => f.team === t)?.hp ?? 0) / FORT_HP) * 100);
         text.textContent = `${o > 0 ? 'Your side knocked theirs down' : o < 0 ? 'Their side knocked yours down' : 'Time ran out'}: yours ${pct(0)}%, theirs ${pct(1)}%. You knocked off ${Math.round((this.fortDealt / FORT_HP) * 100)}% and took down ${this.kos} fighter${this.kos === 1 ? '' : 's'}.`;
-      } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Gauntlet cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
+      } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Dungeon cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
       if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${ROOMS} rooms, ${this.kos} fighters down.` : `You reached room ${this.room} with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
       bestEl.textContent = this.bestLine();
       button('Play again', () => this.begin(this.kind), 'primary');

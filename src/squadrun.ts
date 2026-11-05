@@ -123,7 +123,7 @@ export class SquadRun {
         <p class="sq-hint">DRAG TO STEER</p>
       </div>
       <div class="sq-panel">
-        <h2>Squad Run</h2>
+        <h2>Gate Rush</h2>
         <p class="sq-unit"></p>
         <p class="sq-text">Steer your squad through the gates. Blue grows it, red shrinks it, and shooting a gate raises its number. Keep the horde off and take down the boss at the end.</p>
         <p class="sq-best"></p>
@@ -330,7 +330,7 @@ export class SquadRun {
     const text = p.querySelector('.sq-text') as HTMLElement;
     const go = p.querySelector('.sq-go')!;
     if (kind === 'start') {
-      h.textContent = 'Squad Run';
+      h.textContent = 'Gate Rush';
       text.classList.remove('hidden');
       go.textContent = 'Start';
     } else {

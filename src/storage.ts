@@ -147,7 +147,7 @@ export const DEFAULT_SETTINGS: Settings = {
   enemyAgility: 3,
   enemyPower: 3,
   enemyAim: 'flexible',
-  character: 'angel',
+  character: 'angel-22',
   vibrate: true,
   music: true,
   stage: 'space',

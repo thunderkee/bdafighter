@@ -203,7 +203,7 @@
         </div>
         <!-- an arcade run left unfinished (the app was closed): pick it back up -->
         <div id="run-offer" class="tut-offer run-offer hidden">
-          <b id="run-offer-title">Arcade run saved</b>
+          <b id="run-offer-title">Boss Ladder run saved</b>
           <span id="run-offer-text"></span>
           <div><button class="key orange" id="run-continue">Continue ▶</button><button class="key" id="run-drop">New run</button></div>
         </div>
@@ -211,7 +211,7 @@
         <div class="home-play">
           <button id="home-fighters" class="bs-fighters"><i class="bs-face" id="fighters-face"></i><b>Fighters</b></button>
           <div class="bs-right">
-            <button id="play-modes" class="bs-mode"><i id="play-art"></i><span><b id="play-name">Versus</b><small id="play-sub">Tap to change</small></span></button>
+            <button id="play-modes" class="bs-mode"><i id="play-art"></i><span><b id="play-name">Storm Brawl</b><small id="play-sub">Tap to change</small></span></button>
             <button id="play-main" class="play-main">PLAY</button>
           </div>
         </div>
@@ -229,13 +229,13 @@
         <!-- (the launchers: each mode's own card, kept hidden; the new home presses them) -->
         <nav class="home-cards hidden" id="home-cards">
           <button id="tut-card" class="mode-card" data-art="tutorial"><i class="new-badge">NEW</i><i class="card-art"><em>🎯</em></i><span class="card-text"><b>Tutorial</b><small>Move, shoot, shield and parry in a minute</small></span><span class="card-go">START ▶</span></button>
-          <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Versus</b><small>Arena rules: grab ammo, fill Overdrive, unleash a special</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
-          <button id="classic-btn" class="mode-card" data-art="classic"><i class="card-art"><em>🎱</em></i><span class="card-text"><b>Classic</b><small>The original rules: auto-reload, no specials</small></span><span class="card-go">PLAY ▶</span></button>
-          <button id="story-btn" class="mode-card" data-art="story"><i class="card-art"><em>📖</em></i><span class="card-text"><b>Story</b><small id="story-sub">Your fighter’s path through the League</small></span><span class="card-go" id="story-go">PLAY ▶</span></button>
-          <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Arcade</b><small id="arcade-sub">A ladder of stages and four bosses</small></span><span class="card-go" id="arcade-go">PLAY ▶</span><span class="card-custom card-new-run hidden" role="button">New run</span></button>
+          <button id="play-btn" class="mode-card" data-art="versus"><i class="card-art"><i data-portrait="angel-22" data-crop="bust"></i><em>VS</em><i data-portrait="dragon-22" data-crop="bust"></i></i><span class="card-text"><b>Duel</b><small>Arena rules: grab ammo, fill Overdrive, unleash a special</small></span><span class="card-go">PLAY ▶</span><span class="card-custom" role="button">Customise</span></button>
+          <button id="classic-btn" class="mode-card" data-art="classic"><i class="card-art"><em>🎱</em></i><span class="card-text"><b>Classic Duel</b><small>The original rules: auto-reload, no specials</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="story-btn" class="mode-card" data-art="story"><i class="card-art"><em>📖</em></i><span class="card-text"><b>League Story</b><small id="story-sub">Your fighter’s path through the League</small></span><span class="card-go" id="story-go">PLAY ▶</span></button>
+          <button id="arcade-btn" class="mode-card" data-art="arcade"><i class="card-art"><i class="dark"><i data-portrait="tyrant-22" data-crop="bust"></i></i><em>?</em></i><span class="card-text"><b>Boss Ladder</b><small id="arcade-sub">A ladder of stages and four bosses</small></span><span class="card-go" id="arcade-go">PLAY ▶</span><span class="card-custom card-new-run hidden" role="button">New run</span></button>
           <button id="action-btn" class="mode-card" data-art="action"><i class="card-art"><i data-portrait="nightshade-22" data-crop="bust"></i><i data-portrait="rex-22" data-crop="bust"></i><i data-portrait="baron-22" data-crop="bust"></i></i><span class="card-text"><b>Action</b><small>Walk the stage, take every fighter down</small></span><span class="card-go">PLAY ▶</span></button>
-          <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Squad Run</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
-          <button id="duo-btn" class="mode-card" data-art="duo"><i class="card-art"><em>P1</em><i data-portrait="dragon-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><em>P2</em></i><span class="card-text"><b>2 Players</b><small>Head to head on one device</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="squad-btn" class="mode-card" data-art="squad"><i class="card-art"><i data-portrait="pioneer-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><i data-portrait="angel-22" data-crop="bust"></i></i><span class="card-text"><b>Gate Rush</b><small>Grow a squad through the gates, beat the boss</small></span><span class="card-go">PLAY ▶</span></button>
+          <button id="duo-btn" class="mode-card" data-art="duo"><i class="card-art"><em>P1</em><i data-portrait="dragon-22" data-crop="bust"></i><i data-portrait="liberty-22" data-crop="bust"></i><em>P2</em></i><span class="card-text"><b>Couch Clash</b><small>Head to head on one device</small></span><span class="card-go">PLAY ▶</span></button>
           <a id="lab-btn" class="mode-card" data-art="lab" href="./editor.html"><i class="card-art"><em>🔧</em></i><span class="card-text"><b>Unit Lab</b><small>Edit and build units</small></span><span class="card-go">OPEN ▶</span></a>
         </nav>
       </div>
@@ -477,7 +477,7 @@
             </div>
             <div class="setting">
               <div class="set-head"><b>Music</b></div>
-              <span>A soundtrack for the menus, fights, bosses and Squad Run that builds as a fight heats up. Sound effects stay on either way (the speaker on the home screen mutes everything).</span>
+              <span>A soundtrack for the menus, fights, bosses and Gate Rush that builds as a fight heats up. Sound effects stay on either way (the speaker on the home screen mutes everything).</span>
               <div class="seg" data-setting="music"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
           </section>
@@ -579,7 +579,7 @@
             <a class="lab-link" href="./editor.html">UNIT LAB ▸ <small>edit names, traits and block designs, or build new units</small></a>
           </section>
           <section data-panel="advanced">
-            <p class="pv-note adv-note">Extra rules for versus. Arcade always plays a clean table.</p>
+            <p class="pv-note adv-note">Extra rules for Duel. Boss Ladder always plays a clean table.</p>
             <div class="setting">
               <div class="set-head"><b>Unlock all</b><em>for trying them out</em></div>
               <span>Fighters normally unlock as you clear arcade stages, and their rewards as they level up. This opens every one now; your arcade record and levels still count.</span>
