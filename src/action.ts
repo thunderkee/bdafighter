@@ -421,7 +421,7 @@ export class ActionMode {
   private rageT = 0;
   private hasKey = false;
   /** Dungeon Run: lives left, and where you come back (the middle of the last room you cleared) */
-  private lives = 3;
+  private lives = 4;
   private checkpoint = { x: 0, z: 0 };
   private lockMeshes: THREE.Object3D[] = [];
   private doorMeshes: THREE.Object3D[] = [];
@@ -714,7 +714,7 @@ export class ActionMode {
     this.giantPhase = 0;
     this.gear = STARTER;
     this.rageT = 0;
-    this.lives = 3;
+    this.lives = 4;
     this.startStage();
     this.showPanel(null);
     this.hud.hint.classList.remove('gone');
@@ -1555,8 +1555,9 @@ export class ActionMode {
   /** Dungeon Run: a room's fighters, on its far side from you (tougher the further you've got) */
   private spawnRoom(room: DRoom) {
     const r = this.room;
-    const hp = 0.45 + 0.07 * r;
-    const dmg = 0.45 + 0.05 * r;
+    // (kept gentle: monsters are frailer and hit softer than the arena fighters, growing slowly room by room)
+    const hp = 0.35 + 0.05 * r;
+    const dmg = 0.3 + 0.035 * r;
     const me = this.me!;
     const spots: { x: number; z: number }[] = [];
     for (let j = room.j0; j <= room.j1; j++)
@@ -1573,17 +1574,17 @@ export class ActionMode {
       const [kind] = this.pickMonsters(1);
       const d = { ...kind, name: `Elder ${kind.name}` };
       const p = far.pop() ?? this.center((room.i0 + room.i1) >> 1, (room.j0 + room.j1) >> 1);
-      const b = this.makeUnit(d, p.x, p.z, true, 1, { hp: hp * 5, dmg: dmg * 1.3, boss: true });
-      b.aimError = 0.07;
-      b.aimDelay = 0.25;
-      this.pickMonsters(2).forEach((e) => this.makeUnit(e, ...this.spotOf(far), true, 1, { hp, dmg }));
+      const b = this.makeUnit(d, p.x, p.z, true, 1, { hp: hp * 3.5, dmg: dmg * 1.1, boss: true });
+      b.aimError = 0.12;
+      b.aimDelay = 0.45;
+      this.pickMonsters(1).forEach((e) => this.makeUnit(e, ...this.spotOf(far), true, 1, { hp, dmg }));
       return;
     }
-    const n = ([1, 2, 2, 3, 3, 3, 4][r - 1] ?? 4) + (room.kind === 'key' ? 1 : 0);
+    const n = [1, 1, 2, 2, 2, 3, 3][r - 1] ?? 3;
     this.pickMonsters(n).forEach((d) => {
       const u = this.makeUnit(d, ...this.spotOf(far), true, 1, { hp, dmg });
-      u.aimError = Math.max(0.06, 0.2 - r * 0.015);
-      u.aimDelay = Math.max(0.25, 0.7 - r * 0.05);
+      u.aimError = Math.max(0.12, 0.3 - r * 0.02);
+      u.aimDelay = Math.max(0.45, 0.9 - r * 0.05);
       u.face = Math.atan2(me.x - u.x, -(me.z - u.z));
     });
   }
@@ -3001,6 +3002,13 @@ export class ActionMode {
       }
       this.callout(r.kind === 'key' ? 'ROOM CLEAR · TAKE THE KEY' : 'ROOM CLEAR · CHECKPOINT');
       this.checkpoint = this.roomMiddle(r);
+      // (a breather: a good part of your health back with each room)
+      if (this.me) {
+        const heal = Math.round(this.me.max * 0.35);
+        const got = Math.min(heal, this.me.max - this.me.hp);
+        this.me.hp += got;
+        if (got > 0) this.pop(this.me.x, this.me.z, `+${got}`, 'good');
+      }
       this.roomReward(r);
       setTimeout(() => this.offerUpgrades(), 700);
     }
@@ -3445,7 +3453,7 @@ export class ActionMode {
           for (const u of live) {
             if (t.hit.has(u) || !t.tiles.includes(this.tileOf(u.x, u.z))) continue;
             t.hit.add(u);
-            this.trapHurt(u, 0.09);
+            this.trapHurt(u, 0.06);
           }
       } else if (t.kind === 'axe') {
         const th = 1.05 * Math.sin(this.time * 2.4 + t.phase);
@@ -3458,7 +3466,7 @@ export class ActionMode {
         for (const u of live) {
           const along = t.along === 'j' ? u.z - t.z : u.x - t.x;
           const side = t.along === 'j' ? u.x - t.x : u.z - t.z;
-          if (Math.abs(along) < 0.45 && Math.abs(side - lat) < 0.55) this.trapHurt(u, 0.14, t.along === 'j' ? { x: dir * 0.8, z: 0 } : { x: 0, z: dir * 0.8 });
+          if (Math.abs(along) < 0.45 && Math.abs(side - lat) < 0.55) this.trapHurt(u, 0.09, t.along === 'j' ? { x: dir * 0.8, z: 0 } : { x: 0, z: dir * 0.8 });
         }
       } else {
         // the boulder: a wait, then a roll from one end to the other, then it sinks away
@@ -3482,7 +3490,7 @@ export class ActionMode {
           // (shoved to whichever side of it they're on)
           const sx = Math.abs(t.x1 - t.x0) > Math.abs(t.z1 - t.z0) ? 0 : Math.sign(u.x - x) || 1;
           const sz = sx ? 0 : Math.sign(u.z - z) || 1;
-          this.trapHurt(u, 0.18, { x: sx * 1.2, z: sz * 1.2 });
+          this.trapHurt(u, 0.12, { x: sx * 1.2, z: sz * 1.2 });
         }
       }
     }
@@ -3544,7 +3552,7 @@ export class ActionMode {
       return;
     }
     // (its special fills by itself too, so the other side gets theirs as often as you do; the giant has its own)
-    if (!u.giant) u.charge = Math.min(1, u.charge + dt / CPU_SPECIAL_FILL);
+    if (!u.giant) u.charge = Math.min(1, u.charge + dt / (this.kind === 'gauntlet' ? CPU_SPECIAL_FILL * 1.8 : CPU_SPECIAL_FILL));
     u.think -= dt;
     u.strafeT -= dt;
     if (u.strafeT <= 0) {
