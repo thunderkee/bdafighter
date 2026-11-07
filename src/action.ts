@@ -128,7 +128,14 @@ const themeName = (t: Theme) => t.name ?? stageById(t.stage ?? '').name;
 /** the camera, shared with the other modes' setting: far (overhead), mid, near, and first (just behind your fighter) */
 export type ActionView = 'far' | 'mid' | 'near' | 'first';
 const VIEWS: ActionView[] = ['near', 'mid', 'far', 'first'];
-const VIEW_LABEL: Record<ActionView, string> = { near: 'NEAR', mid: 'MID', far: 'FAR', first: 'COCKPIT' };
+/** the views in play: the shared ones, and Dungeon Run's own TPS (close behind your fighter, turning with it) */
+type Cam = ActionView | 'tps';
+const VIEW_LABEL: Record<Cam, string> = { near: 'NEAR', mid: 'MID', far: 'FAR', first: 'COCKPIT', tps: 'TPS' };
+/** the views from just behind your fighter: they see the sky, and turn the aim stick with the camera */
+const behind = (v: Cam) => v === 'first' || v === 'tps';
+/** TPS steering: a full push across turns you this fast (radians a second) */
+const TPS_TURN = 3.2;
+const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** a fighter's marble as the main game has it (Arena rules magazines and balance) */
 const marbleOf = (def: CharacterDef) => {
@@ -454,9 +461,11 @@ export class ActionMode {
   private camPos = new THREE.Vector3();
   private camAt = new THREE.Vector3();
   private camSnap = true;
-  /** which way the cockpit view looks (set as each stage starts, so the stick stays put) */
+  /** which way the cockpit view looks (set as each stage starts, so the stick stays put); TPS turns it with you */
   private camYaw = 0;
   private localView: ActionView = 'mid';
+  /** Dungeon Run's TPS view is on (kept here, not in the camera setting the other modes share) */
+  private tps = false;
   private skyFor: Theme | null = null;
   private lift = 0;
   private vw = 1;
@@ -699,6 +708,8 @@ export class ActionMode {
   private begin(kind: ActionKind) {
     sfx.unlock();
     this.kind = kind;
+    // (TPS is Dungeon Run's alone: the view button says which view this mode is in)
+    this.showView();
     this.room = 1;
     this.ups = {};
     this.kos = 0;
@@ -1475,7 +1486,8 @@ export class ActionMode {
     const sr = this.dg?.rooms.find((r) => r.kind === 'start');
     const start = this.kind === 'ffa' ? this.ffaStarts()[0] : this.teams ? this.teamSpot(0, 0) : sr ? this.center((sr.i0 + sr.i1) >> 1, (sr.j0 + sr.j1) >> 1) : { x: 0, z: this.H / 2 - 2 };
     this.me = this.makeUnit(def, start.x, start.z, false, 0);
-    this.me.face = this.teams ? 0 : Math.PI;
+    // (TPS starts you looking up the room, as the cockpit view does, rather than at the wall behind)
+    this.me.face = this.teams || this.view === 'tps' ? 0 : Math.PI;
     if (this.kind === 'gauntlet') {
       const vital = this.ups.vital ?? 0;
       this.me.max = Math.round(this.me.max * (1 + 0.25 * vital));
@@ -2141,6 +2153,17 @@ export class ActionMode {
     }
     // (striking the special's pose: standing your ground)
     if (me.spT >= 0) mx = mz = 0;
+    // TPS steers: across turns you, up and down walk you forward and back the way you face
+    // (while you shoot, the shot turns you instead, and across steps you sideways round your target)
+    const tps = this.view === 'tps';
+    if (tps && me.alive && (mx || mz)) {
+      const shooting = me.firing || !!this.aimStick || this.mouseFire || this.keyFire || me.chargeHold > 0.12;
+      if (!shooting && me.stunT <= 0) me.face = wrapAngle(me.face + mx * TPS_TURN * dt);
+      const f = me.face;
+      const ahead = -mz;
+      const side = shooting ? mx : 0;
+      [mx, mz] = [Math.sin(f) * ahead + Math.cos(f) * side, -Math.cos(f) * ahead + Math.sin(f) * side];
+    }
     if (me.alive) {
       const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1) * (me.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       me.vx = mx * sp;
@@ -2149,7 +2172,7 @@ export class ActionMode {
       // FIRE held: at the nearest enemy, or wherever your thumb slides off the button to aim
       const a = this.aimStick;
       const dragged = a && Math.hypot(a.x - a.x0, a.y - a.y0) > 30;
-      if (a) me.aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) + (this.view === 'first' ? this.camYaw : 0) : this.autoAim();
+      if (a) me.aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) + (behind(this.view) ? this.camYaw : 0) : this.autoAim();
       if (this.mouseFire) me.aim = this.mouseAngle();
       if (this.keyFire) me.aim = this.autoAim();
       me.firing = me.spT < 0 && (!!a || this.mouseFire || this.keyFire || me.burst > 0);
@@ -2164,7 +2187,8 @@ export class ActionMode {
       }
       if (me.chargeHold > 0.12) me.face = me.aim;
       this.walk(me, me.vx * dt, me.vz * dt);
-      if ((mx || mz) && !me.firing && !this.aimStick) me.face = Math.atan2(mx, -mz);
+      // (TPS has already turned you: walking back, you keep facing ahead)
+      if (!tps && (mx || mz) && !me.firing && !this.aimStick) me.face = Math.atan2(mx, -mz);
     }
     if (this.kind === 'siege') {
       this.tickForts(dt);
@@ -3981,7 +4005,7 @@ export class ActionMode {
       this.aimGuide.visible = false;
       return;
     }
-    const ang = Math.atan2(dx, -dy);
+    const ang = Math.atan2(dx, -dy) + (behind(this.view) ? this.camYaw : 0);
     const range = a.big ? 8.5 : me.range;
     this.aimGuide.visible = true;
     this.aimGuide.position.set(me.x, 0.05, me.z);
@@ -3997,14 +4021,14 @@ export class ActionMode {
     const h = this.canvas.clientHeight;
     for (const u of this.units) {
       if (!u.alive) continue;
-      this.v.set(u.x, (u.giant ? 3.4 : u.boss ? 2.4 : 1.75) - (this.view === 'first' ? 0.35 : 0), u.z).project(this.camera);
+      this.v.set(u.x, (u.giant ? 3.4 : u.boss ? 2.4 : 1.75) - (behind(this.view) ? 0.35 : 0), u.z).project(this.camera);
       u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (u.bar.querySelector('b') as HTMLElement).style.width = `${(u.hp / u.max) * 100}%`;
       u.bar.querySelector('i')!.setAttribute('data-hp', String(Math.max(0, Math.round(u.hp))));
       if (!u.cpu) (u.bar.querySelector('u') as HTMLElement).style.width = `${(u.ammo / u.mag) * 100}%`;
     }
     for (const f of this.forts) {
-      this.v.set(f.x, 2.75 - (this.view === 'first' ? 0.3 : 0), f.z).project(this.camera);
+      this.v.set(f.x, 2.75 - (behind(this.view) ? 0.3 : 0), f.z).project(this.camera);
       f.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (f.bar.querySelector('b') as HTMLElement).style.width = `${(f.hp / f.max) * 100}%`;
       f.bar.querySelector('i')!.setAttribute('data-hp', String(Math.ceil(f.hp)));
@@ -4107,13 +4131,19 @@ export class ActionMode {
     this.calloutTimer = window.setTimeout(() => el.classList.remove('show'), 1600);
   }
 
-  private get view(): ActionView {
+  private get view(): Cam {
+    if (this.tps && this.kind === 'gauntlet') return 'tps';
     return this.opts.camera?.() ?? this.localView;
   }
   private cycleView() {
-    const next = VIEWS[(VIEWS.indexOf(this.view) + 1) % VIEWS.length];
-    if (this.opts.setCamera) this.opts.setCamera(next);
-    else this.localView = next;
+    const now = this.view;
+    // (Dungeon Run has one more after the cockpit: TPS; from there, round to the first again)
+    this.tps = this.kind === 'gauntlet' && now === 'first';
+    if (!this.tps) {
+      const next = VIEWS[(VIEWS.indexOf(now as ActionView) + 1) % VIEWS.length];
+      if (this.opts.setCamera) this.opts.setCamera(next);
+      else this.localView = next;
+    }
     this.camSnap = true;
     this.showView();
   }
@@ -4121,7 +4151,7 @@ export class ActionMode {
     (this.el.querySelector('.ac-view') as HTMLElement).textContent = VIEW_LABEL[this.view];
   }
 
-  /** the camera follows you: from above and behind (far is near overhead), or low behind you in the cockpit view */
+  /** the camera follows you: from above and behind (far is near overhead), low behind you in the cockpit view, or lower and closer, turning with you, in TPS */
   private placeCamera(dt: number) {
     const me = this.me;
     // (your special's cinematic: the cockpit framing, behind you and looking at its target)
@@ -4131,7 +4161,7 @@ export class ActionMode {
       if (!me?.alive || me.spT < 0 || this.spMax <= 0) this.spCine = false;
     }
     const cine = this.spCine && !!me?.alive;
-    const view: ActionView = cine ? 'first' : this.view;
+    const view: Cam = cine ? 'first' : this.view;
     const tall = this.camera.aspect < 1;
     const mx = me ? me.x : 0;
     const mz = me ? me.z : 0;
@@ -4141,8 +4171,13 @@ export class ActionMode {
     const at = new THREE.Vector3();
     // (the cockpit view starts looking into the stage: up the room, or toward the middle)
     if (this.camSnap && me) this.camYaw = this.kind === 'ffa' && Math.hypot(me.x, me.z) > 1 ? Math.atan2(-me.x, me.z) : 0;
+    // (TPS turns with your fighter, a beat behind; it holds while you aim by hand, or it would chase your thumb round)
+    if (view === 'tps' && me) {
+      if (this.camSnap) this.camYaw = me.face;
+      else if (!this.aimStick && !this.mouseFire) this.camYaw = wrapAngle(this.camYaw + wrapAngle(me.face - this.camYaw) * (1 - Math.exp(-dt * 5)));
+    }
     // it sees the horizon: a sky, and a haze over the far side
-    const sky = view === 'first';
+    const sky = behind(view);
     if (sky !== !!this.scene.fog || (sky && this.skyFor !== this.theme)) {
       this.skyFor = this.theme;
       this.skyDome.visible = sky;
@@ -4163,6 +4198,13 @@ export class ActionMode {
       const fz = -Math.cos(yaw);
       pos.set(mx - fx * back, tall ? 4.6 : 4, mz - fz * back);
       at.set(mx + fx * 5.5, 0.3, mz + fz * 5.5);
+    } else if (view === 'tps') {
+      // close behind your fighter and a little above (clear of the walls), looking the way it faces
+      const back = tall ? 6 : 4.2;
+      const fx = Math.sin(this.camYaw);
+      const fz = -Math.cos(this.camYaw);
+      pos.set(mx - fx * back, tall ? 3.6 : 2.9, mz - fz * back);
+      at.set(mx + fx * 3, 0.6, mz + fz * 3);
     } else {
       // (in a Gauntlet room the overhead views stop short of the edges, so the room fills the screen)
       // (a short, wide landscape screen sees little front to back: a little higher up)
@@ -4194,9 +4236,9 @@ export class ActionMode {
     const cp = this.camAt.clone().add(this.camPos.clone().sub(this.camAt).multiplyScalar(zoom));
     this.camera.position.set(cp.x + (Math.random() - 0.5) * j, cp.y, cp.z + (Math.random() - 0.5) * j);
     this.camera.lookAt(this.camAt);
-    // (the cockpit view's picture is lifted, so you stand above the thumb tray rather than behind it)
+    // (the cockpit and TPS pictures are lifted, so you stand above the thumb tray rather than behind it)
     // (not during your special's cinematic, so the picture doesn't jump as it starts and ends)
-    const lift = view === 'first' && !cine ? Math.round(this.camera.aspect < 1 ? 0.17 * this.vh : 0.08 * this.vh) : 0;
+    const lift = behind(view) && !cine ?Math.round(this.camera.aspect < 1 ? 0.17 * this.vh : 0.08 * this.vh) : 0;
     if (lift !== this.lift) {
       this.lift = lift;
       if (lift) this.camera.setViewOffset(this.vw, this.vh, 0, lift, this.vw, this.vh);
