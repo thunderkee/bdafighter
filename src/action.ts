@@ -88,7 +88,7 @@ const FORT_RANGE = 7;
 const FORT_FIRE = 0.6;
 const FORT_DMG = 300;
 const SIEGE_TIME = 150;
-const RESPAWN = 4;
+const RESPAWN = 3;
 // Knockout: best of three rounds, no respawns; a round runs out at ROUND_TIME (the side with more health left takes it)
 const ROUND_TIME = 60;
 // Hot Zone: hold the ring in the middle with nobody of theirs in it; first to 100% (or the most at the bell)
@@ -566,6 +566,7 @@ export class ActionMode {
         </div>
         <div class="ac-bossbar" aria-hidden="true"><b></b><i><s></s><u></u></i></div>
         <p class="ac-goal hidden"></p>
+        <p class="ac-respawn" aria-live="polite"><small>RESPAWN IN</small><b></b></p>
         <p class="ac-callout"></p>
         <p class="ac-supername"></p>
         <p class="ac-hint">TAP TO FIRE · HOLD TO CHARGE · DRAG TO AIM · SHOOT THE CRATES · STAND STILL TO MEND</p>
@@ -594,7 +595,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -802,6 +803,7 @@ export class ActionMode {
     this.gear = STARTER;
     this.rageT = 0;
     this.lives = this.story ? 3 : 4;
+    this.meBack = 0;
     this.stage = this.story?.stage ?? 1;
     this.stageRooms = 0;
     this.startStage();
@@ -2185,7 +2187,6 @@ export class ActionMode {
       const back = this.kind === 'siege' || this.kind === 'zone' || (this.kind === 'boss' && u.team === 0);
       if (back) {
         u.back = RESPAWN;
-        if (u === this.me) this.callout(`BACK IN ${RESPAWN}`, 1);
       } else if (u === this.me) this.callout('KNOCKED OUT · YOUR SIDE FIGHTS ON', 1);
       if (u === this.giant) this.finishSiege(1);
       this.updateHud();
@@ -2199,7 +2200,8 @@ export class ActionMode {
     if (u === this.me && this.kind === 'gauntlet' && this.lives > 1) {
       this.lives--;
       this.callout(`DOWN · ${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`, 1);
-      setTimeout(() => this.fadeThrough(() => this.backToCheckpoint()), 1500);
+      // (a countdown first: RESPAWN IN 3, 2, 1)
+      this.meBack = 3;
       this.updateHud();
       return;
     }
@@ -2357,6 +2359,11 @@ export class ActionMode {
       this.tickCrates(dt);
     }
     if (this.teams) for (const u of this.units) if (!u.alive && u.back > 0 && (u.back -= dt) <= 0) this.respawn(u);
+    if (this.meBack > 0 && (this.meBack -= dt) <= 0) {
+      this.meBack = 0;
+      this.fadeThrough(() => this.backToCheckpoint());
+    }
+    this.showRespawn(this.me && !this.me.alive && !this.over ? (this.teams ? this.me.back : this.meBack) : 0);
     if (this.kind === 'zone') this.tickZone(dt);
     if (this.kind === 'boss') this.tickGiant(dt);
     if (this.kind === 'knockout') this.kRoundT += dt;
@@ -4235,6 +4242,23 @@ export class ActionMode {
   }
 
   private bossTrail = 1;
+  /** Dungeon Run: seconds until you're back at the checkpoint */
+  private meBack = 0;
+  private respawnN = 0;
+  /** the respawn countdown in the middle of the screen: RESPAWN IN 3, 2, 1 */
+  private showRespawn(left: number) {
+    const n = left > 0 ? Math.ceil(left) : 0;
+    if (n === this.respawnN) return;
+    this.respawnN = n;
+    const el = this.hud.respawn;
+    el.classList.toggle('on', n > 0);
+    if (!n) return;
+    el.querySelector('b')!.textContent = String(n);
+    el.classList.remove('tick');
+    void el.offsetWidth;
+    el.classList.add('tick');
+    sfx.play('tick', 0.8);
+  }
   private calloutTimer = 0;
   private callout(text: string, tone = 0) {
     const el = this.hud.callout;

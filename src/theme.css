@@ -8318,3 +8318,38 @@ html.land {
 #rotate.upright .rot-phone {
   animation-direction: reverse;
 }
+/* the respawn countdown: RESPAWN IN 3, 2, 1, big in the middle */
+#action .ac-respawn {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 30%;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  margin: 0;
+  color: #fff;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+#action .ac-respawn.on {
+  opacity: 1;
+}
+#action .ac-respawn small {
+  font: 700 14px var(--display);
+  letter-spacing: 0.16em;
+}
+#action .ac-respawn b {
+  font: 700 84px/1 var(--display);
+}
+#action .ac-respawn.tick b {
+  animation: ac-count 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes ac-count {
+  from {
+    opacity: 0;
+    scale: 1.8;
+  }
+}
