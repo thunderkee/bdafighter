@@ -916,8 +916,9 @@ export class ActionMode {
   }
   /** how tall the walls stand (the dungeon's are higher) */
   private wallH() {
-    // (the dungeon's walls rise in TPS, so its corridors close in round you; seen from above they stay low)
-    return this.kind === 'gauntlet' && this.view === 'tps' ? 2.1 : 1.1;
+    // (the dungeon's walls rise in the views from behind you, TPS and the cockpit, so its corridors close in
+    // round you; seen from above they stay low)
+    return this.kind === 'gauntlet' && behind(this.view) ? 2.1 : 1.1;
   }
   private wallCur = 1.1;
   private wallMesh: THREE.Object3D | null = null;
