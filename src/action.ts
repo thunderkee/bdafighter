@@ -490,6 +490,7 @@ export class ActionMode {
   private camYaw = 0;
   /** TPS: how fast the camera is swinging round (it eases into and out of a turn), and a view change's glide (s left) */
   private yawVel = 0;
+  private lastFace = 0;
   private camGlide = 0;
   private localView: ActionView = 'mid';
   /** Dungeon Run's TPS view is on (kept here, not in the camera setting the other modes share) */
@@ -4237,11 +4238,15 @@ export class ActionMode {
         this.camYaw = me.face;
         this.yawVel = 0;
       } else if (!this.aimStick && !this.mouseFire) {
-        const w = 11;
+        // (it matches how fast you're turning, so it stays right behind you through a turn, and the
+        // spring only takes up what's left: a stiff one, damped so it never swings past)
+        const w = 16;
+        const faceVel = dt > 0 ? wrapAngle(me.face - this.lastFace) / dt : 0;
         const d = wrapAngle(me.face - this.camYaw);
-        this.yawVel += (d * w * w - 2 * w * this.yawVel) * Math.min(dt, 0.05);
+        this.yawVel += (d * w * w + 2 * w * (THREE.MathUtils.clamp(faceVel, -8, 8) - this.yawVel)) * Math.min(dt, 0.05);
         this.camYaw = wrapAngle(this.camYaw + this.yawVel * dt);
       } else this.yawVel *= Math.exp(-dt * 10);
+      this.lastFace = me.face;
     }
     // it sees the horizon: a sky, and a haze over the far side
     const sky = behind(view);
@@ -4294,7 +4299,7 @@ export class ActionMode {
     } else {
       // (a view change glides over a moment, easing in and out; otherwise the camera keeps close)
       this.camGlide = Math.max(0, this.camGlide - dt);
-      const k = 1 - Math.exp(-dt * (this.camGlide > 0 ? 5 : view === 'tps' ? 14 : 9));
+      const k = 1 - Math.exp(-dt * (this.camGlide > 0 ? 5 : view === 'tps' ? 22 : 9));
       this.camPos.lerp(pos, k);
       this.camAt.lerp(at, k);
     }
