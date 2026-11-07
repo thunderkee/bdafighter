@@ -46,6 +46,8 @@ export interface StoryFight {
   rooms?: number;
   /** the other side's health, as a share (earlier chapters are gentler) */
   hp?: number;
+  /** the chapter's objective, kept on screen through the fight */
+  goal?: string;
   onEnd: (win: boolean) => void;
 }
 
@@ -563,6 +565,7 @@ export class ActionMode {
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
         <div class="ac-bossbar" aria-hidden="true"><b></b><i><s></s><u></u></i></div>
+        <p class="ac-goal hidden"></p>
         <p class="ac-callout"></p>
         <p class="ac-supername"></p>
         <p class="ac-hint">TAP TO FIRE · HOLD TO CHARGE · DRAG TO AIM · SHOOT THE CRATES · STAND STILL TO MEND</p>
@@ -591,7 +594,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -803,6 +806,8 @@ export class ActionMode {
     this.stageRooms = 0;
     this.startStage();
     this.showPanel(null);
+    this.hud.goal.textContent = this.story?.goal ? `OBJECTIVE · ${this.story.goal}` : '';
+    this.hud.goal.classList.toggle('hidden', !this.story?.goal);
     this.hud.hint.classList.remove('gone');
     setTimeout(() => this.hud.hint.classList.add('gone'), 3500);
   }

@@ -649,7 +649,8 @@ export function boot() {
   };
 
   /** a story scene played out on the table before the match (its intro comes after) */
-  type Scene = { head: string; title: string; lines: Line[]; then: () => void };
+  type Goal = { why: string; how: string };
+  type Scene = { head: string; title: string; lines: Line[]; then: () => void; goal?: Goal };
   const startMatch = (scene?: Scene) => {
     sfx.unlock();
     // a new match starts empty-handed; the next arcade stage keeps your unused item
@@ -742,7 +743,7 @@ export function boot() {
       flowT = 0;
       introEl.classList.add('hidden');
       view.cine = { kind: 'talk', t: 0, shot: 0, slot: -1 };
-      talk(story?.hero ?? st.character, scene.head, scene.title, scene.lines, scene.then, true);
+      talk(story?.hero ?? st.character, scene.head, scene.title, scene.lines, scene.then, true, scene.goal);
       return;
     }
     beginIntro();
@@ -1085,8 +1086,10 @@ export function boot() {
   // ---------- story mode: six chapters for each fighter, talk before every fight and after each win ----------
   /** opens Action for a story chapter (set once Action's screen is wired up, further down) */
   let storyAction: ((f: StoryFight) => void) | null = null;
-  const unitOfBase = (b: string) => playable().find((u) => baseOf(u.id) === b)?.id ?? `${b}-22`;
-  const pathOf = (id: string) => STORY_PATHS[baseOf(id)];
+  /** who a fighter is in the story: its base fighter, unless it has a story of its own (True Leo King is not Leo King) */
+  const whoOf = (id: string) => (STORY_PATHS[characterById(id).id] ? characterById(id).id : baseOf(id));
+  const unitOfBase = (b: string) => playable().find((u) => whoOf(u.id) === b)?.id ?? `${b}-22`;
+  const pathOf = (id: string) => STORY_PATHS[whoOf(id)];
   const chOf = (id: string) => saveData.storyCh?.[id] ?? 0;
   const dlg = $('story-dlg');
   let dlgLines: Line[] = [];
@@ -1100,12 +1103,12 @@ export function boot() {
     const l = dlgLines[dlgAt];
     const narr = l.who === 'narrator';
     const id = narr ? '' : unitOfBase(l.who);
-    dlg.dataset.side = narr ? 'narrator' : baseOf(id) === baseOf(dlgHero) ? 'you' : 'them';
+    dlg.dataset.side = narr ? 'narrator' : whoOf(id) === whoOf(dlgHero) ? 'you' : 'them';
     $('dlg-who').textContent = narr ? '' : characterById(id).name;
     $('dlg-text').textContent = l.text;
     // on the table: the camera cuts to the speaker (the narrator gets the wide shot); someone who
     // isn't in this fight still shows as a face
-    const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && baseOf(unitIds()[k]) === baseOf(id));
+    const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && whoOf(unitIds()[k]) === whoOf(id));
     // (how it's said, from the line itself: a shout, a question, trailing off, or plain talk)
     const mood = /!/.test(l.text) ? 'shout' : /\?\s*$/.test(l.text) ? 'ask' : /^…|…$|\.\.\.$/.test(l.text.trim()) ? 'quiet' : 'say';
     if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt, slot, mood };
@@ -1123,7 +1126,7 @@ export function boot() {
     dlgDone = null;
     done?.();
   };
-  const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void, staged = false) => {
+  const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void, staged = false, goal?: Goal) => {
     dlgHero = hero;
     dlgLines = lines;
     dlgAt = 0;
@@ -1132,6 +1135,11 @@ export function boot() {
     dlg.classList.toggle('staged', staged);
     $('dlg-ch').textContent = head;
     $('dlg-title').textContent = title;
+    // (before a fight: what it's for, and how it's won)
+    const g = $('dlg-goal');
+    g.classList.toggle('hidden', !goal);
+    g.querySelector('strong')!.textContent = goal?.why ?? '';
+    g.querySelector('small')!.textContent = goal?.how ?? '';
     for (const k of SCREENS) $(k).classList.add('hidden');
     if (!staged) showHero();
     dlg.classList.remove('hidden');
@@ -1213,7 +1221,7 @@ export function boot() {
     const out: string[] = [];
     for (let k = ch - 1; k >= 0 && out.length < 2; k--) {
       const b = p.chapters[k].foe;
-      if (b === foe || b === baseOf(hero) || seen.has(b)) continue;
+      if (b === foe || b === whoOf(hero) || seen.has(b)) continue;
       seen.add(b);
       out.push(unitOfBase(b));
     }
@@ -1240,10 +1248,22 @@ export function boot() {
     if (mode === 'duel') return [];
     const c = pathOf(hero).chapters[ch];
     const list = SETTERS[mode];
-    const pick = list[(baseOf(hero).length * 7 + ch * 3) % list.length];
+    const pick = list[(whoOf(hero).length * 7 + ch * 3) % list.length];
     const names = storyAllies(hero, ch).map((id) => characterById(id).name);
     const allies = mode === 'boss' && names.length ? names.join(' and ') : '';
     return [{ who: 'narrator', text: pick(characterById(unitOfBase(c.foe)).name, stageById(c.arena).name, allies) }];
+  };
+  /** a chapter's objective: what the fight is for (the chapter's own goal), and how it's won */
+  const goalOf = (hero: string, ch: number, mode: ChapterMode): Goal => {
+    const c = pathOf(hero).chapters[ch];
+    const foe = characterById(unitOfBase(c.foe)).name;
+    const allies = storyAllies(hero, ch).map((id) => characterById(id).name).join(' and ');
+    const how =
+      mode === 'duel' ? `Win two rounds against ${foe}.`
+      : mode === 'brawl' ? `Be the last one standing in the storm. ${foe} is in it.`
+      : mode === 'dungeon' ? `Clear the rooms, take the key, open the locked door and beat ${foe}.`
+      : `Bring down the giant ${foe}${allies ? ` with ${allies}` : ''}.`;
+    return { why: c.goal ?? `Get past ${foe}.`, how };
   };
   /** a chapter fought in Action: the talk over the backdrop, then straight into it */
   const actionChapter = (mode: Exclude<ChapterMode, 'duel'>) => {
@@ -1264,6 +1284,7 @@ export function boot() {
       stage: DUNGEON_STAGE[c.arena] ?? 1,
       rooms: 5,
       hp,
+      goal: goalOf(hero, ch, mode).how,
       onEnd: (win) => {
         if (!story) return;
         if (!win) return toTitle();
@@ -1286,7 +1307,7 @@ export function boot() {
     };
     const lines = [...(ch === 0 ? p.intro : []), ...c.before, ...setter(hero, ch, mode)];
     const what = mode === 'brawl' ? 'STORM BRAWL' : mode === 'dungeon' ? 'DUNGEON' : 'GIANT FIGHT';
-    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length} · ${what} · ${characterById(foe).name.toUpperCase()}`, c.title.toUpperCase(), lines, () => storyAction?.(f));
+    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length} · ${what} · ${characterById(foe).name.toUpperCase()}`, c.title.toUpperCase(), lines, () => storyAction?.(f), false, goalOf(hero, ch, mode));
   };
   if (debug) Object.assign(window as unknown as Record<string, unknown>, { __chapterMode: chapterMode, __setter: setter, __allies: storyAllies });
   /** talk on the table, then fight (the story's opening comes before the first chapter) */
@@ -1297,7 +1318,7 @@ export function boot() {
     const mode = chapterMode(story.hero, story.ch);
     if (mode !== 'duel') return actionChapter(mode);
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
-    fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, title: c.title.toUpperCase(), lines, then: beginIntro });
+    fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, title: c.title.toUpperCase(), lines, then: beginIntro, goal: goalOf(story.hero, story.ch, 'duel') });
   };
   const playStory = () => {
     sfx.unlock();
@@ -2017,7 +2038,7 @@ export function boot() {
     // (kept short: its line, its story, its rival)
     prof.innerHTML = pr
       ? sto
-        ? `<p class="pf-quote">“${sto.quote}”</p><p>${sto.story}</p><div class="pf-tags"><em>Rival · ${characterById(playable().find((u) => baseOf(u.id) === sto.rival)?.id ?? sto.rival).name}</em></div>`
+        ? `<p class="pf-quote">“${sto.quote}”</p><p>${sto.story}</p><div class="pf-tags"><em>Rival · ${characterById(unitOfBase(sto.rival)).name}</em></div>`
         : `<p>${pr.bio}</p>`
       : `<p>Built in the Unit Lab.</p>`;
     if (step === 'fighter') showStyle(unit);

@@ -217,11 +217,18 @@ export const STORIES: Record<string, Story> = {
     rival: 'bastion',
   },
   kabuto: {
-    personality: 'Regal, generous, a born leader',
-    quote: 'A crown is earned every season.',
+    personality: 'Vain, scheming, all crown and no king',
+    quote: 'A crown belongs to whoever is wearing it.',
     story:
-      'The lion king of the League, Leo King defends its title every season, fist cannons blazing and its royal cape snapping. It rules fairly and fights fairly. The one thing it cannot forgive is Fang Hound, the guard who left its side to prove itself alone.',
-    rival: 'liger',
+      'The lion on the League’s throne is a copy. Three seasons ago it took the floating palace in one night while the true King was away, and it has sold keystones to Tyrant King ever since. It let the Lava Forge burn for Tyrant’s gold, and its guard Fang Hound walked out. The exile it drove away is coming home.',
+    rival: 'trueleo',
+  },
+  trueleo: {
+    personality: 'Quiet, stubborn, rightful',
+    quote: 'I left the crown once. I will not leave the kingdom twice.',
+    story:
+      'The real King of the League. It left the palace to renew the treaty at the Spire and came home to find a copy wearing its crown and its face. Driven out, it has spent three seasons in exile, and now it wants its kingdom back, and every keystone the copy sold put back in its gate.',
+    rival: 'kabuto',
   },
   tyrant: {
     personality: 'Ruthless, ambitious, never satisfied',
@@ -241,7 +248,7 @@ export const STORIES: Record<string, Story> = {
     personality: 'Fierce, loyal, restless',
     quote: 'I left the crown to earn my own.',
     story:
-      'Once the royal guard of Leo King, Fang Hound walked out of the palace to prove it could win alone. The black-and-gold war hound fires from its flanks, left then right, and its shots ricochet where you least expect. It still respects the King, but it won’t say so.',
+      'Once the royal guard of the true Leo King, Fang Hound walked out of the palace the night a copy took the throne, and set out to prove it could win alone. The black-and-gold war hound fires from its flanks, left then right, and its shots ricochet where you least expect. It has never knelt to the false King, and never will.',
     rival: 'kabuto',
   },
   ember: {
