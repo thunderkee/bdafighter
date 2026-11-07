@@ -11,7 +11,7 @@ import { kitOf } from './kits';
 import { DROP, DRAGON, ITEMS, MISSILE } from './items';
 import { stageById } from './stage';
 import { coverProp, decorate } from './scenery';
-import { MONSTERS } from './monsters';
+import { BOSSES, MONSTERS } from './monsters';
 import { makeDungeon, rollGear, gearPower, RARITY, PERKS, STARTER, D_ROCK, type Dungeon, type DRoom, type Gear } from './dungeon';
 
 /**
@@ -1613,9 +1613,8 @@ export class ActionMode {
     // (the far half, shuffled)
     const far = spots.slice(Math.floor(spots.length / 2)).sort(() => Math.random() - 0.5);
     if (room.kind === 'boss') {
-      // an elder of one kind of monster, with two of the others
-      const [kind] = this.pickMonsters(1);
-      const d = { ...kind, name: `Elder ${kind.name}` };
+      // this stage's own boss, with a monster at its side
+      const d = BOSSES[Math.min(this.stage, BOSSES.length) - 1];
       const p = far.pop() ?? this.center((room.i0 + room.i1) >> 1, (room.j0 + room.j1) >> 1);
       const b = this.makeUnit(d, p.x, p.z, true, 1, { hp: hp * 3.5, dmg: dmg * 1.1, boss: true });
       b.aimError = 0.12;
@@ -3203,7 +3202,7 @@ export class ActionMode {
     }
     // a warm lamp that goes with you, and the rest of the light turned down
     this.lightK = 0.62;
-    this.lamp = new THREE.PointLight(this.dstage().lamp, 30, 13, 1.6);
+    this.lamp = new THREE.PointLight(this.dstage().lamp, 46, 17, 1.6);
     this.scene.add(this.lamp);
   }
 
@@ -3297,7 +3296,7 @@ export class ActionMode {
       this.doorMeshes.push(this.barsAt(k, 0xff5a5a, 0x801010));
     }
     this.spawnRoom(r);
-    this.callout(r.kind === 'boss' ? 'THE BOSS' : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
+    this.callout(r.kind === 'boss' ? BOSSES[Math.min(this.stage, BOSSES.length) - 1].name.toUpperCase() : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
     sfx.play(r.kind === 'boss' ? 'gong' : 'go');
   }
 
@@ -3356,7 +3355,7 @@ export class ActionMode {
     this.rageT = Math.max(0, this.rageT - dt);
     this.tickTraps();
     // the lamp goes with you
-    if (this.lamp) this.lamp.position.set(me.x, 3.2, me.z + 0.6);
+    if (this.lamp) this.lamp.position.set(me.x, 5.2, me.z + 0.6);
     // chests spring open, loot spins
     for (const c of this.chests) if (c.open && c.t < 1) {
       c.t = Math.min(1, c.t + dt * 3);
