@@ -926,7 +926,7 @@ export class ActionMode {
    * bush does when you're in it (blended, not cut away, so no outline rings the spot), in a
    * soft-edged tube from the camera to you
    */
-  private fadeU = { uFadeA: { value: new THREE.Vector3() }, uFadeB: { value: new THREE.Vector3() }, uFadeR: { value: 1.1 }, uFadeOn: { value: 0 } };
+  private fadeU = { uFadeA: { value: new THREE.Vector3() }, uFadeB: { value: new THREE.Vector3() }, uFadeR: { value: 2.1 }, uFadeOn: { value: 0 } };
   private seeThrough<M extends THREE.Material>(mat: M): M {
     // (drawn after the solid things so what's behind shows through; everywhere else it's fully opaque)
     mat.transparent = true;
