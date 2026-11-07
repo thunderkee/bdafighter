@@ -15,7 +15,7 @@ import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import { SquadRun } from './squadrun';
-import { ActionMode, type ActionKind } from './action';
+import { ActionMode, type ActionKind, type StoryFight } from './action';
 import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
@@ -1083,6 +1083,8 @@ export function boot() {
   $('run-continue').addEventListener('click', () => resumeRun());
 
   // ---------- story mode: six chapters for each fighter, talk before every fight and after each win ----------
+  /** opens Action for a story chapter (set once Action's screen is wired up, further down) */
+  let storyAction: ((f: StoryFight) => void) | null = null;
   const unitOfBase = (b: string) => playable().find((u) => baseOf(u.id) === b)?.id ?? `${b}-22`;
   const pathOf = (id: string) => STORY_PATHS[baseOf(id)];
   const chOf = (id: string) => saveData.storyCh?.[id] ?? 0;
@@ -1157,11 +1159,143 @@ export function boot() {
     fitTable(S());
     startMatch(scene);
   };
+  /**
+   * how each chapter is fought. Every path keeps a rhythm (a duel to open, a free-for-all, a
+   * dungeon with the chapter's foe at the bottom, the rival duel, a giant, then the finale), and a
+   * chapter whose own words point at another kind of fight takes that one instead. The finale is
+   * a duel against your rival, or a giant against a villain
+   */
+  type ChapterMode = 'duel' | 'brawl' | 'dungeon' | 'boss';
+  /** chapters 2, 3 and 5 hold one brawl, one dungeon and one giant between them; 1 and 4 are duels */
+  const MIDDLE = [1, 2, 4];
+  const RHYTHM: ChapterMode[] = ['duel', 'brawl', 'dungeon', 'duel', 'boss', 'duel'];
+  const KEYS: Record<'brawl' | 'dungeon' | 'boss', RegExp> = {
+    dungeon: /caravan|cage|vault|tunnel|underground|maze|crypt|cellar|mine shaft|dungeon/,
+    brawl: /crowd|stampede|everyone|free-for-all|brawl|swarm|melee/,
+    boss: /giant|huge|towering|colossal|overcharg/,
+  };
+  const ORDERS: ('brawl' | 'dungeon' | 'boss')[][] = [
+    ['brawl', 'dungeon', 'boss'],
+    ['brawl', 'boss', 'dungeon'],
+    ['dungeon', 'brawl', 'boss'],
+    ['dungeon', 'boss', 'brawl'],
+    ['boss', 'brawl', 'dungeon'],
+    ['boss', 'dungeon', 'brawl'],
+  ];
+  const chapterMode = (hero: string, ch: number): ChapterMode => {
+    const p = pathOf(hero);
+    const c = p.chapters[ch];
+    // the finale: one on one with your rival; a giant against the big antagonist (or any other villain)
+    if (ch === p.chapters.length - 1) return c.foe !== 'tyrant' && c.foe === storyOf(hero)?.rival ? 'duel' : 'boss';
+    const at = MIDDLE.indexOf(ch);
+    if (at < 0) return RHYTHM[ch] ?? 'duel';
+    // the three fights land where each chapter's own words fit them best (in the usual order otherwise)
+    const words = MIDDLE.map((k) => [...p.chapters[k].before, ...p.chapters[k].after].map((l) => l.text).join(' ').toLowerCase());
+    let best = ORDERS[0];
+    let top = -1;
+    for (const o of ORDERS) {
+      const score = o.reduce((n, m, i) => n + (KEYS[m].test(words[i]) ? 1 : 0), 0);
+      if (score > top) {
+        top = score;
+        best = o;
+      }
+    }
+    return best[at];
+  };
+  /** the arenas that aren't Action stages, as the nearest one (and which dungeon stage each is) */
+  const ACTION_THEME: Record<string, string> = { crystal: 'space', sandglass: 'beach', serpent: 'forest' };
+  const DUNGEON_STAGE: Record<string, number> = { snow: 2, forest: 3, serpent: 3, lava: 4, river: 5, beach: 5, cyber: 6, space: 7, crystal: 7 };
+  /** your side in a giant fight: the last two fighters you beat on this path, now with you */
+  const storyAllies = (hero: string, ch: number) => {
+    const p = pathOf(hero);
+    const foe = p.chapters[ch].foe;
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (let k = ch - 1; k >= 0 && out.length < 2; k--) {
+      const b = p.chapters[k].foe;
+      if (b === foe || b === baseOf(hero) || seen.has(b)) continue;
+      seen.add(b);
+      out.push(unitOfBase(b));
+    }
+    return out;
+  };
+  /** a narrator's line or two setting up a chapter that isn't a duel (the same line each time for a chapter) */
+  const SETTERS: Record<Exclude<ChapterMode, 'duel'>, ((foe: string, place: string, allies: string) => string)[]> = {
+    brawl: [
+      (foe, place) => `The ${place} gate is a free-for-all tonight. ${foe} is in the crowd, and only one machine walks off the rail.`,
+      (foe, place) => `Word spreads fast in ${place}: every fighter in range turns up, ${foe} among them. Last one standing takes the gate.`,
+      (foe, place) => `A storm closes over ${place}. ${foe} and four others, and nowhere left to hide.`,
+    ],
+    dungeon: [
+      (foe, place) => `${foe} has gone to ground beneath ${place}. The way down is rooms, traps and a locked door. Find the key.`,
+      (foe, place) => `Under ${place} the old-war vaults still stand. ${foe} waits at the bottom, and the halls between are not empty.`,
+      (foe, place) => `The trail ends at a hatch in ${place}. Below: cages, blades and a door that answers only to a key. ${foe} is behind it.`,
+    ],
+    boss: [
+      (foe, _place, allies) => `${foe} comes back bigger, overcharged on a stolen keystone.${allies ? ` You won't face it alone: ${allies} stand with you.` : ''}`,
+      (foe, place, allies) => `In ${place} the ground shakes. ${foe} has grown to fill the arena.${allies ? ` ${allies} answer your call.` : ''}`,
+    ],
+  };
+  const setter = (hero: string, ch: number, mode: ChapterMode): Line[] => {
+    if (mode === 'duel') return [];
+    const c = pathOf(hero).chapters[ch];
+    const list = SETTERS[mode];
+    const pick = list[(baseOf(hero).length * 7 + ch * 3) % list.length];
+    const names = storyAllies(hero, ch).map((id) => characterById(id).name);
+    const allies = mode === 'boss' && names.length ? names.join(' and ') : '';
+    return [{ who: 'narrator', text: pick(characterById(unitOfBase(c.foe)).name, stageById(c.arena).name, allies) }];
+  };
+  /** a chapter fought in Action: the talk over the backdrop, then straight into it */
+  const actionChapter = (mode: Exclude<ChapterMode, 'duel'>) => {
+    if (!story) return;
+    const hero = story.hero;
+    const ch = story.ch;
+    const p = pathOf(hero);
+    const c = p.chapters[ch];
+    const foe = unitOfBase(c.foe);
+    const hp = [0.75, 0.82, 0.9, 1, 1.08, 1.15][ch] ?? 1;
+    const f: StoryFight = {
+      kind: mode === 'brawl' ? 'ffa' : mode === 'dungeon' ? 'gauntlet' : 'boss',
+      title: `Chapter ${ch + 1} · ${c.title}`,
+      foes: [foe],
+      allies: storyAllies(hero, ch),
+      boss: foe,
+      theme: ACTION_THEME[c.arena] ?? c.arena,
+      stage: DUNGEON_STAGE[c.arena] ?? 1,
+      rooms: 5,
+      hp,
+      onEnd: (win) => {
+        if (!story) return;
+        if (!win) return toTitle();
+        story.ch++;
+        saveData = store.save({ storyCh: { ...(saveData.storyCh ?? {}), [hero]: Math.max(chOf(hero), story.ch) } });
+        const next = () => {
+          if (!story) return;
+          if (story.ch < p.chapters.length) return playChapter();
+          // the ending, on the last chapter's table
+          fightChapter({ head: 'THE END', title: p.title.toUpperCase(), lines: p.ending, then: () => {
+            view.cine = null;
+            saveData = store.save({ fighterXp: { ...(saveData.fighterXp ?? {}), [hero]: xpOf(hero) + STORY_BONUS } });
+            quitArcade();
+            showToast(`STORY COMPLETE // +${STORY_BONUS} XP`, 0xffc23d);
+          } }, p.chapters.length - 1);
+        };
+        if (c.after.length) talk(hero, `CHAPTER ${ch + 1} CLEAR`, c.title.toUpperCase(), c.after, next);
+        else next();
+      },
+    };
+    const lines = [...(ch === 0 ? p.intro : []), ...c.before, ...setter(hero, ch, mode)];
+    const what = mode === 'brawl' ? 'STORM BRAWL' : mode === 'dungeon' ? 'DUNGEON' : 'GIANT FIGHT';
+    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length} · ${what} · ${characterById(foe).name.toUpperCase()}`, c.title.toUpperCase(), lines, () => storyAction?.(f));
+  };
+  if (debug) Object.assign(window as unknown as Record<string, unknown>, { __chapterMode: chapterMode, __setter: setter, __allies: storyAllies });
   /** talk on the table, then fight (the story's opening comes before the first chapter) */
   const playChapter = () => {
     if (!story) return;
     const p = pathOf(story.hero);
     const c = p.chapters[story.ch];
+    const mode = chapterMode(story.hero, story.ch);
+    if (mode !== 'duel') return actionChapter(mode);
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
     fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, title: c.title.toUpperCase(), lines, then: beginIntro });
   };
@@ -1467,14 +1601,20 @@ export function boot() {
   let actionMode: ActionMode | null = null;
   /** a mode to go straight into when Action opens (from the home screen) */
   let actionKind: ActionKind | null = null;
+  /** Action's screen, made the first time it's needed */
+  const actionScreen = () => {
+    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), landscape: () => !!S().landscape, cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
+    if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;
+    show('');
+    return actionMode;
+  };
+  storyAction = (f) => actionScreen().startStory(playableId(S().character), f);
   $('action-btn').addEventListener('click', () => {
     sfx.unlock();
-    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), landscape: () => !!S().landscape, cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
-    show('');
-    actionMode.open(playableId(S().character));
-    if (actionKind) actionMode.start(actionKind);
+    actionScreen();
+    actionMode!.open(playableId(S().character));
+    if (actionKind) actionMode!.start(actionKind);
     actionKind = null;
-    if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;
   });
   $('arcade-btn').addEventListener('click', (e) => {
     const mine = runOf(saveData.settings.character);

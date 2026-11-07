@@ -57,7 +57,8 @@ const CELL = 17;
 const COLS = 3;
 const ROWS = 4;
 
-export function makeDungeon(rnd: () => number = Math.random): Dungeon {
+/** a dungeon of about `rooms` rooms (8-9 when not given; a story chapter's is smaller) */
+export function makeDungeon(rnd: () => number = Math.random, roomCount?: number): Dungeon {
   const W = COLS * CELL + 2;
   const H = ROWS * CELL + 2;
   const grid = new Uint8Array(W * H).fill(D_ROCK);
@@ -65,7 +66,7 @@ export function makeDungeon(rnd: () => number = Math.random): Dungeon {
   const R = (n: number) => Math.floor(rnd() * n);
 
   // the tree of cells: grown out from the start (bottom row, middle) one neighbour at a time
-  const want = 8 + R(2);
+  const want = roomCount ?? 8 + R(2);
   const start = { c: 1, r: ROWS - 1 };
   const key = (c: number, r: number) => r * COLS + c;
   const used = new Map<number, { c: number; r: number }>([[key(start.c, start.r), start]]);

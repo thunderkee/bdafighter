@@ -27,6 +27,27 @@ import { makeDungeon, rollGear, gearPower, RARITY, PERKS, STARTER, D_ROCK, type 
  */
 
 export type ActionKind = 'gauntlet' | 'ffa' | 'siege' | 'knockout' | 'zone' | 'boss';
+/**
+ * a League Story chapter played as an Action fight: who's in it (the chapter's foe first), the
+ * look, and what happens when it's over (the story carries on, or you try again)
+ */
+export interface StoryFight {
+  kind: 'ffa' | 'gauntlet' | 'boss';
+  /** the chapter, for the panels */
+  title: string;
+  /** Storm Brawl: the fighters you face (the chapter's foe first; the rest are filled in) */
+  foes?: string[];
+  /** Giant Slayer: your two allies, and the giant; Dungeon Run: the boss at the end */
+  allies?: string[];
+  boss?: string;
+  /** the arena's look (a theme id) or, for a dungeon, which stage's look (1-7) */
+  theme?: string;
+  stage?: number;
+  rooms?: number;
+  /** the other side's health, as a share (earlier chapters are gentler) */
+  hp?: number;
+  onEnd: (win: boolean) => void;
+}
 
 // tiles
 const FLOOR = 0;
@@ -394,6 +415,8 @@ export class ActionMode {
   private unitId: string;
 
   private kind: ActionKind = 'gauntlet';
+  /** a League Story chapter being played (null: Action on its own) */
+  private story: StoryFight | null = null;
   private W = 11;
   private H = 17;
   private grid = new Uint8Array(0);
@@ -665,8 +688,27 @@ export class ActionMode {
 
   // ---------- lifecycle ----------
 
+  /** play a League Story chapter: straight into its fight, and back to the story when it's over */
+  startStory(unit: string, f: StoryFight) {
+    this.open(unit);
+    this.story = f;
+    this.begin(f.kind);
+  }
+  /** the story chapter is over: leave, and let the story carry on (or not) */
+  private endStory(win: boolean) {
+    const f = this.story;
+    this.story = null;
+    this.running = false;
+    cancelAnimationFrame(this.raf);
+    this.clearStage();
+    this.el.classList.add('hidden');
+    this.goWide(false);
+    f?.onEnd(win);
+  }
+
   /** show the start panel with this fighter */
   open(unit: string) {
+    this.story = null;
     this.unitId = unit;
     this.applySaver();
     this.goWide(!!this.opts.landscape?.());
@@ -756,8 +798,8 @@ export class ActionMode {
     this.giantPhase = 0;
     this.gear = STARTER;
     this.rageT = 0;
-    this.lives = 4;
-    this.stage = 1;
+    this.lives = this.story ? 3 : 4;
+    this.stage = this.story?.stage ?? 1;
     this.stageRooms = 0;
     this.startStage();
     this.showPanel(null);
@@ -775,7 +817,8 @@ export class ActionMode {
     this.cleared = false;
     // a new look each time: a fresh shuffle for a new run (the Gauntlet walks through them room by room)
     if (this.kind !== 'gauntlet' || this.room === 1 || !this.themeOrder.length) this.themeOrder = [...THEMES].sort(() => Math.random() - 0.5);
-    this.theme = this.kind === 'gauntlet' ? this.dstage().theme : this.themeOrder[0];
+    const storyTheme = this.story?.theme ? THEMES.find((t) => t.id === this.story!.theme) : undefined;
+    this.theme = this.kind === 'gauntlet' ? this.dstage().theme : storyTheme ?? this.themeOrder[0];
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     this.time = this.kind === 'gauntlet' ? this.time : 0;
     this.buildStage();
@@ -898,11 +941,11 @@ export class ActionMode {
   /** Dungeon Run: a fresh dungeon (see dungeon.ts); the boss room's door is locked */
   private layoutDungeon() {
     // (rolled until it has one of each trap and a key room, so every run shows the lot)
-    let dg = makeDungeon();
+    let dg = makeDungeon(Math.random, this.story?.rooms);
     for (let n = 0; n < 30; n++) {
       const has = (k: string) => dg.traps.some((t) => t.kind === k);
       if (has('boulder') && has('axe') && has('spikes') && dg.rooms.some((r) => r.kind === 'key')) break;
-      dg = makeDungeon();
+      dg = makeDungeon(Math.random, this.story?.rooms);
     }
     this.dg = dg;
     this.W = dg.W;
@@ -1499,7 +1542,9 @@ export class ActionMode {
     this.world.add(wrap, shadow);
     const t = def.traits;
     const mb = marbleOf(def);
-    const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1) * (this.kind === 'ffa' ? FFA_HP : 1));
+    // (a story chapter's other side: gentler early on)
+    const storyHp = this.story && cpu && team !== 0 ? (this.story.hp ?? 1) : 1;
+    const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1) * (this.kind === 'ffa' ? FFA_HP : 1) * storyHp);
     const bar = document.createElement('div');
     bar.className = 'ac-bar' + (cpu ? (team === 0 && this.teams ? ' ally' : '') : ' me');
     bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
@@ -1636,12 +1681,13 @@ export class ActionMode {
   private spawnFoes() {
     if (this.kind === 'boss') {
       // two on your side; on theirs, one giant
-      this.pickFoes(2).forEach((d, k) => {
+      const allies = this.story?.allies?.length ? [...this.story.allies.map((id) => characterById(id)), ...this.pickFoes(2)].slice(0, 2) : this.pickFoes(2);
+      allies.forEach((d, k) => {
         const p = this.teamSpot(0, k + 1);
         const u = this.makeUnit(d, p.x, p.z, true, 0);
         u.face = 0;
       });
-      const [d] = this.pickFoes(1);
+      const d = this.story?.boss ? characterById(this.story.boss) : this.pickFoes(1)[0];
       const g = this.makeUnit(d, 0, -this.H / 2 + 4.5, true, 1, { hp: BOSS_HP, dmg: 1.5, boss: true, giant: true });
       g.face = Math.PI;
       g.aimError = 0.08;
@@ -1664,7 +1710,8 @@ export class ActionMode {
     }
     if (this.kind === 'ffa') {
       const starts = this.ffaStarts();
-      this.pickFoes(5).forEach((d, k) => {
+      const given = (this.story?.foes ?? []).map((id) => characterById(id));
+      [...given, ...this.pickFoes(5 - given.length)].slice(0, 5).forEach((d, k) => {
         const u = this.makeUnit(d, starts[k + 1].x, starts[k + 1].z, true, k + 1);
         u.aimError = 0.1 + Math.random() * 0.08;
         u.aimDelay = 0.3 + Math.random() * 0.3;
@@ -1694,7 +1741,7 @@ export class ActionMode {
     const far = spots.slice(Math.floor(spots.length / 2)).sort(() => Math.random() - 0.5);
     if (room.kind === 'boss') {
       // this stage's own boss, with a monster at its side
-      const d = characterById(BOSSES[Math.min(this.stage, BOSSES.length) - 1].id);
+      const d = characterById(this.story?.boss ?? BOSSES[Math.min(this.stage, BOSSES.length) - 1].id);
       const p = far.pop() ?? this.center((room.i0 + room.i1) >> 1, (room.j0 + room.j1) >> 1);
       const b = this.makeUnit(d, p.x, p.z, true, 1, { hp: hp * 3.5, dmg: dmg * 1.1, boss: true });
       b.aimError = 0.12;
@@ -3131,7 +3178,7 @@ export class ActionMode {
       sfx.play('win', 0.6);
       if (r.kind === 'boss') {
         this.callout('BOSS DOWN');
-        if (this.stage >= DSTAGES.length) setTimeout(() => this.finish(true, 1), 1000);
+        if (this.stage >= DSTAGES.length || this.story) setTimeout(() => this.finish(true, 1), 1000);
         else setTimeout(() => !this.over && this.showPanel('stage'), 1000);
         return;
       }
@@ -3313,7 +3360,7 @@ export class ActionMode {
       this.doorMeshes.push(this.barsAt(k, 0xff5a5a, 0x801010));
     }
     this.spawnRoom(r);
-    this.callout(r.kind === 'boss' ? characterById(BOSSES[Math.min(this.stage, BOSSES.length) - 1].id).name.toUpperCase() : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
+    this.callout(r.kind === 'boss' ? characterById(this.story?.boss ?? BOSSES[Math.min(this.stage, BOSSES.length) - 1].id).name.toUpperCase() : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
     sfx.play(r.kind === 'boss' ? 'gong' : 'go');
   }
 
@@ -4426,6 +4473,18 @@ export class ActionMode {
       buttons.appendChild(b);
     };
     bestEl.textContent = '';
+    // a story chapter's end: on with the story, or try it again
+    if (this.story && (kind === 'win' || kind === 'lose')) {
+      const f = this.story;
+      h.textContent = kind === 'win' ? 'Chapter won!' : 'Defeated';
+      text.textContent = kind === 'win' ? `${f.title}: the story goes on.` : `${f.title}: get up and try it again.`;
+      if (kind === 'win') button('Continue story ▶', () => this.endStory(true), 'primary');
+      else {
+        button('Retry chapter', () => this.begin(f.kind), 'primary');
+        button('Leave story', () => this.endStory(false));
+      }
+      return;
+    }
     if (kind === 'start') {
       h.textContent = 'Action';
       text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks. Tap FIRE to shoot at the nearest fighter; hold it to charge up to five marbles and let go to fire them as one; slide your thumb off it to aim. SPECIAL fires your fighter’s own move once it’s charged. Standing still mends you.';
