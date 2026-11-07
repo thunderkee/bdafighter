@@ -87,7 +87,7 @@ export function boot() {
   const arcadeFoes = () => {
     if (!arcade) return new Set<string>();
     const b = bossOf(arcade.stage);
-    return new Set((b ? b.units : [arcade.cfg.enemyCharacter ?? '']).filter(Boolean).map((id) => baseOf(id)));
+    return new Set((b ? b.units : [arcade.cfg.enemyCharacter ?? '']).filter(Boolean).map((id) => whoOf(id)));
   };
   /**
    * The arcade ladder: you fight alone, one on one. Two stages, then a boss, four times over;
@@ -118,6 +118,8 @@ export function boot() {
   ];
   // (a fighter built on another, like True Leo King on Leo King, counts as it: its special, kit and story)
   const baseOf = (id: string) => { const c = characterById(id); return (c.base ?? c.id).replace(/-\d+$/, ''); };
+  /** who a fighter is: its base fighter, unless it has a story of its own (True Leo King is not Leo King; it shares only the body and special) */
+  const whoOf = (id: string) => (STORY_PATHS[characterById(id).id] ? characterById(id).id : baseOf(id));
   /** a boss unit, in whichever version (it can't be picked for an arcade run) */
   const isBossUnit = (id: string) => [...BOSS_IDS].some((b) => baseOf(b) === baseOf(id));
   /** the arcade stage that unlocks this unit (0 = a starter, or a custom unit) */
@@ -995,8 +997,8 @@ export function boot() {
     const used = new Set<string>();
     for (let s = 1; s <= FINAL_STAGE; s++) {
       let c = rollStage(s, plan[s - 2]);
-      for (let tries = 0; tries < 16 && !bossAt(s) && c.enemyCharacter && used.has(baseOf(c.enemyCharacter)); tries++) c = rollStage(s, plan[s - 2]);
-      if (c.enemyCharacter && !bossAt(s)) used.add(baseOf(c.enemyCharacter));
+      for (let tries = 0; tries < 16 && !bossAt(s) && c.enemyCharacter && used.has(whoOf(c.enemyCharacter)); tries++) c = rollStage(s, plan[s - 2]);
+      if (c.enemyCharacter && !bossAt(s)) used.add(whoOf(c.enemyCharacter));
       plan.push(c);
     }
     return plan;
@@ -1004,10 +1006,10 @@ export function boot() {
   /** after a fighter swap: any later stage that would put you against yourself is re-rolled */
   const refitPlan = () => {
     if (!arcade) return;
-    const me = baseOf(saveData.settings.character);
+    const me = whoOf(saveData.settings.character);
     for (let s = arcade.stage + 1; s <= FINAL_STAGE; s++) {
       const c = arcade.plan[s - 1];
-      if (!bossAt(s) && c.enemyCharacter && baseOf(c.enemyCharacter) === me) arcade.plan[s - 1] = rollStage(s, arcade.plan[s - 2]);
+      if (!bossAt(s) && c.enemyCharacter && whoOf(c.enemyCharacter) === me) arcade.plan[s - 1] = rollStage(s, arcade.plan[s - 2]);
     }
   };
   /** start a new arcade run from stage 1 */
@@ -1086,8 +1088,6 @@ export function boot() {
   // ---------- story mode: six chapters for each fighter, talk before every fight and after each win ----------
   /** opens Action for a story chapter (set once Action's screen is wired up, further down) */
   let storyAction: ((f: StoryFight) => void) | null = null;
-  /** who a fighter is in the story: its base fighter, unless it has a story of its own (True Leo King is not Leo King) */
-  const whoOf = (id: string) => (STORY_PATHS[characterById(id).id] ? characterById(id).id : baseOf(id));
   const unitOfBase = (b: string) => playable().find((u) => whoOf(u.id) === b)?.id ?? `${b}-22`;
   const pathOf = (id: string) => STORY_PATHS[whoOf(id)];
   const chOf = (id: string) => saveData.storyCh?.[id] ?? 0;
@@ -1655,7 +1655,7 @@ export function boot() {
     selectMode = 'arcade';
     // (if the saved pick is the stage's opponent or a boss, start the grid on the first fighter that isn't)
     const foes = arcadeFoes();
-    const ok = (id: string) => !isLocked(id) && !isBossUnit(id) && !foes.has(baseOf(id));
+    const ok = (id: string) => !isLocked(id) && !isBossUnit(id) && !foes.has(whoOf(id));
     if (!ok(saveData.settings.character)) {
       const first = playable().find((c) => ok(c.id));
       if (first) saveData = store.save({ settings: { ...saveData.settings, character: first.id } });
@@ -2102,9 +2102,9 @@ export function boot() {
       for (const c of playable()) {
         const color = hexc(c.palette.body);
         // the arcade's bosses stay a surprise: they can't be picked for a run
-        if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(baseOf(c.id)))) continue;
+        if (selectMode === 'arcade' && isBossUnit(c.id) && !(arcadeSwap && foes.has(whoOf(c.id)))) continue;
         // retrying a stage: the opponent waiting there shows, but can't be your pick
-        if (arcadeSwap && step === 'fighter' && foes.has(baseOf(c.id))) tile({ id: c.id, color, lock: 'Opponent' }, `<i><i data-portrait="${c.id}" data-crop="bust"></i></i><em class="lock">⚔</em>`);
+        if (arcadeSwap && step === 'fighter' && foes.has(whoOf(c.id))) tile({ id: c.id, color, lock: 'Opponent' }, `<i><i data-portrait="${c.id}" data-crop="bust"></i></i><em class="lock">⚔</em>`);
         // a locked unit shows (so there's something to chase) but can't be picked
         else if (isLocked(c.id)) tile({ id: c.id, color, lock: `arcade stage ${unlockStage(c.id)}` }, `<i class="dark"><i data-portrait="${c.id}" data-crop="bust"></i></i><em class="lock">🔒</em>`);
         else tile({ id: c.id, color }, `<i><i data-portrait="${c.id}" data-crop="bust"></i></i>`);
