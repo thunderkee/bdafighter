@@ -1143,10 +1143,15 @@ $('draw-undo').addEventListener('click', () => {
 function renderRoster() {
   const list = $('unit-list');
   list.innerHTML = '';
-  // the same roster the game picks from, grouped like its version tabs: 2.2, custom, then the 2.1 set
+  // the roster the game picks from (2.2, then custom), then what you can't pick but the game uses:
+  // the dungeon's monsters, its stage bosses, and its decorations
+  const npcs = (k: CharacterDef['npc']) => BUILTINS.filter((b) => b.npc === k).map((b) => characterById(b.id));
   const groups: [string, string, CharacterDef[]][] = [
     ['2.2', '2.2', playable().filter((c) => c.v22)],
     ['Custom', '', playable().filter((c) => !c.v22)],
+    ['Monsters · Dungeon Run', 'NPC', npcs('monster')],
+    ['Bosses · one per stage', 'BOSS', npcs('boss')],
+    ['Decorations', 'PROP', npcs('prop')],
   ];
   for (const [label, ver, units] of groups) {
     if (!units.length) continue;

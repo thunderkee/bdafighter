@@ -10,11 +10,12 @@ import type { CharacterDef } from './robot';
 import type { Block, ColorRef, Role, Shape } from './roster';
 
 type V3 = [number, number, number];
-type Opt = { r?: V3; s?: V3; role?: Role; glow?: boolean; opacity?: number; kids?: Block[] };
+type Opt = { r?: V3; s?: V3; role?: Role; glow?: boolean; opacity?: number; additive?: boolean; name?: string; kids?: Block[] };
 const blk = (shape: Shape, size: Record<string, number>, p: V3, color: ColorRef, o: Opt = {}): Block => ({
   shape,
   size,
-  mat: { kind: o.glow ? 'basic' : 'lambert', color, ...(o.opacity ? { opacity: o.opacity } : {}) },
+  mat: { kind: o.glow ? 'basic' : 'lambert', color, ...(o.opacity ? { opacity: o.opacity } : {}), ...(o.additive ? { additive: true } : {}) },
+  ...(o.name ? { name: o.name } : {}),
   p,
   r: o.r ?? [0, 0, 0],
   s: o.s ?? [1, 1, 1],
@@ -24,7 +25,7 @@ const blk = (shape: Shape, size: Record<string, number>, p: V3, color: ColorRef,
 const box = (w: number, h: number, d: number, p: V3, c: ColorRef, o?: Opt) => blk('box', { width: w, height: h, depth: d }, p, c, o);
 const ball = (radius: number, p: V3, c: ColorRef, o?: Opt) => blk('sphere', { radius, widthSegments: 12, heightSegments: 9 }, p, c, o);
 const cone = (radius: number, height: number, p: V3, c: ColorRef, o?: Opt) => blk('cone', { radius, height, radialSegments: 6 }, p, c, o);
-const group = (p: V3, kids: Block[], o: Opt = {}): Block => ({ shape: 'group', p, r: o.r ?? [0, 0, 0], s: o.s ?? [1, 1, 1], ...(o.role ? { role: o.role } : {}), children: kids });
+const group = (p: V3, kids: Block[], o: Opt = {}): Block => ({ shape: 'group', ...(o.name ? { name: o.name } : {}), p, r: o.r ?? [0, 0, 0], s: o.s ?? [1, 1, 1], ...(o.role ? { role: o.role } : {}), children: kids });
 const root = (kids: Block[]): Block => group([0, 0, 0], kids);
 /** where the marbles leave (the barrel) and where a special's balls launch from (the belly) */
 const muzzle = (p: V3): Block[] => [group(p, [], { role: 'barrel' }), group([p[0], p[1], p[2] - 0.05], [], { role: 'belly' })];
@@ -43,6 +44,7 @@ const base = {
 const bonewalker: CharacterDef = {
   ...base,
   id: 'bonewalker',
+  npc: 'monster',
   fit: [1.6, 1.6, 1.6],
   name: 'Bonewalker',
   ball: 0xe8e2d0,
@@ -76,6 +78,7 @@ const bonewalker: CharacterDef = {
 const gloop: CharacterDef = {
   ...base,
   id: 'gloop',
+  npc: 'monster',
   fit: [1.75, 1.75, 1.75],
   name: 'Gloop',
   ball: 0x7aff5a,
@@ -109,6 +112,7 @@ const wing = (sd: number): Block =>
 const duskwing: CharacterDef = {
   ...base,
   id: 'duskwing',
+  npc: 'monster',
   fit: [1.4, 1.4, 1.4],
   name: 'Duskwing',
   ball: 0xc86aff,
@@ -139,6 +143,7 @@ const duskwing: CharacterDef = {
 const golem: CharacterDef = {
   ...base,
   id: 'golem',
+  npc: 'monster',
   fit: [1.6, 1.6, 1.6],
   name: 'Rubble Golem',
   ball: 0xffa02a,
@@ -171,6 +176,7 @@ const golem: CharacterDef = {
 const wraith: CharacterDef = {
   ...base,
   id: 'wraith',
+  npc: 'monster',
   fit: [1.5, 1.5, 1.5],
   name: 'Hex Wraith',
   ball: 0x5af0ff,
@@ -209,6 +215,7 @@ const pal = (body: number, trim: number, accent: number, joint: number, eye: num
 const boneKing: CharacterDef = {
   ...base,
   id: 'boneking',
+  npc: 'boss',
   name: 'Bone King',
   fit: [2.1, 2.1, 2.1],
   ball: 0xffd23e,
@@ -245,6 +252,7 @@ const boneKing: CharacterDef = {
 const frostYeti: CharacterDef = {
   ...base,
   id: 'frostyeti',
+  npc: 'boss',
   name: 'Frost Yeti',
   fit: [2.09, 2.09, 2.09],
   ball: 0x8ae8ff,
@@ -276,6 +284,7 @@ const frostYeti: CharacterDef = {
 const thornroot: CharacterDef = {
   ...base,
   id: 'thornroot',
+  npc: 'boss',
   name: 'Thornroot',
   fit: [1.75, 1.75, 1.75],
   ball: 0x9aff6a,
@@ -306,6 +315,7 @@ const thornroot: CharacterDef = {
 const cinderBrute: CharacterDef = {
   ...base,
   id: 'cinderbrute',
+  npc: 'boss',
   name: 'Cinder Brute',
   fit: [1.96, 1.96, 1.96],
   ball: 0xff6a1a,
@@ -340,6 +350,7 @@ const cinderBrute: CharacterDef = {
 const tidecrab: CharacterDef = {
   ...base,
   id: 'tidecrab',
+  npc: 'boss',
   name: 'Tidecrab',
   fit: [2.24, 2.24, 2.24],
   ball: 0x5ae0ff,
@@ -372,6 +383,7 @@ const tidecrab: CharacterDef = {
 const glitchSentinel: CharacterDef = {
   ...base,
   id: 'glitchsentinel',
+  npc: 'boss',
   name: 'Glitch Sentinel',
   fit: [2.29, 2.29, 2.29],
   ball: 0xff2bd6,
@@ -401,6 +413,7 @@ const glitchSentinel: CharacterDef = {
 const voidHerald: CharacterDef = {
   ...base,
   id: 'voidherald',
+  npc: 'boss',
   name: 'Void Herald',
   fit: [1.74, 1.74, 1.74],
   ball: 0x9a7aff,
@@ -428,3 +441,56 @@ const voidHerald: CharacterDef = {
 
 /** each stage's boss, in order */
 export const BOSSES: CharacterDef[] = [boneKing, frostYeti, thornroot, cinderBrute, tidecrab, glitchSentinel, voidHerald];
+
+// ---------- the dungeon's decorations, as block designs (the Unit Lab can edit them; the game builds them from these) ----------
+// (parts the game moves are named: the chest's lid, the key, the spikes' blades, the axe's arm, the boulder's rock)
+
+const prop = (id: string, name: string, palette: ReturnType<typeof pal>, kids: Block[]): CharacterDef => ({
+  ...base,
+  id,
+  name,
+  npc: 'prop',
+  ball: palette.accent,
+  palette,
+  blueprint: root(kids),
+});
+const chest = prop('chest', 'Treasure Chest', pal(0xa8302a, 0xe8b43a, 0xffd23e, 0x5a1a14, 0xffffff), [
+  box(0.8, 0.42, 0.56, [0, 0.21, 0], 'body'),
+  box(0.84, 0.08, 0.6, [0, 0.34, 0], 'trim'),
+  group([0, 0.42, -0.28], [box(0.82, 0.22, 0.58, [0, 0.11, 0.29], 'body'), box(0.14, 0.16, 0.06, [0, 0.02, 0.6], 'trim')], { name: 'lid' }),
+]);
+const keystand = prop('keystand', 'Key Pedestal', pal(0x6a5a4a, 0xffc83e, 0xa8302a, 0x4a3e32, 0xffffff), [
+  blk('cylinder', { radiusTop: 0.34, radiusBottom: 0.42, height: 0.55, radialSegments: 10 }, [0, 0.27, 0], 'body'),
+  box(0.5, 0.1, 0.5, [0, 0.6, 0], 'accent'),
+  group([0, 0.95, 0], [
+    blk('torus', { radius: 0.13, tube: 0.04, radialSegments: 6, tubularSegments: 14 }, [-0.2, 0, 0], 'trim'),
+    box(0.36, 0.06, 0.06, [0.06, 0, 0], 'trim'),
+    box(0.06, 0.14, 0.06, [0.2, -0.07, 0], 'trim'),
+  ], { name: 'key' }),
+]);
+const torch = prop('torch', 'Wall Torch', pal(0x2a2226, 0x3a3034, 0xffb040, 0x1a1418, 0xffffff), [
+  box(0.16, 0.5, 0.16, [0, 1.25, 0], 'body'),
+  cone(0.14, 0.34, [0, 1.62, 0], 'accent', { glow: true }),
+  ball(0.34, [0, 1.62, 0], 'accent', { glow: true, opacity: 0.28, additive: true }),
+]);
+const spikes = prop('spikes', 'Spike Trap', pal(0xb8bcc8, 0x3a3430, 0xb8bcc8, 0x3a3430, 0xffffff), [
+  box(0.94, 0.04, 0.94, [0, 0.02, 0], 'trim'),
+  group([0, 0, 0], [-0.22, 0.22].flatMap((x) => [-0.22, 0.22].map((z) => cone(0.11, 0.5, [x, 0.25, z], 'body'))), { name: 'blades' }),
+]);
+const axe = prop('axe', 'Swinging Axe', pal(0xc8ccd6, 0x5a3a22, 0xc8ccd6, 0x2a2226, 0xffffff), [
+  box(4.2, 0.3, 0.3, [0, 2.85, 0], 'trim'),
+  group([0, 2.7, 0], [
+    box(0.1, 2.3, 0.1, [0, -1.15, 0], 'joint'),
+    blk('cylinder', { radiusTop: 0.62, radiusBottom: 0.62, height: 0.08, radialSegments: 16, thetaLength: Math.PI }, [0, -2.25, 0], 'body', { r: [Math.PI / 2, 0, Math.PI / 2] }),
+  ], { name: 'arm' }),
+]);
+const boulder = prop('boulder', 'Rolling Boulder', pal(0x8a847a, 0x6a645a, 0x8a847a, 0x5a554c, 0xffffff), [
+  group([0, 0.95, 0], [
+    blk('sphere', { radius: 0.95, widthSegments: 7, heightSegments: 5 }, [0, 0, 0], 'body'),
+    box(0.5, 0.3, 0.3, [0.5, 0.4, 0.4], 'trim', { r: [0.4, 0.6, 0.2] }),
+    box(0.4, 0.3, 0.4, [-0.5, -0.3, 0.4], 'trim', { r: [0.2, 0.3, 0.6] }),
+  ], { name: 'rock' }),
+]);
+
+/** the dungeon's decorations */
+export const PROPS: CharacterDef[] = [chest, keystand, torch, spikes, axe, boulder];

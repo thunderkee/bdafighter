@@ -8,6 +8,7 @@ import { cachedPublished } from './published';
 import { PROFILES } from './profiles';
 import { TOSS_TIME, TWIN_X, type Special } from './config';
 import { attachParts, type AddonSlot, type PartSpec } from './addons';
+import { BOSSES, MONSTERS, PROPS } from './monsters';
 import { FITS } from './kits';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
@@ -85,6 +86,8 @@ export interface CharacterDef {
   v21?: boolean;
   /** the 2.2 roster: original designs (the roster you pick from) */
   v22?: boolean;
+  /** not a fighter you can pick: a dungeon monster, a stage boss, or a decoration (all editable in the Unit Lab) */
+  npc?: 'monster' | 'boss' | 'prop';
   /** twin barrels: every shot is a pair of marbles side by side */
   twin?: boolean;
   /** a signature trick (wind-up punch, hand swap, alternate hands, spray, anti-air) */
@@ -617,6 +620,10 @@ export const BUILTINS: readonly CharacterDef[] = [
       palette,
     };
   }),
+  // the dungeon's monsters, its bosses and its decorations: never in the Fighters grid
+  ...MONSTERS,
+  ...BOSSES,
+  ...PROPS,
 ];
 
 /**
@@ -713,6 +720,40 @@ export function rosterCharacters(data = loadRoster()): CharacterDef[] {
 export const CHARACTERS: CharacterDef[] = rosterCharacters();
 export function reloadRoster(data?: RosterData) {
   CHARACTERS.splice(0, CHARACTERS.length, ...rosterCharacters(data));
+}
+
+/**
+ * a decoration built from its design (as the Unit Lab has it): plain parts, no animation; the parts
+ * the game moves are found by name. A palette patch recolours it (a stage's torch fire, say)
+ */
+export function propModel(id: string, palette: Partial<Palette> = {}): THREE.Group {
+  const d = characterById(id);
+  const def = { ...d, palette: { ...d.palette, ...palette } };
+  const cache = new Map<string, THREE.Material>();
+  const material = (m: Block['mat']) => {
+    const spec = m ?? { kind: 'lambert', color: 'body' };
+    const color = resolveColor(spec.color, def, def.ball);
+    const key = `${spec.kind}|${color}|${spec.opacity ?? 1}|${spec.additive ? 1 : 0}|${spec.double ? 1 : 0}`;
+    let mat = cache.get(key);
+    if (!mat) {
+      const common = { color, side: spec.double ? THREE.DoubleSide : THREE.FrontSide, transparent: (spec.opacity ?? 1) < 1 || !!spec.additive, opacity: spec.opacity ?? 1, blending: spec.additive ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: !spec.additive };
+      mat = spec.kind === 'basic' ? new THREE.MeshBasicMaterial(common) : new THREE.MeshStandardMaterial({ ...common, roughness: 0.75 });
+      cache.set(key, mat);
+    }
+    return mat;
+  };
+  const make = (b: Block): THREE.Object3D => {
+    const o = b.shape === 'group' ? new THREE.Group() : new THREE.Mesh(blockGeometry(b), material(b.mat));
+    o.position.fromArray(b.p);
+    o.rotation.set(b.r[0], b.r[1], b.r[2]);
+    o.scale.fromArray(b.s);
+    if (b.name) o.name = b.name;
+    for (const c of b.children ?? []) o.add(make(c));
+    return o;
+  };
+  const g = new THREE.Group();
+  for (const c of def.blueprint?.children ?? []) g.add(make(c));
+  return g;
 }
 
 export const characterById = (id: string) => CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
@@ -906,7 +947,7 @@ export class ShooterMesh {
     this.build(def, marbleColor);
     if (def.blueprint && !this.legs.length) this.findTreads();
     // a design with no legs flies: it bobs in the air like the floating units
-    if (def.blueprint && !this.legs.length && !this.hoverLift && !this.treadPlates.length && !def.look21?.treads) this.hoverLift = 0.001;
+    if (def.blueprint && !this.legs.length && !this.hoverLift && !this.treadPlates.length && !def.look21?.treads && def.npc !== 'prop') this.hoverLift = 0.001;
     // a taller torso: the chest's own plates stretch, the parts on it (head, arms) just ride up
     const chestH = def.look21 ? FRAMES21[def.look21.frame]?.chestH : undefined;
     if (chestH && !def.blueprint) {
@@ -1793,6 +1834,7 @@ export class ShooterMesh {
       o.rotation.set(b.r[0], b.r[1], b.r[2]);
       o.scale.fromArray(b.s);
       o.userData.path = path;
+      if (b.name) o.name = b.name;
       assign(o, b.role);
       (b.children ?? []).forEach((c, i) => o.add(make(c, `${path}/${i}`)));
       return o;

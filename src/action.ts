@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { celify } from './cel';
 import { InkOnly } from './post';
-import { ShooterMesh, characterById, playable, studioEnv, type CharacterDef } from './robot';
+import { ShooterMesh, characterById, playable, propModel, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
 import { BITE, CHARGE, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
@@ -360,9 +360,9 @@ const CRATE_ITEMS: [DropKind, number][] = [
 type Pop = { el: HTMLElement; x: number; z: number; t: number };
 /** Dungeon Run: a trap at work */
 type TrapRt =
-  | { kind: 'spikes'; tiles: number[]; phase: number; mesh: THREE.Object3D; cyc: number; hit: Set<Unit> }
+  | { kind: 'spikes'; tiles: number[]; phase: number; mesh: THREE.Object3D; blades: THREE.Object3D[]; cyc: number; hit: Set<Unit> }
   | { kind: 'axe'; x: number; z: number; along: 'i' | 'j'; phase: number; arm: THREE.Object3D }
-  | { kind: 'boulder'; x0: number; z0: number; x1: number; z1: number; phase: number; mesh: THREE.Mesh; rolling: boolean };
+  | { kind: 'boulder'; x0: number; z0: number; x1: number; z1: number; phase: number; mesh: THREE.Object3D; rock: THREE.Object3D; rolling: boolean };
 type Chest = { x: number; z: number; open: boolean; root: THREE.Object3D; lid: THREE.Object3D; gear: Gear; t: number };
 type Loot = { x: number; z: number; gear: Gear; root: THREE.Object3D; gem: THREE.Object3D; away: boolean };
 /** a knocked-out fighter blowing apart, as in the other modes: three pops, then it shatters into tumbling, smoking pieces */
@@ -1551,7 +1551,8 @@ export class ActionMode {
   private pickMonsters(n: number) {
     // (the golem and the wraith wait until the third room)
     const pool = this.room - this.stageRooms < 3 && this.stage === 1 ? MONSTERS.filter((m) => m.id !== 'golem' && m.id !== 'wraith') : MONSTERS;
-    return Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)]);
+    // (as the roster has them: a Unit Lab edit shows up here)
+    return Array.from({ length: n }, () => characterById(pool[Math.floor(Math.random() * pool.length)].id));
   }
   /** the other fighters wear one of their paint jobs (never the plain one), so no two matches look alike */
   private painted(def: CharacterDef) {
@@ -1621,7 +1622,7 @@ export class ActionMode {
     const far = spots.slice(Math.floor(spots.length / 2)).sort(() => Math.random() - 0.5);
     if (room.kind === 'boss') {
       // this stage's own boss, with a monster at its side
-      const d = BOSSES[Math.min(this.stage, BOSSES.length) - 1];
+      const d = characterById(BOSSES[Math.min(this.stage, BOSSES.length) - 1].id);
       const p = far.pop() ?? this.center((room.i0 + room.i1) >> 1, (room.j0 + room.j1) >> 1);
       const b = this.makeUnit(d, p.x, p.z, true, 1, { hp: hp * 3.5, dmg: dmg * 1.1, boss: true });
       b.aimError = 0.12;
@@ -3113,13 +3114,8 @@ export class ActionMode {
   private drawDungeon() {
     const dg = this.dg;
     if (!dg) return;
-    // torches round each room, every few tiles along the walls (not by the doors)
-    const bracket = new THREE.BoxGeometry(0.16, 0.5, 0.16);
-    const flame = new THREE.ConeGeometry(0.14, 0.34, 6);
-    const halo = new THREE.SphereGeometry(0.34, 10, 8);
-    const ironMat = new THREE.MeshStandardMaterial({ color: 0x2a2226, roughness: 0.7 });
-    const fireMat = new THREE.MeshBasicMaterial({ color: this.dstage().torch });
-    const haloMat = new THREE.MeshBasicMaterial({ color: this.dstage().torch, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
+    // torches round each room, every few tiles along the walls (not by the doors), in the stage's fire
+    const fire = { accent: this.dstage().torch };
     for (const r of dg.rooms) {
       const ring: [number, number][] = [];
       for (let i = r.i0 + 1; i < r.i1; i += 3) ring.push([i, r.j0 - 1]);
@@ -3128,14 +3124,7 @@ export class ActionMode {
         const k = this.idx(i, j);
         if (this.grid[k] !== WALL || r.doors.some((d) => Math.abs((d % this.W) - i) + Math.abs(Math.floor(d / this.W) - j) < 2)) continue;
         const p = this.center(i, j);
-        const t = new THREE.Group();
-        const b = new THREE.Mesh(bracket, ironMat);
-        b.position.y = 1.25;
-        const f = new THREE.Mesh(flame, fireMat);
-        f.position.y = 1.62;
-        const h = new THREE.Mesh(halo, haloMat);
-        h.position.y = 1.62;
-        t.add(b, f, h);
+        const t = propModel('torch', fire);
         // (on the room's side of the wall)
         const dx = i < r.i0 ? 0.55 : i > r.i1 ? -0.55 : 0;
         const dz = j < r.j0 ? 0.55 : j > r.j1 ? -0.55 : 0;
@@ -3143,58 +3132,35 @@ export class ActionMode {
         this.world.add(t);
       }
     }
-    // the traps
-    const spikeGeo = new THREE.ConeGeometry(0.11, 0.5, 5);
-    spikeGeo.translate(0, 0.25, 0);
-    const spikeMat = new THREE.MeshStandardMaterial({ color: 0xb8bcc8, metalness: 0.6, roughness: 0.35 });
-    const plateGeo = new THREE.BoxGeometry(0.94, 0.04, 0.94);
-    const plateMat = new THREE.MeshStandardMaterial({ color: 0x3a3430, roughness: 0.9 });
+    // the traps (built from their Unit Lab designs; the parts that move are found by name)
     for (const t of dg.traps) {
       if (t.kind === 'spikes') {
         const g = new THREE.Group();
-        const m = new THREE.InstancedMesh(spikeGeo, spikeMat, t.tiles.length * 4);
-        let n = 0;
         for (const k of t.tiles) {
           const p = this.center(k % this.W, Math.floor(k / this.W));
-          const plate = new THREE.Mesh(plateGeo, plateMat);
-          plate.position.set(p.x, 0.02, p.z);
-          this.world.add(plate);
-          for (const [ox, oz] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]) {
-            this.dummy.position.set(p.x + ox, 0, p.z + oz);
-            this.dummy.rotation.set(0, 0, 0);
-            this.dummy.scale.set(1, 1, 1);
-            this.dummy.updateMatrix();
-            m.setMatrixAt(n++, this.dummy.matrix);
-          }
+          const m = propModel('spikes');
+          m.position.set(p.x, 0, p.z);
+          g.add(m);
         }
-        g.add(m);
-        g.position.y = -0.5;
         this.world.add(g);
-        this.traps.push({ kind: 'spikes', tiles: t.tiles, phase: t.phase, mesh: g, cyc: -1, hit: new Set() });
+        const blades: THREE.Object3D[] = [];
+        g.traverse((o) => o.name === 'blades' && blades.push(o));
+        this.traps.push({ kind: 'spikes', tiles: t.tiles, phase: t.phase, mesh: g, blades, cyc: -1, hit: new Set() });
       } else if (t.kind === 'axe') {
         const p = this.center(t.i, t.j);
-        // a beam across the corridor up high, and the blade on its arm hung from it
-        const beam = new THREE.Mesh(new THREE.BoxGeometry(t.along === 'j' ? 4.2 : 0.3, 0.3, t.along === 'j' ? 0.3 : 4.2), new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.8 }));
-        beam.position.set(p.x, 2.85, p.z);
-        const arm = new THREE.Group();
-        arm.position.set(p.x, 2.7, p.z);
-        const rod = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.3, 0.1), ironMat);
-        rod.position.y = -1.15;
-        const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.08, 16, 1, false, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xc8ccd6, metalness: 0.7, roughness: 0.3 }));
-        blade.rotation.set(Math.PI / 2, 0, Math.PI / 2);
-        blade.position.y = -2.25;
-        arm.add(rod, blade);
-        // (the blade's flat faces down the corridor)
-        if (t.along === 'i') arm.rotation.y = Math.PI / 2;
-        this.world.add(beam, arm);
-        this.traps.push({ kind: 'axe', x: p.x, z: p.z, along: t.along, phase: t.phase, arm });
+        const m = propModel('axe');
+        m.position.set(p.x, 0, p.z);
+        // (its beam lies across the corridor, the blade swinging from side to side)
+        if (t.along === 'i') m.rotation.y = Math.PI / 2;
+        this.world.add(m);
+        this.traps.push({ kind: 'axe', x: p.x, z: p.z, along: t.along, phase: t.phase, arm: m.getObjectByName('arm') ?? m });
       } else {
         const a = this.center(t.from.i, t.from.j);
         const b = this.center(t.to.i, t.to.j);
-        const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95, 1), new THREE.MeshStandardMaterial({ color: 0x8a847a, roughness: 0.95, flatShading: true }));
-        mesh.visible = false;
-        this.world.add(mesh);
-        this.traps.push({ kind: 'boulder', x0: a.x, z0: a.z, x1: b.x, z1: b.z, phase: t.phase, mesh, rolling: false });
+        const m = propModel('boulder');
+        m.visible = false;
+        this.world.add(m);
+        this.traps.push({ kind: 'boulder', x0: a.x, z0: a.z, x1: b.x, z1: b.z, phase: t.phase, mesh: m, rock: m.getObjectByName('rock') ?? m, rolling: false });
       }
     }
     // a chest by the start, and the vault's (always Epic or better)
@@ -3224,24 +3190,10 @@ export class ActionMode {
   }
 
   private makeChest(x: number, z: number, gear: Gear) {
-    const root = new THREE.Group();
-    const wood = new THREE.MeshStandardMaterial({ color: 0xa8302a, roughness: 0.7 });
-    const gold = new THREE.MeshStandardMaterial({ color: 0xe8b43a, metalness: 0.6, roughness: 0.35 });
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.42, 0.56), wood);
-    base.position.y = 0.21;
-    const band = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.08, 0.6), gold);
-    band.position.y = 0.34;
-    const lid = new THREE.Group();
-    lid.position.set(0, 0.42, -0.28);
-    const top = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.22, 0.58), wood);
-    top.position.set(0, 0.11, 0.29);
-    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.06), gold);
-    latch.position.set(0, 0.02, 0.6);
-    lid.add(top, latch);
-    root.add(base, band, lid);
+    const root = propModel('chest');
     root.position.set(x, 0, z);
     this.world.add(root);
-    this.chests.push({ x, z, open: false, root, lid, gear, t: 0 });
+    this.chests.push({ x, z, open: false, root, lid: root.getObjectByName('lid') ?? root, gear, t: 0 });
   }
 
   /** a launcher on the floor: a gem in its rarity's colour with a beam of light over it */
@@ -3266,25 +3218,7 @@ export class ActionMode {
   private roomReward(r: DRoom) {
     const p = this.roomMiddle(r);
     if (r.kind === 'key') {
-      const root = new THREE.Group();
-      const stone = new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 0.9 });
-      const red = new THREE.MeshStandardMaterial({ color: 0xa8302a, roughness: 0.6 });
-      const gold = new THREE.MeshStandardMaterial({ color: 0xffc83e, metalness: 0.7, roughness: 0.25, emissive: 0x5a3a00 });
-      const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.55, 10), stone);
-      ped.position.y = 0.27;
-      const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), red);
-      cushion.position.y = 0.6;
-      const key = new THREE.Group();
-      const bow = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.04, 6, 14), gold);
-      bow.position.x = -0.2;
-      const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.06), gold);
-      shaft.position.x = 0.06;
-      const bit = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.06), gold);
-      bit.position.set(0.2, -0.07, 0);
-      key.add(bow, shaft, bit);
-      key.position.y = 0.95;
-      key.name = 'key';
-      root.add(ped, cushion, key);
+      const root = propModel('keystand');
       root.position.set(p.x, 0, p.z);
       this.world.add(root);
       this.keyItem = { x: p.x, z: p.z, root };
@@ -3303,7 +3237,7 @@ export class ActionMode {
       this.doorMeshes.push(this.barsAt(k, 0xff5a5a, 0x801010));
     }
     this.spawnRoom(r);
-    this.callout(r.kind === 'boss' ? BOSSES[Math.min(this.stage, BOSSES.length) - 1].name.toUpperCase() : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
+    this.callout(r.kind === 'boss' ? characterById(BOSSES[Math.min(this.stage, BOSSES.length) - 1].id).name.toUpperCase() : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
     sfx.play(r.kind === 'boss' ? 'gong' : 'go');
   }
 
@@ -3506,7 +3440,7 @@ export class ActionMode {
         const T = (this.time + t.phase) % 3;
         const cyc = Math.floor((this.time + t.phase) / 3);
         const h = T < 1.7 ? 0 : T < 2 ? 0.35 : T < 2.8 ? 1 : 1 - (T - 2.8) / 0.2;
-        t.mesh.position.y = -0.5 + 0.5 * h;
+        for (const b of t.blades) b.position.y = -0.5 + 0.5 * h;
         if (cyc !== t.cyc) {
           t.cyc = cyc;
           t.hit.clear();
@@ -3520,10 +3454,10 @@ export class ActionMode {
       } else if (t.kind === 'axe') {
         const th = 1.05 * Math.sin(this.time * 2.4 + t.phase);
         // (it swings across the corridor: about z when the corridor runs along z, about x otherwise)
-        if (t.along === 'j') t.arm.rotation.z = th;
-        else t.arm.rotation.x = th;
+        // (the arm swings across its beam; turned for a corridor along x, its side-to-side runs along z, mirrored)
+        t.arm.rotation.z = th;
         if (Math.abs(th) > 0.7) continue;
-        const lat = 2.3 * Math.sin(th);
+        const lat = (t.along === 'j' ? 1 : -1) * 2.3 * Math.sin(th);
         const dir = Math.sign(Math.cos(this.time * 2.4 + t.phase)) || 1;
         for (const u of live) {
           const along = t.along === 'j' ? u.z - t.z : u.x - t.x;
@@ -3543,10 +3477,10 @@ export class ActionMode {
         const k = T / roll;
         const x = t.x0 + (t.x1 - t.x0) * k;
         const z = t.z0 + (t.z1 - t.z0) * k;
-        t.mesh.position.set(x, 0.95, z);
+        t.mesh.position.set(x, 0, z);
         const d = k * len;
-        if (Math.abs(t.x1 - t.x0) > Math.abs(t.z1 - t.z0)) t.mesh.rotation.z = -Math.sign(t.x1 - t.x0) * d / 0.95;
-        else t.mesh.rotation.x = Math.sign(t.z1 - t.z0) * d / 0.95;
+        if (Math.abs(t.x1 - t.x0) > Math.abs(t.z1 - t.z0)) t.rock.rotation.z = -Math.sign(t.x1 - t.x0) * d / 0.95;
+        else t.rock.rotation.x = Math.sign(t.z1 - t.z0) * d / 0.95;
         for (const u of live) {
           if (Math.hypot(u.x - x, u.z - z) > 0.95 + u.r * 0.8) continue;
           // (shoved to whichever side of it they're on)
