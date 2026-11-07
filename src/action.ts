@@ -912,6 +912,10 @@ export class ActionMode {
     this.activeRoom = null;
     this.hasKey = false;
   }
+  /** how tall the walls stand (the dungeon's are higher) */
+  private wallH() {
+    return this.kind === 'gauntlet' ? 2 : 1.1;
+  }
   private dstage() {
     return DSTAGES[Math.min(this.stage, DSTAGES.length) - 1];
   }
@@ -1324,8 +1328,10 @@ export class ActionMode {
         }
       this.world.add(m);
     };
-    const wallGeo = new THREE.BoxGeometry(1, 1.1, 1);
-    wallGeo.translate(0, 0.55, 0);
+    // (the dungeon's walls stand taller: corridors and rooms read as enclosed)
+    const wallH = this.wallH();
+    const wallGeo = new THREE.BoxGeometry(1, wallH, 1);
+    wallGeo.translate(0, wallH / 2, 0);
     inst(wallGeo, new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8 }), WALL, () => {});
     for (const k of cover) {
       const o = coverProp(th.id, Math.random);
@@ -1340,7 +1346,7 @@ export class ActionMode {
       // a glowing band round the top of each wall (the main game's rail glow)
       // (a band round the sides just under the top, so it never shares a face with the wall)
       const stripGeo = new THREE.BoxGeometry(1.03, 0.09, 1.03);
-      stripGeo.translate(0, 0.98, 0);
+      stripGeo.translate(0, wallH - 0.12, 0);
       inst(stripGeo, new THREE.MeshBasicMaterial({ color: th.wallGlow }), WALL, () => {});
     }
     this.bushMat.color.setHex(th.bush);
@@ -3095,8 +3101,9 @@ export class ActionMode {
     const i = k % this.W;
     const j = Math.floor(k / this.W);
     const p = this.center(i, j);
-    const bars = new THREE.Mesh(new THREE.BoxGeometry(1, 1.1, 0.3), new THREE.MeshStandardMaterial({ color, emissive: glow, roughness: 0.5 }));
-    bars.position.set(p.x, 0.55, p.z);
+    const h = this.wallH();
+    const bars = new THREE.Mesh(new THREE.BoxGeometry(1, h, 0.3), new THREE.MeshStandardMaterial({ color, emissive: glow, roughness: 0.5 }));
+    bars.position.set(p.x, h / 2, p.z);
     // (a door in a side wall: open floor left and right of it means it runs up and down)
     const side = this.grid[this.idx(i - 1, j)] === WALL || this.grid[this.idx(i + 1, j)] === WALL || this.grid[this.idx(i - 1, j)] === ROCK;
     const updown = !side && (this.grid[this.idx(i, j - 1)] === WALL || this.grid[this.idx(i, j + 1)] === WALL);
