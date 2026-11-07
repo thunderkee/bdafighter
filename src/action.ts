@@ -921,6 +921,43 @@ export class ActionMode {
     return this.kind === 'gauntlet' && behind(this.view) ? 2.1 : 1.1;
   }
   private wallCur = 1.1;
+  /**
+   * the views from behind you: a wall between the camera and your fighter dissolves (a dither, so it
+   * stays in the opaque pass and the outlines still work), in a soft-edged tube from the camera to you
+   */
+  private fadeU = { uFadeA: { value: new THREE.Vector3() }, uFadeB: { value: new THREE.Vector3() }, uFadeR: { value: 1.1 }, uFadeOn: { value: 0 } };
+  private seeThrough<M extends THREE.Material>(mat: M): M {
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, this.fadeU);
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vSeeW;')
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+          #ifdef USE_INSTANCING
+            vSeeW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+          #else
+            vSeeW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+          #endif`,
+        );
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vSeeW;\nuniform vec3 uFadeA;\nuniform vec3 uFadeB;\nuniform float uFadeR;\nuniform float uFadeOn;')
+        .replace(
+          'void main() {',
+          `void main() {
+          if (uFadeOn > 0.0) {
+            vec3 ab = uFadeB - uFadeA;
+            float t = clamp(dot(vSeeW - uFadeA, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
+            float d = length(vSeeW - (uFadeA + ab * t));
+            // (a tube from the camera to just short of you: fully open in the middle, easing out at its edge)
+            float k = uFadeOn * (1.0 - smoothstep(uFadeR * 0.55, uFadeR, d)) * (1.0 - smoothstep(0.9, 1.0, t));
+            float dither = mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 2.0, 4.0) / 4.0 + 0.125;
+            if (k * 0.92 > dither) discard;
+          }`,
+        );
+    };
+    return mat;
+  }
   private wallMesh: THREE.Object3D | null = null;
   private stripMesh: THREE.Object3D | null = null;
   private torches: THREE.Object3D[] = [];
@@ -1355,7 +1392,7 @@ export class ActionMode {
     this.wallCur = this.wallH();
     const wallGeo = new THREE.BoxGeometry(1, 1, 1);
     wallGeo.translate(0, 0.5, 0);
-    this.wallMesh = inst(wallGeo, new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8 }), WALL, () => {}) ?? null;
+    this.wallMesh = inst(wallGeo, this.seeThrough(new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8 })), WALL, () => {}) ?? null;
     if (this.wallMesh) this.wallMesh.scale.y = this.wallCur;
     for (const k of cover) {
       const o = coverProp(th.id, Math.random);
@@ -1371,7 +1408,7 @@ export class ActionMode {
       // (a band round the sides just under the top, so it never shares a face with the wall)
       const stripGeo = new THREE.BoxGeometry(1.03, 0.09, 1.03);
       stripGeo.translate(0, -0.12, 0);
-      this.stripMesh = inst(stripGeo, new THREE.MeshBasicMaterial({ color: th.wallGlow }), WALL, () => {}) ?? null;
+      this.stripMesh = inst(stripGeo, this.seeThrough(new THREE.MeshBasicMaterial({ color: th.wallGlow })), WALL, () => {}) ?? null;
       if (this.stripMesh) this.stripMesh.position.y = this.wallCur;
     }
     this.bushMat.color.setHex(th.bush);
@@ -4289,6 +4326,13 @@ export class ActionMode {
       else this.camera.clearViewOffset();
     }
     this.skyDome.position.copy(this.camera.position);
+    // (walls between the camera and you dissolve, in the views from behind)
+    const on = behind(view) && !!me?.alive ? 1 : 0;
+    this.fadeU.uFadeOn.value += (on - this.fadeU.uFadeOn.value) * Math.min(1, dt * 10);
+    if (me) {
+      this.fadeU.uFadeA.value.copy(this.camera.position);
+      this.fadeU.uFadeB.value.set(me.x, 0.9, me.z);
+    }
   }
 
   private best(): { ffa: number; gauntlet: number; siege: number; knockout: number; zone: number; boss: number } {

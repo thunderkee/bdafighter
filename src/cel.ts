@@ -43,6 +43,8 @@ function toonFor(src: Lit) {
     t.polygonOffsetFactor = src.polygonOffsetFactor;
     t.polygonOffsetUnits = src.polygonOffsetUnits;
     t.name = src.name;
+    // (a shader tweak on the original, like the dungeon walls' see-through, carries over)
+    t.onBeforeCompile = src.onBeforeCompile;
     t.userData = { ...src.userData, celSrc: src, last: {} };
     toonOf.set(src, t);
   }
