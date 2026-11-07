@@ -73,6 +73,8 @@ export interface Settings {
   batterySaver: boolean;
   /** Action mode across the whole screen, turned on its side (it asks the phone to rotate where it can) */
   landscape?: boolean;
+  /** how the game is held: the portrait column, sideways, or whichever way the device is turned */
+  orientation: 'portrait' | 'landscape' | 'auto';
   /** the mode on the home screen's PLAY button */
   playMode?: string;
   /** frame-rate meter in the corner */
@@ -162,6 +164,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cel: true,
   batterySaver: typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0),
   landscape: false,
+  orientation: 'portrait',
   showFps: false,
   magazine: 10,
   magPer: true,
@@ -213,6 +216,8 @@ export function load(): SaveData {
       // older saves had a pucks on/off toggle
       if (parsed.settings?.bumps === false && parsed.settings?.pucks === undefined) settings.pucks = 0;
       delete (settings as Record<string, unknown>).bumps;
+      // (the old Landscape in Action switch becomes the orientation setting)
+      if (parsed.settings?.orientation === undefined && parsed.settings?.landscape) settings.orientation = 'landscape';
       if (!parsed.nearCam) settings.camera = 'near';
       if (!parsed.clearTable) Object.assign(settings, { pucks: 0, covers: 0, pins: 0 });
       // simple rules: a clear table without power gates, seen from the mid camera

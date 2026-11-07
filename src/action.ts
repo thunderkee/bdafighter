@@ -544,7 +544,7 @@ export class ActionMode {
 
   constructor(
     host: HTMLElement,
-    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; camera?: () => ActionView; setCamera?: (v: ActionView) => void; cpuCharge?: () => boolean; allyCharge?: () => boolean; landscape?: () => boolean; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
+    private opts: { unit: string; skin?: (id: string) => CharacterDef; onExit: () => void; reward?: (box: HTMLElement, unit: string, gain: number) => void; camera?: () => ActionView; setCamera?: (v: ActionView) => void; cpuCharge?: () => boolean; allyCharge?: () => boolean; landscape?: () => boolean; lock?: () => boolean; saver?: () => boolean; vibrate?: (pattern: number | number[]) => void },
   ) {
     this.unitId = opts.unit;
     this.el = document.createElement('div');
@@ -749,7 +749,7 @@ export class ActionMode {
   private goWide(on: boolean) {
     this.el.classList.toggle('wide', on);
     const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-    if (on && !this.wideLock && orient?.lock) {
+    if (on && !this.wideLock && orient?.lock && (this.opts.lock?.() ?? true)) {
       const fs = document.fullscreenElement ? Promise.resolve() : document.documentElement.requestFullscreen?.() ?? Promise.resolve();
       fs.then(() => orient.lock!('landscape'))
         .then(() => (this.wideLock = true))

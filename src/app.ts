@@ -1648,7 +1648,7 @@ export function boot() {
   let actionKind: ActionKind | null = null;
   /** Action's screen, made the first time it's needed */
   const actionScreen = () => {
-    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), landscape: () => !!S().landscape, cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
+    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), landscape: () => document.documentElement.classList.contains('land'), lock: () => S().orientation === 'landscape', cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
     if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;
     show('');
     return actionMode;
@@ -1748,7 +1748,48 @@ export function boot() {
 
   // ---------- settings ----------
   const padDir = document.querySelectorAll<HTMLElement>('.pad-dir .pad-btn');
+  /**
+   * how the game is held: Portrait keeps the upright column whichever way the device is turned;
+   * Landscape and Auto use the sideways layouts when the window is wider than tall (Landscape asks
+   * the phone to turn where it can, and asks you to turn it where it can't)
+   */
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  const applyOrientation = () => {
+    const o = S().orientation ?? 'portrait';
+    const wide = innerWidth > innerHeight;
+    document.documentElement.classList.toggle('land', wide && o !== 'portrait');
+    // (a phone held the other way from the one chosen: a prompt to turn it, or to switch)
+    const turn = coarse && ((o === 'landscape' && !wide) || (o === 'portrait' && wide));
+    $('rotate').classList.toggle('hidden', !turn);
+    $('rotate').classList.toggle('upright', o === 'portrait');
+    $('rotate-head').textContent = o === 'portrait' ? 'TURN YOUR PHONE UPRIGHT' : 'TURN YOUR PHONE SIDEWAYS';
+    $('rotate-why').textContent = `${o === 'portrait' ? 'Portrait' : 'Landscape'} is chosen in Settings.`;
+    $('rotate-port').textContent = o === 'portrait' ? 'Play in landscape' : 'Play in portrait';
+  };
+  addEventListener('resize', applyOrientation);
+  let orientLocked = false;
+  /** (on a tap: Landscape turns the phone where it's allowed, Android in fullscreen; the others let it go) */
+  const lockOrientation = () => {
+    const orient = window.screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+    if (S().orientation === 'landscape') {
+      if (!orient?.lock) return;
+      const fs = document.fullscreenElement ? Promise.resolve() : (document.documentElement.requestFullscreen?.() ?? Promise.resolve());
+      fs.then(() => orient.lock!('landscape'))
+        .then(() => (orientLocked = true))
+        .catch(() => {});
+    } else if (orientLocked) {
+      orientLocked = false;
+      try {
+        orient.unlock();
+      } catch {
+        // nothing to unlock
+      }
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    }
+  };
+  $('rotate-port').addEventListener('click', () => saveSetting({ orientation: S().orientation === 'portrait' ? 'auto' : 'portrait' }));
   const applySettings = () => {
+    applyOrientation();
     const st = saveData.settings;
     input.settings = { ...st };
     // outside a match the table updates now; mid-match it waits for the next one
@@ -1821,6 +1862,7 @@ export function boot() {
       if (key === 'difficulty') saveSetting({ difficulty: value, ...store.DIFFICULTY[value as 'easy'] } as Partial<store.Settings>);
       else if (['enemyIQ', 'enemyHealth', 'enemySpeed', 'enemyAgility', 'enemyPower'].includes(key)) saveSetting({ [key]: value, difficulty: 'custom' } as Partial<store.Settings>);
       else saveSetting({ [key]: value } as Partial<store.Settings>);
+      if (key === 'orientation') lockOrientation();
     }),
   );
   $('reset-opponent').addEventListener('click', () => saveSetting({ ...store.OPPONENT_DEFAULTS, difficulty: 'normal' }));
