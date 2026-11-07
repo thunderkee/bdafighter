@@ -928,10 +928,9 @@ export function boot() {
         fill.style.width = `${after.need ? (after.into / after.need) * 100 : 100}%`;
       }),
     );
-    // new rewards go on straight away (they can be swapped back on the Style tab)
+    // new rewards unlock, but nothing changes on your fighter by itself: you put them on from the Style tab
     const fresh = rewardsOf(id).filter((r) => r.lv > before.lv && r.lv <= after.lv);
-    for (const r of fresh) setEquip(id, r.slot, r.id);
-    if (fresh.length) text.textContent = `Unlocked: ${fresh.map((r) => r.name).join(' + ')}`;
+    if (fresh.length) text.textContent = `Unlocked: ${fresh.map((r) => r.name).join(' + ')} · wear it from Style`;
     if (after.lv > before.lv) setTimeout(() => showToast(`LEVEL UP // ${characterById(id).name.toUpperCase()} LV ${after.lv}${fresh.length ? ` · ${fresh[0].name.toUpperCase()}` : ''}`, 0xffc23d), 700);
   };
   /** the result screen in arcade: stage clear (and a look at the next one), or game over */
