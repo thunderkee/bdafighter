@@ -8108,3 +8108,73 @@ body.cine-on #pad {
   font: 700 12px var(--body);
   color: var(--rar);
 }
+
+/* ================= the boss's health bar, and the fade that hides a jump ================= */
+#action .ac-bossbar {
+  display: none;
+  justify-self: center;
+  align-self: center;
+  width: min(86%, 420px);
+  margin: 2px auto 0;
+  text-align: center;
+}
+#action .ac-bossbar.on {
+  display: grid;
+  gap: 4px;
+  animation: ac-boss-in 0.4s ease-out;
+}
+#action .ac-bossbar b {
+  font: 700 15px var(--display);
+  letter-spacing: 0.08em;
+  color: #ffd84a;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+}
+#action .ac-bossbar i {
+  position: relative;
+  display: block;
+  height: 12px;
+  border-radius: 99px;
+  background: rgba(10, 6, 14, 0.75);
+  border: 2px solid #14101c;
+  box-shadow: 0 0 0 1px rgba(255, 216, 74, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+#action .ac-bossbar s,
+#action .ac-bossbar u {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 99px;
+}
+#action .ac-bossbar s {
+  background: #fff1c8;
+  opacity: 0.85;
+}
+#action .ac-bossbar u {
+  background: linear-gradient(180deg, #ff6a5a, #c8202a);
+  transition: width 0.12s linear;
+}
+@keyframes ac-boss-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#action .ac-fade {
+  position: absolute;
+  inset: 0;
+  background: #050407;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 30;
+}
+#action .ac-fade.on {
+  opacity: 1;
+  pointer-events: auto;
+}

@@ -488,6 +488,9 @@ export class ActionMode {
   private camSnap = true;
   /** which way the cockpit view looks (set as each stage starts, so the stick stays put); TPS turns it with you */
   private camYaw = 0;
+  /** TPS: how fast the camera is swinging round (it eases into and out of a turn), and a view change's glide (s left) */
+  private yawVel = 0;
+  private camGlide = 0;
   private localView: ActionView = 'mid';
   /** Dungeon Run's TPS view is on (kept here, not in the camera setting the other modes share) */
   private tps = false;
@@ -524,6 +527,7 @@ export class ActionMode {
     this.el.innerHTML = `
       <canvas></canvas>
       <div class="ac-flash"></div>
+      <div class="ac-fade"></div>
       <div class="ac-vignette"></div>
       <div class="ac-speed"></div>
       <div class="ac-bars"></div>
@@ -534,6 +538,7 @@ export class ActionMode {
           <div class="ac-title"><b></b><span></span></div>
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
+        <div class="ac-bossbar" aria-hidden="true"><b></b><i><s></s><u></u></i></div>
         <p class="ac-callout"></p>
         <p class="ac-supername"></p>
         <p class="ac-hint">TAP TO FIRE · HOLD TO CHARGE · DRAG TO AIM · SHOOT THE CRATES · STAND STILL TO MEND</p>
@@ -562,7 +567,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -1516,8 +1521,9 @@ export class ActionMode {
     const sr = this.dg?.rooms.find((r) => r.kind === 'start');
     const start = this.kind === 'ffa' ? this.ffaStarts()[0] : this.teams ? this.teamSpot(0, 0) : sr ? this.center((sr.i0 + sr.i1) >> 1, (sr.j0 + sr.j1) >> 1) : { x: 0, z: this.H / 2 - 2 };
     this.me = this.makeUnit(def, start.x, start.z, false, 0);
-    // (TPS starts you looking up the room, as the cockpit view does, rather than at the wall behind)
-    this.me.face = this.teams || this.view === 'tps' ? 0 : Math.PI;
+    // (TPS starts you looking into the stage: toward the middle in free-for-all, at the other side in
+    // the team modes, up the room in the dungeon; never at the wall behind)
+    this.me.face = this.kind === 'ffa' && this.view === 'tps' ? Math.atan2(-start.x, start.z) : this.teams || this.view === 'tps' ? 0 : Math.PI;
     if (this.kind === 'gauntlet') {
       const vital = this.ups.vital ?? 0;
       this.me.max = Math.round(this.me.max * (1 + 0.25 * vital));
@@ -2067,7 +2073,7 @@ export class ActionMode {
     if (u === this.me && this.kind === 'gauntlet' && this.lives > 1) {
       this.lives--;
       this.callout(`DOWN · ${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`, 1);
-      setTimeout(() => this.backToCheckpoint(), 1800);
+      setTimeout(() => this.fadeThrough(() => this.backToCheckpoint()), 1500);
       this.updateHud();
       return;
     }
@@ -4122,6 +4128,21 @@ export class ActionMode {
       title.querySelector('span')!.textContent = `STAGE ${this.stage} · ${this.isBossRoom() ? 'BOSS' : this.hasKey ? 'KEY FOUND' : 'ROOMS'} · ${'♥'.repeat(this.lives)}`;
     }
     this.hud.score.querySelector('b')!.textContent = String(this.kos);
+    // the boss's health across the top, while one's up (the dark part trails behind, showing the last hit)
+    const boss = this.units.find((u) => u.boss && u.alive && u.cpu && (!this.me || u.team !== this.me.team));
+    const bb = this.hud.bossbar;
+    bb.classList.toggle('on', !!boss && !this.over);
+    if (boss) {
+      const k = Math.max(0, boss.hp / boss.max);
+      if (bb.dataset.id !== boss.def.id) {
+        bb.dataset.id = boss.def.id;
+        bb.querySelector('b')!.textContent = boss.def.name.toUpperCase();
+        this.bossTrail = k;
+      }
+      this.bossTrail = Math.max(k, this.bossTrail - 0.006);
+      (bb.querySelector('u') as HTMLElement).style.width = `${k * 100}%`;
+      (bb.querySelector('s') as HTMLElement).style.width = `${this.bossTrail * 100}%`;
+    } else bb.dataset.id = '';
     const c = this.me?.charge ?? 0;
     // (the SPECIAL button fills from the bottom, then burns once it's ready, as in the main game)
     this.hud.special.classList.toggle('ready', c >= 1);
@@ -4150,6 +4171,7 @@ export class ActionMode {
     this.hud.special.style.setProperty('--p', String(Math.round(c * 100)));
   }
 
+  private bossTrail = 1;
   private calloutTimer = 0;
   private callout(text: string, tone = 0) {
     const el = this.hud.callout;
@@ -4163,19 +4185,24 @@ export class ActionMode {
   }
 
   private get view(): Cam {
-    if (this.tps && this.kind === 'gauntlet') return 'tps';
+    if (this.tps) return 'tps';
     return this.opts.camera?.() ?? this.localView;
   }
   private cycleView() {
     const now = this.view;
-    // (Dungeon Run has one more after the cockpit: TPS; from there, round to the first again)
-    this.tps = this.kind === 'gauntlet' && now === 'first';
+    // (one more after the cockpit, in every mode: TPS; from there, round to the first again)
+    this.tps = now === 'first';
     if (!this.tps) {
       const next = VIEWS[(VIEWS.indexOf(now as ActionView) + 1) % VIEWS.length];
       if (this.opts.setCamera) this.opts.setCamera(next);
       else this.localView = next;
     }
-    this.camSnap = true;
+    // (no cut: the camera glides from the old view to the new one; TPS picks up behind you)
+    if (this.tps && this.me) {
+      this.camYaw = this.me.face;
+      this.yawVel = 0;
+    }
+    this.camGlide = 0.45;
     this.showView();
   }
   private showView() {
@@ -4203,9 +4230,18 @@ export class ActionMode {
     // (the cockpit view starts looking into the stage: up the room, or toward the middle)
     if (this.camSnap && me) this.camYaw = this.kind === 'ffa' && Math.hypot(me.x, me.z) > 1 ? Math.atan2(-me.x, me.z) : 0;
     // (TPS turns with your fighter, a beat behind; it holds while you aim by hand, or it would chase your thumb round)
+    // (a spring, so the camera eases into a swing and settles out of it: a new target or a sharp turn
+    // never yanks it round)
     if (view === 'tps' && me) {
-      if (this.camSnap) this.camYaw = me.face;
-      else if (!this.aimStick && !this.mouseFire) this.camYaw = wrapAngle(this.camYaw + wrapAngle(me.face - this.camYaw) * (1 - Math.exp(-dt * 5)));
+      if (this.camSnap) {
+        this.camYaw = me.face;
+        this.yawVel = 0;
+      } else if (!this.aimStick && !this.mouseFire) {
+        const w = 11;
+        const d = wrapAngle(me.face - this.camYaw);
+        this.yawVel += (d * w * w - 2 * w * this.yawVel) * Math.min(dt, 0.05);
+        this.camYaw = wrapAngle(this.camYaw + this.yawVel * dt);
+      } else this.yawVel *= Math.exp(-dt * 10);
     }
     // it sees the horizon: a sky, and a haze over the far side
     const sky = behind(view);
@@ -4256,7 +4292,9 @@ export class ActionMode {
       this.camAt.copy(at);
       this.camSnap = false;
     } else {
-      const k = 1 - Math.exp(-dt * 9);
+      // (a view change glides over a moment, easing in and out; otherwise the camera keeps close)
+      this.camGlide = Math.max(0, this.camGlide - dt);
+      const k = 1 - Math.exp(-dt * (this.camGlide > 0 ? 5 : view === 'tps' ? 14 : 9));
       this.camPos.lerp(pos, k);
       this.camAt.lerp(at, k);
     }
@@ -4463,11 +4501,37 @@ export class ActionMode {
   /** Dungeon Run: down to the next stage, a new dungeon (you keep your gear, upgrades, lives and most of your health) */
   private descend() {
     this.showPanel(null);
-    this.stage++;
-    this.stageRooms = this.room - 1;
-    this.startStage();
-    if (this.me) this.me.hp = Math.min(this.me.max, this.me.hp + this.me.max * 0.3);
-    sfx.play('gong');
+    this.fadeThrough(() => {
+      this.stage++;
+      this.stageRooms = this.room - 1;
+      this.startStage();
+      if (this.me) this.me.hp = Math.min(this.me.max, this.me.hp + this.me.max * 0.3);
+      sfx.play('gong');
+    });
+  }
+
+  /**
+   * a jump from one place to another (back to a checkpoint, down to the next stage) hidden
+   * behind a quick fade to black: the world holds still while it's dark, the camera lands, then
+   * the picture fades back in
+   */
+  private fading = false;
+  private fadeThrough(fn: () => void) {
+    if (this.fading) return;
+    this.fading = true;
+    const el = this.hud.fade;
+    el.classList.add('on');
+    this.paused = true;
+    setTimeout(() => {
+      fn();
+      this.camSnap = true;
+      // (a beat in the dark so the new place is drawn before it shows)
+      setTimeout(() => {
+        el.classList.remove('on');
+        this.paused = !!this.panelKind && this.panelKind !== 'start' && this.panelKind !== 'win' && this.panelKind !== 'lose';
+        this.fading = false;
+      }, 120);
+    }, 320);
   }
 
   private offerUpgrades() {
