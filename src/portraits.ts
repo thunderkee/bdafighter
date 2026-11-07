@@ -27,7 +27,7 @@ function setup() {
 }
 
 /** the bust crop: a square of the upper body and head */
-const BUST = 128;
+const BUST = 192;
 
 /** the unit seen from the front-left, a little above, framed to fit (or, for a bust, the top of it) */
 function render(id: string, bust = false) {

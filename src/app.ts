@@ -8,6 +8,7 @@ import { AIController } from './ai';
 import { Fx2D } from './fx2d';
 import { BUILTINS, characterById, playable, playableId } from './robot';
 import { fillPortraits, portrait } from './portraits';
+import { TalkFace } from './talkface';
 import { Preview } from './preview';
 import { profileOf, storyOf } from './profiles';
 import { STAGES, stageById } from './stage';
@@ -1098,29 +1099,50 @@ export function boot() {
   let dlgHero = '';
   /** played out on the table (the camera on the speaker) rather than over a backdrop */
   let dlgStaged = false;
-  /** one line of the talk: the speaker's face (yours on the left, theirs on the right) */
+  const talkFace = new TalkFace();
+  let liveRow: HTMLElement | null = null;
+  let liveId = '';
+  /** the bubble that had the live face keeps a still portrait of its speaker */
+  const dlgStill = () => {
+    if (!liveRow) return;
+    const pic = liveRow.querySelector<HTMLElement>('.cb-pic')!;
+    pic.innerHTML = `<i data-portrait="${liveId}" data-crop="bust"></i>`;
+    fillPortraits(pic);
+    liveRow = null;
+  };
+  /** one line of the talk, added to the chat: the speaker's face and name by the bubble (yours on the left, theirs on the right, the narrator in the middle) */
   const dlgShow = () => {
     const l = dlgLines[dlgAt];
     const narr = l.who === 'narrator';
     const id = narr ? '' : unitOfBase(l.who);
-    dlg.dataset.side = narr ? 'narrator' : whoOf(id) === whoOf(dlgHero) ? 'you' : 'them';
-    $('dlg-who').textContent = narr ? '' : characterById(id).name;
-    $('dlg-text').textContent = l.text;
+    const side = narr ? 'narr' : whoOf(id) === whoOf(dlgHero) ? 'you' : 'them';
+    const chat = $('dlg-chat');
+    const row = document.createElement('div');
+    row.className = `cb ${side}`;
+    row.innerHTML = narr ? '<p class="cb-bubble"></p>' : `<span class="cb-face"><i class="cb-pic"></i><b></b></span><p class="cb-bubble"></p>`;
+    row.querySelector('p')!.textContent = l.text;
+    // (how it's said, from the line itself: a shout, a question, trailing off, or plain talk)
+    const mood = /!/.test(l.text) ? 'shout' : /\?\s*$/.test(l.text) ? 'ask' : /^…|…$|\.\.\.$/.test(l.text.trim()) ? 'quiet' : 'say';
+    // the speaker talks, live, in the newest bubble; the earlier ones keep a still of them
+    dlgStill();
+    if (!narr) {
+      row.querySelector('b')!.textContent = characterById(id).name;
+      row.querySelector('.cb-pic')!.append(talkFace.canvas);
+      liveRow = row;
+      liveId = id;
+      talkFace.show(id, mood);
+    }
+    chat.append(row);
+    // (the oldest lines scroll off the top)
+    while (chat.children.length > 12) chat.firstElementChild!.remove();
     // on the table: the camera cuts to the speaker (the narrator gets the wide shot); someone who
     // isn't in this fight still shows as a face
     const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && whoOf(unitIds()[k]) === whoOf(id));
-    // (how it's said, from the line itself: a shout, a question, trailing off, or plain talk)
-    const mood = /!/.test(l.text) ? 'shout' : /\?\s*$/.test(l.text) ? 'ask' : /^…|…$|\.\.\.$/.test(l.text.trim()) ? 'quiet' : 'say';
     if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt, slot, mood };
-    const face = $('dlg-face');
-    const showFace = !narr && (!dlgStaged || slot < 0);
-    dlg.classList.toggle('offstage', dlgStaged && showFace);
-    face.innerHTML = showFace ? `<i data-portrait="${id}" data-crop="bust"></i>` : '';
-    if (showFace) fillPortraits(face);
-    replay($('dlg-text'), 'dlg-in');
-    replay(face, 'dlg-pop');
   };
   const dlgEnd = () => {
+    dlgStill();
+    talkFace.stop();
     dlg.classList.add('hidden');
     const done = dlgDone;
     dlgDone = null;
@@ -1133,6 +1155,8 @@ export function boot() {
     dlgDone = then;
     dlgStaged = staged;
     dlg.classList.toggle('staged', staged);
+    liveRow = null;
+    $('dlg-chat').replaceChildren();
     $('dlg-ch').textContent = head;
     $('dlg-title').textContent = title;
     // (before a fight: what it's for, and how it's won)
