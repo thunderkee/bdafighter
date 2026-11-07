@@ -922,11 +922,14 @@ export class ActionMode {
   }
   private wallCur = 1.1;
   /**
-   * the views from behind you: a wall between the camera and your fighter dissolves (a dither, so it
-   * stays in the opaque pass and the outlines still work), in a soft-edged tube from the camera to you
+   * the views from behind you: a wall between the camera and your fighter turns see-through, as a
+   * bush does when you're in it (blended, not cut away, so no outline rings the spot), in a
+   * soft-edged tube from the camera to you
    */
   private fadeU = { uFadeA: { value: new THREE.Vector3() }, uFadeB: { value: new THREE.Vector3() }, uFadeR: { value: 1.1 }, uFadeOn: { value: 0 } };
   private seeThrough<M extends THREE.Material>(mat: M): M {
+    // (drawn after the solid things so what's behind shows through; everywhere else it's fully opaque)
+    mat.transparent = true;
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, this.fadeU);
       sh.vertexShader = sh.vertexShader
@@ -950,11 +953,12 @@ export class ActionMode {
             float t = clamp(dot(vSeeW - uFadeA, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
             float d = length(vSeeW - (uFadeA + ab * t));
             // (a tube from the camera to just short of you: fully open in the middle, easing out at its edge)
-            float k = uFadeOn * (1.0 - smoothstep(uFadeR * 0.55, uFadeR, d)) * (1.0 - smoothstep(0.9, 1.0, t));
-            float dither = mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 2.0, 4.0) / 4.0 + 0.125;
-            if (k * 0.92 > dither) discard;
+            seeK = uFadeOn * (1.0 - smoothstep(uFadeR * 0.55, uFadeR, d)) * (1.0 - smoothstep(0.9, 1.0, t));
           }`,
-        );
+        )
+        .replace('void main() {', 'float seeK = 0.0;\nvoid main() {')
+        // (as see-through as a bush you stand in)
+        .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= 1.0 - seeK * 0.55;');
     };
     return mat;
   }
