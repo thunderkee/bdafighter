@@ -124,6 +124,28 @@ const THEMES: Theme[] = [
 ];
 /** Dungeon Run's look: warm stone, brick walls, darkness all round */
 const CRYPT: Theme = { id: 'crypt', name: 'The Crypt', floor: ['#7d6e5c', '#766754'], line: 'rgba(0,0,0,0.16)', wall: 0x6e4229, bush: 0x3a6a3a, water: 0x2a4a6a, apron: 0x050407, sky: 0x0a0806 };
+/**
+ * Dungeon Run's stages, deeper and deeper: each a fresh dungeon dressed after one of the arenas
+ * (its floor, walls and glow), always in darkness, with its own torch fire and lamp
+ */
+interface DStage {
+  theme: Theme;
+  torch: number;
+  lamp: number;
+}
+const dstage = (id: string, name: string, torch: number, lamp: number, o: Partial<Theme> = {}): DStage => {
+  const t = THEMES.find((x) => x.id === id) ?? CRYPT;
+  return { theme: { ...t, name, line: 'rgba(0,0,0,0.16)', apron: 0x050407, sky: 0x0a0806, ...o }, torch, lamp };
+};
+const DSTAGES: DStage[] = [
+  { theme: CRYPT, torch: 0xffb040, lamp: 0xffb070 },
+  dstage('snow', 'Frozen Caverns', 0x8ae8ff, 0xbfe8ff, { wall: 0x7aaed0 }),
+  dstage('forest', 'Overgrown Ruins', 0x9aff6a, 0xd8ffb0),
+  dstage('lava', 'Molten Depths', 0xff6a1a, 0xff8a4a, { apron: 0x200602 }),
+  dstage('river', 'Sunken Grotto', 0x5ae0ff, 0xa8e8ff, { wall: 0x4a5a6a }),
+  dstage('cyber', 'Neon Vault', 0xff2bd6, 0xd890ff),
+  dstage('space', 'Star Vault', 0x3ef0ff, 0xa8f4ff),
+];
 const themeName = (t: Theme) => t.name ?? stageById(t.stage ?? '').name;
 /** the camera, shared with the other modes' setting: far (overhead), mid, near, and first (just behind your fighter) */
 export type ActionView = 'far' | 'mid' | 'near' | 'first';
@@ -429,6 +451,9 @@ export class ActionMode {
   private hasKey = false;
   /** Dungeon Run: lives left, and where you come back (the middle of the last room you cleared) */
   private lives = 4;
+  /** Dungeon Run: which stage you're on (1-based), and the rooms cleared before it */
+  private stage = 1;
+  private stageRooms = 0;
   private checkpoint = { x: 0, z: 0 };
   private lockMeshes: THREE.Object3D[] = [];
   private doorMeshes: THREE.Object3D[] = [];
@@ -726,6 +751,8 @@ export class ActionMode {
     this.gear = STARTER;
     this.rageT = 0;
     this.lives = 4;
+    this.stage = 1;
+    this.stageRooms = 0;
     this.startStage();
     this.showPanel(null);
     this.hud.hint.classList.remove('gone');
@@ -742,7 +769,7 @@ export class ActionMode {
     this.cleared = false;
     // a new look each time: a fresh shuffle for a new run (the Gauntlet walks through them room by room)
     if (this.kind !== 'gauntlet' || this.room === 1 || !this.themeOrder.length) this.themeOrder = [...THEMES].sort(() => Math.random() - 0.5);
-    this.theme = this.kind === 'gauntlet' ? CRYPT : this.themeOrder[0];
+    this.theme = this.kind === 'gauntlet' ? this.dstage().theme : this.themeOrder[0];
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     this.time = this.kind === 'gauntlet' ? this.time : 0;
     this.buildStage();
@@ -758,7 +785,7 @@ export class ActionMode {
     this.over = false;
     const where = themeName(this.theme).toUpperCase();
     const TEAM_NAME: Partial<Record<ActionKind, string>> = { knockout: 'TEAM KNOCKOUT · ROUND 1', zone: 'KING OF THE RING · HOLD IT', boss: 'GIANT SLAYER · TAKE IT DOWN' };
-    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `CASTLE CRASH · ${where}` : this.kind === 'ffa' ? `STORM BRAWL · ${where}` : 'DUNGEON RUN · FIND THE KEY');
+    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `CASTLE CRASH · ${where}` : this.kind === 'ffa' ? `STORM BRAWL · ${where}` : `STAGE ${this.stage} · ${themeName(this.theme).toUpperCase()}`);
     sfx.play(this.isBossRoom() ? 'gong' : 'go');
     this.updateHud();
   }
@@ -853,7 +880,7 @@ export class ActionMode {
       this.H = this.kind === 'boss' ? 21 : 25;
       this.layoutSiege();
     } else {
-      this.theme = CRYPT;
+      this.theme = this.dstage().theme;
       this.layoutDungeon();
     }
     this.lightK = 1;
@@ -878,6 +905,9 @@ export class ActionMode {
     this.seen = new Uint8Array(this.W * this.H);
     this.activeRoom = null;
     this.hasKey = false;
+  }
+  private dstage() {
+    return DSTAGES[Math.min(this.stage, DSTAGES.length) - 1];
   }
   /** how many rooms there are to fight through, and how many are done */
   private fightRooms() {
@@ -1513,7 +1543,7 @@ export class ActionMode {
   /** Dungeon Run's foes: its monsters (a room mixes them; the first rooms keep to the weaker ones) */
   private pickMonsters(n: number) {
     // (the golem and the wraith wait until the third room)
-    const pool = this.room < 3 ? MONSTERS.filter((m) => m.id !== 'golem' && m.id !== 'wraith') : MONSTERS;
+    const pool = this.room - this.stageRooms < 3 && this.stage === 1 ? MONSTERS.filter((m) => m.id !== 'golem' && m.id !== 'wraith') : MONSTERS;
     return Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)]);
   }
   /** the other fighters wear one of their paint jobs (never the plain one), so no two matches look alike */
@@ -1566,7 +1596,8 @@ export class ActionMode {
 
   /** Dungeon Run: a room's fighters, on its far side from you (tougher the further you've got) */
   private spawnRoom(room: DRoom) {
-    const r = this.room;
+    // (the rooms of this stage, plus a step for each stage below)
+    const r = Math.min(this.room - this.stageRooms, 7) + (this.stage - 1) * 1.5;
     // (kept gentle: monsters are frailer and hit softer than the arena fighters, growing slowly room by room)
     const hp = 0.35 + 0.05 * r;
     const dmg = 0.3 + 0.035 * r;
@@ -1592,7 +1623,7 @@ export class ActionMode {
       this.pickMonsters(1).forEach((e) => this.makeUnit(e, ...this.spotOf(far), true, 1, { hp, dmg }));
       return;
     }
-    const n = [1, 1, 2, 2, 2, 3, 3][r - 1] ?? 3;
+    const n = [1, 1, 2, 2, 2, 3, 3][Math.floor(r) - 1] ?? 3;
     this.pickMonsters(n).forEach((d) => {
       const u = this.makeUnit(d, ...this.spotOf(far), true, 1, { hp, dmg });
       u.aimError = Math.max(0.12, 0.3 - r * 0.02);
@@ -3021,7 +3052,8 @@ export class ActionMode {
       sfx.play('win', 0.6);
       if (r.kind === 'boss') {
         this.callout('BOSS DOWN');
-        setTimeout(() => this.finish(true, 1), 1000);
+        if (this.stage >= DSTAGES.length) setTimeout(() => this.finish(true, 1), 1000);
+        else setTimeout(() => !this.over && this.showPanel('stage'), 1000);
         return;
       }
       this.callout(r.kind === 'key' ? 'ROOM CLEAR · TAKE THE KEY' : 'ROOM CLEAR · CHECKPOINT');
@@ -3080,8 +3112,8 @@ export class ActionMode {
     const flame = new THREE.ConeGeometry(0.14, 0.34, 6);
     const halo = new THREE.SphereGeometry(0.34, 10, 8);
     const ironMat = new THREE.MeshStandardMaterial({ color: 0x2a2226, roughness: 0.7 });
-    const fireMat = new THREE.MeshBasicMaterial({ color: 0xffb040 });
-    const haloMat = new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
+    const fireMat = new THREE.MeshBasicMaterial({ color: this.dstage().torch });
+    const haloMat = new THREE.MeshBasicMaterial({ color: this.dstage().torch, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
     for (const r of dg.rooms) {
       const ring: [number, number][] = [];
       for (let i = r.i0 + 1; i < r.i1; i += 3) ring.push([i, r.j0 - 1]);
@@ -3171,7 +3203,7 @@ export class ActionMode {
     }
     // a warm lamp that goes with you, and the rest of the light turned down
     this.lightK = 0.62;
-    this.lamp = new THREE.PointLight(0xffb070, 30, 13, 1.6);
+    this.lamp = new THREE.PointLight(this.dstage().lamp, 30, 13, 1.6);
     this.scene.add(this.lamp);
   }
 
@@ -4087,8 +4119,8 @@ export class ActionMode {
       title.querySelector('b')!.textContent = `${alive}`;
       title.querySelector('span')!.textContent = 'FIGHTERS LEFT';
     } else {
-      title.querySelector('b')!.textContent = `${this.room - 1}/${this.fightRooms()}`;
-      title.querySelector('span')!.textContent = `${this.isBossRoom() ? 'BOSS ROOM' : this.hasKey ? 'ROOMS · KEY FOUND' : 'ROOMS CLEARED'} · ${'♥'.repeat(this.lives)}`;
+      title.querySelector('b')!.textContent = `${this.room - 1 - this.stageRooms}/${this.fightRooms()}`;
+      title.querySelector('span')!.textContent = `STAGE ${this.stage} · ${this.isBossRoom() ? 'BOSS' : this.hasKey ? 'KEY FOUND' : 'ROOMS'} · ${'♥'.repeat(this.lives)}`;
     }
     this.hud.score.querySelector('b')!.textContent = String(this.kos);
     const c = this.me?.charge ?? 0;
@@ -4310,12 +4342,12 @@ export class ActionMode {
     this.opts.reward?.(box, this.unitId, Math.max(10, gain));
   }
 
-  private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | 'loot' | null, place = 0) {
+  private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | 'loot' | 'stage' | null, place = 0) {
     const p = this.hud.panel;
     p.classList.toggle('hidden', !kind);
     this.panelKind = kind;
     this.panelAt = performance.now();
-    this.paused = kind === 'upgrade' || kind === 'loot';
+    this.paused = kind === 'upgrade' || kind === 'loot' || kind === 'stage';
     if (!kind) return;
     const h = p.querySelector('h2')!;
     const text = p.querySelector('.ac-text') as HTMLElement;
@@ -4344,7 +4376,7 @@ export class ActionMode {
         c.addEventListener('click', () => this.begin(k));
         cards.appendChild(c);
       };
-      mode('gauntlet', 'Dungeon Run', 'A new dungeon every run: traps, chests of gear, a key to find and a boss behind the locked door');
+      mode('gauntlet', 'Dungeon Run', 'Seven stages deep, a new dungeon each: traps, chests of gear, a key to find and a boss behind the locked door');
       mode('ffa', 'Storm Brawl', 'You and five fighters, one stage, bushes, crates and a closing storm');
       mode('siege', 'Castle Crash', 'Three on three: knock down their fortress before they knock down yours');
       mode('knockout', 'Team Knockout', 'Three on three, no respawns: last side standing takes the round, best of three');
@@ -4353,6 +4385,11 @@ export class ActionMode {
       cards.classList.add('modes');
       bestEl.textContent = this.bestLine();
       button('Back', () => this.exit());
+    } else if (kind === 'stage') {
+      const next = DSTAGES[this.stage];
+      h.textContent = `Stage ${this.stage} cleared`;
+      text.textContent = `Down the stairs: ${themeName(next.theme)}, stage ${this.stage + 1} of ${DSTAGES.length}. Your gear, upgrades and lives come with you, and you get some health back.`;
+      button('Descend · FIRE', () => this.descend(), 'primary');
     } else if (kind === 'loot') {
       const l = this.lootOpen!;
       h.textContent = 'Gear found';
@@ -4395,7 +4432,7 @@ export class ActionMode {
         const pct = (t: number) => Math.ceil(((this.forts.find((f) => f.team === t)?.hp ?? 0) / FORT_HP) * 100);
         text.textContent = `${o > 0 ? 'Your side knocked theirs down' : o < 0 ? 'Their side knocked yours down' : 'Time ran out'}: yours ${pct(0)}%, theirs ${pct(1)}%. You knocked off ${Math.round((this.fortDealt / FORT_HP) * 100)}% and took down ${this.kos} fighter${this.kos === 1 ? '' : 's'}.`;
       } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Dungeon cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
-      if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `${this.fightRooms()} rooms, the boss included, and ${this.kos} fighters down.` : `You cleared ${this.room - 1} of ${this.fightRooms()} rooms with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
+      if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${DSTAGES.length} stages: ${this.room - 1} rooms and ${this.kos} monsters down.` : `You reached stage ${this.stage} (${themeName(this.theme)}) and cleared ${this.room - 1} rooms with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
       bestEl.textContent = this.bestLine();
       button('Play again', () => this.begin(this.kind), 'primary');
       button('Modes', () => {
@@ -4413,6 +4450,7 @@ export class ActionMode {
   private dismissBonus(byFire = false) {
     // (a FIRE already being hammered as the panel comes up doesn't throw it away)
     if (byFire && performance.now() - this.panelAt < 450) return;
+    if (this.panelKind === 'stage') return this.descend();
     if (this.panelKind === 'loot') {
       if (this.lootOpen) this.lootOpen.away = true;
       this.lootOpen = null;
@@ -4421,6 +4459,16 @@ export class ActionMode {
       this.showPanel(null);
       this.openDoor();
     }
+  }
+
+  /** Dungeon Run: down to the next stage, a new dungeon (you keep your gear, upgrades, lives and most of your health) */
+  private descend() {
+    this.showPanel(null);
+    this.stage++;
+    this.stageRooms = this.room - 1;
+    this.startStage();
+    if (this.me) this.me.hp = Math.min(this.me.max, this.me.hp + this.me.max * 0.3);
+    sfx.play('gong');
   }
 
   private offerUpgrades() {
@@ -4541,7 +4589,7 @@ export class ActionMode {
   };
   private fireDown = (e: PointerEvent) => {
     e.stopPropagation();
-    if (this.panelKind === 'loot' || this.panelKind === 'upgrade') return this.dismissBonus(true);
+    if (this.panelKind === 'loot' || this.panelKind === 'upgrade' || this.panelKind === 'stage') return this.dismissBonus(true);
     if (this.over || this.paused || !this.me?.alive || this.aimStick) return;
     sfx.unlock();
     this.aimStick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), big: false };
@@ -4576,7 +4624,7 @@ export class ActionMode {
   private keydown = (e: KeyboardEvent) => {
     if (!this.running) return;
     this.keys.add(e.code);
-    if (e.code === 'Space' && !e.repeat && (this.panelKind === 'loot' || this.panelKind === 'upgrade')) return this.dismissBonus(true);
+    if (e.code === 'Space' && !e.repeat && (this.panelKind === 'loot' || this.panelKind === 'upgrade' || this.panelKind === 'stage')) return this.dismissBonus(true);
     if (this.over || this.paused || !this.me?.alive) return;
     if (e.code === 'Space') this.keyFire = true;
     if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) this.special(this.me, this.autoAim());

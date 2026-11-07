@@ -2026,7 +2026,7 @@ export function boot() {
     { id: 'boss', name: 'Giant Slayer', sub: 'You and two more against one giant fighter', kind: 'arena', icon: '👹', go: arena('boss') },
     { id: 'story', name: 'League Story', sub: 'Your fighter’s path through the League', kind: 'campaign', icon: '📖', go: press('story-btn') },
     { id: 'arcade', name: 'Boss Ladder', sub: 'A ladder of stages and four bosses', kind: 'campaign', icon: '🏆', go: press('arcade-btn') },
-    { id: 'gauntlet', name: 'Dungeon Run', sub: 'A new dungeon each run: traps, loot, a key and a boss', kind: 'campaign', icon: '🚪', go: arena('gauntlet') },
+    { id: 'gauntlet', name: 'Dungeon Run', sub: 'Seven stages deep: traps, loot, keys and bosses', kind: 'campaign', icon: '🚪', go: arena('gauntlet') },
     { id: 'tutorial', name: 'Tutorial', sub: 'Move, shoot, shield and parry in a minute', kind: 'more', icon: '🎓', go: press('tut-card') },
     { id: 'lab', name: 'Unit Lab', sub: 'Edit and build fighters', kind: 'more', icon: '🔧', go: () => (location.href = './editor.html') },
   ];
