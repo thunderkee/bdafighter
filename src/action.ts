@@ -847,6 +847,8 @@ export class ActionMode {
     this.stormMesh = [];
     this.lockMeshes = [];
     this.doorMeshes = [];
+    this.wallMesh = this.stripMesh = null;
+    this.torches = [];
     this.chests = [];
     this.loot = [];
     this.lootOpen = null;
@@ -914,7 +916,26 @@ export class ActionMode {
   }
   /** how tall the walls stand (the dungeon's are higher) */
   private wallH() {
-    return this.kind === 'gauntlet' ? 2 : 1.1;
+    // (the dungeon's walls rise in TPS, so its corridors close in round you; seen from above they stay low)
+    return this.kind === 'gauntlet' && this.view === 'tps' ? 2.1 : 1.1;
+  }
+  private wallCur = 1.1;
+  private wallMesh: THREE.Object3D | null = null;
+  private stripMesh: THREE.Object3D | null = null;
+  private torches: THREE.Object3D[] = [];
+  /** the walls ease to the height the view wants (and the doors, glow strips and torches with them) */
+  private tickWalls(dt: number) {
+    const want = this.wallH();
+    if (Math.abs(want - this.wallCur) < 0.002) {
+      if (this.wallCur === want) return;
+      this.wallCur = want;
+    } else this.wallCur += (want - this.wallCur) * (1 - Math.exp(-dt * 8));
+    const h = this.wallCur;
+    if (this.wallMesh) this.wallMesh.scale.y = h;
+    if (this.stripMesh) this.stripMesh.position.y = h;
+    for (const b of [...this.doorMeshes, ...this.lockMeshes, ...this.gateMeshes]) b.scale.y = h;
+    // (torches ride up with a taller wall, so the flame stays up near its top)
+    for (const t of this.torches) t.position.y = (h - 1.1) * 0.36;
   }
   private dstage() {
     return DSTAGES[Math.min(this.stage, DSTAGES.length) - 1];
@@ -1327,12 +1348,14 @@ export class ActionMode {
           m.setMatrixAt(k++, this.dummy.matrix);
         }
       this.world.add(m);
+      return m;
     };
-    // (the dungeon's walls stand taller: corridors and rooms read as enclosed)
-    const wallH = this.wallH();
-    const wallGeo = new THREE.BoxGeometry(1, wallH, 1);
-    wallGeo.translate(0, wallH / 2, 0);
-    inst(wallGeo, new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8 }), WALL, () => {});
+    // (walls are a unit tall, stretched to the height they stand at: the dungeon's rise in TPS)
+    this.wallCur = this.wallH();
+    const wallGeo = new THREE.BoxGeometry(1, 1, 1);
+    wallGeo.translate(0, 0.5, 0);
+    this.wallMesh = inst(wallGeo, new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8 }), WALL, () => {}) ?? null;
+    if (this.wallMesh) this.wallMesh.scale.y = this.wallCur;
     for (const k of cover) {
       const o = coverProp(th.id, Math.random);
       if (!o) continue;
@@ -1346,8 +1369,9 @@ export class ActionMode {
       // a glowing band round the top of each wall (the main game's rail glow)
       // (a band round the sides just under the top, so it never shares a face with the wall)
       const stripGeo = new THREE.BoxGeometry(1.03, 0.09, 1.03);
-      stripGeo.translate(0, wallH - 0.12, 0);
-      inst(stripGeo, new THREE.MeshBasicMaterial({ color: th.wallGlow }), WALL, () => {});
+      stripGeo.translate(0, -0.12, 0);
+      this.stripMesh = inst(stripGeo, new THREE.MeshBasicMaterial({ color: th.wallGlow }), WALL, () => {}) ?? null;
+      if (this.stripMesh) this.stripMesh.position.y = this.wallCur;
     }
     this.bushMat.color.setHex(th.bush);
     this.bushMat.emissive.setHex(th.bushGlow ? th.bush : 0x000000);
@@ -3101,9 +3125,11 @@ export class ActionMode {
     const i = k % this.W;
     const j = Math.floor(k / this.W);
     const p = this.center(i, j);
-    const h = this.wallH();
-    const bars = new THREE.Mesh(new THREE.BoxGeometry(1, h, 0.3), new THREE.MeshStandardMaterial({ color, emissive: glow, roughness: 0.5 }));
-    bars.position.set(p.x, h / 2, p.z);
+    const geo = new THREE.BoxGeometry(1, 1, 0.3);
+    geo.translate(0, 0.5, 0);
+    const bars = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, emissive: glow, roughness: 0.5 }));
+    bars.position.set(p.x, 0, p.z);
+    bars.scale.y = this.wallCur;
     // (a door in a side wall: open floor left and right of it means it runs up and down)
     const side = this.grid[this.idx(i - 1, j)] === WALL || this.grid[this.idx(i + 1, j)] === WALL || this.grid[this.idx(i - 1, j)] === ROCK;
     const updown = !side && (this.grid[this.idx(i, j - 1)] === WALL || this.grid[this.idx(i, j + 1)] === WALL);
@@ -3135,8 +3161,9 @@ export class ActionMode {
         // (on the room's side of the wall)
         const dx = i < r.i0 ? 0.55 : i > r.i1 ? -0.55 : 0;
         const dz = j < r.j0 ? 0.55 : j > r.j1 ? -0.55 : 0;
-        t.position.set(p.x + dx, 0, p.z + dz);
+        t.position.set(p.x + dx, (this.wallCur - 1.1) * 0.36, p.z + dz);
         this.world.add(t);
+        this.torches.push(t);
       }
     }
     // the traps (built from their Unit Lab designs; the parts that move are found by name)
@@ -4154,6 +4181,7 @@ export class ActionMode {
   /** the camera follows you: from above and behind (far is near overhead), low behind you in the cockpit view, or lower and closer, turning with you, in TPS */
   private placeCamera(dt: number) {
     const me = this.me;
+    this.tickWalls(dt);
     // (your special's cinematic: the cockpit framing, behind you and looking at its target)
     // (the cinematic is the pose: when it's done and the balls leave, back to your view)
     if (this.spCine) {
