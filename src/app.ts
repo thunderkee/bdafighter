@@ -662,6 +662,7 @@ export function boot() {
     carry = carryStage ? [carry[0] ?? null] : [];
     carryStage = false;
     saveRun('start');
+    view.clearScars();
     const st = S();
     // local versus: the table from above for both players, their own labels and controls
     document.body.classList.toggle('duo', duo);

@@ -29,7 +29,7 @@ interface StageDef {
   apronGlow?: boolean;
   /** the apron is animated water */
   water?: boolean;
-  particles: 'none' | 'snow' | 'embers' | 'stars' | 'rain' | 'fireflies' | 'neon' | 'confetti';
+  particles: 'none' | 'dust' | 'snow' | 'embers' | 'stars' | 'rain' | 'fireflies' | 'neon' | 'confetti';
 }
 
 /** build the decoration around the table (off: just the field, for speed) */
@@ -179,9 +179,9 @@ export const STAGES: StageDef[] = [
     particles: 'confetti',
   },
   // the shaped boards: no pieces inside, only a different outline (see shapes.ts)
-  { id: 'sandglass', name: 'Sandglass Pass', swatch: [0xf0c27a, 0x7a4428], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
-  { id: 'crystal', name: 'Crystal Court', swatch: [0x5e52c8, 0x9af0ff], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
-  { id: 'serpent', name: 'Serpent Run', swatch: [0x3e8e5a, 0xf4c25b], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'none' },
+  { id: 'sandglass', name: 'Sandglass Pass', swatch: [0xf0c27a, 0x7a4428], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'dust' },
+  { id: 'crystal', name: 'Crystal Court', swatch: [0x5e52c8, 0x9af0ff], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'fireflies' },
+  { id: 'serpent', name: 'Serpent Run', swatch: [0x3e8e5a, 0xf4c25b], sky: 0, fog: [0, 0, 0], hemi: [0, 0, 0], sun: [0, 0], floor: 0, floorLine: 0, pattern: 'sand', rail: 0, apron: 0, particles: 'fireflies' },
 ];
 
 // the cartoon look: brighter skies and light, and the apron colours to match
@@ -2068,7 +2068,7 @@ export class Stage {
     geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
     const glow = kind === 'embers' || kind === 'fireflies' || kind === 'neon';
     const mat = new THREE.PointsMaterial({
-      color: kind === 'embers' ? 0xff8a3a : kind === 'fireflies' ? 0xd8ff6a : 0xffffff,
+      color: kind === 'embers' ? 0xff8a3a : kind === 'fireflies' ? (this.def.id === 'crystal' ? 0x9af0ff : 0xd8ff6a) : kind === 'dust' ? 0xf0d8a8 : 0xffffff,
       vertexColors: kind === 'confetti' || kind === 'neon',
       size: kind === 'stars' ? 0.35 : kind === 'snow' ? 0.14 : kind === 'fireflies' ? 0.16 : kind === 'confetti' ? 0.16 : 0.1,
       sizeAttenuation: true,
@@ -2427,6 +2427,11 @@ export class Stage {
           a[i * 3 + 1] -= dt * (kind === 'confetti' ? 0.8 : 1.2) * this.pVel[i];
           a[i * 3] += Math.sin(time + i) * dt * (kind === 'confetti' ? 0.8 : 0.3);
           if (a[i * 3 + 1] < 0) a[i * 3 + 1] = 14;
+        } else if (kind === 'dust') {
+          // sand on the wind, blowing across and looping round
+          a[i * 3] += dt * 3.2 * this.pVel[i];
+          a[i * 3 + 1] += Math.sin(time * 1.3 + i) * dt * 0.25;
+          if (a[i * 3] > 14) a[i * 3] = -14;
         } else if (kind === 'fireflies') {
           a[i * 3] += Math.sin(time * 0.7 + i) * dt * 0.4;
           a[i * 3 + 1] += Math.cos(time * 0.9 + i * 1.7) * dt * 0.3;

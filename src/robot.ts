@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { fromGeometry, meshGeometry } from './meshkit';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Shooter } from './game';
+import { Flair } from './flair';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
@@ -812,6 +813,8 @@ const TALK: Record<string, TalkStyle> = {
   nightshade: style({ pace: 0.8, float: 1, sway: 0.3, energy: 0.6, shout: 'rise' }),
   // Silverback: the hunched silverback; beats its chest
   violet: style({ pace: 0.9, hunch: 0.15, lean: -0.05, energy: 1.2, shout: 'beat' }),
+  // True Leo King: feet planted, barely moving, until it means it
+  trueleo: style({ pace: 0.65, lean: -0.02, energy: 0.4, shout: 'regal' }),
   // Leo King: chin up, leaning back, royal; one grand gesture
   kabuto: style({ pace: 0.85, lean: 0.07, chin: 0.12, energy: 0.8, shout: 'regal' }),
   // Tyrant King: leans in, menacing and slow; lunges and snaps its jaws
@@ -997,6 +1000,7 @@ export class ShooterMesh {
     }
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
     this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
+    this.flair?.paint(this.mats);
   }
 
   private build(def: CharacterDef, marbleColor: number) {
@@ -1835,6 +1839,7 @@ export class ShooterMesh {
       o.scale.fromArray(b.s);
       o.userData.path = path;
       if (b.name) o.name = b.name;
+      if (b.role) o.userData.role = b.role;
       assign(o, b.role);
       (b.children ?? []).forEach((c, i) => o.add(make(c, `${path}/${i}`)));
       return o;
@@ -1851,7 +1856,14 @@ export class ShooterMesh {
     if (!this.turret.parent) this.root.add(this.turret);
     // a gun tossed hand to hand (Pioneer): the barrel jumps between the two fists
     if (def.special?.swap && this.fistR && this.fistL && this.barrel.parent === this.turret) this.tossGun = this.barrel;
+    // (the finish over the design: back shapes, wear, springs, damage)
+    const eye = def.palette.eye;
+    this.flair = new Flair(this.root, this.turret, def.id, def, this.mats, (m) => {
+      const mat = m.material as THREE.MeshBasicMaterial;
+      return !Array.isArray(mat) && !!mat.isMeshBasicMaterial && mat.color.getHex() === eye;
+    });
   }
+  private flair: Flair | null = null;
 
   /** Describe this model as editable blocks (how built-ins become Unit Lab designs). */
   toBlueprint(def: CharacterDef): Block {
@@ -6152,7 +6164,9 @@ export class ShooterMesh {
     const spring = heavy * Math.cos(heavyT * 17);
     const lean = punch * 0.09 + heavy * 0.3;
     const slide = punch * 0.05 + heavy * 0.2;
-    const squash = punch * 0.06 + spring * 0.16;
+    // winding up a charged shot: it sinks down onto its legs, the more marbles the lower
+    const coil = Math.min(1, ((s as { stored?: number }).stored ?? 0) / 5);
+    const squash = punch * 0.06 + spring * 0.16 + coil * 0.12;
 
     // hit flash (the player's own robot flashes softer so it never washes out), plus the special-move glow
     const f = s.flash > 0 ? (s.team === 0 ? 0.45 : 0.9) : 0;
@@ -6174,6 +6188,9 @@ export class ShooterMesh {
     this.root.position.z += s.team === 0 ? slide : -slide;
     this.root.scale.set((1 + squash * 0.6) * this.size * this.fit.x, (1 - squash) * this.size * this.fit.y, (1 + squash * 0.6) * this.size * this.fit.z);
     this.root.rotation.y = (s.team === 0 ? 0 : Math.PI) + (jolt ? (Math.random() * 2 - 1) * jolt : 0);
+    // the shot goes back through the spine
+    this.turret.rotation.x += punch * 0.16 + heavy * 0.22;
+    this.flair?.update(time, dt, (s as { hpFrac?: number }).hpFrac ?? s.health / 100, s.recoil);
   }
 }
 

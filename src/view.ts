@@ -8,6 +8,8 @@ import { ShooterMesh, characterById, studioEnv, type CharacterDef, type TalkMood
 import { Post } from './post';
 import { ballTexture } from './patterns';
 import { Stage } from './stage';
+import { Scars, impactOf, stageLight } from './stagefx';
+import { entrance } from './flair';
 import { bounce } from './shapes';
 import { DROP, GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 
@@ -363,6 +365,7 @@ export class View {
     this.scene.add(this.hemi, this.sun);
 
     this.stage = new Stage('space');
+    this.scene.add(this.scars.mesh);
     this.applyStage();
 
     this.shooters = SLOTS.map((i) => new ShooterMesh(slotTeam(i) === 0 ? 'angel' : 'dragon', this.teamBall[slotTeam(i)]));
@@ -653,6 +656,8 @@ export class View {
   handleFx() {
     const g = this.game;
     for (const f of g.fx) {
+      if (f.type === 'spark' || f.type === 'clack') this.stageImpact(f.x, f.y, Math.min(1, f.intensity));
+      else if (f.type === 'hit') this.scars.add(f.x, -f.y, 0.34);
       switch (f.type) {
         case 'spirit-hit': {
           // the spirit shot lands: a blast, two shockwave rings, a long shake
@@ -941,8 +946,10 @@ export class View {
     // dim as it builds, come back fast when it's released; only a touch, so even the darker
     // arenas never go black (the lights stay at about 88% or more)
     this.dim += ((yours ? 0.1 + lvl * 0.15 : 0) - this.dim) * Math.min(1, dt * (yours ? 5 : 9));
-    this.hemi.intensity = this.lightBase[0] * (1 - 0.45 * this.dim);
-    this.sun.intensity = this.lightBase[1] * (1 - 0.5 * this.dim);
+    // (the stage's own light moves: the planet's turn, the pit's surge, clouds going over)
+    const moving = stageLight(this.stage.def.id, this.worldTime);
+    this.hemi.intensity = this.lightBase[0] * (1 - 0.45 * this.dim) * moving;
+    this.sun.intensity = this.lightBase[1] * (1 - 0.5 * this.dim) * moving;
     g.shooters.forEach((s, i) => {
       const orb = (this.chargeOrbs[i] ??= this.makeChargeOrb());
       const sm = this.shooters[i];
@@ -1036,6 +1043,7 @@ export class View {
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
+    this.entrances(g, dt);
     // a story scene: the one speaking talks and gestures, the other listens
     if (this.cine?.kind === 'talk') {
       const c = this.cine;
@@ -2207,6 +2215,47 @@ export class View {
       mat.needsUpdate = true;
     }
     if (!on && this.heroMarble) this.heroMarble.visible = false;
+  }
+
+  /** the VS intro: each side arrives in its own way, as its card comes up (you, then the challenger) */
+  private ghosted = [false, false];
+  private entrances(g: { shooters: { team: number; x: number; y: number }[] }, dt: number) {
+    const intro = this.cine?.kind === 'intro';
+    [0, 1].forEach((i) => {
+      const sm = this.shooters[i];
+      const s = g.shooters[i];
+      if (!sm || !s) return;
+      if (!intro) {
+        if (this.ghosted[i]) sm.setGhost(1);
+        this.ghosted[i] = false;
+        return;
+      }
+      if (!sm.root.visible || sm.broken) return;
+      const { alpha, impact } = entrance(sm.root, sm.id, this.cine!.t - (i === 0 ? 0.15 : 1.85), dt, s.team);
+      if (alpha < 1 || this.ghosted[i]) {
+        sm.setGhost(alpha);
+        this.ghosted[i] = alpha < 1;
+      }
+      if (impact) {
+        this.shake(0.3);
+        this.burst(s.x, s.y, impactOf(this.stage.def.id).color, 26, 6, { h: 0.2 });
+        sfx.play('slam', 0.55);
+      }
+    });
+  }
+
+  /** the fight's marks on the table (they last until the match is over) */
+  private scars = new Scars();
+  clearScars() {
+    this.scars.clear();
+  }
+  /** what a marble kicks up where it lands, and sometimes the mark it leaves */
+  private stageImpact(x: number, y: number, strength: number) {
+    const fx = impactOf(this.stage.def.id);
+    const n = Math.round(4 + strength * 6);
+    if (fx.kind === 'spark') this.burst(x, y, fx.color, n + 3, 7, { h: 0.3 });
+    else this.burst(x, y, fx.color, n, fx.kind === 'splash' ? 5 : 3.5, { h: 0.15, float: true, size: 0.1 });
+    if (strength > 0.55 && Math.random() < 0.55) this.scars.add(x, -y, 0.2 + strength * 0.28);
   }
 
   /** the replay's deciding marble or missile, where it is on this frame */

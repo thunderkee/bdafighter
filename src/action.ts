@@ -11,6 +11,8 @@ import { kitOf } from './kits';
 import { DROP, DRAGON, ITEMS, MISSILE } from './items';
 import { portrait } from './portraits';
 import { stageById } from './stage';
+import { Motes, Scars, impactOf, stageLight } from './stagefx';
+import { landmark } from './landmarks';
 import { coverProp, decorate } from './scenery';
 import { BOSSES, MONSTERS } from './monsters';
 import { makeDungeon, rollGear, gearPower, RARITY, PERKS, STARTER, D_ROCK, type Dungeon, type DRoom, type Gear } from './dungeon';
@@ -241,7 +243,7 @@ type UpgradeId = (typeof UPGRADES)[number]['id'];
 
 type Pose = ReturnType<typeof pose>;
 /** a fake shooter for driving a ShooterMesh's own walk and fire animation */
-const pose = () => ({ x: 0, y: 0, team: 0, aim: 0, shieldUp: false, recoil: 0, windT: 9, kickT: 9, hand: 1, lastHand: 1, wobble: 0, vx: 0, flash: 0, stagger: 0, health: 100, heavyT: 9, firing: false });
+const pose = () => ({ x: 0, y: 0, team: 0, aim: 0, shieldUp: false, recoil: 0, windT: 9, kickT: 9, hand: 1, lastHand: 1, wobble: 0, vx: 0, flash: 0, stagger: 0, health: 100, heavyT: 9, firing: false, stored: 0 });
 
 interface Unit {
   def: CharacterDef;
@@ -1111,6 +1113,13 @@ export class ActionMode {
     for (const b of [...this.doorMeshes, ...this.lockMeshes, ...this.gateMeshes]) b.scale.y = h;
     // (torches ride up with a taller wall, so the flame stays up near its top)
     for (const t of this.torches) t.position.y = (h - 1.1) * 0.36;
+    // the flames dance
+    for (const t of this.torches) {
+      const s = t.userData.seed as number;
+      const k = 1 + Math.sin(this.time * 13 + s) * 0.14 + Math.sin(this.time * 29 + s * 2) * 0.1;
+      if (t.children[1]) t.children[1].scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k));
+      if (t.children[2]) t.children[2].scale.setScalar(0.9 + (k - 1) * 0.9);
+    }
   }
   private dstage() {
     return DSTAGES[Math.min(this.stage, DSTAGES.length) - 1];
@@ -1509,6 +1518,10 @@ export class ActionMode {
     apron.rotation.x = -Math.PI / 2;
     apron.position.y = -0.02;
     this.world.add(apron);
+    this.scars.clear();
+    this.world.add(this.scars.mesh);
+    this.motes = new Motes(this.kind === 'gauntlet' ? 'dungeon' : (th.stage ?? th.id), W, H);
+    this.world.add(this.motes.points);
 
     const count = (t: number) => this.grid.reduce((n, v) => n + (v === t ? 1 : 0), 0);
     // about a third of the walls inside the stage are drawn as cover props (barrels, crates,
@@ -2308,6 +2321,7 @@ export class ActionMode {
     u.pose.flash = 1;
     if (from === this.me || u === this.me) {
       const pct = Math.max(1, Math.round((dmg / u.max) * 100));
+      if (pct >= 12) this.stopT = Math.max(this.stopT, 0.055);
       this.pop(u.x, u.z, crit ? `-${pct}%!` : `-${pct}%`, from === this.me ? 'hit' : 'ouch');
     }
     // the special's gauge, as in the main game: a marble that lands fills 8%, one taken 4.5%
@@ -2336,6 +2350,7 @@ export class ActionMode {
     // (it stays standing through the pops, then blows apart)
     this.wrecks.push({ u, mesh: u.mesh, t: 0, pops: 0, shattered: false, debris: [] });
     if (from === this.me) this.kos++;
+    if (from === this.me || u === this.me) this.stopT = Math.max(this.stopT, 0.1);
     if (this.teams) {
       // respawns: Siege and Hot Zone, and your side in Boss Fight; never in Knockout
       const back = this.kind === 'siege' || this.kind === 'zone' || (this.kind === 'boss' && u.team === 0);
@@ -2434,12 +2449,32 @@ export class ActionMode {
     this.last = now;
     // (a beat of slow motion as your special goes)
     if (this.slowT > 0) this.slowT -= dt;
-    if (!this.over && !this.paused) this.step(this.slowT > 0 ? dt * 0.3 : dt);
-    this.draw(dt);
+    // (a heavy hit lands: everything holds for a couple of frames)
+    const held = this.stopT > 0;
+    if (held) this.stopT -= dt;
+    if (!this.over && !this.paused && !held) this.step(this.slowT > 0 ? dt * 0.3 : dt);
+    this.draw(held ? dt * 0.08 : dt);
   };
 
+  /** the hit-stop still to run */
+  private stopT = 0;
+  /** the marks of this fight, and what hangs in the air */
+  private scars = new Scars(80);
+  private motes: Motes | null = null;
+  private impacts = 0;
+  /** what a marble kicks up where it ends, by arena; a big one leaves a mark */
+  private impactFx(x: number, z: number, big: boolean) {
+    if (this.impacts++ > 6) return;
+    const fx = impactOf(this.theme.stage ?? this.theme.id);
+    if (fx.kind === 'splash') this.ringFx(x, z, fx.color, 0.1, big ? 1.5 : 0.8, 0.4);
+    this.burst(x, 0.45, z, fx.color, big ? 12 : 4, fx.kind === 'spark' ? 5 : 2.6, { float: fx.kind !== 'spark', size: big ? 0.13 : 0.09 });
+    if (big || Math.random() < 0.18) this.scars.add(x, z, big ? 0.6 : 0.26);
+  }
+
   private step(dt: number) {
+    this.impacts = 0;
     this.time += dt;
+    this.motes?.update(dt, this.time);
     const me = this.me!;
     // you: walk with the stick (or WASD)
     let mx = 0;
@@ -2660,6 +2695,8 @@ export class ActionMode {
     u.pose.lastHand = u.lastHand;
     u.pose.wobble = u.wobble;
     u.pose.flash = Math.max(0, u.pose.flash - dt * 4);
+    u.pose.health = (u.hp / u.max) * 100;
+    u.pose.stored = u.stored;
   }
 
   /** a special's ball lands on someone: its damage, and its quirk */
@@ -2728,16 +2765,19 @@ export class ActionMode {
             for (const f of this.forts) if (f.team !== s.owner.team && Math.abs(s.x - f.x) < 2.2 && Math.abs(s.z - f.z) < 1.8) this.hurtFort(f, s.dmg, s.owner);
             this.shake = Math.max(this.shake, 0.3);
             sfx.play('slam', 0.8);
+            this.impactFx(s.x, s.z, true);
             dead = true;
           }
           continue;
         }
         if (s.left <= 0) {
+          this.impactFx(s.x, s.z, s.big);
           dead = true;
           break;
         }
         const t = this.tile(s.x, s.z);
         if (this.blocksShot(t)) {
+          this.impactFx(ox, oz, s.big);
           const key = this.tileOf(s.x, s.z);
           if (t === FORT && key >= 0) {
             const f = this.fortAt(key);
@@ -3128,8 +3168,9 @@ export class ActionMode {
     const yours = !!me && me.alive && me.chargeHold >= CHARGE.hold;
     const lvl = yours ? Math.min(1, me.stored / CHARGE.max) : 0;
     this.dim += ((yours ? 0.1 + lvl * 0.15 : 0) - this.dim) * Math.min(1, dt * (yours ? 5 : 9));
-    this.hemi.intensity = 1.5 * this.lightK * (1 - 0.45 * this.dim);
-    this.sun.intensity = 2 * this.lightK * (1 - 0.5 * this.dim);
+    const moving = stageLight(this.theme.stage ?? this.theme.id, this.time);
+    this.hemi.intensity = 1.5 * this.lightK * (1 - 0.45 * this.dim) * moving;
+    this.sun.intensity = 2 * this.lightK * (1 - 0.5 * this.dim) * moving;
     for (const u of this.units) {
       const charging = u.alive && u.wrap.visible && u.chargeHold >= CHARGE.hold;
       let orb = this.orbs.get(u);
@@ -3417,10 +3458,12 @@ export class ActionMode {
         const dx = i < r.i0 ? 0.55 : i > r.i1 ? -0.55 : 0;
         const dz = j < r.j0 ? 0.55 : j > r.j1 ? -0.55 : 0;
         t.position.set(p.x + dx, (this.wallCur - 1.1) * 0.36, p.z + dz);
+        t.userData.seed = Math.random() * 10;
         this.world.add(t);
         this.torches.push(t);
       }
     }
+    this.placeLandmarks();
     // the traps (built from their Unit Lab designs; the parts that move are found by name)
     for (const t of dg.traps) {
       if (t.kind === 'spikes') {
@@ -3476,6 +3519,25 @@ export class ActionMode {
       for (let dj = -d; dj <= d; dj++)
         for (let di = -d; di <= d; di++) if (this.grid[this.idx(ci + di, cj + dj)] === FLOOR) return this.center(ci + di, cj + dj);
     return this.center(ci, cj);
+  }
+
+  /** each room's landmark, in a corner clear of its doors */
+  private placeLandmarks() {
+    const dg = this.dg;
+    if (!dg) return;
+    const traps = new Set(dg.traps.flatMap((t) => ('tiles' in t ? t.tiles : [])));
+    for (const r of dg.rooms) {
+      const corners: [number, number][] = [[r.i0 + 1, r.j0 + 1], [r.i1 - 1, r.j0 + 1], [r.i0 + 1, r.j1 - 1], [r.i1 - 1, r.j1 - 1]];
+      const clear = corners.filter(([i, j]) => this.grid[this.idx(i, j)] === FLOOR && !traps.has(this.idx(i, j)) && !r.doors.some((d) => Math.abs((d % this.W) - i) + Math.abs(Math.floor(d / this.W) - j) < 4));
+      const at = clear[0];
+      if (!at) continue;
+      const p = this.center(at[0], at[1]);
+      const m = landmark(r.kind, this.theme.wall, this.dstage().torch);
+      m.position.set(p.x, 0, p.z);
+      // (facing the room)
+      m.rotation.y = (at[0] < (r.i0 + r.i1) / 2 ? 1 : -1) * (at[1] < (r.j0 + r.j1) / 2 ? 0.5 : 2.6);
+      this.world.add(m);
+    }
   }
 
   private makeChest(x: number, z: number, gear: Gear) {
@@ -3585,7 +3647,11 @@ export class ActionMode {
     this.rageT = Math.max(0, this.rageT - dt);
     this.tickTraps();
     // the lamp goes with you
-    if (this.lamp) this.lamp.position.set(me.x, 5.2, me.z + 0.6);
+    if (this.lamp) {
+      this.lamp.position.set(me.x, 5.2, me.z + 0.6);
+      // (firelight: it never quite holds still)
+      this.lamp.intensity = 46 * (0.9 + Math.sin(this.time * 11) * 0.05 + Math.sin(this.time * 23.7) * 0.05);
+    }
     // chests spring open, loot spins
     for (const c of this.chests) if (c.open && c.t < 1) {
       c.t = Math.min(1, c.t + dt * 3);
