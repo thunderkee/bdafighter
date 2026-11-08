@@ -1722,6 +1722,26 @@ function keepSwatch(v: number) {
 
 // ---------- block tree (layers) ----------
 const SHAPE_LABEL: Record<Shape, string> = { group: 'Group', box: 'Box', rbox: 'Rounded', capsule: 'Capsule', sphere: 'Ball', cylinder: 'Tube', cone: 'Spike', torus: 'Ring', mesh: 'Mesh' };
+const PATTERN_NAMES: [string, string][] = [
+  ['', 'None'],
+  ['hex', 'Hex plating'],
+  ['scales', 'Scales'],
+  ['camo', 'Camo'],
+  ['digital', 'Digital camo'],
+  ['tiger', 'Tiger'],
+  ['tigerBold', 'Bold tiger'],
+  ['spots', 'Spots'],
+  ['mud', 'Mud'],
+  ['carbon', 'Carbon'],
+  ['weave', 'Weave'],
+  ['ripstop', 'Ripstop'],
+  ['circuit', 'Circuit'],
+  ['panel', 'Panels'],
+  ['stripe', 'Stripes'],
+  ['brushed', 'Brushed metal'],
+  ['hammered', 'Hammered metal'],
+  ['crackle', 'Crackle'],
+];
 const ROLE_LABEL: Record<Role, string> = {
   sway: 'SWAYS',
   orbit: 'ORBITS',
@@ -2078,6 +2098,39 @@ function renderForm() {
       designChanged();
     });
     row2('Finish', finish);
+
+    // a pattern over the colour: tonal, so it takes whatever colour the block is
+    const pattern = document.createElement('select');
+    const texes = new Set(mats.map((m) => m.tex ?? ''));
+    if (texes.size > 1) pattern.add(new Option('Mixed', 'mixed', true, true));
+    for (const [v, label] of PATTERN_NAMES) pattern.add(new Option(label, v, false, texes.size === 1 && (first.tex ?? '') === v));
+    pattern.addEventListener('change', () => {
+      if (pattern.value === 'mixed') return;
+      pushUndo();
+      for (const m of mats) {
+        if (pattern.value) m.tex = pattern.value;
+        else {
+          delete m.tex;
+          delete m.texScale;
+        }
+      }
+      designChanged();
+      renderForm();
+    });
+    row2('Pattern', pattern);
+    if ([...texes].some(Boolean)) {
+      const size = document.createElement('select');
+      const scales = new Set(mats.map((m) => m.texScale ?? 1));
+      if (scales.size > 1) size.add(new Option('Mixed', 'mixed', true, true));
+      for (const [v, label] of [[2, 'Small'], [1, 'Normal'], [0.5, 'Large']] as const) size.add(new Option(label, String(v), false, scales.size === 1 && (first.texScale ?? 1) === v));
+      size.addEventListener('change', () => {
+        if (size.value === 'mixed') return;
+        pushUndo();
+        for (const m of mats) m.texScale = Number(size.value);
+        designChanged();
+      });
+      row2('Pattern size', size);
+    }
   };
 
   if (many) {

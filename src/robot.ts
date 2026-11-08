@@ -838,6 +838,26 @@ const POSES: Record<string, 'blade' | 'roar' | 'gunner' | 'sniper' | 'twins' | '
   nightshade: 'shadow', violet: 'pound', kabuto: 'royal', tyrant: 'hounds', rex: 'freeze', liger: 'pounce', ember: 'bloom',
 };
 
+/**
+ * give a block texture coordinates by its own size: each face takes the pattern straight on from
+ * its nearest axis, so the same pattern is the same size on a tiny plate and a huge shoulder
+ */
+function projectPatternUV(g: THREE.BufferGeometry, scale: number) {
+  const pos = g.attributes.position;
+  const nor = g.attributes.normal;
+  if (!pos || !nor) return;
+  const uv = new Float32Array(pos.count * 2);
+  const k = 2.5 * scale;
+  for (let i = 0; i < pos.count; i++) {
+    const [ax, ay, az] = [Math.abs(nor.getX(i)), Math.abs(nor.getY(i)), Math.abs(nor.getZ(i))];
+    const [x, y, z] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    if (ax >= ay && ax >= az) uv.set([z * k, y * k], i * 2);
+    else if (ay >= az) uv.set([x * k, z * k], i * 2);
+    else uv.set([x * k, y * k], i * 2);
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
 /** how big each fighter stands against the rest (a looks thing: its hit size is unchanged) */
 const STATURE: Record<string, number> = { violet: 1.18, rex: 1.14, liberty: 1.1, bastion: 1.1, kabuto: 1.1, tyrant: 1.08, monoceros: 1.08, nightshade: 1.06, dragon: 1.05, trueleo: 1.04, pioneer: 0.96, liger: 0.92, ember: 0.8 };
 
@@ -1735,7 +1755,7 @@ export class ShooterMesh {
     const material = (m: Block['mat']) => {
       const spec = m ?? { kind: 'lambert', color: 'body' };
       const color = resolveColor(spec.color, def, ball);
-      const key = `${spec.kind}|${color}|${spec.double ? 1 : 0}|${spec.opacity ?? 1}|${spec.additive ? 1 : 0}`;
+      const key = `${spec.kind}|${color}|${spec.double ? 1 : 0}|${spec.opacity ?? 1}|${spec.additive ? 1 : 0}|${spec.tex ?? ''}`;
       let mat = cache.get(key);
       if (!mat) {
         const common = {
@@ -1745,6 +1765,7 @@ export class ShooterMesh {
           opacity: spec.opacity ?? 1,
           blending: spec.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
           depthWrite: !spec.additive,
+          map: spec.tex ? armourTexture(spec.tex as ArmourTex) : null,
         };
         if (spec.kind === 'basic') mat = new THREE.MeshBasicMaterial(common);
         else if (spec.kind === 'phong') mat = new THREE.MeshPhongMaterial({ ...common, shininess: 90, specular: 0xffffff });
@@ -1754,6 +1775,7 @@ export class ShooterMesh {
           this.mats.push(lam);
           mat = lam;
         }
+        if (spec.tex) mat.userData.tex = spec.tex;
         cache.set(key, mat);
       }
       return mat;
@@ -1851,6 +1873,10 @@ export class ShooterMesh {
       o.rotation.set(b.r[0], b.r[1], b.r[2]);
       o.scale.fromArray(b.s);
       o.userData.path = path;
+      if (b.mat?.tex && b.shape !== 'group') {
+        projectPatternUV((o as THREE.Mesh).geometry, b.mat.texScale ?? 1);
+        o.userData.texScale = b.mat.texScale ?? 1;
+      }
       if (b.name) o.name = b.name;
       if (b.role) o.userData.role = b.role;
       assign(o, b.role);
@@ -1940,6 +1966,7 @@ export class ShooterMesh {
             ...(mat.side === THREE.DoubleSide ? { double: true } : {}),
             ...(mat.opacity < 1 ? { opacity: r3(mat.opacity) } : {}),
             ...(mat.blending === THREE.AdditiveBlending ? { additive: true } : {}),
+            ...(mat.userData.tex ? { tex: mat.userData.tex as string, ...(o.userData.texScale && o.userData.texScale !== 1 ? { texScale: o.userData.texScale as number } : {}) } : {}),
           },
           p: v(o.position),
           r: v(o.rotation),
@@ -6421,8 +6448,9 @@ export function plasticize(root: THREE.Object3D, matte = false, mixed = false, a
         opacity: m.opacity,
         depthWrite: m.depthWrite,
         blending: m.blending,
+        map: m.map,
       });
-      if (mixed) finish(p, (m.userData.slot as string | undefined) ?? 'body', matte, armour);
+      if (mixed && !m.map) finish(p, (m.userData.slot as string | undefined) ?? 'body', matte, armour);
       p.userData = { ...m.userData };
       swap.set(m, p);
       m.dispose();

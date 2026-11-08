@@ -55,6 +55,9 @@ export interface Block {
     double?: boolean;
     opacity?: number;
     additive?: boolean;
+    /** a tonal pattern over the colour (see patterns.ts), and how big it's drawn (1 is normal) */
+    tex?: string;
+    texScale?: number;
   };
   p: V3;
   r: V3;
