@@ -1677,8 +1677,8 @@ export class ActionMode {
     this.el.querySelector('.ac-unit')!.textContent = def.name;
   }
 
-  private pickFoes(n: number) {
-    const pool = playable().filter((c) => c.id !== this.unitId);
+  private pickFoes(n: number, not: string[] = []) {
+    const pool = playable().filter((c) => c.id !== this.unitId && !not.includes(c.id));
     const out: CharacterDef[] = [];
     for (let k = 0; k < n; k++) {
       if (!pool.length) pool.push(...playable());
@@ -1703,7 +1703,7 @@ export class ActionMode {
   private spawnFoes() {
     if (this.kind === 'boss') {
       // two on your side; on theirs, one giant
-      const allies = this.story?.allies?.length ? [...this.story.allies.map((id) => characterById(id)), ...this.pickFoes(2)].slice(0, 2) : this.pickFoes(2);
+      const allies = this.story?.allies?.length ? [...this.story.allies.map((id) => characterById(id)), ...this.pickFoes(2, [...this.story.allies, this.story.boss ?? ''])].slice(0, 2) : this.pickFoes(2);
       allies.forEach((d, k) => {
         const p = this.teamSpot(0, k + 1);
         const u = this.makeUnit(d, p.x, p.z, true, 0);
@@ -1733,7 +1733,8 @@ export class ActionMode {
     if (this.kind === 'ffa') {
       const starts = this.ffaStarts();
       const given = (this.story?.foes ?? []).map((id) => characterById(id));
-      [...given, ...this.pickFoes(5 - given.length)].slice(0, 5).forEach((d, k) => {
+      // (the chapter's own fighters aren't drawn again to fill the field)
+      [...given, ...this.pickFoes(5 - given.length, this.story?.foes)].slice(0, 5).forEach((d, k) => {
         const u = this.makeUnit(d, starts[k + 1].x, starts[k + 1].z, true, k + 1);
         u.aimError = 0.1 + Math.random() * 0.08;
         u.aimDelay = 0.3 + Math.random() * 0.3;
