@@ -9,6 +9,8 @@ import { Fx2D } from './fx2d';
 import { BUILTINS, characterById, playable, playableId } from './robot';
 import { fillPortraits, portrait } from './portraits';
 import { TalkFace } from './talkface';
+import { Barks } from './barks';
+import { FIGHT_BARKS } from './storybarks';
 import { Preview } from './preview';
 import { profileOf, storyOf } from './profiles';
 import { STAGES, stageById } from './stage';
@@ -1289,6 +1291,15 @@ export function boot() {
       : `Bring down the giant ${foe}${allies ? ` with ${allies}` : ''}.`;
     return { why: c.goal ?? `Get past ${foe}.`, how };
   };
+  /** the opponent's lines for this chapter's fight */
+  const barks = new Barks($('app'), (id, el) => {
+    el.innerHTML = `<i data-portrait="${id}" data-crop="bust"></i>`;
+    fillPortraits(el);
+  });
+  const startBarks = (hero: string, ch: number) => {
+    const foe = unitOfBase(pathOf(hero).chapters[ch].foe);
+    barks.start(FIGHT_BARKS[whoOf(hero)]?.[ch], foe, characterById(foe).name);
+  };
   /** a chapter fought in Action: the talk over the backdrop, then straight into it */
   const actionChapter = (mode: Exclude<ChapterMode, 'duel'>) => {
     if (!story) return;
@@ -1331,7 +1342,10 @@ export function boot() {
     };
     const lines = [...(ch === 0 ? p.intro : []), ...c.before, ...setter(hero, ch, mode)];
     const what = mode === 'brawl' ? 'STORM BRAWL' : mode === 'dungeon' ? 'DUNGEON' : 'GIANT FIGHT';
-    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length} · ${what} · ${characterById(foe).name.toUpperCase()}`, c.title.toUpperCase(), lines, () => storyAction?.(f), false, goalOf(hero, ch, mode));
+    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length} · ${what} · ${characterById(foe).name.toUpperCase()}`, c.title.toUpperCase(), lines, () => {
+      startBarks(hero, ch);
+      storyAction?.(f);
+    }, false, goalOf(hero, ch, mode));
   };
   if (debug) Object.assign(window as unknown as Record<string, unknown>, { __chapterMode: chapterMode, __setter: setter, __allies: storyAllies });
   /** talk on the table, then fight (the story's opening comes before the first chapter) */
@@ -1342,7 +1356,10 @@ export function boot() {
     const mode = chapterMode(story.hero, story.ch);
     if (mode !== 'duel') return actionChapter(mode);
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
-    fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, title: c.title.toUpperCase(), lines, then: beginIntro, goal: goalOf(story.hero, story.ch, 'duel') });
+    fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, title: c.title.toUpperCase(), lines, then: () => {
+      if (story) startBarks(story.hero, story.ch);
+      beginIntro();
+    }, goal: goalOf(story.hero, story.ch, 'duel') });
   };
   const playStory = () => {
     sfx.unlock();
@@ -2806,6 +2823,15 @@ export function boot() {
   const frame = (now: number) => {
     requestAnimationFrame(frame);
     scoreMusic();
+    // League Story: the opponent talks as the fight goes
+    if (!story) barks.stop();
+    else
+      barks.update(
+        Math.min(0.1, (now - last) / 1000),
+        screen === 'playing' && flow === 'round' && !paused && game.phase !== 'ko' && game.phase !== 'over'
+          ? { foeFrac: game.teamFrac(1), meFrac: game.teamFrac(0), rounds: [roundWins[0], roundWins[1]] }
+          : (actionMode?.active && actionMode.storyFeed()) || null,
+      );
     // battery saver: 30 frames a second in a fight (a 60 Hz screen shows every other one)
     if (S().batterySaver && screen === 'playing' && now - lastDrawn < 1000 / 30 - 4) return;
     lastDrawn = now;

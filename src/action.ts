@@ -772,6 +772,15 @@ export class ActionMode {
   get active() {
     return this.running;
   }
+  /** League Story: the chapter's foe and you, for the foe's lines during the fight (null while it isn't on) */
+  storyFeed() {
+    const me = this.me;
+    if (!this.story || !this.running || this.over || this.paused || !me) return null;
+    const id = this.story.boss ?? this.story.foes?.[0];
+    const foe = this.units.find((u) => u.def.id === id && u.team !== me.team);
+    if (!foe) return null;
+    return { foeFrac: foe.alive ? foe.hp / foe.max : 0, meFrac: me.alive ? me.hp / me.max : 0 };
+  }
   /** the music this fight wants: Dungeon Run's own, or the arena's (a theme id or its stage) */
   get musicStage() {
     return this.kind === 'gauntlet' ? 'dungeon' : (this.theme.stage ?? this.theme.id);

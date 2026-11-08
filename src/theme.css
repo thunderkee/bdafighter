@@ -8353,3 +8353,61 @@ html.land {
     scale: 1.8;
   }
 }
+/* League Story: the opponent's line during a fight, by its face under the scoreboard */
+.bark {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 92px);
+  right: 12px;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(78%, 300px);
+  pointer-events: none;
+  opacity: 0;
+  translate: 12px 0;
+  transition: opacity 0.25s, translate 0.25s;
+}
+.bark.on {
+  opacity: 1;
+  translate: 0 0;
+}
+.bark > div {
+  position: relative;
+  order: -1;
+  padding: 7px 11px 8px;
+  border: 3px solid #e8475a;
+  border-radius: 14px;
+  background: #fffaf2;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  color: var(--line);
+}
+.bark b {
+  display: block;
+  font: 700 10px/1.2 var(--body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c4303f;
+}
+.bark p {
+  margin: 1px 0 0;
+  font: 800 13px/1.3 var(--body);
+}
+.bark-face {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border: 3px solid #e8475a;
+  border-radius: 50%;
+  background: #2a2723;
+  overflow: hidden;
+}
+.bark-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
