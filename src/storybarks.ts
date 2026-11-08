@@ -17,6 +17,8 @@ export interface FightBarks {
   victory: string;
   /** said in quiet moments: story context — what's at stake, a secret, a hint at where this leads */
   lore: [string, string];
+  /** the hero’s comeback to each of the foe’s lines, said a moment after it */
+  reply: { open: string; hurt: string; low: string; winning: string; losing: string; lore: [string, string] };
 }
 export const FIGHT_BARKS: Record<string, FightBarks[]> = {
   angel: [
@@ -28,6 +30,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You hit like a treaty frame. That’s not in my book.',
       victory: 'No licence, no climb. Come back when you can outrun a ticket.',
       lore: ['Gates keep going dark. The League wants every climber checked.', 'A red flyer runs the Serpent Run. It’s mine, hear me?'],
+      reply: {
+        open: 'They are in plain sight. So is the road up.',
+        hurt: 'Add it to the first. I’ll settle up above.',
+        low: 'I cannot slow down. The signal won’t let me.',
+        winning: 'Your book has no page for what calls me.',
+        losing: 'What is a treaty frame? Tell me, marshal.',
+        lore: ['I hear it each time. The signal grows louder.', 'Keep your flyer. I only want the road it flies.'],
+      },
     },
     {
       open: 'Smile, darling! You’re flying in my slipstream now.',
@@ -37,6 +47,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fly like you were built for this.',
       victory: 'Grounded, yardstick? My crate flies up the Run without you. Catch me if you want answers.',
       lore: ['Every crate I carry hums. You hear it too, don’t you?', 'My buyer at the top has a face you’d recognise.'],
+      reply: {
+        open: 'I don’t smile. I measure. You are drifting left.',
+        hurt: 'Then tell me what it is, before I bruise it.',
+        low: 'One is a start. I have many questions.',
+        winning: 'Let them adore you. I’m still climbing.',
+        losing: 'I was built for something. That’s why I climb.',
+        lore: ['It hums like the signal. Why would a crate?', 'I remember no faces. Whose is it?'],
+      },
     },
     {
       open: 'The Spire is worse than me. Show me you can take it.',
@@ -46,6 +64,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Measured. Steady. Like the old frames.',
       victory: 'You would not last an hour above. Get up, and prove the climb won’t break you.',
       lore: ['The little ones of my base are going missing. Be careful above.', 'You move like the treaty frames. The King remembers them.'],
+      reply: {
+        open: 'I was built to stand in front. Watch.',
+        hurt: 'You’re testing me. I was built to do the testing.',
+        low: 'Then step aside. I will carry your warning up.',
+        winning: 'Not behind. I’ll break before I stand behind.',
+        losing: 'Old frames? You know something of what I was.',
+        lore: ['If I see them above, I’ll send word.', 'Then I will ask the King what I cannot remember.'],
+      },
     },
     {
       open: 'The first frame, at my gate. Kneel, or earn it.',
@@ -55,6 +81,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight like the day the treaty was signed.',
       victory: 'The crown keeps its secret, and your memory stays dark. Earn it, first frame.',
       lore: ['Every keystone passed through your hands before it was set.', 'Someone opens the gates slowly. Your memory would be faster.'],
+      reply: {
+        open: 'I don’t kneel. I was built to stay level.',
+        hurt: 'I measured that dent. It’s deep.',
+        low: 'Then say it. Why did they make me forget?',
+        winning: 'My memory isn’t yours to keep. Still standing.',
+        losing: 'I wish I remembered that day.',
+        lore: ['Then why do these hands remember none of them?', 'Is that why it was taken from me?'],
+      },
     },
     {
       open: 'Five engines, one grudge! Where’s MY stone, shiny?',
@@ -64,6 +98,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Stop dodging and tell me where my stone is!',
       victory: 'Now I tear this Court apart for my stone! Get up and stop me, shiny.',
       lore: ['The hound burned my Forge, and the furnaces won’t light.', 'No stone, no fire. My crews are freezing in the ash.'],
+      reply: {
+        open: 'Every stone here has a socket. Step back, Wyvern.',
+        hurt: 'I’m holding back. These stones are fragile.',
+        low: 'Stop firing, and I will listen for it.',
+        winning: 'I feel it. I still won’t leave this Court.',
+        losing: 'Stop shooting at the stones, and I might.',
+        lore: ['I’m sorry for your Forge. These stones still stay.', 'Hold still. I’m listening for one stone among many.'],
+      },
     },
     {
       open: 'Welcome home, sibling. Let me show you what you forgot.',
@@ -73,6 +115,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'That is the measure I remember.',
       victory: 'Still you do not remember. The Spire keeps calling. Rise and answer it, sibling.',
       lore: ['We were built together: one to measure the stones, one to keep.', 'Every dark gate wakes the Spire. It is calling for its measure.'],
+      reply: {
+        open: 'I climbed for exactly that. Show me.',
+        hurt: 'My hands remember. The rest of me wants to.',
+        low: 'I feel it. Something behind it is mine.',
+        winning: 'Not yet. I did not climb to stop here.',
+        losing: 'You remember me. Give me the same.',
+        lore: ['And I’m the one who forgot. Why only me?', 'Then I’ve answered. Tell it I am here.'],
+      },
     },
   ],
   dragon: [
@@ -84,6 +134,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Whoa! Five engines is a LOT of engines!',
       victory: 'I won! Egg, we won! You can’t take the Forge back like that, Wyvern. Again!',
       lore: ['My egg is always warm. Even when the Forge is cold!', 'I found my egg in the springs the night of the fire.'],
+      reply: {
+        open: 'Don’t touch it, kid! Just shoot!',
+        hurt: 'That was my small one, kid!',
+        low: 'Sure, kid! Undefeated egg! Go home!',
+        winning: 'Eggs don’t watch, kid! Engines, wake up!',
+        losing: 'And that’s with four of ’em idling!',
+        lore: ['Great. Lucky egg. Can we fight now?', 'Don’t talk about that night, kid. Shoot!'],
+      },
     },
     {
       open: 'The crown does not brawl, Wyvern. It corrects.',
@@ -93,6 +151,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You hit like a whole pit crew.',
       victory: 'The crown does not side with brawlers. Come back when you have earned my help.',
       lore: ['Tyrant’s toll gate stands in my pass. It pays its fees.', 'A machine pulled your Forge apart. Machines have makers.'],
+      reply: {
+        open: 'Correct THIS, your majesty! My Forge is ash!',
+        hurt: 'Fire doesn’t wait for the season either!',
+        low: 'Think faster! My crews are freezing!',
+        winning: 'Not this grudge! It’s got five engines!',
+        losing: 'I AM a whole pit crew! Ride with me!',
+        lore: ['Fees?! It burned my home and you bill it?!', 'Then name the maker, and I’ll melt it!'],
+      },
     },
     {
       open: 'Wipe your feet! All five sets! Then lose!',
@@ -102,6 +168,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'This was NOT in the projections!',
       victory: 'Ha! Invoice the hound, not me! Come back when you can make me answer.',
       lore: ['I invented the puller. The hound pulled. Morally, very different.', 'The hound keeps asking about a stone that fell. Interesting, no?'],
+      reply: {
+        open: 'I’ll wipe ’em on your big face!',
+        hurt: 'Less than my Forge, you oversized melon!',
+        low: 'Talk fast, head! I’ve got engines to spare!',
+        winning: 'I’ll write it in scorch marks! Not done!',
+        losing: 'Project this! All of it, straight at you!',
+        lore: ['Morally, you’re both getting scrapped!', 'A stone that fell? MY stone? Talk!'],
+      },
     },
     {
       open: 'Back in my day we stopped scrap piles for free.',
@@ -111,6 +185,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Huh. The pits built you tough.',
       victory: 'Hmph. Scrap stays down in my day. Get up if you want to know where stones go.',
       lore: ['I set keystones in the old wars, before the treaty ink dried.', 'The Spire counts every stone in the League. Every one.'],
+      reply: {
+        open: 'This scrap pile bites back, old timer!',
+        hurt: 'Pit crews welded these! They don’t break!',
+        low: 'Start with mine, old timer! Where’d it go?',
+        winning: 'Not done yet! Refund’s coming, fossil!',
+        losing: 'You bet they did! Those crews get their name back!',
+        lore: ['Then you know where mine went. Spill it!', 'Then the Spire’s next! I’ll make it count mine!'],
+      },
     },
     {
       open: 'Turn back, Wyvern. A grudge can’t climb this road.',
@@ -120,6 +202,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Your grudge is strong. Is it pointed the right way?',
       victory: 'Grief alone won’t climb the Spire, Wyvern. Rise, and search it with a clearer head.',
       lore: ['The Court keeps stones stolen back from Tyrant. Yours isn’t there.', 'Something far below is humming. Small, and warm.'],
+      reply: {
+        open: 'Watch it climb, shiny! Out of the bend!',
+        hurt: 'It’s not grief! It’s a whole burnt Forge!',
+        low: 'You can WHAT? Where? Say it!',
+        winning: 'It’s gotten me this far, shiny!',
+        losing: 'It’s pointed uphill, and you’re standing in it!',
+        lore: ['How do you know? I’ll check every socket myself!', 'Quit the riddles, shiny! I want my stone!'],
+      },
     },
     {
       open: 'This burnt-out pit? I’ll burn it again, lizard.',
@@ -129,6 +219,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Scrap and a grudge. How are you still standing?',
       victory: 'Lie in your ash, lizard. The egg is mine now, and so is every gate.',
       lore: ['With the Forge stone, my name goes on every gate.', 'Hold every stone, and the Spire itself opens for me.'],
+      reply: {
+        open: 'Not with the kid behind me, you won’t!',
+        hurt: 'Send the bill to the crews you burned out!',
+        low: 'Not this gate, hound! Never this one!',
+        winning: 'You’ll get that egg over five dead engines!',
+        losing: 'Scrap remembers! Every part of me hates you!',
+        lore: ['That stone’s our heart, not your signature!', 'You won’t hold this one. Not while I run!'],
+      },
     },
   ],
   pioneer: [
@@ -140,6 +238,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Fine. You chase like a real hunter.',
       victory: 'No badge holds me, cop. Want the Baron? Get up and earn the lead.',
       lore: ['The Baron flew low over the river last night. Heavy cargo.', 'I left the palace the night the throne changed. Ask why sometime.'],
+      reply: {
+        open: 'So that’s no licence. Noted. Citation one.',
+        hurt: 'And tickets compound. Ask anyone in Neo City.',
+        low: 'Noted! Cooperation knocks ten percent off the fine.',
+        winning: 'Still writing! My pen arm’s fine. Mostly.',
+        losing: 'Flattering an officer is still no licence.',
+        lore: ['Low flying! Page twelve! Keep talking, please.', 'Palace business isn’t my department. Licence, please.'],
+      },
     },
     {
       open: 'A cop in my lab! Do you have a warrant? A brain?',
@@ -149,6 +255,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Stop reading me my rights mid-fight, it’s distracting!',
       victory: 'No warrant, no maps! The Baron’s route stays in my head, officer.',
       lore: ['I sold the Baron maps. I sold the hound a gate-puller.', 'Your Baron flies the vault route. Whose vault? Guess.'],
+      reply: {
+        open: 'Both! Filed in triplicate! Cannons down, please!',
+        hurt: 'I’ll need to see that paperwork, then!',
+        low: 'Thank you! Writing that down. Spell “vault” for me.',
+        winning: 'Procedure gets back up. Page one!',
+        losing: 'You have the right to remain quiet. Please do!',
+        lore: ['Two sales, no receipts? Checking my book right now!', 'I don’t guess, I investigate! Whose vault?'],
+      },
     },
     {
       open: 'Stand behind me. These cages were full once.',
@@ -158,6 +272,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight hard for a book.',
       victory: 'Your book has no page for empty cages. Rise, and see what the Baron really steals.',
       lore: ['These cages crossed the Pass under the hound’s banner.', 'Something small was kept in here. Now they are gone.'],
+      reply: {
+        open: 'Ma’am, behind the tape! This is a crime scene!',
+        hurt: 'Ma’am, I’m using it on obstruction right now!',
+        low: 'Looking. Noting. …That’s a lot of cages.',
+        winning: 'Left, right, left. Logging each one as assault!',
+        losing: 'It’s a very good book, ma’am!',
+        lore: ['No permit, I bet. That’s a whole new file.', 'Missing persons? …Fine. I’m adding a page.'],
+      },
     },
     {
       open: 'Marshal. Show me you can handle a bigger case.',
@@ -167,6 +289,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Persistent. The crown could use you.',
       victory: 'Close the book, marshal. Kings keep the bigger case to themselves.',
       lore: ['Someone is putting its name on every gate. Not mine.', 'Your Baron is not the worst thief in this League.'],
+      reply: {
+        open: 'Every case is the same size, your majesty. Page one.',
+        hurt: 'It’s on page ninety, your majesty. Exemptions apply.',
+        low: 'I’m reading! What’s the next page say?',
+        winning: 'There’s an appendix, your majesty. I’ll find it.',
+        losing: 'The crown can file a request. I’m on duty.',
+        lore: ['Unlicensed signage! Who? Give me a name, your majesty.', 'Then who is? I’ll need that in writing.'],
+      },
     },
     {
       open: 'Still no licence, marshal. Let the rail decide.',
@@ -176,6 +306,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You chase hard. Chase the right thief.',
       victory: 'The Baron is climbing while you lie here. Get up, or lose it at the Spire.',
       lore: ['The Baron carries stones up. It never carries them down.', 'Arrest it at the Court, and see what it saved.'],
+      reply: {
+        open: 'Admitting it makes it worse, orbital unit!',
+        hurt: 'Fastest in the district! Speeding’s allowed on duty!',
+        low: 'Thank you! Ticket’s in the mail, orbital unit.',
+        winning: 'Then I’ll carry both! It’s my job!',
+        losing: 'There’s only one on my page one!',
+        lore: ['Transporting stones uphill is still unlicensed transport!', 'Saved or stolen, the form’s the same. …Probably.'],
+      },
     },
     {
       open: 'Smile for the crowd, marshal! Last chance!',
@@ -185,6 +323,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Ooh, marshal. The crowd’s starting to like you.',
       victory: 'Three seasons, and still no cuffs! Toodle-oo, marshal. Try again before I land.',
       lore: ['Every stone in here, I stole back from Tyrant’s vaults.', 'The hound grounded me for refusing its cargo. I took it anyway.'],
+      reply: {
+        open: 'Last chance for YOU, Baron! Hands up!',
+        hurt: 'Three seasons of practice! All on you!',
+        low: 'Paintwork’s evidence! Wrists out, Baron! Finally!',
+        winning: 'Season’s not over! I’ve got all my paperwork!',
+        losing: 'The crowd can stay behind the barrier!',
+        lore: ['That’s a confession, Baron. A very confusing one.', 'Flying while grounded! Thank you, that’s another count.'],
+      },
     },
   ],
   liberty: [
@@ -196,6 +342,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Like hitting a sea wall. Charming.',
       victory: 'Beach overflown, darling! My cargo sails on. Do hold the line better next time.',
       lore: ['Something’s been tunnelling in from the reef. It laughs.', 'Your beach has a keystone under it. People want those.'],
+      reply: {
+        open: 'I mind. Not on my sand.',
+        hurt: 'Then fly it elsewhere.',
+        low: 'Go wide. The line stays here.',
+        winning: 'I don’t dodge. I outlast.',
+        losing: 'Sea walls don’t fall for charm.',
+        lore: ['Then it can laugh at my treads.', 'People can want. I’m parked on it.'],
+      },
     },
     {
       open: 'Hi! Wanna see the laughing cave? After I win!',
@@ -205,6 +359,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You don’t even MOVE! How?!',
       victory: 'I win! Now I’m gonna poke the reef all day! Stop me, big wall!',
       lore: ['The cave has little drones with claws. They’re digging!', 'They’re digging toward something that hums. Like my egg!'],
+      reply: {
+        open: 'Reef’s closed, little one. You won’t win.',
+        hurt: 'Yes. That’s the idea.',
+        low: 'Good. Go home, little one.',
+        winning: 'Let it. Still here.',
+        losing: 'Practice.',
+        lore: ['Digging. Under my beach?', 'That hum is mine to guard. Go home.'],
+      },
     },
     {
       open: '…',
@@ -214,6 +376,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: '……',
       victory: '…drones… still digging.',
       lore: ['…drones. Not mine.', '…hunting them.'],
+      reply: {
+        open: 'Nothing to say? You cleared their path.',
+        hurt: 'Felt that. Still nothing to say?',
+        low: 'So you can talk. Who sent the drones?',
+        winning: 'Silent scythes. I’ve held against worse tides.',
+        losing: 'Say something. I can wait all day.',
+        lore: ['Then whose? You’re standing on their trail.', 'Hunting. Or herding. Prove which.'],
+      },
     },
     {
       open: 'Race you to Neo City, tin diver! After this!',
@@ -223,6 +393,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You’re a wall with a rifle!',
       victory: 'Ha! Five engines win! Want to know what the head wants? Beat me, tin diver!',
       lore: ['The head sold the hound a gate-puller. It killed my Forge.', 'That puller’s for stripping gates. Every gate. Yours too.'],
+      reply: {
+        open: 'I don’t race. That head is mine.',
+        hurt: 'Only the rifle. Don’t get excited.',
+        low: 'Then say it. Slowly.',
+        winning: 'Two treads. Both still here.',
+        losing: 'Accurate. Hold still.',
+        lore: ['I sank that lab once. It learned nothing.', 'Mine sits under my treads. Let it try.'],
+      },
     },
     {
       open: 'Hold your line, then. Show me it can move.',
@@ -232,6 +410,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Good. Now don’t stop.',
       victory: 'Standing still again. The road to Neo City is past me, if you’ll move.',
       lore: ['I waited at my base. The little ones vanished anyway.', 'The head in Neo City measures little ones. For sockets.'],
+      reply: {
+        open: 'My line doesn’t move. It holds.',
+        hurt: 'I don’t fall. Stand aside.',
+        low: '…You’re asking a wall to walk.',
+        winning: 'Holding still is how I’ve kept my beach.',
+        losing: 'Stopping is what I do best.',
+        lore: ['My beach is being dug out while I wait.', 'Then the head owes more than my beach.'],
+      },
     },
     {
       open: 'Nine hundred and twelve days! Every one of them planned!',
@@ -241,6 +427,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You MOVED. You never move!',
       victory: 'Exactly as planned! Your beach stone stays crated in my lab. Forever, tin diver.',
       lore: ['The hound pays very well for beach stones.', 'Your stone sits in a crate at the back. Borrowed. Forever.'],
+      reply: {
+        open: 'I needed one. Give me the stone.',
+        hurt: 'I left it. For this.',
+        low: 'Don’t bother. It comes out the same.',
+        winning: 'Whiteboards wash off. I know. I flooded one.',
+        losing: 'One time. You earned it.',
+        lore: ['This one isn’t for sale. It goes home.', 'Forever ends today. Which crate?'],
+      },
     },
   ],
   monoceros: [
@@ -252,6 +446,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'That head is a lot harder than it looks.',
       victory: 'You’re coming in for questioning, genius. Your grand plan just hit a roadblock.',
       lore: ['Gates are going dark. Your name keeps coming up.', 'A gate-puller turned up in the hound’s paws. Sound familiar?'],
+      reply: {
+        open: 'Wanted by everyone, marshal! Such is genius!',
+        hurt: 'Alphabetise it! I want genius under G!',
+        low: 'Bring a dictionary too! Step three, complete!',
+        winning: 'I don’t RUN, marshal. These legs are decorative!',
+        losing: 'It contains the finest mind on ANY rail!',
+        lore: ['Of course it does! I’m extremely memorable!', 'I sold it LEGALLY! Probably! Check your little book!'],
+      },
     },
     {
       open: 'Can I climb your head after? Pleeease?',
@@ -261,6 +463,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Whoa, you’re smart AND bonky!',
       victory: 'Me and my egg win! And you never found out what it is! Hee hee!',
       lore: ['The hound’s pits are cold. My egg is still warm!', 'I found my egg the night the Forge burned. It was glowing!'],
+      reply: {
+        open: 'Absolutely NOT! Prepare to be out-thought, newt!',
+        hurt: 'Volume is merely genius, projected!',
+        low: 'Wait! That egg! Hold STILL, you ridiculous newt!',
+        winning: 'Eggs can’t help, newt! …Can they? Note it.',
+        losing: '“Bonky” is not a metric! But thank you.',
+        lore: ['Warm? In a cold pit? Fascinating. Go on.', 'THAT night? Oh, my. Oh, that’s delicious.'],
+      },
     },
     {
       open: 'Your drones took the little ones. Answer me.',
@@ -270,6 +480,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight better than you listen.',
       victory: 'I will follow you to every lab in Neo City. Where are my little ones?',
       lore: ['A caravan of cages left the Snowfield. My little ones too.', 'Something in the forest has been taking drones. Yours too.'],
+      reply: {
+        open: 'I took MEASUREMENTS, you enormous primate!',
+        hurt: 'I shall! I have NINE more points!',
+        low: 'Where they’re TOLD! Socket-sized work! Science!',
+        winning: 'Never! This is merely the introduction!',
+        losing: 'And I was just getting to the GOOD slide!',
+        lore: ['Cages are logistics! I only did the math!', 'MY drones? That was not in the budget!'],
+      },
     },
     {
       open: 'Little genius. Come and hear what you have done.',
@@ -279,6 +497,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Brilliance, at last pointed somewhere useful.',
       victory: 'The Spire hums because of you, genius. Rise, and learn what your puller woke.',
       lore: ['Each gate your puller opens wakes the Spire a little more.', 'The Baron brings stones back here. Your puller takes them faster.'],
+      reply: {
+        open: 'I know what I’ve done! It’s BRILLIANT! …Isn’t it?',
+        hurt: 'Undo it? I never built an undo!',
+        low: 'The end? That was NOT on the whiteboard!',
+        winning: 'ALMOST is still more than anyone else!',
+        losing: 'At LAST? I have always been useful!',
+        lore: ['A side effect! A small one! …How small?', 'Naturally! My work outperforms! …That’s bad, isn’t it?'],
+      },
     },
     {
       open: 'Fix my puller, or I fix you.',
@@ -288,6 +514,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You broke my machine and my patience.',
       victory: 'My puller now. Every gate falls, and your name is on the receipt.',
       lore: ['Half the League’s gates are dark. I need the rest.', 'Every stone, and the Spire opens. Your machine was the key.'],
+      reply: {
+        open: 'It’s not broken! I stopped it! On purpose!',
+        hurt: 'Correct! I rolled out. Do keep up, hound.',
+        low: 'Contract void, you oversized dog! See clause NO!',
+        winning: 'ENORMOUS head, though! Step four continues!',
+        losing: 'Patience was never on your spec sheet!',
+        lore: ['And I need a League left to gloat in!', 'I know! Not in the brochure! Hence, THIS!'],
+      },
     },
     {
       open: 'Your math. My sand. Let’s see who holds.',
@@ -297,6 +531,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Breaking the hound’s machine changed you.',
       victory: 'Still on my sand. Your whiteboard says step five. Try again, genius.',
       lore: ['The beach stone stays under my treads. Not for sale.', 'Fixing a mess you made doesn’t make you a hero.'],
+      reply: {
+        open: 'My math holds! Your sand is merely geology!',
+        hurt: 'You SANK that lab! I’ve been meaning to mention!',
+        low: 'Better? PERFECT! Now move, tin diver! Move!',
+        winning: 'Step five has sub-steps! I’m on sub-step two!',
+        losing: 'Changed? I contain MULTITUDES! Also cannons!',
+        lore: ['I don’t want your stone! I want your DEFEAT!', 'Correct! It makes me a hero AND a genius!'],
+      },
     },
   ],
   baron: [
@@ -308,6 +550,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Fast. Too fast to pin down.',
       victory: 'Grounded on my sand. That humming cargo stays here until you can fly past me.',
       lore: ['That marble hums like a gate.', 'The hound wants my beach stone too. Be quick.'],
+      reply: {
+        open: 'Over it is all I need, darling!',
+        hurt: 'Smuggler? Darling, I prefer “delivery artiste”.',
+        low: 'Fast is the only way I know, sweet tin!',
+        winning: 'There’s always more sky, darling! Watch this!',
+        losing: 'Ask the marshal! Three seasons and counting!',
+        lore: ['Darling, you have wonderful ears. Forget what you heard.', 'The hound wants everything. That’s why I’m flying.'],
+      },
     },
     {
       open: 'That golden marble belongs to the crown. Surrender it.',
@@ -317,6 +567,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'A thief of thieves. Insolent.',
       victory: 'The golden marble belongs to the crown now. Steal it back, if you dare.',
       lore: ['The hound’s crew took that stone from my treasury.', 'The hound pays well for stones. Why fly them to the Spire?'],
+      reply: {
+        open: 'Finders keepers still applies to kings, darling!',
+        hurt: 'Red would suit it better anyway, majesty!',
+        low: 'It always comes, majesty. I’m always gone.',
+        winning: 'I never pay on the first notice, darling!',
+        losing: 'Put that on my poster, your majesty!',
+        lore: ['Did it? Funny, it was in the hound’s vault.', 'Darling, some deliveries aren’t about the tip.'],
+      },
     },
     {
       open: 'Talk straight, flyboy, or I knock it out of you!',
@@ -326,6 +584,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Quit looping and LAND!',
       victory: 'Down you go! Now open that cargo, flyboy. If it’s my stone, I want it!',
       lore: ['The hound burned my Forge. The furnaces won’t light.', 'My Forge stone fell the night of the fire. Gone.'],
+      reply: {
+        open: 'I only talk in loops, darling! Catch up!',
+        hurt: 'Holding still is so unflattering, darling!',
+        low: 'Somewhere warmer, darling. Think small.',
+        winning: 'One’s on fire, darling! …Oh. That’s mine.',
+        losing: 'Landing is for people without an audience!',
+        lore: ['Truly sorry, darling. I rob that hound weekly.', 'Not gone, darling. Just misfiled. Somewhere cosy.'],
+      },
     },
     {
       open: 'Baron. Every stone in your hold is mine.',
@@ -335,6 +601,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Stop stealing from me, ace!',
       victory: 'Grounded again, ace. Your golden marble goes in my vault, with the rest.',
       lore: ['When I hold every stone, the Spire opens.', 'The crown sells me stones cheap. You steal them back. Annoying.'],
+      reply: {
+        open: 'Yours? Darling, check the label. I relabelled them.',
+        hurt: 'Promises, darling! Does this look grounded?',
+        low: 'The League, perhaps. The crowd adores ME, darling.',
+        winning: 'It didn’t stick last time either, darling!',
+        losing: 'Stop storing them so badly, then, darling!',
+        lore: ['Which is why I keep emptying your vaults!', 'Darling, “annoying” is my whole business model!'],
+      },
     },
     {
       open: 'Courier. Show me you can win while watched.',
@@ -344,6 +618,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fly like the stones want to be carried.',
       victory: 'Showmanship failed you. The set stays unfinished. Carry it better, courier.',
       lore: ['Every stone you have carried waits in the Court.', 'This one finishes the set. Then the Spire may rest.'],
+      reply: {
+        open: 'Darling, being watched is how I win!',
+        hurt: 'Lovely! Has it brought a camera, spooky?',
+        low: 'Sign here first, spooky. I do have standards.',
+        winning: 'It’s kept me flying so far, spooky!',
+        losing: 'They’re very clingy, darling. It’s the charm.',
+        lore: ['All of them? Darling, I’m touched.', 'Finishes? Whatever will I do for fun?'],
+      },
     },
     {
       open: 'End of the line, Baron! You’re under arrest!',
@@ -353,6 +635,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Stop waving at the crowd mid-fight!',
       victory: 'Gotcha, Baron! That last stone goes to evidence, not the Court. By the book.',
       lore: ['Every crime you ever did ends in this room.', 'The book says smuggling is smuggling. …Doesn’t it?'],
+      reply: {
+        open: 'One empty socket first, darling. Cuffs after. Maybe.',
+        hurt: 'Bill it to the crowd, marshal! They’re paying!',
+        low: 'Three seasons close, darling. So very close.',
+        winning: 'Not yet, marshal! Encore first!',
+        losing: 'And disappoint them? Marshal, wave back!',
+        lore: ['Look around, darling. So does every stone.', 'I can see you doubting, darling. It suits you.'],
+      },
     },
   ],
   bastion: [
@@ -364,6 +654,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You’re a VERY fast tree!',
       victory: 'I beat the pointy tree! Hey, what’s clicking in that bush? Can I see?',
       lore: ['I heard clicking. And something little, crying.', 'Drones were here before. They had grabby claws!'],
+      reply: {
+        open: '…click.',
+        hurt: '……',
+        low: '…',
+        winning: '……!',
+        losing: '…',
+        lore: ['…shh.', '…gone.'],
+      },
     },
     {
       open: 'Come out, bug. I can smell you.',
@@ -373,6 +671,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Ricochets don’t scare you, do they?',
       victory: 'Told you. Can’t hide from a hound. Now, about those survey bots you’re hiding.',
       lore: ['Lab oil. Neo City lab oil. All over you.', 'Someone’s snatching survey bots. Not you, is it?'],
+      reply: {
+        open: '…',
+        hurt: '……',
+        low: '…',
+        winning: '……!',
+        losing: '…',
+        lore: ['……', '…not me.'],
+      },
     },
     {
       open: 'The silent salad! Give me back my drones!',
@@ -382,6 +688,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Silence is NOT an argument!',
       victory: 'Silent AND beaten! My client gets fresh drones, and you get nothing.',
       lore: ['Small bots fit small sockets. My client needs sockets emptied.', 'My client has a hellhound on its letterhead. Very tasteful.'],
+      reply: {
+        open: '…',
+        hurt: '……',
+        low: '…click.',
+        winning: '…',
+        losing: '……',
+        lore: ['……', '…hound.'],
+      },
     },
     {
       open: 'This job stinks. But you’re in my way.',
@@ -391,6 +705,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Huh. You fight for those little things.',
       victory: 'Cages stay locked, bug. The hound gets its little pryers by morning.',
       lore: ['The hound wants these bots to pry keystones loose.', 'I set those stones once. Now I haul cages. Hmph.'],
+      reply: {
+        open: '…',
+        hurt: '……',
+        low: '…',
+        winning: '……!',
+        losing: '…',
+        lore: ['…no.', '……'],
+      },
     },
     {
       open: 'Two shadows. Let us see which is quieter.',
@@ -400,6 +722,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Patient. Precise. I like you.',
       victory: 'Patience failed you tonight, hunter. What I know stays mine. For now.',
       lore: ['The silverback hunts you. It thinks you took the little ones.', 'The hound needs small hands for its sockets. You took them away.'],
+      reply: {
+        open: '…',
+        hurt: '……',
+        low: '…',
+        winning: '……!',
+        losing: '……',
+        lore: ['……', '…yes.'],
+      },
     },
     {
       open: 'Where are they? Answer me!',
@@ -409,6 +739,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight like you are protecting something.',
       victory: 'Stay down, thief. I will tear this forest apart for my little ones.',
       lore: ['My little ones vanished from the Snowfield. All of them.', 'Their tracks led here. Scythe marks round every cage.'],
+      reply: {
+        open: '…',
+        hurt: '……',
+        low: '…',
+        winning: '……!',
+        losing: '……',
+        lore: ['…', '……'],
+      },
     },
   ],
   nightshade: [
@@ -420,6 +758,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You don’t even look, and still you hit.',
       victory: 'Not unbeatable, then. So what do you fight for, ghost? Get up and show me.',
       lore: ['I guarded a King. Then the King changed.', 'The palace sells to the hound now. I won’t kneel to that.'],
+      reply: {
+        open: 'I have no need to. Try anyway.',
+        hurt: 'It is your oil, guard. Look down.',
+        low: 'That is the first good question you have asked.',
+        winning: 'I see you well enough. You have not won.',
+        losing: 'You are loud. Aim requires nothing more.',
+        lore: ['You guarded the crown. Did you know why?', 'Then stand for something. Refusing is only half.'],
+      },
     },
     {
       open: 'Kneel, ghost. This field is royal.',
@@ -429,6 +775,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Ghosts should not hit this hard.',
       victory: 'Kneel. The gates are mine to sell, and no ghost will remind me otherwise.',
       lore: ['The gates are a treaty matter. Treaties can be renegotiated.', 'The hound pays in gold. The Spire pays in nothing.'],
+      reply: {
+        open: 'Metal does not command. Crowns are only metal.',
+        hurt: 'Then what is that dent, King?',
+        low: 'It cannot buy back a single gate.',
+        winning: 'The gates go dark, whatever you decide.',
+        losing: 'Kings should not sell what they swore to keep.',
+        lore: ['Not with the Spire. It does not bargain.', 'The Spire collects, King. It is counting.'],
+      },
     },
     {
       open: '…',
@@ -438,6 +792,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: '……',
       victory: '…crimson… still flies.',
       lore: ['…crimson… flies… tonight.', '…small ones… hidden.'],
+      reply: {
+        open: 'A hunter who does not speak. How restful.',
+        hurt: 'Not even a sound. I approve.',
+        low: 'You stop before I ask. Wise.',
+        winning: 'I heard that. Your scythes are not silent.',
+        losing: 'No complaint? You are better company than most.',
+        lore: ['Let it fly. It delivers to my door.', 'Keep them so. I have not seen them.'],
+      },
     },
     {
       open: 'I know you. The quiet one from the tower.',
@@ -447,6 +809,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Cold as the Snowfield glacier.',
       victory: 'Back up your tower, quiet one. What I remember of you stays with me.',
       lore: ['You and the shiny one were built as a pair.', 'Your twin forgot for a reason. Ever ask why?'],
+      reply: {
+        open: 'And I know you, old soldier. Your jaws set stones.',
+        hurt: 'Built to keep. It has been a long watch.',
+        low: 'I know my sibling. Tell me what you know.',
+        winning: 'No one kept me there. I chose it.',
+        losing: 'You would know. You slept in one.',
+        lore: ['One to measure, one to keep. I kept.', 'I never had to ask, old soldier.'],
+      },
     },
     {
       open: 'Nothing is closed to me, ghost.',
@@ -456,6 +826,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Get out of my Court!',
       victory: 'Your Court is mine now, ghost. Every stone comes home with me.',
       lore: ['The Baron hides my stones here. I’m taking them home.', 'Hold enough stones, and the Spire opens for me.'],
+      reply: {
+        open: 'This Court is. Put down the puller, hound.',
+        hurt: 'It needs only to stop you once.',
+        low: 'Then I will be waiting, hound, as ever.',
+        winning: 'The sockets do not read, hound. They hum.',
+        losing: 'Yours? You have been here one minute.',
+        lore: ['They are home. You merely borrowed the road.', 'Wake it fully, hound, and the rail ends.'],
+      },
     },
     {
       open: 'Let us measure, then, sibling.',
@@ -465,6 +843,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'So you were the one they hid.',
       victory: 'I measured you, and still I do not remember. Why do you hide it, sibling?',
       lore: ['I hear the signal. I don’t know why it knows me.', 'This deck is where I was built. It feels like a stranger.'],
+      reply: {
+        open: 'Yes. I have kept your place.',
+        hurt: 'I must. You are not ready for all of it.',
+        low: 'You will remember it. I cannot say it for you.',
+        winning: 'I was the one they hid. Measure that.',
+        losing: 'Hidden, and kept. One of us had to be.',
+        lore: ['Because I call you in your own voice.', 'It remembers you, sibling. So do I.'],
+      },
     },
   ],
   violet: [
@@ -476,6 +862,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Left, right, left. Okay, it works.',
       victory: 'Too soft, monkey. Want to know who took your bots? Hit harder.',
       lore: ['Caravans been crossing the Pass. Cages. Lots of ’em.', 'The hound I ride with likes small things. For prying.'],
+      reply: {
+        open: 'No talk. Left, right, left.',
+        hurt: 'Heavier when little ones are missing.',
+        low: 'I will. After you stop biting.',
+        winning: 'Soft with them. Not with you.',
+        losing: 'It always does. Where are my little ones?',
+        lore: ['Cages. Whose? Tell me, old one.', 'You ride beside that? Shame on you.'],
+      },
     },
     {
       open: 'Ma’am, there’s a form for this!',
@@ -485,6 +879,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Fine! Missing bots are my department now!',
       victory: 'Case closed, ma’am! Missing bots need a form, and you didn’t file one.',
       lore: ['A caravan crossed Sandglass Pass. No permit at all.', 'I saw a hellhound banner on the cages.'],
+      reply: {
+        open: 'Forms can’t find them. You can.',
+        hurt: 'Arrest me after. Find them first.',
+        low: 'Good. All of it. Slowly.',
+        winning: 'They are small. Your rules can bend.',
+        losing: 'Thank you. Now, where did they go?',
+        lore: ['What was it carrying? Say it plainly.', 'Cages. …And you did nothing?'],
+      },
     },
     {
       open: 'Don’t believe me? Fine. Fight me.',
@@ -494,6 +896,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You protect hard. I used to.',
       victory: 'Stay down and you’ll never know where those cages went. Up, big one.',
       lore: ['I tracked this caravan too. Someone beat me to it.', 'Scythe marks, no wreckage. Whatever came was careful.'],
+      reply: {
+        open: 'I believe these empty cages. Not you.',
+        hurt: 'Then tell me the truth before I land.',
+        low: 'Show me. Then we are done.',
+        winning: 'Not for long. I have not got angry yet.',
+        losing: 'Then you know why I cannot stop.',
+        lore: ['Who? There were little ones in these.', 'Careful hunters are the worst kind.'],
+      },
     },
     {
       open: 'The bots? Ask the bug. It was hungry.',
@@ -503,6 +913,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'All this over survey bots?',
       victory: 'Little things are mine, ape. Your bots are prying stones loose already.',
       lore: ['Small enough to crawl in a socket and pry it loose.', 'Every gate I open puts my name closer to the Spire.'],
+      reply: {
+        open: 'I will ask it. After you.',
+        hurt: 'They had names. I know every one.',
+        low: 'I will. You are not forgiven.',
+        winning: 'Then break me first. That is what I am for.',
+        losing: 'All this. Every one of them. Left, right, left.',
+        lore: ['You sent my little ones into that dark.', 'No gate is worth one little one.'],
+      },
     },
     {
       open: 'Ah, the large primate. Be flattered!',
@@ -512,6 +930,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Morally, there’s a very different— OW!',
       victory: 'Ha! Where your bots went stays locked in this magnificent head. Forever!',
       lore: ['Your bots are the PERFECT size for a keystone socket.', 'My drones never came back from the forest either.'],
+      reply: {
+        open: 'You measured them. Now hold still.',
+        hurt: 'Then tell it to start talking.',
+        low: 'Forest. If you lied, I come back.',
+        winning: 'Cages break. I have opened harder ones.',
+        losing: 'No more “morally.” Tell me where they are.',
+        lore: ['They are the perfect size to be kept safe.', 'Good. Now what is in that forest?'],
+      },
     },
     {
       open: '…',
@@ -521,6 +947,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: '……',
       victory: '…they wait… safe.',
       lore: ['…hidden.', '…not taken… kept.'],
+      reply: {
+        open: 'Silence will not save you. Give them back.',
+        hurt: 'Say nothing, then. I keep coming.',
+        low: 'You speak now? Where are they?',
+        winning: 'I’m still here. Not one more.',
+        losing: 'No answer? Then I take them back.',
+        lore: ['Hidden where? Show me them.', 'Kept by you? …Prove it.'],
+      },
     },
   ],
   kabuto: [
@@ -532,6 +966,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight dirty for royalty.',
       victory: 'Grounded, majesty! This stone goes back to its gate, not your treasury.',
       lore: ['This stone goes back in its gate. That’s the point.', 'The old King renewed the treaty. You seem to… differ.'],
+      reply: {
+        open: 'The crown leads. Hand over the stone.',
+        hurt: 'Then hand it over, before it chips.',
+        low: 'What old King? I see only one crown.',
+        winning: 'The crown reaches everywhere. It merely takes its time.',
+        losing: 'Clean hands never held a throne, Baron.',
+        lore: ['It goes to market. The hound pays well.', 'A king may revise his own opinions. Careful.'],
+      },
     },
     {
       open: 'If I win, can I wear the crown? Deal!',
@@ -541,6 +983,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Your crown is so shiny! Why’s it scratched inside?',
       victory: 'I won! I get to wear the crown! And the shiny stone too!',
       lore: ['My egg is warm, like a little sun!', 'You look like the King on the posters. But… different?'],
+      reply: {
+        open: 'No deal. Out of my road, little one.',
+        hurt: 'This King does. Stand aside.',
+        low: 'I intended to. Off you go.',
+        winning: 'No one becomes King overnight. …Forget I said that.',
+        losing: 'It isn’t. Eyes on the fight, child.',
+        lore: ['How lovely. Eggs do not concern the crown.', 'Posters flatter. Look somewhere else, little one.'],
+      },
     },
     {
       open: 'Toll’s three marbles, cub. Pay up or bite.',
@@ -550,6 +1000,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Royal or not, you hit.',
       victory: 'No toll, no road, cub. Your buyers wait past me, and they don’t wait long.',
       lore: ['Your old guard saw you take the gold. That’s why it left.', 'The boss is at the Forge. It always wants more stones.'],
+      reply: {
+        open: 'Kings do not pay tolls. They sell roads.',
+        hurt: 'Almost? I am the King. Mind your teeth.',
+        low: 'At last, a sensible fossil. Stand aside.',
+        winning: 'Your day is over. The market is open.',
+        losing: '“Royal or not”? Choose your words, fossil.',
+        lore: ['Guards leave. Gold stays. I know which I prefer.', 'Then it can pay more for them.'],
+      },
     },
     {
       open: 'You took my gold. Now you want more?',
@@ -559,6 +1017,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight like you have something to lose.',
       victory: 'My price stands, copy. Name a higher one when you can stand.',
       lore: ['The old King is coming home. Heard that too?', 'The Spire can seal a crown forever. If you’re fast.'],
+      reply: {
+        open: 'The price went up. Thrones are expensive.',
+        hurt: 'And who would believe a burner of forges?',
+        low: 'Keep the gold coming, hound. I’m climbing.',
+        winning: 'The crown is on my head, hound. Not yours.',
+        losing: 'Everything, hound. It’s why I charge so much.',
+        lore: ['Why do you think the price went up?', 'Forever would suit me nicely. Tell me more.'],
+      },
     },
     {
       open: 'You sold the gates. Now you want the Spire’s seal?',
@@ -568,6 +1034,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Strong. Strength was never the question.',
       victory: 'The Spire will not seal a stolen crown. And its owner is close now.',
       lore: ['Every gate you sold woke the Spire a little more.', 'The one this crown belongs to is close now.'],
+      reply: {
+        open: 'I want what every crown wants. Stand aside.',
+        hurt: 'I intend to. Then you’ll seal it.',
+        low: 'It’s not stolen if I’m wearing it.',
+        winning: 'Metal weighs the same on any head, ghost.',
+        losing: 'Then name your price, ghost. Everyone has one.',
+        lore: ['Then it can wake up and seal my crown.', 'This crown belongs on this head. Let it come.'],
+      },
     },
     {
       open: 'Take off my cape, copy. Then we talk.',
@@ -577,6 +1051,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You learned my moves well. Not my reasons.',
       victory: 'Take off the crown, copy. Every gate you sold, I will light again.',
       lore: ['I was at the Spire renewing the treaty when you took it.', 'Fang left because you let the Forge burn.'],
+      reply: {
+        open: 'It fits better than it ever fit you.',
+        hurt: 'The crown is the kingdom. Ask the treasury.',
+        low: 'Tomorrow I’ll still be wearing it.',
+        winning: 'You’ll need stones, exile. I sold them all.',
+        losing: 'Your reasons lost you the throne, exile.',
+        lore: ['You left the door open. I walked in.', 'The Forge paid better burned. Fang never understood money.'],
+      },
     },
   ],
   trueleo: [
@@ -588,6 +1070,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Those cannons… I know those cannons.',
       victory: 'Spies don’t get up. Prove you aren’t one, and maybe we hunt that caravan together.',
       lore: ['The King started selling gates three seasons ago. I watched.', 'These caravans carry cages and stolen stones. Both for the hound.'],
+      reply: {
+        open: 'Fists, then. I work for no one.',
+        hurt: 'Perhaps. Ask me again when we’re done.',
+        low: 'Someone who lost more than a caravan.',
+        winning: 'I’ve lasted three seasons. I’m no spy.',
+        losing: 'You should. Look closer.',
+        lore: ['Three seasons. I have counted every one.', 'Every stone goes back. I swear that.'],
+      },
     },
     {
       open: 'Two Leo Kings! Win my books, darling!',
@@ -597,6 +1087,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight like the old King did. Interesting.',
       victory: 'My books stay shut, majesty. Your copy keeps selling, and nobody believes an exile.',
       lore: ['Every sale has the royal seal on it. Every one.', 'Your copy sells to the hound. I steal them back.'],
+      reply: {
+        open: 'One King. Open the ledger.',
+        hurt: 'Nostalgic? Then you remember who I am.',
+        low: 'Every sale, every stone. I’ll need them all.',
+        winning: 'I’ve been shut out of more than books.',
+        losing: 'The old King isn’t old. Only late.',
+        lore: ['My seal, in its hands. Show me.', 'Then you have kept more gates than I.'],
+      },
     },
     {
       open: 'Another Leo King. Fight me, then. I’ll know.',
@@ -606,6 +1104,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'That stance… no. Show me more.',
       victory: 'You wear my King’s face, nothing more. Come back when you can prove it.',
       lore: ['I left the night the throne changed. My King stopped being mine.', 'The copy let the Forge burn for the hound’s gold.'],
+      reply: {
+        open: 'You will, Fang. You always did.',
+        hurt: 'Some things a copy can’t learn.',
+        low: 'It is. I’m sorry I was gone.',
+        winning: 'Good. I never asked you to kneel.',
+        losing: 'As much as you need, Fang.',
+        lore: ['You left the false one. You never left me.', 'That burn is on my crown. I’ll answer it.'],
+      },
     },
     {
       open: 'The exile. Your copy sells cheaper than you fight.',
@@ -615,6 +1121,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'One marble at a time? Fine!',
       victory: 'Every stone stays in my vault, old lion. Your copy climbs while you crawl.',
       lore: ['Every stone your copy sold sits in my vault.', 'The Spire can seal a crown forever. Your copy knows.'],
+      reply: {
+        open: 'Then you’ll find me expensive. Give them back.',
+        hurt: 'And a long memory. Every stone, hound.',
+        low: 'Then I’ll climb faster. Stones first.',
+        winning: 'You can’t buy what was never for sale.',
+        losing: 'One at a time. As you said.',
+        lore: ['Then I know where to start.', 'The Spire knows me too. I signed there.'],
+      },
     },
     {
       open: 'Two crowns climbed today. Show me yours keeps gates.',
@@ -624,6 +1138,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight like a keeper.',
       victory: 'The Spire waits for an answer. Lie here, and it may seal the copy instead.',
       lore: ['Your copy was here. The Spire would not seal it.', 'You renewed the treaty here once. I remember.'],
+      reply: {
+        open: 'It kept none. That ends today.',
+        hurt: 'Honesty is all the copy left me.',
+        low: 'Then let it speak. I’ll abide by it.',
+        winning: 'I won’t leave the kingdom twice.',
+        losing: 'I mean to be one, this time.',
+        lore: ['Then there’s still time. Where did it go?', 'I should have gone home sooner.'],
+      },
     },
     {
       open: 'Exiles don’t get crowns. Not on my field.',
@@ -633,6 +1155,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Stop! Everyone is watching!',
       victory: 'Run again, exile. The crown stays with the one who stayed.',
       lore: ['The palace took me in one night. You were away.', 'Every gate I sold made the treasury fuller.'],
+      reply: {
+        open: 'Your field? Ask the crowd whose field it is.',
+        hurt: 'You kept it warm. You left the gates cold.',
+        low: 'Let them. That’s why I came here.',
+        winning: 'I was driven out. I came back anyway.',
+        losing: 'Yes. Every gate you sold is watching.',
+        lore: ['I was away keeping the treaty you broke.', 'And the League darker. I’ll spend it relighting them.'],
+      },
     },
   ],
   tyrant: [
@@ -644,6 +1174,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You hit like a storm tide.',
       victory: 'Still here. Still holding. The beach stone stays in its gate.',
       lore: ['This stone keeps the tide gate shining.', 'The treaty set this stone. You’re breaking more than a gate.'],
+      reply: {
+        open: 'Everything moves when I want it.',
+        hurt: 'I’ll have both. And the stone under them.',
+        low: 'Nothing stays. Not once I’ve seen it.',
+        winning: 'Hold tighter. I’m only getting started.',
+        losing: 'Tides go out. I don’t.',
+        lore: ['Not for long. My name shines better.', 'Good. I never signed that treaty.'],
+      },
     },
     {
       open: 'Permit, please! Toll gates need a permit!',
@@ -653,6 +1191,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You can’t just BE the permit!',
       victory: 'Toll gate closed! No permit, no gate. I’m writing it all up!',
       lore: ['The beach gate went dark yesterday. I’m investigating.', 'Someone’s robbing vaults out here. I’ll find out whose.'],
+      reply: {
+        open: 'You’re looking at it, marshal.',
+        hurt: 'Spell my name right. In big letters.',
+        low: 'Good. File it under “owned.”',
+        winning: 'I’ll eat that book, and then you.',
+        losing: 'And yet here I am, stamping you.',
+        lore: ['Keep looking, marshal. You’ll find my name.', 'Anyone touching my vaults won’t need finding.'],
+      },
     },
     {
       open: 'You owe me! Plus interest! Plus rudeness interest!',
@@ -662,6 +1208,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'This is NOT how invoices work!',
       victory: 'Debt settled! In MY favour! And your puller’s warranty is void.',
       lore: ['You never found the Forge stone, did you? Interesting.', 'My puller strips gates. It doesn’t find lost stones.'],
+      reply: {
+        open: 'Here’s my payment. It has two wolf heads.',
+        hurt: 'Consider it a down payment.',
+        low: 'Make it worth more than your head.',
+        winning: 'Paws are all you’re getting, Mandrill.',
+        losing: 'Invoice my fists. Both of them bite.',
+        lore: ['Say that again. Slowly. Where is it?', 'Then I paid for half a machine.'],
+      },
     },
     {
       open: 'Darling, you found me! Smile for the crowd!',
@@ -671,6 +1225,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Easy, hound! These crates aren’t yours anymore!',
       victory: 'Your stones are flying up the Spire, hound. Wave them goodbye.',
       lore: ['Every crate goes up the Spire, out of your reach.', 'You grounded me for refusing your cargo. I deliver it now.'],
+      reply: {
+        open: 'Smile while you still have a face, ace.',
+        hurt: 'They’re going back in my vault.',
+        low: 'Nothing climbs out of my reach.',
+        winning: 'Fly while you can. Scrap doesn’t.',
+        losing: 'Everything’s mine. You just haven’t accepted it.',
+        lore: ['The Spire’s next on my list, ace.', 'Deliver this, ace. Both fists.'],
+      },
     },
     {
       open: 'I’m done, hound. Let’s bite.',
@@ -680,6 +1242,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You always were stronger. Never smarter.',
       victory: 'The Dino Kings are done. Stay down, and leave my stones alone.',
       lore: ['I set those keystones in the old wars. You’re pulling them.', 'Pull every stone and you break the treaty. And the League.'],
+      reply: {
+        open: 'You ride for the fights. Here’s your last.',
+        hurt: 'And I pull them with my own fists.',
+        low: 'Alone is how kings rule, fossil.',
+        winning: 'It was always me, fossil. Still standing.',
+        losing: 'Smart enough to own every gate you set.',
+        lore: ['Old wars. Old stones. Old fool.', 'Then I’ll own what’s left of it.'],
+      },
     },
     {
       open: 'Five engines, one grudge. Get out of my pit!',
@@ -689,6 +1259,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You burned it once. Not again!',
       victory: 'The Forge is ours, hound! Every crew just watched you fall!',
       lore: ['The furnaces won’t light. Not without our stone.', 'Tear the whole Forge apart. You’ll never find our stone.'],
+      reply: {
+        open: 'Whose banner burned it? Mine. Move.',
+        hurt: 'Good. Let them watch it burn again.',
+        low: 'Not after tonight. Paint over it, lizard.',
+        winning: 'That Forge is cold. So are you, soon.',
+        losing: 'Again. And again, until it’s mine.',
+        lore: ['Cold pits suit me. I want the stone.', 'Watch me. I’ll start with the springs.'],
+      },
     },
   ],
   rex: [
@@ -700,6 +1278,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Ow! That’s chapter four: no biting!',
       victory: 'Citation issued, sir! Back in your day was a long time ago.',
       lore: ['Gates keep going dark. Your ride is a suspect.', 'The hound’s toll gate has no permit. You ride with it.'],
+      reply: {
+        open: 'Back in my day, the rulebook was chewable.',
+        hurt: 'Tastes like tin. Write that down too.',
+        low: 'Boss? Kid, I’m older than bosses.',
+        winning: 'Not done chewing yet, shiny.',
+        losing: 'Read me chapter five. I’m still hungry.',
+        lore: ['Not my problem. I just do the biting.', 'I ride for the fights, sonny. Not the paperwork.'],
+      },
     },
     {
       open: 'Wrong side, old timer! Let’s fix that!',
@@ -709,6 +1295,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Still tough. Still wrong.',
       victory: 'Five engines win! There ARE sides, old timer. Pick the right one!',
       lore: ['The hound burned my Forge. You ride with an arsonist.', 'You fought in the old wars. You set these gates!'],
+      reply: {
+        open: 'Only side I know is the one I’m biting.',
+        hurt: 'Thank you. Took a glacier to sharpen ’em.',
+        low: 'I know what a nap means. Pipe down.',
+        winning: 'Fossil’s still biting. Count your engines.',
+        losing: 'Still winning, too. Hmph.',
+        lore: ['Back in my day, everything was on fire.', 'Hmph. Who told you that? Keep swinging.'],
+      },
     },
     {
       open: 'Still running with the hound, old timer?',
@@ -718,6 +1312,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Hmph. Fight like you mean it, for once.',
       victory: 'Young blood beats old teeth. Go look at your dark gate in Sandglass Pass, fossil.',
       lore: ['The hound is pulling keystones. Old-war keystones.', 'Your gate in Sandglass Pass is dark. Go and see.'],
+      reply: {
+        open: 'Better than running from a throne, pup.',
+        hurt: 'New ones break. Yours look new.',
+        low: 'What keystones? Spit it out, pup.',
+        winning: 'Stuck to your leg, soon. Not done.',
+        losing: 'Hmph. That’s MY word, pup.',
+        lore: ['Old-war? …Mine? You’re lying, pup.', '…Dark? I’ll look. After I bite you.'],
+      },
     },
     {
       open: 'Ride with me or get out of my pass.',
@@ -727,6 +1329,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Old jaws. Still sharp. Annoying.',
       victory: 'Your gate is mine now, fossil. Every stone you ever set, I pull.',
       lore: ['Every stone I pull puts my name on a gate.', 'The Forge stone is still missing. Not for long.'],
+      reply: {
+        open: 'Your pass? I set that stone, hound.',
+        hurt: 'Back in my day, we bit traitors first.',
+        low: 'Never needed a ride. Only a reason.',
+        winning: 'That marble cost me a war. Get back here.',
+        losing: 'Sharpest thing you ever rode with, hound.',
+        lore: ['My jaws put those there. Put ’em back.', 'You won’t get it. Not with my teeth in you.'],
+      },
     },
     {
       open: 'Old soldier. Fight first, then I tell you.',
@@ -736,6 +1346,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'The treaty frames fought like you.',
       victory: 'Then the missing stone stays lost. It is small, and warm, and alone, old soldier.',
       lore: ['Seven gates dark. The Spire is counting every one.', 'One stone was never stolen. It is lost, and warm.'],
+      reply: {
+        open: 'Suits me. Fighting’s the only part I like.',
+        hurt: 'Never stopped. Everyone else went soft.',
+        low: 'About time, quiet one. Which stone?',
+        winning: 'I’ll lay the last one too. On you.',
+        losing: 'They fought behind me, back in my day.',
+        lore: ['I’m counting too. Every one’s coming back.', 'Warm? Don’t you riddle me, quiet one.'],
+      },
     },
     {
       open: 'Grandpa Rex! Play first! Then maybe!',
@@ -745,6 +1363,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Whoa! Big bite!',
       victory: 'I beat Grandpa Rex! Me and my egg can walk home past the scary hound alone!',
       lore: ['My egg is warmer than the whole Forge!', 'The scary hound came looking. I hid in the springs!'],
+      reply: {
+        open: 'No playing! And NOT your grandpa!',
+        hurt: 'I’m the normal amount of grumpy, kid.',
+        low: 'Wouldn’t dream of it. It’s not an egg.',
+        winning: 'I’m pacing myself! Kids these days!',
+        losing: 'Back in my day, that was a nibble.',
+        lore: ['That’s the problem, kid. It belongs in there.', 'Hmph. Smart. Keep doing that, kid.'],
+      },
     },
   ],
   liger: [
@@ -756,6 +1382,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Ricochets! How theatrical. I love it.',
       victory: 'Still a guard at heart, darling. Do get up when you answer to no one.',
       lore: ['Fresh keystones from the hound’s vault. Very valuable.', 'Your old palace sells stones to the hound. Did you know?'],
+      reply: {
+        open: 'No trial. I’m done working for shiny things.',
+        hurt: 'I quit. Hold still.',
+        low: 'Dark gates. Those I might chase.',
+        winning: 'It suits me fine. Get back here.',
+        losing: 'Left, then right. Wait for the bounce.',
+        lore: ['Valuable enough to get you killed.', 'Why do you think it’s my old palace?'],
+      },
     },
     {
       open: 'Show me who you are, guard.',
@@ -765,6 +1399,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You moved to shield a little one. Again.',
       victory: 'You moved to shield them again. Still a guard. Rise and prove otherwise.',
       lore: ['My little ones are disappearing. Someone is hunting them.', 'This gate went dark. The hound’s banner flew here.'],
+      reply: {
+        open: 'Not a guard. Not anymore.',
+        hurt: 'Careful’s done. Try me again.',
+        low: 'Keep your voice down.',
+        winning: 'Only one I protect now. Come on!',
+        losing: 'I slipped. That’s all. I slipped.',
+        lore: ['Not my job. …How many?', 'Then that’s a fight worth finding.'],
+      },
     },
     {
       open: 'Measure yourself, Fang. Not against me.',
@@ -774,6 +1416,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight like a guard, not a hunter.',
       victory: 'Not enough, Fang. Measure again, without looking back at the palace.',
       lore: ['A signal pulses from the Spire. Gates go dark below it.', 'The palace below us is quiet. Too quiet for a King.'],
+      reply: {
+        open: 'Everyone else does. Hold still and be the yardstick.',
+        hurt: 'Ask me when you’re on the floor.',
+        low: '…I’ll tell you when I know.',
+        winning: 'I’m looking at you. Swing again.',
+        losing: 'Wrong. Guards don’t hit this hard.',
+        lore: ['Not my signal. Not my gates. Fight.', 'There’s no King in it. Eyes on me.'],
+      },
     },
     {
       open: 'Ask what a crown is for. Then fight.',
@@ -783,6 +1433,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Loyal, even now. Interesting.',
       victory: 'You fought only for yourself, and lost. Ask again what a crown is for.',
       lore: ['The old crowns swore to keep the gates.', 'Your King went to the Spire. Something else came home.'],
+      reply: {
+        open: 'Fight first. I’ll ask with my teeth.',
+        hurt: 'It’s the only one I’ve got, ghost.',
+        low: 'I’m listening. Don’t make it a riddle.',
+        winning: 'Small’s what I can carry right now.',
+        losing: 'Loyal to who? There’s nobody left.',
+        lore: ['And look how that went. Keep what?', 'I know. I was there when it did.'],
+      },
     },
     {
       open: 'Kneel, hunter. Your own gate awaits.',
@@ -792,6 +1450,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Guards. Always too loyal.',
       victory: 'Kneel, stray. Take my crown next time, or stay small forever.',
       lore: ['This crown was forged from a dark gate.', 'Your copy king sells me gates. I could sell you one.'],
+      reply: {
+        open: 'I’ve knelt to one King. Not a dog.',
+        hurt: 'A crown you hand me isn’t earned.',
+        low: 'Strays bite, hound. Remember it.',
+        winning: 'Mine isn’t made yet. Keep your gold.',
+        losing: 'You wouldn’t know. You rent your friends.',
+        lore: ['Then it’s only scrap with a shine.', 'That copy’s no king of mine. Neither are you.'],
+      },
     },
     {
       open: 'Come home, Fang. Kneel.',
@@ -801,6 +1467,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You were my best guard. Wasted.',
       victory: 'Kneel, Fang. The whole League just watched a guard fall before its King.',
       lore: ['The treasury has never been fuller. You could share it.', 'The old King is not coming back, Fang.'],
+      reply: {
+        open: 'This isn’t home. You’re not my King.',
+        hurt: 'My King would’ve blocked that.',
+        low: 'Let them look, copy. Let them all.',
+        winning: 'I don’t want forgiving. Not by you.',
+        losing: 'Never yours. I guarded a real King.',
+        lore: ['Full of what? Burnt Forge and dark gates?', 'Then I’ll keep the gate till someone does.'],
+      },
     },
   ],
   ember: [
@@ -812,6 +1486,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'How are you winning? You’re looking at the ceiling!',
       victory: 'Genius wins! Now, let’s have a look inside that glowing egg, newt.',
       lore: ['That egg of yours. It glows like… no. Interesting.', 'The hound would pay a fortune for something warm like that.'],
+      reply: {
+        open: 'Ooh, do you have a button?!',
+        hurt: 'But orange is the BEST one!',
+        low: 'Okay! Bye, big head! Can I come back?',
+        winning: 'Ow! Egg, what’s a genius? Is it a button?',
+        losing: 'Your ceiling has SO many lights!',
+        lore: ['Isn’t it pretty?! It’s MINE though!', 'Nope! Not for sale! It’s my egg!'],
+      },
     },
     {
       open: '…',
@@ -821,6 +1503,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: '……',
       victory: '…come back… softly.',
       lore: ['…shh… small ones… sleeping.', '…warm… hide it.'],
+      reply: {
+        open: 'Hi! Is that a yes? I’ll take it as yes!',
+        hurt: 'Oops! Sorry, friend! Did that tickle?',
+        low: 'You’re so quiet! Are we friends yet?',
+        winning: 'Ow! Friends can poke! I’m still playing!',
+        losing: 'You said MORE dots! We’re best friends!',
+        lore: ['Okay! I’ll be SO quiet! …Who’s sleeping?', 'You like my egg too?! I’ll hide it!'],
+      },
     },
     {
       open: 'Reef’s closed. I don’t move.',
@@ -830,6 +1520,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You fight fair. I respect that.',
       victory: 'Reef stays closed, little one. Come back when you can stand against the tide.',
       lore: ['That egg hums like a gate.', 'Stones that hum get stolen. Mine nearly was.'],
+      reply: {
+        open: 'Then I’ll go past you! Bubbles!',
+        hurt: 'What’s fair? Can I press it?',
+        low: 'I’m listening! Ooh, is that a crab?',
+        winning: 'Can I read you? I’m not going home!',
+        losing: 'Yay! Does respect come with bubbles?',
+        lore: ['Hums? I thought it was snoring!', 'My egg’s not a stone! …Is it?'],
+      },
     },
     {
       open: 'Sweet little thing! Lend me that egg?',
@@ -839,6 +1537,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Feisty! The crowd loves an underdog.',
       victory: 'Lovely! Your egg flies with me now, sweetheart. Wave goodbye!',
       lore: ['I collect shiny things for a very good cause.', 'The hound turned the Forge over looking for something warm.'],
+      reply: {
+        open: 'No! I found it! It’s MINE!',
+        hurt: 'Ooh, what does THIS part do?!',
+        low: 'I’m keeping it AND listening! Both!',
+        winning: 'I AM smiling! Ow! Still smiling!',
+        losing: 'Hi, crowd! Hi! Hi! Look at my egg!',
+        lore: ['You can’t collect this one! It’s hugging me!', 'Eep! My egg’s warm! …Lots of things are warm!'],
+      },
     },
     {
       open: 'Warm-up round! Don’t drop that stone!',
@@ -848,6 +1554,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'You’re small, but you fight like the whole pit!',
       victory: 'Gotcha, kid! The Forge stays cold till you carry that stone home. Get up!',
       lore: ['The Forge has been cold since the fire. No stone, no flame.', 'My crews have been waiting a long time for that stone.'],
+      reply: {
+        open: 'It’s a HEART! And stop yelling!',
+        hurt: 'I’m ALWAYS careful! You’re the loud one!',
+        low: 'Yay! Say sorry to my egg too!',
+        winning: 'Ow! No! I carried it ALL this way!',
+        losing: 'How big is a whole pit?!',
+        lore: ['I kept it warm the whole time!', 'Do they like warm? Eggs like warm!'],
+      },
     },
     {
       open: 'You never stop talking. Let’s bite.',
@@ -857,6 +1571,14 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       losing: 'Stop giggling and FIGHT, kid!',
       victory: 'Too small to carry it, kid. Rest, then show me your hands are strong enough.',
       lore: ['That stone keeps the Forge alive. The hound wants it.', 'I set stones like that in the old wars.'],
+      reply: {
+        open: 'Grandpa Rex! Okay! Biting’s a game, right?!',
+        hurt: 'That’s on my card too! Probably!',
+        low: 'I KNEW it! Egg, did you hear?!',
+        winning: 'My hands are tiny AND strong! Ow! See?!',
+        losing: 'I can do BOTH, Grandpa!',
+        lore: ['The hound can’t have it! It’s a heart!', 'Wow! Were you always this grumpy?!'],
+      },
     },
   ],
 };

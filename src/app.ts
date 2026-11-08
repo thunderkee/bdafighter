@@ -1102,6 +1102,7 @@ export function boot() {
   /** played out on the table (the camera on the speaker) rather than over a backdrop */
   let dlgStaged = false;
   const talkFace = new TalkFace();
+  const moodOf = (t: string) => (/!/.test(t) ? 'shout' : /\?\s*$/.test(t) ? 'ask' : /^…|…$|\.\.\.$/.test(t.trim()) ? 'quiet' : 'say') as 'shout' | 'ask' | 'quiet' | 'say';
   let liveRow: HTMLElement | null = null;
   let liveId = '';
   /** the bubble that had the live face keeps a still portrait of its speaker */
@@ -1124,7 +1125,7 @@ export function boot() {
     row.innerHTML = narr ? '<p class="cb-bubble"></p>' : `<span class="cb-face"><i class="cb-pic"></i><b></b></span><p class="cb-bubble"></p>`;
     row.querySelector('p')!.textContent = l.text;
     // (how it's said, from the line itself: a shout, a question, trailing off, or plain talk)
-    const mood = /!/.test(l.text) ? 'shout' : /\?\s*$/.test(l.text) ? 'ask' : /^…|…$|\.\.\.$/.test(l.text.trim()) ? 'quiet' : 'say';
+    const mood = moodOf(l.text);
     // the speaker talks, live, in the newest bubble; the earlier ones keep a still of them
     dlgStill();
     if (!narr) {
@@ -1320,7 +1321,7 @@ export function boot() {
   });
   const startBarks = (hero: string, ch: number) => {
     const foe = unitOfBase(pathOf(hero).chapters[ch].foe);
-    barks.start(FIGHT_BARKS[whoOf(hero)]?.[ch], foe, characterById(foe).name);
+    barks.start(FIGHT_BARKS[whoOf(hero)]?.[ch], foe, characterById(foe).name, hero, characterById(hero).name);
   };
   /** a chapter lost: the foe's closing words (over the backdrop), then on to the retry */
   const storyClosing = (hero: string, ch: number, then: () => void) => {
@@ -1329,10 +1330,29 @@ export function boot() {
     const b = FIGHT_BARKS[whoOf(hero)]?.[ch];
     const text = b?.victory ?? b?.winning;
     if (!text) return then();
+    const foe = unitOfBase(c.foe);
+    const box = $('story-defeat');
+    $('sd-name').textContent = characterById(foe).name;
+    $('sd-line').textContent = `“${text}”`;
     // (and what's still to win, so the retry has its reason)
-    const lines: Line[] = [{ who: c.foe, text }];
-    if (c.goal) lines.push({ who: 'narrator', text: `Get back up. ${c.goal}` });
-    talk(hero, `CHAPTER ${ch + 1} · DEFEATED`, c.title.toUpperCase(), lines, then);
+    $('sd-goal').textContent = c.goal ? `Get back up. ${c.goal}` : 'Get back up.';
+    // the winner, live and big, says its piece
+    $('sd-face').replaceChildren(talkFace.canvas);
+    talkFace.size(220);
+    talkFace.show(foe, moodOf(text));
+    box.classList.remove('hidden');
+    sfx.play('slam');
+    // (a beat before a tap counts: you were just hammering FIRE)
+    const from = performance.now();
+    const go = () => {
+      if (performance.now() - from < 600) return;
+      box.removeEventListener('click', go);
+      box.classList.add('hidden');
+      talkFace.stop();
+      talkFace.size(80);
+      then();
+    };
+    box.addEventListener('click', go);
   };
   /** a chapter fought in Action: the talk over the backdrop, then straight into it */
   const actionChapter = (mode: Exclude<ChapterMode, 'duel'>) => {

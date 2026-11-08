@@ -44,6 +44,14 @@ export class TalkFace {
     return r;
   }
 
+  /** how big it's drawn (CSS pixels, square) */
+  private px = 80;
+  size(px: number) {
+    if (px === this.px) return;
+    this.px = px;
+    this.ensure().setSize(px, px, false);
+  }
+
   /** start a line: this fighter, saying it this way */
   show(id: string, mood: TalkMood) {
     this.ensure();

@@ -781,7 +781,7 @@ export class ActionMode {
     const id = this.story.boss ?? this.story.foes?.[0];
     const foe = this.units.find((u) => u.def.id === id && u.team !== me.team);
     if (!foe) return null;
-    return { foeFrac: foe.alive ? foe.hp / foe.max : 0, meFrac: me.alive ? me.hp / me.max : 0 };
+    return { foeFrac: foe.alive ? foe.hp / foe.max : 0, meFrac: me.alive ? me.hp / me.max : 0, action: true };
   }
   /** the music this fight wants: Dungeon Run's own, or the arena's (a theme id or its stage) */
   get musicStage() {
