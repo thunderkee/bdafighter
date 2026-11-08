@@ -654,7 +654,7 @@ export function boot() {
   };
 
   /** a story scene played out on the table before the match (its intro comes after) */
-  type Goal = { why: string; how: string };
+  type Goal = { kind: string; foe: string; why: string; how: string };
   type Scene = { head: string; title: string; lines: Line[]; then: () => void; goal?: Goal };
   const startMatch = (scene?: Scene) => {
     sfx.unlock();
@@ -1142,7 +1142,28 @@ export function boot() {
     const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && whoOf(unitIds()[k]) === whoOf(id));
     if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt, slot, mood };
   };
+  /** before a fight, the talk's last beat is the briefing: the objective, then FIGHT */
+  let dlgGoal: Goal | undefined;
+  let briefOn = false;
+  const showBrief = (g: Goal) => {
+    briefOn = true;
+    dlgStill();
+    talkFace.stop();
+    $('brief-kind').textContent = g.kind;
+    $('brief-why').textContent = g.why;
+    $('brief-how').textContent = g.how;
+    const face = $('brief-face');
+    face.innerHTML = `<i data-portrait="${g.foe}" data-crop="bust"></i>`;
+    fillPortraits(face);
+    dlg.classList.add('briefing');
+    // (on the table: the wide shot)
+    if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt + 1, slot: -1, mood: 'say' };
+    sfx.play('whoosh');
+  };
+  /** past the last line: the briefing if there is one, otherwise on */
+  const dlgNext = () => (dlgGoal && !briefOn ? showBrief(dlgGoal) : dlgEnd());
   const dlgEnd = () => {
+    dlg.classList.remove('briefing');
     dlgStill();
     talkFace.stop();
     dlg.classList.add('hidden');
@@ -1161,11 +1182,9 @@ export function boot() {
     $('dlg-chat').replaceChildren();
     $('dlg-ch').textContent = head;
     $('dlg-title').textContent = title;
-    // (before a fight: what it's for, and how it's won)
-    const g = $('dlg-goal');
-    g.classList.toggle('hidden', !goal);
-    g.querySelector('strong')!.textContent = goal?.why ?? '';
-    g.querySelector('small')!.textContent = goal?.how ?? '';
+    dlgGoal = goal;
+    briefOn = false;
+    dlg.classList.remove('briefing');
     for (const k of SCREENS) $(k).classList.add('hidden');
     if (!staged) showHero();
     dlg.classList.remove('hidden');
@@ -1173,9 +1192,11 @@ export function boot() {
     dlgShow();
   };
   dlg.addEventListener('click', (e) => {
-    if ((e.target as Element).closest('#dlg-skip')) return dlgEnd();
+    // (skipping still stops at the briefing, so the objective is never missed)
+    if ((e.target as Element).closest('#dlg-skip')) return dlgNext();
+    if (briefOn) return dlgEnd();
     sfx.play('tick', 0.5);
-    if (++dlgAt >= dlgLines.length) dlgEnd();
+    if (++dlgAt >= dlgLines.length) dlgNext();
     else dlgShow();
   });
   /** a chapter's fight: the opponent on their home turf, a little harder each time (a scene
@@ -1289,7 +1310,8 @@ export function boot() {
       : mode === 'brawl' ? `Be the last one standing in the storm. ${foe} is in it.`
       : mode === 'dungeon' ? `Clear the rooms, take the key, open the locked door and beat ${foe}.`
       : `Bring down the giant ${foe}${allies ? ` with ${allies}` : ''}.`;
-    return { why: c.goal ?? `Get past ${foe}.`, how };
+    const kind = mode === 'duel' ? 'Duel' : mode === 'brawl' ? 'Storm Brawl' : mode === 'dungeon' ? 'Dungeon' : 'Giant fight';
+    return { kind: `${kind} · ${stageById(c.arena).name}`, foe: unitOfBase(c.foe), why: c.goal ?? `Get past ${foe}.`, how };
   };
   /** the opponent's lines for this chapter's fight */
   const barks = new Barks($('app'), (id, el) => {
@@ -1341,8 +1363,7 @@ export function boot() {
       },
     };
     const lines = [...(ch === 0 ? p.intro : []), ...c.before, ...setter(hero, ch, mode)];
-    const what = mode === 'brawl' ? 'STORM BRAWL' : mode === 'dungeon' ? 'DUNGEON' : 'GIANT FIGHT';
-    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length} · ${what} · ${characterById(foe).name.toUpperCase()}`, c.title.toUpperCase(), lines, () => {
+    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length}`, c.title.toUpperCase(), lines, () => {
       startBarks(hero, ch);
       storyAction?.(f);
     }, false, goalOf(hero, ch, mode));
@@ -1356,7 +1377,7 @@ export function boot() {
     const mode = chapterMode(story.hero, story.ch);
     if (mode !== 'duel') return actionChapter(mode);
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
-    fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length} · VS ${characterById(unitOfBase(c.foe)).name.toUpperCase()}`, title: c.title.toUpperCase(), lines, then: () => {
+    fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length}`, title: c.title.toUpperCase(), lines, then: () => {
       if (story) startBarks(story.hero, story.ch);
       beginIntro();
     }, goal: goalOf(story.hero, story.ch, 'duel') });

@@ -657,9 +657,15 @@
       <div id="rotate" class="hidden"><i class="rot-phone"></i><b id="rotate-head">TURN YOUR PHONE</b><span id="rotate-why"></span><button id="rotate-port"></button></div>
       <!-- story mode: who says what before each chapter -->
       <div id="story-dlg" class="hidden">
-        <header class="dlg-head"><span id="dlg-ch"></span><b id="dlg-title"></b><p class="dlg-goal hidden" id="dlg-goal"><em>OBJECTIVE</em><strong></strong><small></small></p></header>
+        <header class="dlg-head"><b id="dlg-title"></b><span id="dlg-ch"></span></header>
         <div class="dlg-chat" id="dlg-chat"></div>
-        <span class="dlg-tap">TAP ▶</span>
+        <!-- the last beat before a fight: what it's for, and how it's won -->
+        <section class="dlg-brief" id="dlg-brief" aria-live="polite">
+          <span class="brief-face" id="brief-face"></span>
+          <div class="brief-text"><span class="brief-kind" id="brief-kind"></span><strong id="brief-why"></strong><p id="brief-how"></p></div>
+          <button class="key orange brief-go" id="dlg-go">Fight ▶</button>
+        </section>
+        <span class="dlg-tap">Tap to continue</span>
         <button class="dlg-skip" id="dlg-skip">SKIP ▶▶</button>
       </div>
       <div id="loading" class="screen"><p class="sys-line">BOOTING COMBAT SYSTEMS<b class="blink">…</b></p></div>
