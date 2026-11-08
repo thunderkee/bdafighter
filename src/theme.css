@@ -8578,3 +8578,48 @@ html.land {
 .bark {
   top: calc(max(10px, env(safe-area-inset-top)) + 62px);
 }
+/* ================= Action's top bar, compact (2026-11) =================
+   the quit button, the title and the score in one short row; the map, boss bar and objective
+   tucked closer under it */
+#action .ac-hud {
+  padding-top: max(8px, env(safe-area-inset-top));
+  gap: 6px;
+}
+#action .ac-top {
+  grid-template-columns: 48px 1fr 48px;
+  gap: 8px;
+}
+#action .ac-quit {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+#action .ac-score {
+  min-width: 48px;
+}
+#action .ac-title b,
+#action .ac-score b {
+  font-size: 19px;
+}
+#action .ac-title span,
+#action .ac-score span {
+  font-size: 9px;
+}
+#action .ac-goal {
+  margin-top: 2px;
+  padding: 4px 10px;
+  font-size: 10px;
+}
+#action .ac-bossbar b {
+  font-size: 13px;
+}
+#action canvas.ac-map {
+  top: calc(max(8px, env(safe-area-inset-top)) + 44px);
+  width: 76px;
+}
+html.land {
+  #action canvas.ac-map {
+    top: calc(max(8px, env(safe-area-inset-top)) + 40px);
+    width: 72px;
+  }
+}
