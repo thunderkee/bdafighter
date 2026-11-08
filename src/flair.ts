@@ -89,6 +89,8 @@ interface FaceKit {
   byRole: (role: string) => THREE.Object3D[];
   turret: THREE.Object3D;
   use: (o: THREE.Object3D) => void;
+  /** make a part of the design bigger (not in the Unit Lab) */
+  enlarge: (o: THREE.Object3D, k: number) => void;
 }
 const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
 const ball = (r: number) => new THREE.SphereGeometry(r, 12, 10);
@@ -136,11 +138,11 @@ const FACE: Record<string, (f: FaceKit) => void> = {
     for (const x of [-0.08, 0.08]) sway(add(box(0.11, 0.025, 0.72), x < 0 ? 0xf4f0e6 : 0xee2a3a, [x, 1.12, 0.36]));
   },
   // the brow, and bigger fists
-  violet({ add, byRole, head }) {
+  violet({ add, byRole, head, enlarge }) {
     head.updateMatrixWorld(true);
     const b = new THREE.Box3().setFromObject(head);
     add(box(0.46, 0.1, 0.14), 0x2a2036, [(b.min.x + b.max.x) / 2, b.min.y + (b.max.y - b.min.y) * 0.62, b.min.z - 0.02], [0.28, 0, 0]);
-    for (const r of [...byRole('fistL'), ...byRole('fistR')]) r.scale.multiplyScalar(1.25);
+    for (const r of [...byRole('fistL'), ...byRole('fistR')]) enlarge(r, 1.25);
   },
   // a pale mask in the hood
   nightshade({ add, head }) {
@@ -178,9 +180,9 @@ const FACE: Record<string, (f: FaceKit) => void> = {
     }
   },
   // a heavier jaw and one broken tooth
-  rex({ add, byRole, use }) {
+  rex({ add, byRole, use, enlarge }) {
     for (const j of byRole('jaw')) {
-      j.scale.multiplyScalar(1.28);
+      enlarge(j, 1.28);
       use(j);
     }
     for (const x of [-0.14, 0.14]) add(spike(0.07, 0.28), WHITE, [x, 1.08, -1.34], [Math.PI, 0, 0]);
@@ -310,6 +312,8 @@ export class Flair {
     def: CharacterDef,
     mats: THREE.Material[],
     private isEye: (m: THREE.Mesh) => boolean,
+    /** the Unit Lab: add the finish, but don't move, rehang or resize any block of the design */
+    private still = false,
   ) {
     const key = id.replace(/-\d+$/, '');
     root.updateMatrixWorld(true);
@@ -347,16 +351,16 @@ export class Flair {
     if (look) {
       const head = eyes.find((e) => e.parent !== turret)?.parent ?? byRole('head')[0] ?? byRole('tilt')[0] ?? turret;
       holder = head;
-      look({ add, sway: (m) => swayed.push(m), c: def.palette, eyes, head, byRole, turret, use: (o) => (holder = o) });
+      look({ add, sway: (m) => swayed.push(m), c: def.palette, eyes, head, byRole, turret, use: (o) => (holder = o), enlarge: (o, k) => !this.still && o.scale.multiplyScalar(k) });
       holder = turret;
-      if (HEAD[key] && head !== turret) head.scale.multiplyScalar(HEAD[key]);
+      if (HEAD[key] && head !== turret && !still) head.scale.multiplyScalar(HEAD[key]);
     }
     this.grow(def);
     root.updateMatrixWorld(true);
 
     this.wear = WEAR[key] ?? null;
 
-    this.findParts(swayed);
+    if (!still) this.findParts(swayed);
     const spark = new THREE.MeshBasicMaterial({ color: 0xffc84a });
     const geo = new THREE.BoxGeometry(0.035, 0.035, 0.035);
     for (let k = 0; k < SPARKS; k++) {

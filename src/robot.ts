@@ -48,6 +48,8 @@ export interface CharacterDef {
   form?: number;
   /** wearing Standard or a later form: the finish (see flair.ts) goes over the design. Without it, the Original look */
   finish?: boolean;
+  /** the Unit Lab's preview of the finish: shown, but the design's own blocks are left exactly where they are, to edit */
+  finishStill?: boolean;
   /** this unit's marble colour */
   ball: number;
   palette: Palette;
@@ -1011,6 +1013,7 @@ export class ShooterMesh {
     this.flair?.paint(this.mats);
     // (the roster's sizes, and how much each form of an evolution has grown)
     if (def.finish) this.fit.multiplyScalar((STATURE[def.id.replace(/-\d+$/, '')] ?? 1) * (FORM_SCALE[def.form ?? 0] ?? 1));
+    if (def.finishStill) this.root.scale.copy(this.fit);
   }
 
   private build(def: CharacterDef, marbleColor: number) {
@@ -1871,7 +1874,7 @@ export class ShooterMesh {
     if (def.finish) this.flair = new Flair(this.root, this.turret, def.id, def, this.mats, (m) => {
       const mat = m.material as THREE.MeshBasicMaterial;
       return !Array.isArray(mat) && !!mat.isMeshBasicMaterial && mat.color.getHex() === eye;
-    });
+    }, !!def.finishStill);
   }
   private flair: Flair | null = null;
   /** a final form's halo and blades of light */

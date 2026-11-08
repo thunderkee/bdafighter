@@ -7,7 +7,8 @@ import { API, cachedPublished, fetchPublished, type PublishedRoster } from './pu
 import { DEFAULT_TRAITS, loadRoster, saveRoster, traitMul, type Block, type ColorRef, type PaletteSlot, type Role, type RosterData, type Shape, type Traits, type UnitEntry, type SkinEdit } from './roster';
 import { edgesOf, extrudeFaces, fromGeometry, meshGeometry, prism, triangulate } from './meshkit';
 import { MATCH } from './config';
-import { kitOf, paintPalette, skinsOf } from './kits';
+import { SKIN_IDS, kitOf, paintPalette, skinsOf } from './kits';
+import { formPalette } from './evolution';
 import { computeStats, STARTER_BUILD } from './parts';
 import * as store from './storage';
 import type { Shooter } from './game';
@@ -315,7 +316,10 @@ function rebuildPreview() {
   const palette = pj ? { ...d.palette, ...paintPalette(d, pj) } : d.palette;
   // (a skin shows with its parts on)
   const gear = draftHasParts ? undefined : curSkin()?.gear;
-  model = new ShooterMesh(d.id, d.ball, { ...d, palette, blueprint: draft, gear: gear && (gear.hat || gear.back || gear.shoulder) ? gear : undefined });
+  // (Standard and the evolved forms show as they do in the game: colours, growth and finish over the blocks)
+  const form = editSkin ? Math.max(0, SKIN_IDS.indexOf(editSkin)) : 0;
+  const look = editSkin ? { finish: true, finishStill: true, form, palette: pj ? palette : formPalette(d, form) } : { palette };
+  model = new ShooterMesh(d.id, d.ball, { ...d, ...look, blueprint: draft, gear: gear && (gear.hat || gear.back || gear.shoulder) ? gear : undefined });
   scene.add(model.root);
   addBallExitMarker();
   updateHelper();
@@ -1263,7 +1267,7 @@ function renderSkins() {
     });
     bar.appendChild(b);
   };
-  add(null, 'Fighter', false);
+  add(null, 'Original', false);
   const ed = def().skins ?? {};
   for (const sk of skinsOf(def())) add(sk.id, sk.name, !!ed[sk.id]);
   // over the preview: what's being edited, so a block change never lands on the wrong one
