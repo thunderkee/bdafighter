@@ -33,7 +33,7 @@ export type PaletteSlot = 'body' | 'trim' | 'accent' | 'joint' | 'eye' | 'ball';
 export type ColorRef = PaletteSlot | number;
 
 /** parts the animation drives (walk cycle, aiming, recoil, jaw snap, flame flicker) and the belly launch point */
-export type Role = 'turret' | 'barrel' | 'belly' | 'leg' | 'jaw' | 'flame' | 'trigger' | 'wings' | 'wingL' | 'wingR' | 'slash' | 'punch' | 'armR' | 'armL' | 'barrelL' | 'bellyL' | 'finger' | 'slashL' | 'jawL' | 'fistR' | 'fistL' | 'head' | 'tilt' | 'swing';
+export type Role = 'sway' | 'orbit' | 'backlight' | 'turret' | 'barrel' | 'belly' | 'leg' | 'jaw' | 'flame' | 'trigger' | 'wings' | 'wingL' | 'wingR' | 'slash' | 'punch' | 'armR' | 'armL' | 'barrelL' | 'bellyL' | 'finger' | 'slashL' | 'jawL' | 'fistR' | 'fistL' | 'head' | 'tilt' | 'swing';
 
 export type Shape = 'group' | 'box' | 'rbox' | 'capsule' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'mesh';
 
@@ -60,6 +60,8 @@ export interface Block {
   r: V3;
   s: V3;
   role?: Role;
+  /** on a model's top block: the skin's added pieces are already blocks of this model, so they aren't added again */
+  baked?: boolean;
   /** the points and faces of an editable 'mesh' block */
   mesh?: MeshData;
   children?: Block[];

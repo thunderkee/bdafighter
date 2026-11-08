@@ -1909,7 +1909,9 @@ export class ShooterMesh {
       if (o === this.wings) return 'wings';
       if (o === this.wingL) return 'wingL';
       if (o === this.wingR) return 'wingR';
-      return undefined;
+      // (the finish's own parts)
+      const own = (o.userData.finishRole ?? o.userData.role) as Role | undefined;
+      return own === 'sway' || own === 'orbit' || own === 'backlight' ? own : undefined;
     };
     const r3 = (n: number) => Math.round(n * 1000) / 1000;
     const v = (x: { x: number; y: number; z: number }): V3 => [r3(x.x), r3(x.y), r3(x.z)];
@@ -1949,6 +1951,7 @@ export class ShooterMesh {
       }
       const role = roleOf(o);
       if (role) b.role = role;
+      if (o.name) b.name = o.name;
       const kids = o.children.map(walk).filter((c): c is Block => !!c);
       if (kids.length) b.children = kids;
       return b;

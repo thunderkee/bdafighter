@@ -86,19 +86,20 @@ function loadDraft() {
   const d = def();
   const sk = curSkin();
   draftHasParts = false;
-  if (sk?.blueprint) {
+  if (sk?.blueprint?.baked) {
     draft = sk.blueprint;
     draftHasParts = true;
     return;
   }
   if (sk) {
-    // a skin with no model of its own: the fighter's, with the skin's parts already in as blocks
-    // (so they can be picked and changed straight away; nothing is saved until something is)
-    const anyGear = !!(sk.gear.hat || sk.gear.back || sk.gear.shoulder);
-    const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: d.blueprint, gear: anyGear ? sk.gear : undefined });
+    // a skin not yet changed here: the model with its kit parts and its added pieces already in as
+    // blocks, so they can be picked and changed straight away (nothing is saved until something is)
+    const anyGear = !sk.blueprint && !!(sk.gear.hat || sk.gear.back || sk.gear.shoulder);
+    const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: sk.blueprint ?? d.blueprint, gear: anyGear ? sk.gear : undefined, finish: true, finishStill: true, form: Math.max(0, SKIN_IDS.indexOf(sk.id)) });
     draft = mesh.toBlueprint(d);
+    draft.baked = true;
     mesh.dispose();
-    draftHasParts = anyGear;
+    draftHasParts = true;
     return;
   }
   if (d.blueprint) {
@@ -1256,6 +1257,10 @@ function renderSkins() {
       if (editSkin === id) return;
       flushSave();
       editSkin = id;
+      // (each version has its own undo: one form's blocks must never land on another)
+      undo.length = 0;
+      redo = [];
+      syncUndoButtons();
       selected = null;
       selection = [];
       loadDraft();
@@ -1559,7 +1564,9 @@ function renderSkinParts() {
         const d = def();
         const part = kitOf(d)?.[slot].find((q) => q.id === sel.value);
         const mesh = new ShooterMesh(d.id, d.ball, { ...d, blueprint: draft, gear: part ? { [slot]: part } : undefined });
+        const baked = draft.baked;
         draft = mesh.toBlueprint(d);
+        if (baked) draft.baked = true;
         mesh.dispose();
         setSkin({ blueprint: draft, gear: { hat: '', back: '', shoulder: '' } });
       }
@@ -1716,6 +1723,9 @@ function keepSwatch(v: number) {
 // ---------- block tree (layers) ----------
 const SHAPE_LABEL: Record<Shape, string> = { group: 'Group', box: 'Box', rbox: 'Rounded', capsule: 'Capsule', sphere: 'Ball', cylinder: 'Tube', cone: 'Spike', torus: 'Ring', mesh: 'Mesh' };
 const ROLE_LABEL: Record<Role, string> = {
+  sway: 'SWAYS',
+  orbit: 'ORBITS',
+  backlight: 'HIDDEN IN CHASE VIEW',
   turret: 'AIMS',
   barrel: 'BARREL',
   leg: 'LEG',

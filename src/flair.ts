@@ -21,6 +21,8 @@ const fin = (w: number, h: number, d: number) => {
   const g = new THREE.ConeGeometry(0.5, 1, 3);
   g.rotateY(Math.PI / 6);
   g.scale(w, h, d);
+  // (reshaped, so the Unit Lab takes it as a drawn shape rather than a plain cone)
+  (g as { type: string }).type = 'FinGeometry';
   return g;
 };
 
@@ -319,7 +321,12 @@ export class Flair {
     root.updateMatrixWorld(true);
     const swayed: THREE.Mesh[] = [];
     let holder: THREE.Object3D = turret;
+    // what the pieces are called in the Unit Lab
+    let label = 'Back shape';
+    // (edited in the Lab: the pieces are blocks of the design now, and aren't added again)
+    const baked = !!def.blueprint?.baked;
     const add: Add = (geo, color, p, r, s, lit) => {
+      if (baked) return new THREE.Mesh(geo);
       const mat = lit ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshLambertMaterial({ color });
       if (!lit) mats.push(mat);
       const m = new THREE.Mesh(geo, mat);
@@ -330,9 +337,15 @@ export class Flair {
       root.add(m);
       holder.attach(m);
       m.userData.flair = true;
+      m.name = label;
       return m;
     };
-    BACK[key]?.(add, def.palette, (m) => swayed.push(m));
+    const sway = (m: THREE.Mesh) => {
+      m.userData.finishRole = 'sway';
+      swayed.push(m);
+    };
+    BACK[key]?.(add, def.palette, sway);
+    label = 'Crown';
     if (key === 'kabuto') crown(add);
     // the face, and whatever makes this fighter itself
     root.updateMatrixWorld(true);
@@ -351,11 +364,16 @@ export class Flair {
     if (look) {
       const head = eyes.find((e) => e.parent !== turret)?.parent ?? byRole('head')[0] ?? byRole('tilt')[0] ?? turret;
       holder = head;
-      look({ add, sway: (m) => swayed.push(m), c: def.palette, eyes, head, byRole, turret, use: (o) => (holder = o), enlarge: (o, k) => !this.still && o.scale.multiplyScalar(k) });
+      label = 'Face detail';
+      look({ add, sway, c: def.palette, eyes, head, byRole, turret, use: (o) => (holder = o), enlarge: (o, k) => !this.still && o.scale.multiplyScalar(k) });
       holder = turret;
       if (HEAD[key] && head !== turret && !still) head.scale.multiplyScalar(HEAD[key]);
     }
     this.grow(def);
+    if (baked) {
+      swayed.length = 0;
+      for (const o of byRole('sway')) if ((o as THREE.Mesh).isMesh) swayed.push(o as THREE.Mesh);
+    }
     root.updateMatrixWorld(true);
 
     this.wear = WEAR[key] ?? null;
@@ -380,6 +398,13 @@ export class Flair {
   private grow(def: CharacterDef) {
     const form = def.form ?? 0;
     if (!form) return;
+    if (def.blueprint?.baked) {
+      this.root.traverse((o) => {
+        if (o.userData.role === 'orbit') this.orbit = o as THREE.Group;
+        if (o.userData.role === 'backlight') this.backLight.push(o);
+      });
+      return;
+    }
     const k = 1 + form * 0.09;
     // (the fighter's own back shape grows with it)
     for (const m of this.turret.children) if (m.userData.flair) m.scale.multiplyScalar(k);
@@ -390,12 +415,15 @@ export class Flair {
     if (form >= 3) {
       const g = new THREE.Group();
       g.position.y = top * 0.58;
+      g.name = 'Orbiting shards';
+      g.userData.finishRole = 'orbit';
       this.root.add(g);
       this.orbit = g;
       const n = form >= 4 ? 5 : 3;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;
         const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.1 + form * 0.012), new THREE.MeshBasicMaterial({ color: i % 2 ? c.trim : glow }));
+        m.name = 'Shard';
         m.position.set(Math.cos(a) * 0.95, Math.sin(a * 2) * 0.22, Math.sin(a) * 0.95);
         g.add(m);
       }
@@ -403,12 +431,16 @@ export class Flair {
     if (form >= 4) {
       // the final form: a halo, and two great blades of light on its back
       const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.035, 8, 40), new THREE.MeshBasicMaterial({ color: glow }));
+      halo.name = 'Halo';
+      halo.userData.finishRole = 'backlight';
       halo.position.set(0, top * 0.8, 0.62);
       this.root.add(halo);
       this.backLight.push(halo);
       const light = new THREE.MeshBasicMaterial({ color: c.trim, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
       for (const s of [-1, 1]) {
         const blade = new THREE.Mesh(fin(0.5, 1.9, 0.02), light);
+        blade.name = 'Blade of light';
+        blade.userData.finishRole = 'backlight';
         blade.position.set(s * 0.72, top * 0.72, 0.66);
         blade.rotation.set(0.1, 0, -s * 0.55);
         this.root.add(blade);
