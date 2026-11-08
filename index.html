@@ -38,7 +38,7 @@
             <div class="sp player"><div class="fill"></div></div>
             <div class="spirit player" aria-hidden="true"><div class="fill"></div><b>OVERDRIVE</b></div>
             <div class="side-info">
-              <div class="portrait"><canvas id="face-player"></canvas></div>
+              <div class="portrait"><canvas id="face-player"></canvas><b class="crest" id="player-crest"></b></div>
               <div class="meta">
                 <div class="unit-name"><span id="player-name">SERAPH</span></div>
                 <!-- win points, under the name -->
@@ -56,7 +56,7 @@
             <div class="sp enemy"><div class="fill"></div></div>
             <div class="spirit enemy" aria-hidden="true"><div class="fill"></div><b>OVERDRIVE</b></div>
             <div class="side-info">
-              <div class="portrait"><canvas id="face-enemy"></canvas></div>
+              <div class="portrait"><canvas id="face-enemy"></canvas><b class="crest" id="enemy-crest"></b></div>
               <div class="meta">
                 <div class="unit-name"><span id="enemy-name">WYVERN</span></div>
                 <div class="meta-row">
@@ -401,6 +401,11 @@
               <span>How close the chase camera follows you.</span>
               <div class="seg" data-setting="camera"><button data-value="far">Far</button><button data-value="mid">Mid</button><button data-value="near">Near</button><button data-value="first">Cockpit</button></div>
             </div>
+            <div class="setting">
+              <div class="set-head"><b>Orientation</b></div>
+              <span>Portrait keeps the game upright. Landscape plays it on its side (phones that allow it turn for you; otherwise turn yours). Auto follows the way you hold the device.</span>
+              <div class="seg" data-setting="orientation"><button data-value="portrait">Portrait</button><button data-value="landscape">Landscape</button><button data-value="auto">Auto</button></div>
+            </div>
             <div class="setting set-group">
               <div class="set-row">
                 <div class="set-head"><b>Sound</b></div>
@@ -416,6 +421,11 @@
                 <div class="set-head"><b>Haptics</b></div>
                 <span>A tap for shots and hits</span>
                 <div class="seg" data-setting="vibrate"><button data-value="true">On</button><button data-value="false">Off</button></div>
+              </div>
+              <div class="set-row">
+                <div class="set-head"><b>In-fight talk</b></div>
+                <span>Story fighters trade lines</span>
+                <div class="seg" data-setting="fightTalk"><button data-value="true">On</button><button data-value="false">Off</button></div>
               </div>
             </div>
             <div class="setting set-group">
@@ -434,6 +444,10 @@
               <div class="set-head"><b>Install the app</b></div>
               <span id="install-text">Put Marble Fighter on your home screen: it opens full screen and plays offline.</span>
               <button class="key" id="install-btn">Install</button>
+            </div>
+            <div class="setting credits">
+              <div class="set-head"><b>Music credits</b></div>
+              <span>Free tracks from <a href="https://opengameart.org" target="_blank" rel="noopener">OpenGameArt</a>. “Jungle Jumpin’” by Scott Elliott (Scrabbit), loop edit by AntumDeluge, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC-BY 4.0</a>. Public domain (CC0): “Treasure Hunter” by TAD; “Space Battle”, “Space City”, “Hard Dungeon” and “Heavy Dungeon” by MintoDog; “Fields of Ice” by Jonathan So; “Bamboo Blitz” by Tsorthan Grove; “Desert Overworld” by KarateStudios; “Determined Pursuit” by Emma_MA.</span>
             </div>
             <div class="set-links">
               <button class="key more-settings" id="replay-tutorial">Play the tutorial</button>
@@ -480,17 +494,8 @@
               <span>A soundtrack for the menus, fights, bosses and Gate Rush that builds as a fight heats up. Sound effects stay on either way (the speaker on the home screen mutes everything).</span>
               <div class="seg" data-setting="music"><button data-value="true">On</button><button data-value="false">Off</button></div>
             </div>
-            <div class="setting credits">
-              <div class="set-head"><b>Music credits</b></div>
-              <span>Free tracks from <a href="https://opengameart.org" target="_blank" rel="noopener">OpenGameArt</a>. “Jungle Jumpin’” by Scott Elliott (Scrabbit), loop edit by AntumDeluge, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC-BY 4.0</a>. Public domain (CC0): “Treasure Hunter” by TAD; “Space Battle”, “Space City”, “Hard Dungeon” and “Heavy Dungeon” by MintoDog; “Fields of Ice” by Jonathan So; “Bamboo Blitz” by Tsorthan Grove; “Desert Overworld” by KarateStudios; “Determined Pursuit” by Emma_MA.</span>
-            </div>
           </section>
           <section data-panel="display">
-            <div class="setting">
-              <div class="set-head"><b>Orientation</b></div>
-              <span>Portrait keeps the game upright. Landscape plays it on its side (phones that allow it turn for you; otherwise turn yours). Auto follows the way you hold the device.</span>
-              <div class="seg" data-setting="orientation"><button data-value="portrait">Portrait</button><button data-value="landscape">Landscape</button><button data-value="auto">Auto</button></div>
-            </div>
             <div class="setting">
               <div class="set-head"><b>Camera</b></div>
               <span>From a high chase view down to the cockpit.</span>

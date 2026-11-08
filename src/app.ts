@@ -709,6 +709,12 @@ export function boot() {
     const eName = characterById(enemyCharacter()).name.toUpperCase() + (packSize() > 1 ? ` +${packSize() - 1}` : '');
     $('player-name').textContent = pName;
     $('enemy-name').textContent = eName;
+    // (the top bar's crests: at that size a colour and a letter read better than a face)
+    for (const [el, id] of [['player-crest', st.character], ['enemy-crest', enemyCharacter()]] as const) {
+      const c = characterById(id);
+      $(el).textContent = c.name[0];
+      $(el).style.background = `linear-gradient(135deg, ${hexc(c.palette.body & 0xffffff)} 0 58%, ${hexc(c.palette.trim & 0xffffff)} 58%)`;
+    }
     $('intro-p1').textContent = pName;
     $('intro-p2').textContent = eName;
     $('intro-p1-sub').textContent =
@@ -1101,6 +1107,16 @@ export function boot() {
   let dlgHero = '';
   /** played out on the table (the camera on the speaker) rather than over a backdrop */
   let dlgStaged = false;
+  /** an arena's picture behind a screen (the menu, the story's talk), cropped to the way the device is held */
+  const setArena = (el: HTMLElement, id: string) => {
+    try {
+      const wide = innerWidth > innerHeight;
+      el.style.setProperty('--arena', `url(${hero.stageShot(id, wide ? 720 : 405, wide ? 405 : 720)})`);
+      el.classList.add('has-arena');
+    } catch {
+      // no WebGL to spare: the plain background stays
+    }
+  };
   const talkFace = new TalkFace();
   const moodOf = (t: string) => (/!/.test(t) ? 'shout' : /\?\s*$/.test(t) ? 'ask' : /^…|…$|\.\.\.$/.test(t.trim()) ? 'quiet' : 'say') as 'shout' | 'ask' | 'quiet' | 'say';
   let liveRow: HTMLElement | null = null;
@@ -1172,7 +1188,9 @@ export function boot() {
     dlgDone = null;
     done?.();
   };
-  const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void, staged = false, goal?: Goal) => {
+  const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void, staged = false, goal?: Goal, arena?: string) => {
+    if (arena) setArena(dlg, arena);
+    else dlg.classList.remove('has-arena');
     dlgHero = hero;
     dlgLines = lines;
     dlgAt = 0;
@@ -1321,7 +1339,7 @@ export function boot() {
   });
   const startBarks = (hero: string, ch: number) => {
     const foe = unitOfBase(pathOf(hero).chapters[ch].foe);
-    barks.start(FIGHT_BARKS[whoOf(hero)]?.[ch], foe, characterById(foe).name, hero, characterById(hero).name);
+    barks.start(S().fightTalk === false ? null : FIGHT_BARKS[whoOf(hero)]?.[ch], foe, characterById(foe).name, hero, characterById(hero).name);
   };
   /** a chapter lost: the foe's closing words (over the backdrop), then on to the retry */
   const storyClosing = (hero: string, ch: number, then: () => void) => {
@@ -1391,7 +1409,7 @@ export function boot() {
             showToast(`STORY COMPLETE // +${STORY_BONUS} XP`, 0xffc23d);
           } }, p.chapters.length - 1);
         };
-        if (c.after.length) talk(hero, `CHAPTER ${ch + 1} CLEAR`, c.title.toUpperCase(), c.after, next);
+        if (c.after.length) talk(hero, `CHAPTER ${ch + 1} CLEAR`, c.title.toUpperCase(), c.after, next, false, undefined, c.arena);
         else next();
       },
     };
@@ -1399,7 +1417,7 @@ export function boot() {
     talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length}`, c.title.toUpperCase(), lines, () => {
       startBarks(hero, ch);
       storyAction?.(f);
-    }, false, goalOf(hero, ch, mode));
+    }, false, goalOf(hero, ch, mode), c.arena);
   };
   if (debug) Object.assign(window as unknown as Record<string, unknown>, { __chapterMode: chapterMode, __setter: setter, __allies: storyAllies });
   /** talk on the table, then fight (the story's opening comes before the first chapter) */
@@ -1692,7 +1710,10 @@ export function boot() {
   // Versus from home: straight into a match with your fighter, your last rival and arena;
   // Customise walks the steps instead
   // (Versus plays by Arena rules: the ammo box, the Overdrive gauge and specials)
-  const arenaHint = () => setTimeout(() => showToast('SLIDE INTO YOUR AMMO BOX TO RELOAD // SHOOT THEIRS TO BREAK IT // SPECIAL WHEN YOU CHOOSE', 0xffc23d), 900);
+  const arenaHint = () =>
+    ['SLIDE INTO YOUR AMMO BOX TO RELOAD', 'SHOOT THEIRS TO BREAK IT', 'SPECIAL WHEN YOU CHOOSE'].forEach((t, k) =>
+      setTimeout(() => screen === 'playing' && showToast(t, 0xffc23d), 900 + k * 2600),
+    );
   const quickMatch = (classic = false) => {
     sfx.unlock();
     story = null;
@@ -2286,6 +2307,7 @@ export function boot() {
   const hero = new Preview($('title-hero'));
   hero.hero = true;
   let heroId = '';
+  let menuArena = '';
   /** the hero runs only while the home screen is up */
   const showHero = () => {
     if ($('title').classList.contains('hidden')) {
@@ -2295,6 +2317,12 @@ export function boot() {
     }
     const id = saveData.settings.character;
     const key = id + equipKey(equipOf(id));
+    // (a real place behind your fighter: the arena you last chose)
+    const place = `${S().stage}:${innerWidth > innerHeight}`;
+    if (menuArena !== place) {
+      menuArena = place;
+      setTimeout(() => setArena($('title'), S().stage), 80);
+    }
     if (heroId !== key) {
       heroId = key;
       hero.showUnit(id, mine(id));
@@ -2311,27 +2339,45 @@ export function boot() {
   for (const el of [$('title-hero'), document.querySelector<HTMLElement>('.home-name')!]) el.addEventListener('click', () => !(el.id === 'title-hero' && hero.wasDrag) && openSelect('home'));
   // ---------- home: PLAY with its featured mode, the Campaign and Events doors, the modes sheet ----------
   fillPortraits($('home-cards'));
-  type HomeMode = { id: string; name: string; sub: string; kind: 'duel' | 'arena' | 'campaign' | 'more'; icon: string; go: () => void };
+  /** each mode's icon: one drawn set, in the same stroke as the rest of the UI */
+  const MODE_ICON: Record<string, string> = {
+    versus: '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/>',
+    classic: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>',
+    squad: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+    duo: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    ffa: '<path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/>',
+    knockout: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    siege: '<path d="M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z"/><path d="M18 11V4H6v7"/><path d="M15 22v-4a3 3 0 0 0-3-3a3 3 0 0 0-3 3v4"/><path d="M22 11V9"/><path d="M2 11V9"/><path d="M6 4V2"/><path d="M18 4V2"/><path d="M10 4V2"/><path d="M14 4V2"/>',
+    zone: '<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>',
+    boss: '<path d="m12.5 17-.5-1-.5 1h1z"/><path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="12" r="1"/>',
+    story: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+    arcade: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+    gauntlet: '<path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z"/>',
+    tutorial: '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+    lab: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  };
+  const modeIcon = (id: string) => `<svg class="mode-ic" viewBox="0 0 24 24" aria-hidden="true">${MODE_ICON[id]}</svg>`;
+  type HomeMode = { id: string; name: string; sub: string; kind: 'duel' | 'arena' | 'campaign' | 'more'; go: () => void };
   const press = (id: string) => () => $(id).click();
   const arena = (kind: ActionKind) => () => {
     actionKind = kind;
     $('action-btn').click();
   };
   const MODES: HomeMode[] = [
-    { id: 'versus', name: 'Duel', sub: 'Arena rules: grab ammo, fill Overdrive, unleash a special', kind: 'duel', icon: '⚔️', go: press('play-btn') },
-    { id: 'classic', name: 'Classic Duel', sub: 'The original rules: auto-reload, no specials', kind: 'duel', icon: '🎱', go: press('classic-btn') },
-    { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', icon: '🛡️', go: press('squad-btn') },
-    { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'duel', icon: '👥', go: press('duo-btn') },
-    { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', icon: '💥', go: arena('ffa') },
-    { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', icon: '🎯', go: arena('knockout') },
-    { id: 'siege', name: 'Castle Crash', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', icon: '🏰', go: arena('siege') },
-    { id: 'zone', name: 'King of the Ring', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', icon: '🔥', go: arena('zone') },
-    { id: 'boss', name: 'Giant Slayer', sub: 'You and two more against one giant fighter', kind: 'arena', icon: '👹', go: arena('boss') },
-    { id: 'story', name: 'League Story', sub: 'Your fighter’s path through the League', kind: 'campaign', icon: '📖', go: press('story-btn') },
-    { id: 'arcade', name: 'Boss Ladder', sub: 'A ladder of stages and four bosses', kind: 'campaign', icon: '🏆', go: press('arcade-btn') },
-    { id: 'gauntlet', name: 'Dungeon Run', sub: 'Seven stages deep: traps, loot, keys and bosses', kind: 'campaign', icon: '🚪', go: arena('gauntlet') },
-    { id: 'tutorial', name: 'Tutorial', sub: 'Move, shoot, shield and parry in a minute', kind: 'more', icon: '🎓', go: press('tut-card') },
-    { id: 'lab', name: 'Unit Lab', sub: 'Edit and build fighters', kind: 'more', icon: '🔧', go: () => (location.href = './editor.html') },
+    { id: 'versus', name: 'Duel', sub: 'Arena rules: grab ammo, fill Overdrive, unleash a special', kind: 'duel', go: press('play-btn') },
+    { id: 'classic', name: 'Classic Duel', sub: 'The original rules: auto-reload, no specials', kind: 'duel', go: press('classic-btn') },
+    { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', go: press('squad-btn') },
+    { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'duel', go: press('duo-btn') },
+    { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', go: arena('ffa') },
+    { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', go: arena('knockout') },
+    { id: 'siege', name: 'Castle Crash', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', go: arena('siege') },
+    { id: 'zone', name: 'King of the Ring', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', go: arena('zone') },
+    { id: 'boss', name: 'Giant Slayer', sub: 'You and two more against one giant fighter', kind: 'arena', go: arena('boss') },
+    { id: 'story', name: 'League Story', sub: 'Your fighter’s path through the League', kind: 'campaign', go: press('story-btn') },
+    { id: 'arcade', name: 'Boss Ladder', sub: 'A ladder of stages and four bosses', kind: 'campaign', go: press('arcade-btn') },
+    { id: 'gauntlet', name: 'Dungeon Run', sub: 'Seven stages deep: traps, loot, keys and bosses', kind: 'campaign', go: arena('gauntlet') },
+    { id: 'tutorial', name: 'Tutorial', sub: 'Move, shoot, shield and parry in a minute', kind: 'more', go: press('tut-card') },
+    { id: 'lab', name: 'Unit Lab', sub: 'Edit and build fighters', kind: 'more', go: () => (location.href = './editor.html') },
   ];
   const modeById = (id: string) => MODES.find((m) => m.id === id);
   // the rotation: Siege, Hot Zone and Boss Fight take turns as the event, a few hours each
@@ -2354,7 +2400,7 @@ export function boot() {
   };
   const showHome = () => {
     const f = featured();
-    $('play-art').textContent = f.icon;
+    $('play-art').innerHTML = modeIcon(f.id);
     $('play-name').textContent = f.name;
     $('play-modes').dataset.kind = f.kind;
     const r = rotation();
@@ -2383,7 +2429,7 @@ export function boot() {
       b.dataset.kind = m.kind;
       // the strip over the card, only on the rotating modes: when it changes
       const strip = ROTATION.includes(m.id) ? (live ? `Event · ends in ${hhmm(r.left)}` : m.id === r.next ? `Next · in ${hhmm(r.left)}` : 'Coming later') : '';
-      b.innerHTML = `${strip ? `<em class="${live && ROTATION.includes(m.id) ? 'live' : ''}">${strip}</em>` : ''}<i>${m.icon}</i><b>${m.name}</b><small>${m.sub}</small>`;
+      b.innerHTML = `${strip ? `<em class="${live && ROTATION.includes(m.id) ? 'live' : ''}">${strip}</em>` : ''}<i>${modeIcon(m.id)}</i><b>${m.name}</b><small>${m.sub}</small>`;
       b.disabled = !live;
       b.addEventListener('click', () => {
         sfx.play('tick', 0.5);
@@ -2880,8 +2926,25 @@ export function boot() {
     music.play('menu', 'menu');
     music.intensity(0.3);
   };
+  // the thumb controls sit see-through until they're touched (solid through the tutorial)
+  {
+    const down = new Set<number>();
+    let rest = 0;
+    window.addEventListener('pointerdown', (e) => {
+      down.add(e.pointerId);
+      clearTimeout(rest);
+      document.body.classList.add('thumbs');
+    }, true);
+    const up = (e: PointerEvent) => {
+      down.delete(e.pointerId);
+      if (!down.size) rest = window.setTimeout(() => document.body.classList.remove('thumbs'), 900);
+    };
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', up, true);
+  }
   const frame = (now: number) => {
     requestAnimationFrame(frame);
+    document.body.classList.toggle('teaching', !!tut);
     scoreMusic();
     // League Story: the opponent talks as the fight goes
     if (!story) barks.stop();

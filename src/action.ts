@@ -92,6 +92,38 @@ const FORT_FIRE = 0.6;
 const FORT_DMG = 300;
 const SIEGE_TIME = 150;
 const RESPAWN = 3;
+const HINTS = ['TAP TO FIRE', 'HOLD TO CHARGE', 'DRAG TO AIM', 'SHOOT THE CRATES', 'STAND STILL TO MEND'];
+const HINTS_KEY = 'marble-fighter:action:hints';
+/** rough blocks of stone in a dark shade of the floor's hue: what a dungeon's rooms are cut out of */
+function rockCanvas(floor: string) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d')!;
+  // (the floor's hue at one fixed darkness, so a bright crypt and a neon vault both read as rock)
+  const hsl = new THREE.Color(floor).getHSL({ h: 0, s: 0, l: 0 });
+  const shade = (l: number) => `#${new THREE.Color().setHSL(hsl.h, Math.max(hsl.s * 0.8, 0.12), l).getHexString()}`;
+  g.fillStyle = shade(0.05);
+  g.fillRect(0, 0, 256, 256);
+  // courses of uneven blocks, the seams left dark
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let y = 0; y < 256; y += 64) {
+    const off = y % 128 ? -48 : 0;
+    for (let x = off; x < 256; x += 96) {
+      g.fillStyle = shade(0.11 + rnd() * 0.05);
+      g.beginPath();
+      g.roundRect(x + 3, y + 3, 90, 58, 10);
+      g.fill();
+    }
+  }
+  return c;
+}
+
+/** the team modes' colours: bars, marbles and the rings underfoot */
+const TEAM_OURS = 0x4aa8ff;
+const TEAM_THEIRS = 0xff4a4a;
+const OURS_C = new THREE.Color(TEAM_OURS);
+const THEIRS_C = new THREE.Color(TEAM_THEIRS);
 // Knockout: best of three rounds, no respawns; a round runs out at ROUND_TIME (the side with more health left takes it)
 const ROUND_TIME = 60;
 // Hot Zone: hold the ring in the middle with nobody of theirs in it; first to 100% (or the most at the bell)
@@ -572,7 +604,7 @@ export class ActionMode {
         <p class="ac-respawn" aria-live="polite"><small>RESPAWN IN</small><b></b></p>
         <p class="ac-callout"></p>
         <p class="ac-supername"></p>
-        <p class="ac-hint">TAP TO FIRE · HOLD TO CHARGE · DRAG TO AIM · SHOOT THE CRATES · STAND STILL TO MEND</p>
+        <p class="ac-hint gone"></p>
       </div>
       <div class="charge-meter ac-charge" aria-hidden="true">
         <b>HOLD TO CHARGE</b>
@@ -744,6 +776,7 @@ export class ActionMode {
   }
 
   private exit() {
+    clearTimeout(this.hintTimer);
     this.running = false;
     cancelAnimationFrame(this.raf);
     this.clearStage();
@@ -834,8 +867,34 @@ export class ActionMode {
     this.showPanel(null);
     this.hud.goal.textContent = this.story?.goal ? `OBJECTIVE · ${this.story.goal}` : '';
     this.hud.goal.classList.toggle('hidden', !this.story?.goal);
-    this.hud.hint.classList.remove('gone');
-    setTimeout(() => this.hud.hint.classList.add('gone'), 3500);
+    this.teachControls();
+  }
+
+  /** the controls, one rule at a time (your first few fights; after that you know them) */
+  private hintTimer = 0;
+  private teachControls() {
+    clearTimeout(this.hintTimer);
+    const el = this.hud.hint;
+    el.classList.add('gone');
+    let seen = 0;
+    try {
+      seen = Number(localStorage.getItem(HINTS_KEY)) || 0;
+      localStorage.setItem(HINTS_KEY, String(seen + 1));
+    } catch {
+      // storage unavailable: teach it each time
+    }
+    if (seen >= 3) return;
+    let k = 0;
+    const next = () => {
+      if (k >= HINTS.length || this.over) return el.classList.add('gone');
+      el.textContent = HINTS[k++];
+      el.classList.remove('gone');
+      this.hintTimer = window.setTimeout(() => {
+        el.classList.add('gone');
+        this.hintTimer = window.setTimeout(next, 350);
+      }, 1900);
+    };
+    next();
   }
 
   private kos = 0;
@@ -1423,9 +1482,10 @@ export class ActionMode {
       c.lineTo(W * 32, j * 32);
       c.stroke();
     }
-    // (Dungeon Run: the rock beyond the walls is darkness)
-    if (this.kind === 'gauntlet') {
-      c.fillStyle = '#060508';
+    // (Dungeon Run: the rock the rooms are cut out of)
+    const rock = this.kind === 'gauntlet' ? rockCanvas(th.floor[0]) : null;
+    if (rock) {
+      c.fillStyle = c.createPattern(rock, 'repeat')!;
       for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (this.grid[this.idx(i, j)] === ROCK) c.fillRect(i * 32, j * 32, 32, 32);
     }
     const tex = new THREE.CanvasTexture(cv);
@@ -1435,7 +1495,17 @@ export class ActionMode {
     floor.rotation.x = -Math.PI / 2;
     this.world.add(floor);
     // round the outside, a darker apron so the edge reads
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(W + 40, H + 40), new THREE.MeshStandardMaterial({ color: th.apron, roughness: 1, emissive: th.waterGlow && th.id === 'lava' ? 0x801800 : 0x000000 }));
+    // (a dungeon's: the same rock its rooms are cut out of)
+    const rockTex = rock ? new THREE.CanvasTexture(rock) : null;
+    if (rockTex) {
+      rockTex.wrapS = rockTex.wrapT = THREE.RepeatWrapping;
+      rockTex.repeat.set((W + 40) / 8, (H + 40) / 8);
+      rockTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    const apron = new THREE.Mesh(
+      new THREE.PlaneGeometry(W + 40, H + 40),
+      new THREE.MeshStandardMaterial(rockTex ? { map: rockTex, roughness: 1 } : { color: th.apron, roughness: 1, emissive: th.waterGlow && th.id === 'lava' ? 0x801800 : 0x000000 }),
+    );
     apron.rotation.x = -Math.PI / 2;
     apron.position.y = -0.02;
     this.world.add(apron);
@@ -1570,6 +1640,11 @@ export class ActionMode {
     const shadow = new THREE.Mesh(new THREE.CircleGeometry(opts.giant ? 1 : boss ? 0.62 : 0.44, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }));
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.02;
+    // the team modes: a ring underfoot in your side's colour
+    if (this.teams && !opts.giant) {
+      const r = boss ? 0.62 : 0.44;
+      shadow.add(new THREE.Mesh(new THREE.RingGeometry(r * 1.02, r * 1.3, 32), new THREE.MeshBasicMaterial({ color: team === 0 ? TEAM_OURS : TEAM_THEIRS, transparent: true, opacity: 0.85, depthWrite: false })));
+    }
     this.world.add(wrap, shadow);
     const t = def.traits;
     const mb = marbleOf(def);
@@ -1666,7 +1741,7 @@ export class ActionMode {
   /** a fighter's bar: YOU with the ammo strip if it's yours, otherwise its name */
   private dressBar(bar: HTMLElement, name: string, cpu: boolean, team: number) {
     const gone = bar.classList.contains('gone');
-    bar.className = 'ac-bar' + (cpu ? (team === 0 && this.teams ? ' ally' : '') : ' me') + (gone ? ' gone' : '');
+    bar.className = 'ac-bar' + (cpu ? (team === 0 && this.teams ? ' ally' : '') : ' me') + (!cpu && this.teams ? ' ours' : '') + (gone ? ' gone' : '');
     bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
     bar.querySelector('span')!.textContent = cpu ? name : 'YOU';
   }
@@ -1708,6 +1783,12 @@ export class ActionMode {
     this.callout(next.def.name);
     sfx.play('whoosh', 0.7);
     this.updateHud();
+  }
+
+  /** a marble's colour: in the team modes, its side's (blue yours, red theirs) */
+  private shotColor(s: Shot) {
+    const team = (s.owner as { team?: number } | null)?.team;
+    return this.teams && team !== undefined ? (team === 0 ? OURS_C : THEIRS_C) : s.color;
   }
 
   private spawnMe() {
@@ -2225,7 +2306,10 @@ export class ActionMode {
     u.reveal = Math.max(u.reveal, 1);
     u.calm = 0;
     u.pose.flash = 1;
-    if (from === this.me || u === this.me) this.pop(u.x, u.z, crit ? `-${dmg}!` : `-${dmg}`, from === this.me ? 'hit' : 'ouch');
+    if (from === this.me || u === this.me) {
+      const pct = Math.max(1, Math.round((dmg / u.max) * 100));
+      this.pop(u.x, u.z, crit ? `-${pct}%!` : `-${pct}%`, from === this.me ? 'hit' : 'ouch');
+    }
     // the special's gauge, as in the main game: a marble that lands fills 8%, one taken 4.5%
     // (the giant fills half as fast again, from the marbles it takes and the ones it lands)
     if (!spirit) u.charge = Math.min(1, u.charge + 0.045 * (u.giant ? 1.5 : 1));
@@ -4076,7 +4160,7 @@ export class ActionMode {
       this.dummy.rotation.set(0, 0, 0);
       this.dummy.updateMatrix();
       this.shotMesh.setMatrixAt(n, this.dummy.matrix);
-      this.shotMesh.setColorAt(n, s.color);
+      this.shotMesh.setColorAt(n, this.shotColor(s));
       n++;
     }
     this.shotMesh.count = n;
@@ -4091,7 +4175,7 @@ export class ActionMode {
       this.dummy.scale.setScalar(s.r * (2.1 + Math.sin(this.time * 20 + h) * 0.2));
       this.dummy.updateMatrix();
       this.haloMesh.setMatrixAt(h, this.dummy.matrix);
-      this.haloMesh.setColorAt(h, s.color);
+      this.haloMesh.setColorAt(h, this.shotColor(s));
       h++;
     }
     this.haloMesh.count = h;
@@ -4201,14 +4285,17 @@ export class ActionMode {
       this.v.set(u.x, (u.giant ? 3.4 : u.boss ? 2.4 : 1.75) - (behind(this.view) ? 0.35 : 0), u.z).project(this.camera);
       u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (u.bar.querySelector('b') as HTMLElement).style.width = `${(u.hp / u.max) * 100}%`;
-      u.bar.querySelector('i')!.setAttribute('data-hp', String(Math.max(0, Math.round(u.hp))));
+      // (health is a share everywhere: the bars, the hits, the top of the duel)
+      const pct = Math.max(1, Math.ceil((u.hp / u.max) * 100));
+      u.bar.querySelector('i')!.setAttribute('data-hp', `${pct}%`);
+      u.bar.classList.toggle('low', pct <= 30);
       if (!u.cpu) (u.bar.querySelector('u') as HTMLElement).style.width = `${(u.ammo / u.mag) * 100}%`;
     }
     for (const f of this.forts) {
       this.v.set(f.x, 2.75 - (behind(this.view) ? 0.3 : 0), f.z).project(this.camera);
       f.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (f.bar.querySelector('b') as HTMLElement).style.width = `${(f.hp / f.max) * 100}%`;
-      f.bar.querySelector('i')!.setAttribute('data-hp', String(Math.ceil(f.hp)));
+      f.bar.querySelector('i')!.setAttribute('data-hp', `${Math.max(1, Math.ceil((f.hp / f.max) * 100))}%`);
       f.bar.classList.toggle('gone', this.v.z > 1);
     }
   }

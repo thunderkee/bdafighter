@@ -258,8 +258,9 @@ export class Preview {
 
   private shots = new Map<string, string>();
   /** a still of an arena for its tile, rendered once and kept */
-  stageShot(id: string) {
-    let url = this.shots.get(id);
+  stageShot(id: string, w = 320, h = 180) {
+    const shot = `${id}:${w}x${h}`;
+    let url = this.shots.get(shot);
     if (url) return url;
     const r = this.ensure();
     const keepMode = this.mode;
@@ -274,17 +275,17 @@ export class Preview {
     const sun = new THREE.DirectionalLight(d.sun[0], d.sun[1]);
     sun.position.set(6, 18, 9);
     scene.add(sun, stage.group);
-    const cam = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 200);
+    const cam = new THREE.PerspectiveCamera(50, w / h, 0.1, 200);
     cam.position.set(3, 8, 14);
     cam.lookAt(0, 0, -3);
-    r.setSize(320, 180, false);
+    r.setSize(w, h, false);
     celify(scene);
     r.render(scene, cam);
     url = r.domElement.toDataURL('image/jpeg', 0.85);
     stage.dispose();
     r.setSize(keep.x, keep.y, false);
     this.mode = keepMode;
-    this.shots.set(id, url);
+    this.shots.set(shot, url);
     return url;
   }
 

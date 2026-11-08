@@ -2074,7 +2074,8 @@ export class View {
       case 'near': {
         // (held sideways the screen shows plenty of width: the chase camera comes in closer behind you)
         const k = this.host.clientWidth > this.host.clientHeight ? 0.72 : 1;
-        this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, 3.8 * k, -p.y + 3.9 * k);
+        // (upright, it sits higher and further back, so your own robot doesn't fill the lane)
+        this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, k < 1 ? 3.8 * k : 4.9, -p.y + (k < 1 ? 3.9 * k : 5.1));
         this.lookGoal.set(follow(0.7, 2.3) + lean * 3.5, 0.5 + (1 - k) * 0.8, -p.y - 8.5);
         break;
       }

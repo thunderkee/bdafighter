@@ -75,6 +75,8 @@ export interface Settings {
   landscape?: boolean;
   /** how the game is held: the portrait column, sideways, or whichever way the device is turned */
   orientation: 'portrait' | 'landscape' | 'auto';
+  /** League Story: the fighters trade lines during a fight */
+  fightTalk: boolean;
   /** the mode on the home screen's PLAY button */
   playMode?: string;
   /** frame-rate meter in the corner */
@@ -165,6 +167,7 @@ export const DEFAULT_SETTINGS: Settings = {
   batterySaver: typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0),
   landscape: false,
   orientation: 'portrait',
+  fightTalk: true,
   showFps: false,
   magazine: 10,
   magPer: true,

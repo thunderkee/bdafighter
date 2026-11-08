@@ -6515,10 +6515,6 @@ body.cine-on #pad {
 }
 .bs-card.mode small {
   font: 600 11px/1.3 var(--body);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .bs-card.mode em {
   padding: 4px 6px;
@@ -8806,4 +8802,121 @@ html.land {
   font: 700 10px/1.2 var(--body);
   letter-spacing: 0.04em;
   translate: -50% 0;
+}
+/* the drawn mode icons */
+.mode-ic {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bs-card.mode > i {
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.bs-card.mode.off > i {
+  opacity: 0.7;
+}
+#play-art .mode-ic {
+  color: #fff;
+}
+/* the top bar's crests: the fighter's colours and initial */
+#hud .vs-bar .hud-face {
+  display: none;
+}
+#hud .vs-bar .crest {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #fff;
+  font: 400 16px/1 var(--display);
+  -webkit-text-stroke: 3px var(--line);
+  paint-order: stroke fill;
+}
+/* low health says so */
+#hud .hp.low {
+  animation: hp-low 0.55s ease-in-out infinite alternate;
+}
+#action .ac-bar.low i {
+  animation: hp-low 0.55s ease-in-out infinite alternate;
+}
+@keyframes hp-low {
+  to {
+    border-color: #ff3b4e;
+    box-shadow: 0 0 0 2px rgba(255, 59, 78, 0.55);
+  }
+}
+/* the team modes: your fighter's bar is on your side's blue */
+#action .ac-bar.me.ours span {
+  color: #bfe2ff;
+}
+#action .ac-bar.me.ours i b {
+  background: linear-gradient(180deg, #8ad0ff, #2f86e6);
+}
+/* the thumb controls: see-through until touched */
+#action .ac-joy,
+#action .ac-right,
+#action .ac-swap,
+#pad .pad-dir,
+#pad .pad-right {
+  transition: opacity 0.2s;
+}
+body:not(.thumbs):not(.teaching) #action .ac-joy,
+body:not(.thumbs):not(.teaching) #action .ac-right,
+body:not(.thumbs):not(.teaching) #action .ac-swap,
+body:not(.thumbs):not(.teaching) #pad .pad-dir,
+body:not(.thumbs):not(.teaching) #pad .pad-right {
+  opacity: 0.5;
+}
+/* a locked fighter's shadow, edged so its shape can be guessed */
+.bs-card.fighter > i.dark img {
+  filter: brightness(0) drop-shadow(1.5px 0 0 #6f86d8) drop-shadow(-1.5px 0 0 #6f86d8) drop-shadow(0 -1.5px 0 #6f86d8);
+}
+/* the fight's talk: on the two edges, the lane down the middle kept clear */
+.barks {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0;
+  left: 8px;
+  right: 8px;
+}
+.bark {
+  max-width: min(36%, 260px);
+  flex-direction: column;
+  gap: 0;
+  align-self: flex-start;
+}
+.bark.foe {
+  order: 2;
+}
+.bark.you {
+  order: 1;
+}
+.bark .bark-face {
+  display: none;
+}
+.bark > div {
+  order: 0;
+  padding: 6px 9px 7px;
+}
+.bark p {
+  font-size: 12px;
+  line-height: 1.25;
+}
+.barks.action {
+  top: calc(max(8px, env(safe-area-inset-top)) + 160px);
+}
+/* the arena behind the menu and the story's talk */
+#title.home.has-arena {
+  background: linear-gradient(rgba(16, 24, 80, 0.28), rgba(10, 14, 50, 0.62)), var(--arena) center / cover;
+}
+#story-dlg.has-arena:not(.staged) {
+  background: linear-gradient(rgba(10, 14, 40, 0.55), rgba(10, 14, 40, 0.72)), var(--arena) center / cover;
 }
