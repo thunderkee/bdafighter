@@ -8763,3 +8763,47 @@ html.land {
     margin-top: 14px;
   }
 }
+/* the team modes: take over a teammate, between the thumbs; the face is who you'd become */
+#action .ac-swap {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  display: none;
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border: 3px solid #3a6cf0;
+  border-radius: 50%;
+  background: #2a2723;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  translate: -50% 0;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+}
+#action .ac-swap.on {
+  display: block;
+}
+#action .ac-swap:active {
+  scale: 0.94;
+}
+#action .ac-swap img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+#action .ac-swap span {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  padding: 2px 7px;
+  border-radius: 7px;
+  background: #3a6cf0;
+  color: #fff;
+  font: 700 10px/1.2 var(--body);
+  letter-spacing: 0.04em;
+  translate: -50% 0;
+}

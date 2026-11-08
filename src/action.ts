@@ -9,6 +9,7 @@ import * as sfx from './audio';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
 import { DROP, DRAGON, ITEMS, MISSILE } from './items';
+import { portrait } from './portraits';
 import { stageById } from './stage';
 import { coverProp, decorate } from './scenery';
 import { BOSSES, MONSTERS } from './monsters';
@@ -585,6 +586,8 @@ export class ActionMode {
           <button class="ac-special" aria-label="Special move">SPECIAL</button>
           <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
         </div>
+        <!-- the team modes: take over a teammate (its face shows who's next) -->
+        <button class="ac-swap" aria-label="Switch fighter"><img alt="" /><span>SWITCH</span></button>
       </div>
       <div class="ac-panel">
         <h2>Action</h2>
@@ -597,7 +600,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -679,6 +682,11 @@ export class ActionMode {
       e.preventDefault();
       e.stopPropagation();
       this.cycleView();
+    });
+    this.hud.swap.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.switchFighter();
     });
     this.canvas.addEventListener('pointerdown', this.down);
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -819,6 +827,7 @@ export class ActionMode {
     this.rageT = 0;
     this.lives = this.story ? 3 : 4;
     this.meBack = 0;
+    this.swapAt = 0;
     this.stage = this.story?.stage ?? 1;
     this.stageRooms = 0;
     this.startStage();
@@ -1568,9 +1577,7 @@ export class ActionMode {
     const storyHp = this.story && cpu && team !== 0 ? (this.story.hp ?? 1) : 1;
     const max = Math.round(BASE_HP * traitMul(t?.health, 'health') * (opts.hp ?? 1) * (this.kind === 'ffa' ? FFA_HP : 1) * storyHp);
     const bar = document.createElement('div');
-    bar.className = 'ac-bar' + (cpu ? (team === 0 && this.teams ? ' ally' : '') : ' me');
-    bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
-    bar.querySelector('span')!.textContent = cpu ? def.name : 'YOU';
+    this.dressBar(bar, def.name, cpu, team);
     this.hud.bars.appendChild(bar);
     const u: Unit = {
       def,
@@ -1654,6 +1661,53 @@ export class ActionMode {
     };
     this.units.push(u);
     return u;
+  }
+
+  /** a fighter's bar: YOU with the ammo strip if it's yours, otherwise its name */
+  private dressBar(bar: HTMLElement, name: string, cpu: boolean, team: number) {
+    const gone = bar.classList.contains('gone');
+    bar.className = 'ac-bar' + (cpu ? (team === 0 && this.teams ? ' ally' : '') : ' me') + (gone ? ' gone' : '');
+    bar.innerHTML = `<span></span><i><b></b></i>${cpu ? '' : '<em><u></u></em>'}`;
+    bar.querySelector('span')!.textContent = cpu ? name : 'YOU';
+  }
+
+  /** the team modes: who a switch would hand you (the next teammate still standing) */
+  private nextAlly() {
+    const me = this.me;
+    if (!me || !this.teams || this.over) return null;
+    const side = this.units.filter((u) => u.team === me.team && !u.giant);
+    const at = side.indexOf(me);
+    for (let k = 1; k < side.length; k++) {
+      const u = side[(at + k) % side.length];
+      if (u.alive) return u;
+    }
+    return null;
+  }
+
+  /** take over the next teammate; the fighter you leave plays on by itself (or comes back by itself) */
+  private switchFighter() {
+    const old = this.me;
+    const next = this.nextAlly();
+    if (!old || !next || this.paused || this.time < this.swapAt) return;
+    this.swapAt = this.time + 0.35;
+    for (const u of [old, next]) {
+      u.firing = u.pressShot = false;
+      u.burst = u.chargeHold = u.chargeWant = u.stored = 0;
+      u.queue = [];
+      u.target = null;
+      u.goal = null;
+    }
+    old.cpu = true;
+    next.cpu = false;
+    this.me = next;
+    this.dressBar(old.bar, old.def.name, true, old.team);
+    this.dressBar(next.bar, next.def.name, false, next.team);
+    this.lastFace = next.face;
+    this.camGlide = 0.45;
+    this.ringFx(next.x, next.z, 0x7ac8ff, 0.3, 3, 0.5);
+    this.callout(next.def.name);
+    sfx.play('whoosh', 0.7);
+    this.updateHud();
   }
 
   private spawnMe() {
@@ -4229,6 +4283,13 @@ export class ActionMode {
       (bb.querySelector('u') as HTMLElement).style.width = `${k * 100}%`;
       (bb.querySelector('s') as HTMLElement).style.width = `${this.bossTrail * 100}%`;
     } else bb.dataset.id = '';
+    // who a switch would hand you
+    const ally = this.nextAlly();
+    this.hud.swap.classList.toggle('on', !!ally);
+    if (ally && this.hud.swap.dataset.id !== ally.def.id) {
+      this.hud.swap.dataset.id = ally.def.id;
+      this.hud.swap.querySelector('img')!.src = portrait(ally.def.id, true);
+    }
     const c = this.me?.charge ?? 0;
     // (the SPECIAL button fills from the bottom, then burns once it's ready, as in the main game)
     this.hud.special.classList.toggle('ready', c >= 1);
@@ -4260,6 +4321,8 @@ export class ActionMode {
   private bossTrail = 1;
   /** Dungeon Run: seconds until you're back at the checkpoint */
   private meBack = 0;
+  /** a switch of fighter can't come again before this (the fight's clock) */
+  private swapAt = 0;
   private respawnN = 0;
   /** the respawn countdown in the middle of the screen: RESPAWN IN 3, 2, 1 */
   private showRespawn(left: number) {
@@ -4822,6 +4885,8 @@ export class ActionMode {
     if (!this.running) return;
     this.keys.add(e.code);
     if (e.code === 'Space' && !e.repeat && (this.panelKind === 'loot' || this.panelKind === 'upgrade' || this.panelKind === 'stage')) return this.dismissBonus(true);
+    // (Q: switch fighter, even while yours is down)
+    if (e.code === 'KeyQ' && !e.repeat) return this.switchFighter();
     if (this.over || this.paused || !this.me?.alive) return;
     if (e.code === 'Space') this.keyFire = true;
     if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) this.special(this.me, this.autoAim());
