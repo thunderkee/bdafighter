@@ -4989,7 +4989,7 @@ html {
 #story-dlg {
   position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: 70;
   display: flex;
   flex-direction: column;
   padding: max(18px, env(safe-area-inset-top)) 16px max(22px, env(safe-area-inset-bottom));
@@ -8480,4 +8480,101 @@ html.land {
   min-height: 52px;
   margin-top: 12px;
   font-size: 18px;
+}
+/* ================= the duel's top bar, compact (2026-11) =================
+   one slim strip: a small face, the name and win points, the health bar under them; the clock
+   between. P1/CPU, the % readout and the item tag give way (the bar and the pips say it) */
+#hud .vs-bar {
+  gap: 6px;
+  padding: 5px 7px;
+  border-width: 2px;
+  border-radius: 14px;
+  align-items: center;
+}
+#hud .vs-bar .side {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-areas: 'face name rounds' 'face hp hp' 'face sp sp';
+  column-gap: 6px;
+  row-gap: 3px;
+  align-items: center;
+  min-width: 0;
+}
+#hud .vs-bar .side.enemy {
+  grid-template-columns: auto minmax(0, 1fr) 30px;
+  grid-template-areas: 'rounds name face' 'hp hp face' 'sp sp face';
+}
+#hud .vs-bar .side-info,
+#hud .vs-bar .meta {
+  display: contents;
+}
+#hud .vs-bar .portrait {
+  grid-area: face;
+  width: 30px;
+  height: 30px;
+  border-width: 2px;
+  border-radius: 9px;
+  overflow: hidden;
+}
+#hud .vs-bar .portrait canvas {
+  width: 100%;
+  height: 100%;
+}
+#hud .vs-bar .unit-name {
+  grid-area: name;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  line-height: 1.1;
+}
+#hud .vs-bar .side.enemy .unit-name {
+  text-align: right;
+}
+#hud .vs-bar .meta-row {
+  grid-area: rounds;
+  gap: 3px;
+}
+#hud .vs-bar .meta-row .tag,
+#hud .vs-bar .readout,
+#hud .vs-bar .item-tag {
+  display: none;
+}
+#hud .vs-bar .rounds i {
+  width: 7px;
+  height: 7px;
+}
+#hud .vs-bar .hp {
+  grid-area: hp;
+  height: 10px;
+  margin: 0;
+  border-width: 2px;
+}
+#hud .vs-bar .sp {
+  grid-area: sp;
+  height: 3px;
+  margin: 0;
+}
+#hud .vs-bar .spirit {
+  grid-area: sp;
+}
+#hud #clock-wrap {
+  width: 44px;
+  height: 32px;
+  border-width: 2px;
+  border-radius: 10px;
+}
+#hud #clock-wrap::before {
+  inset: 3px;
+  border-radius: 7px;
+}
+#hud #clock {
+  font-size: 17px;
+}
+.hud-btns {
+  top: calc(max(8px, env(safe-area-inset-top)) + 50px);
+}
+.bark {
+  top: calc(max(10px, env(safe-area-inset-top)) + 62px);
 }

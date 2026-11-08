@@ -1322,6 +1322,18 @@ export function boot() {
     const foe = unitOfBase(pathOf(hero).chapters[ch].foe);
     barks.start(FIGHT_BARKS[whoOf(hero)]?.[ch], foe, characterById(foe).name);
   };
+  /** a chapter lost: the foe's closing words (over the backdrop), then on to the retry */
+  const storyClosing = (hero: string, ch: number, then: () => void) => {
+    barks.stop();
+    const c = pathOf(hero).chapters[ch];
+    const b = FIGHT_BARKS[whoOf(hero)]?.[ch];
+    const text = b?.victory ?? b?.winning;
+    if (!text) return then();
+    // (and what's still to win, so the retry has its reason)
+    const lines: Line[] = [{ who: c.foe, text }];
+    if (c.goal) lines.push({ who: 'narrator', text: `Get back up. ${c.goal}` });
+    talk(hero, `CHAPTER ${ch + 1} · DEFEATED`, c.title.toUpperCase(), lines, then);
+  };
   /** a chapter fought in Action: the talk over the backdrop, then straight into it */
   const actionChapter = (mode: Exclude<ChapterMode, 'duel'>) => {
     if (!story) return;
@@ -1342,6 +1354,7 @@ export function boot() {
       rooms: 5,
       hp,
       goal: goalOf(hero, ch, mode).how,
+      closing: (then) => storyClosing(hero, ch, then),
       onEnd: (win) => {
         if (!story) return;
         if (!win) return toTitle();
@@ -1617,7 +1630,13 @@ export function boot() {
         lastCount = -9;
         showBanner(duo ? (matchWinner === -1 ? 'DRAW' : `PLAYER ${matchWinner + 1} WINS`) : matchWinner === 0 ? 'YOU WIN' : matchWinner === 1 ? 'YOU LOSE' : 'DRAW', true);
       }
-      if (flowT > (lost ? 5.8 : 4.6)) endMatch();
+      if (flowT > (lost ? 5.8 : 4.6)) {
+        // (a story chapter lost: the foe has its say before the result and RETRY)
+        if (lost && story) {
+          flow = 'talk';
+          storyClosing(story.hero, story.ch, endMatch);
+        } else endMatch();
+      }
     }
   };
 

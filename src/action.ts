@@ -48,6 +48,8 @@ export interface StoryFight {
   hp?: number;
   /** the chapter's objective, kept on screen through the fight */
   goal?: string;
+  /** a loss: the foe's closing words first (then the retry panel) */
+  closing?: (then: () => void) => void;
   onEnd: (win: boolean) => void;
 }
 
@@ -4476,6 +4478,13 @@ export class ActionMode {
     } catch {
       // storage unavailable
     }
+    // (a story chapter lost: the foe has its say before the retry panel)
+    if (!win && this.story?.closing) this.story.closing(() => this.result(win, place));
+    else this.result(win, place);
+  }
+
+  /** the end panel, and the XP for the fight */
+  private result(win: boolean, place: number) {
     this.showPanel(win ? 'win' : 'lose', place);
     // XP for your fighter, as in the other modes: rooms cleared (gauntlet) or how high you placed (free-for-all), plus KOs
     const gain =
