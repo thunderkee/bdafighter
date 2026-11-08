@@ -9092,3 +9092,14 @@ body:not(.thumbs):not(.teaching) #pad .pad-right {
 #result .record {
   margin: 0;
 }
+/* the fighter on show is pinched to zoom: the gesture is the game's, not the page's */
+#title-hero,
+#preview {
+  touch-action: none;
+}
+/* zoomed in, the close-up fades out at its edges instead of ending in a straight line */
+#title-hero.zoomed canvas,
+#preview.zoomed canvas {
+  -webkit-mask-image: linear-gradient(transparent, #000 7%, #000 92%, transparent);
+  mask-image: linear-gradient(transparent, #000 7%, #000 92%, transparent);
+}

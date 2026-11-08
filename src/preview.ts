@@ -81,6 +81,44 @@ export class Preview {
     };
     host.addEventListener('pointerup', end);
     host.addEventListener('pointercancel', end);
+    // pinch with two fingers (or scroll a mouse wheel) to look closer
+    const spread = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    host.addEventListener(
+      'touchstart',
+      (e) => {
+        if (this.mode !== 'unit' || e.touches.length !== 2) return;
+        e.preventDefault();
+        this.pinch = { d: spread(e.touches), z: this.zoom };
+        // (two fingers aren't a turn, or a tap on the fighter)
+        end();
+        this.dragged = 99;
+      },
+      { passive: false },
+    );
+    host.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!this.pinch || e.touches.length !== 2) return;
+        e.preventDefault();
+        this.setZoom((this.pinch.z * spread(e.touches)) / this.pinch.d);
+      },
+      { passive: false },
+    );
+    host.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) this.pinch = null;
+    });
+    host.addEventListener('touchcancel', () => (this.pinch = null));
+    // (Safari's own page zoom would take the gesture otherwise)
+    host.addEventListener('gesturestart', (e) => e.preventDefault());
+    host.addEventListener(
+      'wheel',
+      (e) => {
+        if (this.mode !== 'unit') return;
+        e.preventDefault();
+        this.setZoom(this.zoom * Math.exp(-e.deltaY * 0.0015));
+      },
+      { passive: false },
+    );
     this.sun.position.set(-3, 6, -5);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(1024, 1024);
@@ -124,6 +162,12 @@ export class Preview {
     this.clear();
     this.mode = 'unit';
     const def = skin && skin.id === characterById(id).id ? skin : characterById(id);
+    // (a different fighter starts back at the full view; another skin on this one keeps the close-up)
+    if (id !== this.zoomFor) {
+      this.zoom = 1;
+      this.host.classList.remove('zoomed');
+    }
+    this.zoomFor = id;
     this.unit = new ShooterMesh(def.id, def.ball, def);
     // a locked fighter: the whole of it painted black, moving as it would
     if (silhouette) {
@@ -171,6 +215,16 @@ export class Preview {
     this.start();
   }
 
+  /** how close the view is pulled in by a pinch (1 is the full fighter) */
+  private zoom = 1;
+  private zoomFor = '';
+  private pinch: { d: number; z: number } | null = null;
+  private setZoom(z: number) {
+    this.zoom = Math.max(0.7, Math.min(2.6, z));
+    this.host.classList.toggle('zoomed', this.zoom > 1.05);
+    if (this.mode === 'unit') this.fitCamera();
+  }
+
   /** place the camera so the unit (and some of the plinth) fills the screen at its current shape */
   private fitCamera() {
     const aspect = this.camera.aspect || 1;
@@ -181,8 +235,12 @@ export class Preview {
     const r = this.frameR;
     // (in the select carousel the fighter is the focus: in a little closer, the biggest only just fitting)
     const dist = (Math.max((hi - lo) / 2 / tan, r / (tan * aspect)) + r * 0.15) * (this.hero ? 1 : 0.84);
-    this.camera.position.set(0, cy + dist * 0.12, -dist);
-    this.camera.lookAt(0, cy, 0);
+    // (closer in, the view rises from the middle of the fighter towards its face)
+    const rise = Math.max(0, Math.min(1, (this.zoom - 1) / 1.2));
+    const look = cy + (hi * 0.8 - cy) * rise;
+    this.camera.zoom = this.zoom;
+    this.camera.position.set(0, look + dist * 0.12, -dist);
+    this.camera.lookAt(0, look, 0);
     this.camera.updateProjectionMatrix();
   }
 
@@ -190,6 +248,7 @@ export class Preview {
     this.ensure();
     this.clear();
     this.mode = 'stage';
+    this.camera.zoom = 1;
     this.host.classList.add('stage');
     this.stage = new Stage(id);
     const d = this.stage.def;
