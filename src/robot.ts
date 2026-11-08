@@ -46,8 +46,8 @@ export interface CharacterDef {
   gear?: Partial<Record<AddonSlot, PartSpec>>;
   /** which form of its evolution this is (0 is the first) */
   form?: number;
-  /** the Original skin: the bare Unit Lab design, with none of the finish laid over it */
-  original?: boolean;
+  /** wearing Standard or a later form: the finish (see flair.ts) goes over the design. Without it, the Original look */
+  finish?: boolean;
   /** this unit's marble colour */
   ball: number;
   palette: Palette;
@@ -1010,7 +1010,7 @@ export class ShooterMesh {
     this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
     this.flair?.paint(this.mats);
     // (the roster's sizes, and how much each form of an evolution has grown)
-    if (!def.original) this.fit.multiplyScalar((STATURE[def.id.replace(/-\d+$/, '')] ?? 1) * (FORM_SCALE[def.form ?? 0] ?? 1));
+    if (def.finish) this.fit.multiplyScalar((STATURE[def.id.replace(/-\d+$/, '')] ?? 1) * (FORM_SCALE[def.form ?? 0] ?? 1));
   }
 
   private build(def: CharacterDef, marbleColor: number) {
@@ -1868,7 +1868,7 @@ export class ShooterMesh {
     if (def.special?.swap && this.fistR && this.fistL && this.barrel.parent === this.turret) this.tossGun = this.barrel;
     // (the finish over the design: back shapes, wear, springs, damage)
     const eye = def.palette.eye;
-    if (!def.original) this.flair = new Flair(this.root, this.turret, def.id, def, this.mats, (m) => {
+    if (def.finish) this.flair = new Flair(this.root, this.turret, def.id, def, this.mats, (m) => {
       const mat = m.material as THREE.MeshBasicMaterial;
       return !Array.isArray(mat) && !!mat.isMeshBasicMaterial && mat.color.getHex() === eye;
     });

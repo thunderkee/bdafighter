@@ -534,10 +534,12 @@ export function boot() {
   const equipOf = (id: string): Equip => {
     const e = { ...(saveData.equip?.[id] ?? {}) };
     for (const r of rewardsOf(id)) if (e[r.slot] === r.id && !unlocked(id, r)) delete e[r.slot];
+    // (Original is simply no skin at all)
+    if (e.skin === ORIGINAL) delete e.skin;
     return e;
   };
   /** your fighter as it looks in its cosmetics */
-  const mine = (id: string) => (story && id === story.hero ? skinned(id, { ...equipOf(id), skin: SKIN_IDS[formAt(story.ch)] }) : skinned(id, equipOf(id)));
+  const mine = (id: string) => (story && id === story.hero ? skinned(id, { ...equipOf(id), skin: formAt(story.ch) ? SKIN_IDS[formAt(story.ch)] : ORIGINAL }) : skinned(id, equipOf(id)));
   const setEquip = (id: string, slot: Slot, value: string | undefined) => {
     const e = { ...equipOf(id) };
     if (value) e[slot] = value;
@@ -1382,11 +1384,11 @@ export function boot() {
   const evolveScene = (hero: string, form: number, then: () => void) => {
     const lines = EVOLVE_SCENES[whoOf(hero)]?.[form - 1];
     const reveal = () => {
-      const was = skinned(hero, { skin: SKIN_IDS[form - 1] });
+      const was = skinned(hero, { skin: form > 1 ? SKIN_IDS[form - 1] : ORIGINAL });
       const now = skinned(hero, { skin: SKIN_IDS[form] });
       const box = $('story-evolve');
       const pic = $<HTMLImageElement>('ev-pic');
-      pic.src = portraitOf(was, `form:${hero}:${SKIN_IDS[form - 1]}:full`);
+      pic.src = portraitOf(was, `form:${hero}:${form > 1 ? SKIN_IDS[form - 1] : ORIGINAL}:full`);
       $('ev-name').textContent = now.name;
       $('ev-form').textContent = `Form ${['I', 'II', 'III', 'IV', 'V'][form]}`;
       box.classList.remove('hidden', 'changed', 'charge');
@@ -2112,8 +2114,8 @@ export function boot() {
     const def = characterById(id);
     const skins = skinsOf(def);
     const opts = [
-      ...(styleSlot === 'skin' ? [{ v: ORIGINAL, name: 'Original', ok: true, lv: 0 }] : []),
-      { v: '', name: styleSlot === 'skin' ? skins[0].name : 'Standard', ok: true, lv: 0 },
+      { v: '', name: styleSlot === 'skin' ? 'Original' : 'Standard', ok: true, lv: 0 },
+      ...(styleSlot === 'skin' ? [{ v: 'standard', name: skins[0].name, ok: true, lv: 0 }] : []),
       ...rewardsOf(id)
         .filter((r) => r.slot === styleSlot)
         .map((r) => ({ v: r.id, name: r.name.replace(/ (paint|marbles|skin|form)$/i, ''), ok: unlocked(id, r), lv: r.lv })),
@@ -2123,8 +2125,8 @@ export function boot() {
       let sub: string;
       if (styleSlot === 'skin') {
         // (the forms count from Standard; Original sits before them, outside the line)
-        const f = o.v === ORIGINAL ? -1 : k - 1;
-        art = `<i class="st-art skin t${Math.max(0, f)}" data-form="${o.v || 'standard'}"><img alt="" />${f < 0 ? '' : `<em>${ROMAN[f]}</em>`}</i>`;
+        const f = o.v ? k - 1 : -1;
+        art = `<i class="st-art skin t${Math.max(0, f)}" data-form="${o.v || ORIGINAL}"><img alt="" />${f < 0 ? '' : `<em>${ROMAN[f]}</em>`}</i>`;
         sub = f < 0 ? 'First design' : skinDelta(def, skins.find((s) => s.id === (o.v || 'standard'))!) || SKIN_TIER[f];
       } else {
         const c = swatchOf(id, styleSlot, o.v);
