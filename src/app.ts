@@ -28,7 +28,7 @@ import * as store from './storage';
 import { CEL } from './cel';
 import { SHAPES } from './shapes';
 import { CHAPTER_DIFF, STORY_BONUS, STORY_PATHS, type Line } from './storymode';
-import { REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, swatchOf, type Equip, type Slot } from './cosmetics';
+import { ORIGINAL, REWARDS, SLOT_NAME, equipKey, rewardsOf, skinned, swatchOf, type Equip, type Slot } from './cosmetics';
 import { skinDelta, skinsOf } from './kits';
 
 /** the sound button's icon: a speaker, with waves or crossed out */
@@ -2112,6 +2112,7 @@ export function boot() {
     const def = characterById(id);
     const skins = skinsOf(def);
     const opts = [
+      ...(styleSlot === 'skin' ? [{ v: ORIGINAL, name: 'Original', ok: true, lv: 0 }] : []),
       { v: '', name: styleSlot === 'skin' ? skins[0].name : 'Standard', ok: true, lv: 0 },
       ...rewardsOf(id)
         .filter((r) => r.slot === styleSlot)
@@ -2121,8 +2122,10 @@ export function boot() {
       let art: string;
       let sub: string;
       if (styleSlot === 'skin') {
-        art = `<i class="st-art skin t${k}" data-form="${o.v || 'standard'}"><img alt="" /><em>${ROMAN[k]}</em></i>`;
-        sub = skinDelta(def, skins.find((s) => s.id === (o.v || 'standard'))!) || SKIN_TIER[k];
+        // (the forms count from Standard; Original sits before them, outside the line)
+        const f = o.v === ORIGINAL ? -1 : k - 1;
+        art = `<i class="st-art skin t${Math.max(0, f)}" data-form="${o.v || 'standard'}"><img alt="" />${f < 0 ? '' : `<em>${ROMAN[f]}</em>`}</i>`;
+        sub = f < 0 ? 'First design' : skinDelta(def, skins.find((s) => s.id === (o.v || 'standard'))!) || SKIN_TIER[f];
       } else {
         const c = swatchOf(id, styleSlot, o.v);
         art =

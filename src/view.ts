@@ -660,7 +660,7 @@ export class View {
       const sh = this.shields[i];
       for (const m of [sh.panel, sh.glow, sh.frame]) m.color.set(ball);
       this.robotFx[i].ghostMats.forEach((m) => m.color.set(ball));
-      const skin = i === 0 && own ? JSON.stringify([own.palette, own.gear ?? null, own.ball, own.form ?? 0]) : '';
+      const skin = i === 0 && own ? JSON.stringify([own.palette, own.gear ?? null, own.ball, own.form ?? 0, !!own.original]) : '';
       if (old.id === all[i] && old.ball === ball && !old.broken && this.skinKey[i] === skin) return;
       this.skinKey[i] = skin;
       this.scene.remove(old.root);

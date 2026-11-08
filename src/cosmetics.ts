@@ -30,6 +30,9 @@ export const REWARDS: Reward[] = [
   { lv: 10, slot: 'skin', id: 'skin:4', name: 'Skin' },
 ];
 
+/** the skin that shows a fighter as it was designed, without the later character passes */
+export const ORIGINAL = 'original';
+
 export const SLOT_NAME: Record<Slot, string> = { skin: 'Evolution', paint: 'Paint', marble: 'Marbles' };
 
 /** what a fighter has equipped: one choice per slot (none is its standard look) */
@@ -71,6 +74,7 @@ export function skinned(id: string, equip: Equip | undefined): CharacterDef {
   return {
     ...def,
     form,
+    original: equip.skin === ORIGINAL,
     name: form ? sk.name : def.name,
     palette,
     ball: mb?.ball ?? def.ball,
