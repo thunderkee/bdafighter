@@ -772,6 +772,10 @@ export class ActionMode {
   get active() {
     return this.running;
   }
+  /** the music this fight wants: Dungeon Run's own, or the arena's (a theme id or its stage) */
+  get musicStage() {
+    return this.kind === 'gauntlet' ? 'dungeon' : (this.theme.stage ?? this.theme.id);
+  }
   /** a boss is up (for the music) */
   get bossOn() {
     return !this.over && this.units.some((u) => u.boss && u.alive);

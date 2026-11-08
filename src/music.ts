@@ -7,6 +7,15 @@ import * as sfx from './audio';
  * Notes are scheduled a moment ahead on the audio clock, so the beat never stutters.
  */
 export type Track = 'menu' | 'fight' | 'boss' | 'squad';
+/**
+ * The recorded soundtrack (public/music, free tracks from OpenGameArt: see CREDITS in Settings).
+ * A song is fetched the first time it's wanted; the synthesised track plays until it's ready.
+ */
+export type Song = 'menu' | 'space' | 'beach' | 'lava' | 'snow' | 'city' | 'forest' | 'desert' | 'dungeon' | 'boss';
+const STAGE_SONG: Record<string, Song> = { space: 'space', crystal: 'space', beach: 'beach', lava: 'lava', snow: 'snow', city: 'city', cyber: 'city', forest: 'forest', serpent: 'forest', sandglass: 'desert' };
+/** a stage's song (River Dusk, Soccer Field and the rest keep the synthesised fight music) */
+export const songForStage = (id: string): Song | null => STAGE_SONG[id] ?? null;
+const SONG_VOLUME = 0.9;
 
 type Def = {
   bpm: number;
@@ -88,6 +97,24 @@ let bar = 0;
 let nextAt = 0;
 let timer = 0;
 let noise: AudioBuffer | null = null;
+let wantSong: Song | null = null;
+let song: Song | null = null;
+let songSrc: AudioBufferSourceNode | null = null;
+let songGain: GainNode | null = null;
+let switching = false;
+const buffers = new Map<Song, AudioBuffer>();
+const loading = new Set<Song>();
+function load(s: Song, ctx: AudioContext) {
+  if (buffers.has(s) || loading.has(s)) return;
+  loading.add(s);
+  fetch(`${import.meta.env.BASE_URL}music/${s}.m4a`)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+    .then((b) => ctx.decodeAudioData(b))
+    .then((buf) => buffers.set(s, buf))
+    // (offline or unsupported: the synthesised track carries on)
+    .catch(() => {})
+    .finally(() => loading.delete(s));
+}
 
 const VOLUME = 0.42;
 
@@ -198,13 +225,41 @@ function playStep(ctx: AudioContext, d: Def, at: number) {
 function tick() {
   const a = ensureBus();
   if (!a) return;
-  if (want !== track) {
+  if (wantSong) load(wantSong, a.ctx);
+  // a song that's ready takes over from the synth; a change of song fades out, then in
+  const next = wantSong && buffers.has(wantSong) ? wantSong : null;
+  if (next !== song && !switching) {
+    switching = true;
+    fadeTo(0, 0.35);
+    window.setTimeout(() => {
+      songSrc?.stop();
+      songSrc?.disconnect();
+      songSrc = null;
+      song = next;
+      if (song) {
+        songGain ??= a.ctx.createGain();
+        songGain.gain.value = SONG_VOLUME;
+        songGain.connect(bus!);
+        songSrc = a.ctx.createBufferSource();
+        songSrc.buffer = buffers.get(song)!;
+        songSrc.loop = true;
+        songSrc.connect(songGain);
+        songSrc.start();
+      }
+      // (the synth's own switch below brings the volume back up)
+      track = undefined as unknown as Track | null;
+      switching = false;
+    }, 380);
+  }
+  if (switching) return;
+  const synth = song ? null : want;
+  if (synth !== track) {
     // switch tracks on the next bar line, after a quick fade
-    track = want;
+    track = synth;
     step = 0;
     bar = 0;
     nextAt = a.ctx.currentTime + 0.08;
-    fadeTo(track && enabled ? VOLUME * duck : 0, 0.5);
+    fadeTo((track || song) && enabled ? VOLUME * duck : 0, 0.5);
   }
   if (!track || !enabled || a.ctx.state !== 'running') return;
   const d = DEFS[track];
@@ -220,8 +275,9 @@ function tick() {
 }
 
 /** which track should be playing (null for silence); it changes at the next bar */
-export function play(t: Track | null) {
+export function play(t: Track | null, s: Song | null = null) {
   want = t;
+  wantSong = s;
   if (!timer) timer = window.setInterval(tick, 25);
 }
 
@@ -234,7 +290,7 @@ export function intensity(v: number) {
 export function setEnabled(on: boolean) {
   if (enabled === on) return;
   enabled = on;
-  fadeTo(on && track ? VOLUME * duck : 0, 0.4);
+  fadeTo(on && (track || song) ? VOLUME * duck : 0, 0.4);
 }
 
 /** quieter under the pause menu */
@@ -242,5 +298,5 @@ export function setDucked(on: boolean) {
   const d = on ? 0.35 : 1;
   if (d === duck) return;
   duck = d;
-  if (enabled && track) fadeTo(VOLUME * duck, 0.3);
+  if (enabled && (track || song)) fadeTo(VOLUME * duck, 0.3);
 }

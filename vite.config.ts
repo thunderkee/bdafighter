@@ -46,6 +46,22 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // the shared roster is always fetched live
   if (url.origin === location.origin && url.pathname.includes('/api/')) return;
+  // the soundtrack: fetched the first time a song plays, then kept across updates (its own cache)
+  if (url.origin === location.origin && url.pathname.includes('/music/')) {
+    e.respondWith(
+      caches.open('mf-music-v1').then((c) =>
+        c.match(req).then(
+          (hit) =>
+            hit ||
+            fetch(req).then((res) => {
+              if (res.ok) c.put(req, res.clone());
+              return res;
+            }),
+        ),
+      ),
+    );
+    return;
+  }
   // pages: the network first (so an update shows up), the cache when offline
   if (req.mode === 'navigate') {
     e.respondWith(

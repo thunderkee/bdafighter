@@ -2783,23 +2783,24 @@ export function boot() {
     music.setEnabled(st.music !== false);
     music.setDucked(paused);
     if (actionMode?.active) {
-      music.play(actionMode.bossOn ? 'boss' : 'fight');
+      const where = actionMode.musicStage;
+      music.play(actionMode.bossOn ? 'boss' : 'fight', actionMode.bossOn ? 'boss' : where === 'dungeon' ? 'dungeon' : music.songForStage(where));
       music.intensity(actionMode.bossOn ? 1 : 0.7);
       return;
     }
     if (squadRun?.active) {
-      music.play(squadRun.bossOn ? 'boss' : 'squad');
+      music.play(squadRun.bossOn ? 'boss' : 'squad', squadRun.bossOn ? 'boss' : null);
       music.intensity(squadRun.bossOn ? 1 : 0.55);
       return;
     }
     if (screen === 'playing') {
-      music.play(arcade && boss() ? 'boss' : 'fight');
+      music.play(arcade && boss() ? 'boss' : 'fight', arcade && boss() ? 'boss' : music.songForStage(st.stage));
       // it heats up in the final round, or when either side is nearly down
       const low = Math.min(game.teamFrac(0), game.teamFrac(1)) < 0.3;
       music.intensity(finalRound || low ? 1 : 0.5);
       return;
     }
-    music.play('menu');
+    music.play('menu', 'menu');
     music.intensity(0.3);
   };
   const frame = (now: number) => {
