@@ -150,3 +150,19 @@ export class Motes {
     this.points.geometry.attributes.position.needsUpdate = true;
   }
 }
+
+/** whose home each arena is: its statue and banner stand there */
+export const HOME: Record<string, string[]> = {
+  space: ['angel'],
+  crystal: ['nightshade'],
+  lava: ['dragon', 'tyrant'],
+  snow: ['rex', 'violet'],
+  forest: ['liger'],
+  serpent: ['baron'],
+  sandglass: ['bastion'],
+  beach: ['ember'],
+  city: ['pioneer', 'liberty'],
+  cyber: ['monoceros'],
+  river: ['trueleo'],
+  soccer: ['kabuto'],
+};

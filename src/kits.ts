@@ -1,6 +1,7 @@
 import type { AddonSlot, Fit, PartSpec } from './addons';
 import type { CharacterDef } from './robot';
 import { DEFAULT_TRAITS, type Block, type Traits } from './roster';
+import { lineOf } from './evolution';
 
 /**
  * Each fighter's own wardrobe: three head pieces, three back pieces, three shoulder pieces and
@@ -149,10 +150,11 @@ export interface Skin {
 type Delta = Partial<Record<keyof Traits, number>>;
 const SKIN_PLAN: { id: string; name: string; parts: Partial<Record<AddonSlot, number>>; delta: Delta }[] = [
   { id: 'standard', name: 'Standard', parts: {}, delta: {} },
-  { id: 'vanguard', name: 'Vanguard', parts: { hat: 0, shoulder: 0 }, delta: { health: 1, speed: -1 } },
-  { id: 'striker', name: 'Striker', parts: { back: 1, shoulder: 2 }, delta: { fireRate: 1, health: -1 } },
-  { id: 'phantom', name: 'Phantom', parts: { hat: 2, back: 2 }, delta: { speed: 1, fireRate: -1 } },
-  { id: 'legend', name: 'Legend', parts: { hat: 1, back: 0, shoulder: 1 }, delta: { agility: 1, fireRate: 1, health: -1, speed: -1 } },
+  // (the forms of an evolution: each keeps what the last had and grows more of it)
+  { id: 'vanguard', name: 'Form II', parts: { hat: 0 }, delta: { health: 1, speed: -1 } },
+  { id: 'striker', name: 'Form III', parts: { hat: 0, shoulder: 0 }, delta: { fireRate: 1, health: -1 } },
+  { id: 'phantom', name: 'Form IV', parts: { hat: 1, shoulder: 0, back: 0 }, delta: { speed: 1, fireRate: -1 } },
+  { id: 'legend', name: 'Form V', parts: { hat: 1, shoulder: 1, back: 1 }, delta: { agility: 1, fireRate: 1, health: -1, speed: -1 } },
 ];
 export const SKIN_IDS = SKIN_PLAN.map((p) => p.id);
 const clampTrait = (n: number) => Math.max(1, Math.min(5, Math.round(n)));
@@ -176,7 +178,8 @@ export function skinsOf(def: CharacterDef): Skin[] {
       if (part) gear[slot] = part;
     }
     const planned = Object.fromEntries((Object.keys(base) as (keyof Traits)[]).map((k) => [k, clampTrait(base[k] + (p.delta[k] ?? 0))])) as unknown as Traits;
-    return { id: p.id, name: ed?.name?.trim() || p.name, gear, gearIds, traits: ed?.traits ?? planned, blueprint: ed?.blueprint };
+    const formName = p.id === 'standard' ? undefined : lineOf(def)?.names[SKIN_IDS.indexOf(p.id) - 1];
+    return { id: p.id, name: ed?.name?.trim() || formName || p.name, gear, gearIds, traits: ed?.traits ?? planned, blueprint: ed?.blueprint };
   });
 }
 export const skinOf = (def: CharacterDef, id: string | undefined) => skinsOf(def).find((s) => s.id === (id ?? 'standard')) ?? skinsOf(def)[0];

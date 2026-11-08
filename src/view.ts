@@ -8,7 +8,7 @@ import { ShooterMesh, characterById, studioEnv, type CharacterDef, type TalkMood
 import { Post } from './post';
 import { ballTexture } from './patterns';
 import { Stage } from './stage';
-import { Scars, impactOf, stageLight } from './stagefx';
+import { HOME, Scars, impactOf, stageLight } from './stagefx';
 import { entrance } from './flair';
 import { bounce } from './shapes';
 import { DROP, GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
@@ -366,6 +366,7 @@ export class View {
 
     this.stage = new Stage('space');
     this.scene.add(this.scars.mesh);
+    this.placeHomes();
     this.applyStage();
 
     this.shooters = SLOTS.map((i) => new ShooterMesh(slotTeam(i) === 0 ? 'angel' : 'dragon', this.teamBall[slotTeam(i)]));
@@ -504,6 +505,58 @@ export class View {
     this.stage = new Stage(id);
     this.applyStage();
     this.themeObstacles();
+    this.placeHomes();
+  }
+
+  /** the arena's own: a statue of whoever calls it home, and their banner */
+  private homes = new THREE.Group();
+  private placeHomes() {
+    this.scene.add(this.homes);
+    this.homes.clear();
+    (HOME[this.stage.def.id] ?? []).forEach((key, i) => {
+      const def = characterById(key === 'trueleo' ? key : `${key}-22`);
+      const side = i === 0 ? -1 : 1;
+      const g = new THREE.Group();
+      g.position.set(side * (ARENA.railHalfWidth + 3), 0, -11);
+      const stone = new THREE.MeshLambertMaterial({ color: 0x8a8378 });
+      const plinth = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 2), stone);
+      plinth.position.y = 0.35;
+      g.add(plinth);
+      const m = new ShooterMesh(def.id, def.ball, def);
+      const bronze = new THREE.MeshLambertMaterial({ color: 0xc89a4a });
+      m.root.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = bronze;
+      });
+      m.root.scale.setScalar(1.55);
+      m.root.position.y = 0.7;
+      m.root.rotation.y = Math.PI + side * 0.35;
+      g.add(m.root);
+      // the banner, in its colours, with its initial
+      const c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 256;
+      const x = c.getContext('2d')!;
+      const hex = (n: number) => `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
+      x.fillStyle = hex(def.palette.body);
+      x.fillRect(0, 0, 128, 256);
+      x.fillStyle = hex(def.palette.trim);
+      x.fillRect(0, 0, 128, 26);
+      x.fillRect(0, 230, 128, 26);
+      x.font = '700 92px sans-serif';
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      x.fillStyle = '#fff';
+      x.fillText(def.name[0], 64, 128);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.6), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }));
+      cloth.position.set(side * -1.9, 3.1, 0);
+      g.add(cloth);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.6, 8), new THREE.MeshLambertMaterial({ color: 0x3a3430 }));
+      pole.position.set(side * -1.9 - side * 0.72, 2.3, 0);
+      g.add(pole);
+      this.homes.add(g);
+    });
   }
 
   private applyStage() {
@@ -607,7 +660,7 @@ export class View {
       const sh = this.shields[i];
       for (const m of [sh.panel, sh.glow, sh.frame]) m.color.set(ball);
       this.robotFx[i].ghostMats.forEach((m) => m.color.set(ball));
-      const skin = i === 0 && own ? JSON.stringify([own.palette, own.gear ?? null, own.ball]) : '';
+      const skin = i === 0 && own ? JSON.stringify([own.palette, own.gear ?? null, own.ball, own.form ?? 0]) : '';
       if (old.id === all[i] && old.ball === ball && !old.broken && this.skinKey[i] === skin) return;
       this.skinKey[i] = skin;
       this.scene.remove(old.root);
@@ -1043,6 +1096,8 @@ export class View {
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
     });
+    // (your own halo and blades of light would only get between you and the fight)
+    this.shooters[0]?.showBackLight(!!this.cine || this.cameraMode === 'far');
     this.entrances(g, dt);
     // a story scene: the one speaking talks and gestures, the other listens
     if (this.cine?.kind === 'talk') {
@@ -2083,7 +2138,9 @@ export class View {
         // (held sideways the screen shows plenty of width: the chase camera comes in closer behind you)
         const k = this.host.clientWidth > this.host.clientHeight ? 0.72 : 1;
         // (upright, it sits higher and further back, so your own robot doesn't fill the lane)
-        this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, k < 1 ? 3.8 * k : 4.9, -p.y + (k < 1 ? 3.9 * k : 5.1));
+        // (and a bigger form takes the camera further back with it, so it never fills the lane)
+        const grown = Math.max(1, this.shooters[0]?.fit.y ?? 1);
+        this.camGoal.set(follow(0.95, 3.5) - lean * 0.6, (k < 1 ? 3.8 * k : 4.9) * grown, -p.y + (k < 1 ? 3.9 * k : 5.1) * grown);
         this.lookGoal.set(follow(0.7, 2.3) + lean * 3.5, 0.5 + (1 - k) * 0.8, -p.y - 8.5);
         break;
       }

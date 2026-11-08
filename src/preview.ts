@@ -149,6 +149,7 @@ export class Preview {
     // it powers up as it's picked: the special-move spring and glow, then its routine
     this.act = { ...this.act, x: 0, aim: 0, vx: 0, recoil: 0, kickT: 9, heavyT: 0, flash: 0, hand: 1, lastHand: 1, windT: 9, wobble: 0 };
     this.at = 0;
+    this.signatureAt = 0.9;
     this.nextShot = 1.4;
     this.scene.background = null;
     this.scene.fog = null;
@@ -381,6 +382,12 @@ export class Preview {
     // keep it planted on the plinth: no sliding along a rail here
     unit.root.position.x = 0;
     unit.root.position.z = 0;
+    // on the select screen each fighter shows off: its own special pose, soon after you land on it
+    if (!this.hero && t >= this.signatureAt) {
+      const p = t - this.signatureAt;
+      if (p < 2.8) unit.specialPose(p, 0);
+      else this.signatureAt = t + 5;
+    }
     // (the marble leaves once the model has moved its gun to the hand that fired)
     if (this.ballDue) {
       this.ballDue = false;
@@ -397,6 +404,7 @@ export class Preview {
       }
     }
   }
+  private signatureAt = 0.9;
   private burstLeft = 0;
   private tripleN = 0;
   /** drag to turn the unit by hand: the extra turn, and how long the auto swing waits after a drag */

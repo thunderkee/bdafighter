@@ -3,6 +3,7 @@ import { fromGeometry, meshGeometry } from './meshkit';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Shooter } from './game';
 import { Flair } from './flair';
+import { FORM_SCALE } from './evolution';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
@@ -43,6 +44,8 @@ export interface CharacterDef {
   name: string;
   /** customizer add-ons bolted on (a hat, a back piece, shoulder pieces) */
   gear?: Partial<Record<AddonSlot, PartSpec>>;
+  /** which form of its evolution this is (0 is the first) */
+  form?: number;
   /** this unit's marble colour */
   ball: number;
   palette: Palette;
@@ -831,6 +834,9 @@ const POSES: Record<string, 'blade' | 'roar' | 'gunner' | 'sniper' | 'twins' | '
   nightshade: 'shadow', violet: 'pound', kabuto: 'royal', tyrant: 'hounds', rex: 'freeze', liger: 'pounce', ember: 'bloom',
 };
 
+/** how big each fighter stands against the rest (a looks thing: its hit size is unchanged) */
+const STATURE: Record<string, number> = { violet: 1.18, rex: 1.14, liberty: 1.1, bastion: 1.1, kabuto: 1.1, tyrant: 1.08, monoceros: 1.08, nightshade: 1.06, dragon: 1.05, trueleo: 1.04, pioneer: 0.96, liger: 0.92, ember: 0.8 };
+
 export class ShooterMesh {
   root = new THREE.Group();
   /** model scale on top of the animation (an arcade boss stands taller) */
@@ -1001,6 +1007,8 @@ export class ShooterMesh {
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
     this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
     this.flair?.paint(this.mats);
+    // (the roster's sizes, and how much each form of an evolution has grown)
+    this.fit.multiplyScalar((STATURE[def.id.replace(/-\d+$/, '')] ?? 1) * (FORM_SCALE[def.form ?? 0] ?? 1));
   }
 
   private build(def: CharacterDef, marbleColor: number) {
@@ -1864,6 +1872,10 @@ export class ShooterMesh {
     });
   }
   private flair: Flair | null = null;
+  /** a final form's halo and blades of light */
+  showBackLight(on: boolean) {
+    this.flair?.showBackLight(on);
+  }
 
   /** Describe this model as editable blocks (how built-ins become Unit Lab designs). */
   toBlueprint(def: CharacterDef): Block {

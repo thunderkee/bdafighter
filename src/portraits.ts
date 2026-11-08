@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ShooterMesh, characterById, studioEnv } from './robot';
+import { ShooterMesh, characterById, studioEnv, type CharacterDef } from './robot';
 import { celify } from './cel';
 
 // 3/4-view portraits of the units for the pickers: each fighter rendered once into a
@@ -30,12 +30,14 @@ function setup() {
 const BUST = 192;
 
 /** the unit seen from the front-left, a little above, framed to fit (or, for a bust, the top of it) */
-function render(id: string, bust = false) {
+function render(id: string, bust = false, given?: CharacterDef) {
   if (!renderer || !scene) setup();
-  const w = bust ? BUST : W;
-  const h = bust ? BUST : H;
+  // (a particular form, shown big: drawn at three times the size)
+  const big = given && !bust ? 3 : 1;
+  const w = bust ? BUST : W * big;
+  const h = bust ? BUST : H * big;
   renderer!.setSize(w, h, false);
-  const def = characterById(id);
+  const def = given ?? characterById(id);
   const mesh = new ShooterMesh(def.id, def.ball, def);
   scene!.add(mesh.root);
   mesh.root.updateMatrixWorld(true);
@@ -102,6 +104,16 @@ export function portrait(id: string, bust = false) {
   let url = cache.get(key);
   if (!url) {
     url = render(id, bust);
+    cache.set(key, url);
+  }
+  return url;
+}
+
+/** the portrait of a particular version of a unit (one form of its evolution, say), by its own key */
+export function portraitOf(def: CharacterDef, key: string, bust = false) {
+  let url = cache.get(key);
+  if (!url) {
+    url = render(def.id, bust, def);
     cache.set(key, url);
   }
   return url;

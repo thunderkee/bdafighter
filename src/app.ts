@@ -7,7 +7,10 @@ import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
 import { BUILTINS, characterById, playable, playableId } from './robot';
-import { fillPortraits, portrait } from './portraits';
+import { fillPortraits, portrait, portraitOf } from './portraits';
+import { SKIN_IDS } from './kits';
+import { EVOLVE_SCENES } from './storyevolve';
+import { HOME } from './stagefx';
 import { TalkFace } from './talkface';
 import { Barks } from './barks';
 import { FIGHT_BARKS } from './storybarks';
@@ -140,7 +143,9 @@ export function boot() {
   /** local two-player versus on one device: player 2 takes the opponent's robot */
   let duo = false;
   /** story mode: whose story, which chapter (0-based), and the chapter's match settings */
-  let story: { hero: string; ch: number; cfg: Partial<store.Settings> } | null = null;
+  let story: { hero: string; ch: number; cfg: Partial<store.Settings>; form: number } | null = null;
+  /** which form a hero's story has reached by this chapter (it evolves on the way to chapters 3 to 6) */
+  const formAt = (ch: number) => Math.max(0, Math.min(4, ch - 1));
   /** Arena rules: marbles picked up off the table, the Overdrive gauge and spirit shots */
   let arenaRules = false;
   /** the settings a match plays by: yours, with an arcade stage's (or local versus') rules on top */
@@ -532,7 +537,7 @@ export function boot() {
     return e;
   };
   /** your fighter as it looks in its cosmetics */
-  const mine = (id: string) => skinned(id, equipOf(id));
+  const mine = (id: string) => (story && id === story.hero ? skinned(id, { ...equipOf(id), skin: SKIN_IDS[formAt(story.ch)] }) : skinned(id, equipOf(id)));
   const setEquip = (id: string, slot: Slot, value: string | undefined) => {
     const e = { ...equipOf(id) };
     if (value) e[slot] = value;
@@ -706,7 +711,7 @@ export function boot() {
     matchWinner = -1;
     setupRound();
     buildPips();
-    const pName = characterById(st.character).name.toUpperCase() + (allySize() > 1 ? ` +${allySize() - 1}` : '');
+    const pName = mine(st.character).name.toUpperCase() + (allySize() > 1 ? ` +${allySize() - 1}` : '');
     const eName = characterById(enemyCharacter()).name.toUpperCase() + (packSize() > 1 ? ` +${packSize() - 1}` : '');
     $('player-name').textContent = pName;
     $('enemy-name').textContent = eName;
@@ -721,7 +726,7 @@ export function boot() {
     $('intro-p1-sub').textContent =
       allySize() > 1
         ? `PACK OF ${allySize()} · ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
-        : `${stageById(st.stage).name.toUpperCase()} · BEST OF 3`;
+        : `${stageById(st.stage).name.toUpperCase()} · ${HOME[st.stage]?.includes(whoOf(st.character)) ? 'HOME TURF' : 'BEST OF 3'}`;
     $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} · ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : duo ? 'PLAYER 2 · TOP END' : `CPU · ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
     // a boss stage: a red warning card for the challenger
     introEl.classList.toggle('boss', isBoss());
@@ -1373,6 +1378,39 @@ export function boot() {
     };
     box.addEventListener('click', go);
   };
+  /** an evolution, played out: why it happens (the talk), then the change itself */
+  const evolveScene = (hero: string, form: number, then: () => void) => {
+    const lines = EVOLVE_SCENES[whoOf(hero)]?.[form - 1];
+    const reveal = () => {
+      const was = skinned(hero, { skin: SKIN_IDS[form - 1] });
+      const now = skinned(hero, { skin: SKIN_IDS[form] });
+      const box = $('story-evolve');
+      const pic = $<HTMLImageElement>('ev-pic');
+      pic.src = portraitOf(was, `form:${hero}:${SKIN_IDS[form - 1]}:full`);
+      $('ev-name').textContent = now.name;
+      $('ev-form').textContent = `Form ${['I', 'II', 'III', 'IV', 'V'][form]}`;
+      box.classList.remove('hidden', 'changed', 'charge');
+      void box.offsetWidth;
+      box.classList.add('charge');
+      sfx.play('whoosh');
+      setTimeout(() => {
+        pic.src = portraitOf(now, `form:${hero}:${SKIN_IDS[form]}:full`);
+        box.classList.remove('charge');
+        box.classList.add('changed');
+        sfx.play('slam');
+      }, 1500);
+      const from = performance.now();
+      const go = () => {
+        if (performance.now() - from < 2100) return;
+        box.removeEventListener('click', go);
+        box.classList.add('hidden');
+        then();
+      };
+      box.addEventListener('click', go);
+    };
+    if (lines?.length) talk(hero, 'EVOLUTION', characterById(hero).name.toUpperCase(), lines, reveal, false, undefined, pathOf(hero).chapters[story?.ch ?? 0]?.arena);
+    else reveal();
+  };
   /** a chapter fought in Action: the talk over the backdrop, then straight into it */
   const actionChapter = (mode: Exclude<ChapterMode, 'duel'>) => {
     if (!story) return;
@@ -1424,6 +1462,12 @@ export function boot() {
   /** talk on the table, then fight (the story's opening comes before the first chapter) */
   const playChapter = () => {
     if (!story) return;
+    // the hero's next form comes in before the chapter it's needed for
+    const due = formAt(story.ch);
+    if (due > story.form) {
+      story.form = due;
+      return evolveScene(story.hero, due, playChapter);
+    }
     const p = pathOf(story.hero);
     const c = p.chapters[story.ch];
     const mode = chapterMode(story.hero, story.ch);
@@ -1439,7 +1483,8 @@ export function boot() {
     const hero = saveData.settings.character;
     if (!pathOf(hero)) return showToast('NO STORY FOR THIS UNIT YET', 0xffc23d);
     const done = chOf(hero) >= pathOf(hero).chapters.length;
-    story = { hero, ch: done ? 0 : chOf(hero), cfg: {} };
+    const startAt = done ? 0 : chOf(hero);
+    story = { hero, ch: startAt, cfg: {}, form: formAt(startAt) };
     playChapter();
   };
   $('story-btn').addEventListener('click', playStory);
@@ -1911,7 +1956,7 @@ export function boot() {
     }
     document.body.classList.toggle('triple', st.fireButtons === 'triple');
     $('view-btn').textContent = VIEW_LABEL[st.camera];
-    $('title-unit').textContent = characterById(saveData.settings.character).name.toUpperCase();
+    $('title-unit').textContent = mine(saveData.settings.character).name.toUpperCase();
     $('title-lv').innerHTML = lvHtml(saveData.settings.character);
     showRunOffer();
     showStoryCard();
@@ -2060,7 +2105,8 @@ export function boot() {
   };
   /** the Customize tab: one slot at a time (skin, paint, marbles), its choices as tiles; locked ones show their level */
   let styleSlot: Slot = 'skin';
-  const SKIN_TIER = ['Default', 'Rare', 'Super rare', 'Epic', 'Legendary'];
+  const SKIN_TIER = ['Form I', 'Form II', 'Form III', 'Form IV', 'Form V'];
+  const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
   const showStyle = (id: string) => {
     const e = equipOf(id);
     const def = characterById(id);
@@ -2069,13 +2115,13 @@ export function boot() {
       { v: '', name: styleSlot === 'skin' ? skins[0].name : 'Standard', ok: true, lv: 0 },
       ...rewardsOf(id)
         .filter((r) => r.slot === styleSlot)
-        .map((r) => ({ v: r.id, name: r.name.replace(/ (paint|marbles|skin)$/i, ''), ok: unlocked(id, r), lv: r.lv })),
+        .map((r) => ({ v: r.id, name: r.name.replace(/ (paint|marbles|skin|form)$/i, ''), ok: unlocked(id, r), lv: r.lv })),
     ];
     const tile = (o: (typeof opts)[number], k: number) => {
       let art: string;
       let sub: string;
       if (styleSlot === 'skin') {
-        art = `<i class="st-art skin t${k}"><em>${'★'.repeat(k) || '●'}</em></i>`;
+        art = `<i class="st-art skin t${k}" data-form="${o.v || 'standard'}"><img alt="" /><em>${ROMAN[k]}</em></i>`;
         sub = skinDelta(def, skins.find((s) => s.id === (o.v || 'standard'))!) || SKIN_TIER[k];
       } else {
         const c = swatchOf(id, styleSlot, o.v);
@@ -2092,6 +2138,16 @@ export function boot() {
       .map((sl) => `<button data-slot="${sl}" class="${sl === styleSlot ? 'on' : ''}">${SLOT_NAME[sl]}</button>`)
       .join('');
     $('pv-style').innerHTML = `<div class="st-tabs">${tabs}</div><div class="st-grid">${opts.map(tile).join('')}</div>`;
+    // each form's picture (one at a time, so the screen opens at once)
+    $('pv-style')
+      .querySelectorAll<HTMLElement>('.st-art[data-form]')
+      .forEach((art, k) =>
+        setTimeout(() => {
+          const skin = art.dataset.form!;
+          const img = art.querySelector('img');
+          if (img) img.src = portraitOf(skinned(id, { skin }), `form:${id}:${skin}`, true);
+        }, 30 + k * 60),
+      );
     $('pv-style')
       .querySelectorAll<HTMLButtonElement>('.st-tabs button')
       .forEach((b) =>
@@ -2193,7 +2249,12 @@ export function boot() {
       $('info-tabs').classList.add('hidden');
       return;
     }
-    $('pv-name').textContent = id === 'auto' ? 'Auto' : characterById(unit).name;
+    // (your own fighter by the form it's in)
+    $('pv-name').textContent = id === 'auto' ? 'Auto' : step === 'fighter' ? mine(unit).name : characterById(unit).name;
+    {
+      const c = characterById(unit);
+      $('pv-quote').textContent = id === 'auto' ? '' : (storyOf(c.id, c.from, c.base)?.quote ?? '');
+    }
     $('pv-stats').innerHTML = meters(unit);
     const c = characterById(unit);
     const pr = profileOf(c.id, c.from, c.base);

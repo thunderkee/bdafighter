@@ -1,6 +1,7 @@
 import { characterById, type CharacterDef } from './robot';
 import type { BallTex } from './patterns';
-import { kitOf, paintPalette, skinOf, skinsOf } from './kits';
+import { SKIN_IDS, kitOf, paintPalette, skinOf, skinsOf } from './kits';
+import { formPalette } from './evolution';
 
 /**
  * Cosmetics: every fighter has five skins (versions of itself with their own parts and stats,
@@ -29,7 +30,7 @@ export const REWARDS: Reward[] = [
   { lv: 10, slot: 'skin', id: 'skin:4', name: 'Skin' },
 ];
 
-export const SLOT_NAME: Record<Slot, string> = { skin: 'Skin', paint: 'Paint', marble: 'Marbles' };
+export const SLOT_NAME: Record<Slot, string> = { skin: 'Evolution', paint: 'Paint', marble: 'Marbles' };
 
 /** what a fighter has equipped: one choice per slot (none is its standard look) */
 export type Equip = Partial<Record<Slot, string>>;
@@ -42,7 +43,7 @@ export function rewardsOf(id: string): Reward[] {
   return REWARDS.flatMap((r) => {
     if (r.id.startsWith('skin:')) {
       const sk = skins[Number(r.id.slice(5))];
-      return sk ? [{ ...r, id: sk.id, name: `${sk.name} skin` }] : [];
+      return sk ? [{ ...r, id: sk.id, name: `${sk.name} form` }] : [];
     }
     if (!r.id.startsWith('paint:')) return [r];
     const pj = kit?.paint[Number(r.id.slice(6))];
@@ -59,15 +60,18 @@ const MARBLES: Record<string, { ball: number; tex: BallTex }> = {
 export function skinned(id: string, equip: Equip | undefined): CharacterDef {
   const def = characterById(id);
   if (!equip) return def;
-  const palette = { ...def.palette };
+  const sk = skinOf(def, equip.skin);
+  const form = Math.max(0, SKIN_IDS.indexOf(sk.id));
+  const palette = { ...formPalette(def, form) };
   const kit = kitOf(def);
   const pj = equip.paint ? kit?.paint.find((k) => k.id === equip.paint) : undefined;
   if (pj) Object.assign(palette, paintPalette(def, pj));
   const mb = equip.marble ? MARBLES[equip.marble] : undefined;
-  const sk = skinOf(def, equip.skin);
   const anyGear = sk.gear.hat || sk.gear.back || sk.gear.shoulder;
   return {
     ...def,
+    form,
+    name: form ? sk.name : def.name,
     palette,
     ball: mb?.ball ?? def.ball,
     ballTex: mb?.tex ?? def.ballTex,

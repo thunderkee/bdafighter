@@ -265,6 +265,7 @@
           <div class="car-band" id="car-band">
             <div class="car-tag"><span id="pv-tag">PLAYER 1</span><span class="car-count" id="car-count"></span></div>
             <b id="pv-name">Seraph</b>
+            <p class="car-quote" id="pv-quote"></p>
             <div class="car-info">
               <div class="info-tabs" id="info-tabs"><button data-info="stats" class="on">Info</button><button data-info="profile">Story</button><button data-info="style">Customize</button></div>
               <div class="meters" id="pv-stats"></div>
@@ -340,10 +341,10 @@
         <p class="result-tip hidden" id="result-tip"></p>
         <div class="result-actions">
           <button id="again-btn" class="key orange">REMATCH</button>
-          <button id="arcade-swap" class="key hidden">CHANGE FIGHTER</button>
+          <button id="arcade-swap" class="key hidden">FIGHTERS</button>
           <div class="result-row">
             <button id="arcade-quit" class="key">◀ MENU</button>
-            <button id="result-swap" class="key">Change fighter</button>
+            <button id="result-swap" class="key">Fighters</button>
           </div>
         </div>
         <p id="session" class="record"></p>
@@ -660,6 +661,13 @@
       </div>
       <!-- Landscape chosen in Settings, the phone held upright -->
       <div id="rotate" class="hidden"><i class="rot-phone"></i><b id="rotate-head">TURN YOUR PHONE</b><span id="rotate-why"></span><button id="rotate-port"></button></div>
+      <!-- a story evolution: the old form charges, breaks into light and comes out as the new one -->
+      <div id="story-evolve" class="hidden">
+        <div class="ev-burst"></div>
+        <img id="ev-pic" alt="" />
+        <p class="ev-text"><small id="ev-form"></small><b id="ev-name"></b></p>
+        <span class="dlg-tap">Tap to continue</span>
+      </div>
       <!-- a story chapter lost: the opponent's last word, before the retry -->
       <div id="story-defeat" class="hidden">
         <span class="sd-face" id="sd-face"></span>

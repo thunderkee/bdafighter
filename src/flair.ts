@@ -4,14 +4,14 @@ import type { CharacterDef } from './robot';
 /**
  * The finish on a fighter, laid over its Unit Lab design when the model is built:
  *  - a shape on its back, so it reads from the chase camera (only those that need one);
- *  - painted wear, its own: chips on the old soldiers, panel lines on the machines, a polish on the copy;
+ *  - a finish of its own: panel lines on the machines, a polish on the copy;
  *  - thin parts that lag behind the body on a spring (antennae, crests, tails, capes);
  *  - damage: under 30% a panel hangs off, an eye flickers and it throws sparks.
  * Nothing here changes the design itself, or how a fighter plays.
  */
 
 type Palette = CharacterDef['palette'];
-type Add = (geo: THREE.BufferGeometry, color: number, p: [number, number, number], r?: [number, number, number], s?: [number, number, number]) => THREE.Mesh;
+type Add = (geo: THREE.BufferGeometry, color: number, p: [number, number, number], r?: [number, number, number], s?: [number, number, number], lit?: boolean) => THREE.Mesh;
 
 /** a flat, four-sided spike */
 const spike = (r: number, h: number) => new THREE.ConeGeometry(r, h, 4);
@@ -29,7 +29,7 @@ const BACK: Record<string, (add: Add, c: Palette, sway: (m: THREE.Mesh) => void)
   // Seraph: two fans of blades, the first frame ever built
   angel(add) {
     for (const s of [-1, 1])
-      [1.15, 0.95, 0.72].forEach((h, k) => add(box(0.13, h, 0.05), k === 0 ? 0xe8703a : 0xf2efe6, [s * (0.34 + k * 0.14 + (h / 2) * Math.sin(0.5 + k * 0.42)), 1.5 - k * 0.1 + (h / 2) * Math.cos(0.5 + k * 0.42) - 0.35, 0.68], [0.14, 0, -s * (0.5 + k * 0.42)]));
+      [0.86, 0.72, 0.56].forEach((h, k) => add(box(0.13, h, 0.05), k === 0 ? 0xe8703a : 0xf2efe6, [s * (0.26 + k * 0.1 + (h / 2) * Math.sin(0.3 + k * 0.32)), 1.42 - k * 0.08 + (h / 2) * Math.cos(0.3 + k * 0.32) - 0.3, 0.68], [0.14, 0, -s * (0.3 + k * 0.32)]));
   },
   // Wyvern: folded wings
   dragon(add, c, sway) {
@@ -70,12 +70,152 @@ const BACK: Record<string, (add: Add, c: Palette, sway: (m: THREE.Mesh) => void)
   },
   // Fang Hound: blade fins off the shoulders
   liger(add, c, sway) {
-    for (const s of [-1, 1]) sway(add(fin(0.4, 0.78, 0.06), c.trim, [s * 0.34, 1.32, 0.22], [0.2, 0, -s * 0.3]));
+    for (const s of [-1, 1]) sway(add(fin(0.26, 0.72, 0.06), c.trim, [s * 0.3, 1.3, 0.22], [0.2, 0, -s * 0.26]));
   },
   // True Leo King: what's left of the royal cape, torn on the road
   trueleo(add, c, sway) {
-    add(box(0.78, 0.1, 0.1), c.trim, [0, 1.56, 0.5]);
-    [1.12, 0.74, 1.22, 0.6, 0.96].forEach((h, k) => sway(add(box(0.17, h, 0.03), k % 2 ? 0x8a1a26 : 0xc4283a, [-0.36 + k * 0.18, 1.52 - h / 2, 0.55 + (k % 2) * 0.02])));
+    add(box(0.92, 0.12, 0.12), c.trim, [0, 1.58, 0.5]);
+    [1.36, 1.02, 1.5].forEach((h, k) => sway(add(box(0.3, h, 0.03), k === 1 ? 0x8a1a26 : 0xc4283a, [-0.31 + k * 0.31, 1.54 - h / 2, 0.55 + (k % 2) * 0.02])));
+  },
+};
+
+interface FaceKit {
+  add: Add;
+  sway: (m: THREE.Mesh) => void;
+  c: Palette;
+  eyes: THREE.Mesh[];
+  /** the part the face is on (what's added below rides on it, unless `use` says otherwise) */
+  head: THREE.Object3D;
+  byRole: (role: string) => THREE.Object3D[];
+  turret: THREE.Object3D;
+  use: (o: THREE.Object3D) => void;
+}
+const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
+const ball = (r: number) => new THREE.SphereGeometry(r, 12, 10);
+const WHITE = 0xfff8ec;
+
+/** how much bigger each head should sit (people fall for faces) */
+const HEAD: Record<string, number> = { bastion: 1.28, monoceros: 1.16, pioneer: 1.16, rex: 1.1, liger: 1.1, violet: 1.14, trueleo: 1.14, angel: 1.08 };
+
+/** what gives each fighter its face and its one memorable thing, in model space */
+const FACE: Record<string, (f: FaceKit) => void> = {
+  // one huge compound eye
+  bastion({ add }) {
+    add(ball(0.26), 0xff3f86, [0, 1.52, -0.46], undefined, [1, 1, 0.65], true);
+    add(ball(0.09), WHITE, [0.09, 1.61, -0.6], undefined, undefined, true);
+  },
+  // goggles and a mad grin
+  monoceros({ add }) {
+    for (const s of [-1, 1]) {
+      add(new THREE.TorusGeometry(0.15, 0.04, 8, 20), 0x2a2432, [s * 0.18, 1.1, -0.64]);
+      add(new THREE.CircleGeometry(0.13, 18), 0x7affd8, [s * 0.18, 1.1, -0.65], [0, Math.PI, 0], undefined, true);
+    }
+    add(box(0.46, 0.13, 0.05), WHITE, [0, 0.82, -0.68]);
+    for (let k = -2; k <= 2; k++) add(box(0.018, 0.13, 0.06), 0x2a2432, [k * 0.085, 0.82, -0.69]);
+  },
+  // the marshal's hat and star
+  pioneer({ add, use, turret }) {
+    add(new THREE.CylinderGeometry(0.34, 0.36, 0.04, 16), 0x24304e, [0, 1.84, -0.08]);
+    add(new THREE.CylinderGeometry(0.2, 0.25, 0.26, 12), 0x2d3a60, [0, 1.98, -0.08]);
+    add(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 5), 0xffc94a, [0, 1.98, -0.3], [Math.PI / 2, 0, 0]);
+    use(turret);
+    add(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 5), 0xffc94a, [-0.18, 1.14, -0.5], [Math.PI / 2, 0, 0]);
+  },
+  // the torch, held high
+  liberty({ add, use, turret }) {
+    use(turret);
+    add(new THREE.CylinderGeometry(0.04, 0.05, 1.05, 8), 0xe8b43a, [0.72, 1.96, -0.1]);
+    add(new THREE.CylinderGeometry(0.15, 0.08, 0.16, 10), 0xe8b43a, [0.72, 2.52, -0.1]);
+    add(new THREE.ConeGeometry(0.13, 0.42, 6), 0xffb040, [0.72, 2.8, -0.1], undefined, undefined, true);
+    add(new THREE.ConeGeometry(0.06, 0.24, 6), 0xfff0a0, [0.72, 2.7, -0.12], undefined, undefined, true);
+  },
+  // the scarf and the grin
+  baron({ add, sway, use, turret }) {
+    add(box(0.2, 0.05, 0.03), WHITE, [0, 1.12, -0.44]);
+    use(turret);
+    for (const x of [-0.08, 0.08]) sway(add(box(0.11, 0.025, 0.72), x < 0 ? 0xf4f0e6 : 0xee2a3a, [x, 1.12, 0.36]));
+  },
+  // the brow, and bigger fists
+  violet({ add, byRole, head }) {
+    head.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(head);
+    add(box(0.46, 0.1, 0.14), 0x2a2036, [(b.min.x + b.max.x) / 2, b.min.y + (b.max.y - b.min.y) * 0.62, b.min.z - 0.02], [0.28, 0, 0]);
+    for (const r of [...byRole('fistL'), ...byRole('fistR')]) r.scale.multiplyScalar(1.25);
+  },
+  // a pale mask in the hood
+  nightshade({ add, head }) {
+    head.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(head);
+    const y = b.min.y + (b.max.y - b.min.y) * 0.78;
+    const z = b.min.z - 0.01;
+    add(box(0.3, 0.36, 0.04), 0xf2ece2, [0, y, z]);
+    for (const s of [-1, 1]) add(box(0.09, 0.05, 0.03), 0xff4aa0, [s * 0.08, y + 0.05, z - 0.025], [0, 0, s * -0.3], undefined, true);
+  },
+  // a mane to fill out the face, and a smug lid over each eye
+  kabuto({ add, use, turret }) {
+    use(turret);
+    const cy = 1.34;
+    for (let k = 0; k < 11; k++) {
+      const a = (k / 11) * Math.PI * 2;
+      add(spike(0.1, 0.34), k % 2 ? 0xc8762a : 0xe8a03a, [Math.sin(a) * 0.46, cy + Math.cos(a) * 0.46, -0.14], [0, 0, -a]);
+    }
+    for (const s of [-1, 1]) add(box(0.16, 0.05, 0.05), 0x3a2008, [s * 0.09, 1.47, -0.27], [0, 0, s * -0.22]);
+  },
+  // the wolf heads wake up: teeth, and hotter eyes
+  tyrant({ add, eyes, use }) {
+    for (const e of eyes) (e.material as THREE.MeshBasicMaterial).color.setHex(0xffe94a);
+    const seen = new Set<THREE.Object3D>();
+    for (const e of eyes) {
+      const p = e.parent!;
+      if (seen.has(p)) continue;
+      seen.add(p);
+      const mine = eyes.filter((x) => x.parent === p).map(at);
+      const cx = mine.reduce((n, v) => n + v.x, 0) / mine.length;
+      const y = mine[0].y;
+      const z = mine[0].z;
+      use(p);
+      for (let k = -2; k <= 2; k++) add(spike(0.045, 0.16), WHITE, [cx + k * 0.08, y - 0.24, z - 0.03], [Math.PI, 0, 0]);
+    }
+  },
+  // a heavier jaw and one broken tooth
+  rex({ add, byRole, use }) {
+    for (const j of byRole('jaw')) {
+      j.scale.multiplyScalar(1.28);
+      use(j);
+    }
+    for (const x of [-0.14, 0.14]) add(spike(0.07, 0.28), WHITE, [x, 1.08, -1.34], [Math.PI, 0, 0]);
+    add(spike(0.06, 0.1), 0xdccfb8, [0.02, 1.13, -1.42], [Math.PI, 0, 0.5]);
+  },
+  // a scowl and fangs
+  liger({ add, eyes }) {
+    const p = at(eyes[0]);
+    for (const s of [-1, 1]) {
+      add(box(0.16, 0.04, 0.05), 0x1a1a22, [s * 0.12, p.y + 0.09, p.z - 0.03], [0, 0, s * 0.42]);
+      add(spike(0.05, 0.22), WHITE, [s * 0.1, p.y - 0.28, p.z - 0.12], [Math.PI, 0, 0]);
+    }
+  },
+  // great big eyes, and a hood that flops
+  ember({ add, head, sway, use, turret }) {
+    head.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(head);
+    const y = b.min.y + (b.max.y - b.min.y) * 0.42;
+    const z = b.min.z;
+    for (const s of [-1, 1]) {
+      add(ball(0.15), WHITE, [s * 0.2, y, z + 0.04], undefined, [1, 1.1, 0.5]);
+      add(ball(0.09), 0x2a1a3a, [s * 0.19, y - 0.01, z - 0.03], undefined, [1, 1.15, 0.5], true);
+      add(ball(0.03), WHITE, [s * 0.16, y + 0.05, z - 0.07], undefined, undefined, true);
+    }
+    use(turret);
+    sway(add(new THREE.ConeGeometry(0.2, 0.55, 8), 0xf6f2e8, [0, 1.6, 0.42], [-1.15, 0, 0]));
+  },
+  // a lion's crest over the heart, to mirror the throne it's owed
+  trueleo({ add, use, turret }) {
+    use(turret);
+    add(new THREE.CylinderGeometry(0.15, 0.15, 0.04, 12), 0xffc94a, [0, 1.0, -0.47], [Math.PI / 2, 0, 0]);
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      add(spike(0.04, 0.12), 0xe8a03a, [Math.sin(a) * 0.2, 1.0 + Math.cos(a) * 0.2, -0.47], [0, 0, -a]);
+    }
   },
 };
 
@@ -91,7 +231,7 @@ function crown(add: Add) {
   }
 }
 
-/** painted wear: chips (0..1), panel lines (0..1), polish (0..1) */
+/** the finish: unused (0), panel lines (0..1), polish (0..1) */
 const WEAR: Record<string, [number, number, number]> = {
   angel: [0.015, 0.45, 0.15],
   dragon: [0.08, 0.1, 0],
@@ -124,10 +264,6 @@ function paintWear(mat: THREE.Material, wear: [number, number, number]) {
         '#include <color_fragment>',
         `#include <color_fragment>
         {
-          float cell = fract(sin(dot(floor(vWearP * 19.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-          float patch_ = fract(sin(dot(floor(vWearP * 5.0), vec3(3.1, 7.7, 5.3))) * 9173.21);
-          float chip = step(1.0 - uWear.x * (0.12 + patch_ * patch_ * 1.5), cell);
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.45 + vec3(0.3), chip * 0.7);
           diffuseColor.rgb *= 1.0 - uWear.y * step(0.9, fract(vWearP.y * 6.5)) * 0.3;
           diffuseColor.rgb += uWear.z * step(0.5, vWearN.y) * 0.16;
         }`,
@@ -178,20 +314,44 @@ export class Flair {
     const key = id.replace(/-\d+$/, '');
     root.updateMatrixWorld(true);
     const swayed: THREE.Mesh[] = [];
-    const add: Add = (geo, color, p, r, s) => {
-      const mat = new THREE.MeshLambertMaterial({ color });
-      mats.push(mat);
+    let holder: THREE.Object3D = turret;
+    const add: Add = (geo, color, p, r, s, lit) => {
+      const mat = lit ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshLambertMaterial({ color });
+      if (!lit) mats.push(mat);
       const m = new THREE.Mesh(geo, mat);
       // (authored in model space; it rides on the torso so it turns with the aim)
       m.position.set(...p);
       if (r) m.rotation.set(...r);
       if (s) m.scale.set(...s);
       root.add(m);
-      turret.attach(m);
+      holder.attach(m);
+      m.userData.flair = true;
       return m;
     };
     BACK[key]?.(add, def.palette, (m) => swayed.push(m));
     if (key === 'kabuto') crown(add);
+    // the face, and whatever makes this fighter itself
+    root.updateMatrixWorld(true);
+    const eyes: THREE.Mesh[] = [];
+    root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && this.isEye(o as THREE.Mesh)) eyes.push(o as THREE.Mesh);
+    });
+    const byRole = (role: string) => {
+      const out: THREE.Object3D[] = [];
+      root.traverse((o) => {
+        if (o.userData.role === role) out.push(o);
+      });
+      return out;
+    };
+    const look = FACE[key];
+    if (look) {
+      const head = eyes.find((e) => e.parent !== turret)?.parent ?? byRole('head')[0] ?? byRole('tilt')[0] ?? turret;
+      holder = head;
+      look({ add, sway: (m) => swayed.push(m), c: def.palette, eyes, head, byRole, turret, use: (o) => (holder = o) });
+      holder = turret;
+      if (HEAD[key] && head !== turret) head.scale.multiplyScalar(HEAD[key]);
+    }
+    this.grow(def);
     root.updateMatrixWorld(true);
 
     this.wear = WEAR[key] ?? null;
@@ -204,6 +364,52 @@ export class Flair {
       m.visible = false;
       root.add(m);
       this.sparks.push(m);
+    }
+  }
+
+  /** the forms of an evolution: everything larger, then shards and a halo of light */
+  private orbit: THREE.Group | null = null;
+  private backLight: THREE.Object3D[] = [];
+  showBackLight(on: boolean) {
+    for (const o of this.backLight) o.visible = on;
+  }
+  private grow(def: CharacterDef) {
+    const form = def.form ?? 0;
+    if (!form) return;
+    const k = 1 + form * 0.09;
+    // (the fighter's own back shape grows with it)
+    for (const m of this.turret.children) if (m.userData.flair) m.scale.multiplyScalar(k);
+    const c = def.palette;
+    const body = new THREE.Box3().setFromObject(this.root);
+    const top = body.max.y;
+    const glow = c.eye;
+    if (form >= 3) {
+      const g = new THREE.Group();
+      g.position.y = top * 0.58;
+      this.root.add(g);
+      this.orbit = g;
+      const n = form >= 4 ? 5 : 3;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.1 + form * 0.012), new THREE.MeshBasicMaterial({ color: i % 2 ? c.trim : glow }));
+        m.position.set(Math.cos(a) * 0.95, Math.sin(a * 2) * 0.22, Math.sin(a) * 0.95);
+        g.add(m);
+      }
+    }
+    if (form >= 4) {
+      // the final form: a halo, and two great blades of light on its back
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.035, 8, 40), new THREE.MeshBasicMaterial({ color: glow }));
+      halo.position.set(0, top * 0.8, 0.62);
+      this.root.add(halo);
+      this.backLight.push(halo);
+      const light = new THREE.MeshBasicMaterial({ color: c.trim, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+      for (const s of [-1, 1]) {
+        const blade = new THREE.Mesh(fin(0.5, 1.9, 0.02), light);
+        blade.position.set(s * 0.72, top * 0.72, 0.66);
+        blade.rotation.set(0.1, 0, -s * 0.55);
+        this.root.add(blade);
+        this.backLight.push(blade);
+      }
     }
   }
 
@@ -317,6 +523,7 @@ export class Flair {
       s.pivot.rotation.x = s.ax + Math.sin(time * 1.7 + s.phase) * 0.025 * s.gain;
       s.pivot.rotation.z = s.az + Math.cos(time * 1.3 + s.phase) * 0.02 * s.gain;
     }
+    if (this.orbit) this.orbit.rotation.y = time * 0.9;
     this.damage(time, hp);
   }
 

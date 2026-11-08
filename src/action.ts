@@ -4657,7 +4657,9 @@ export class ActionMode {
   }
   private bestLine() {
     const b = this.best();
-    return `Best: ${b.gauntlet} dungeon rooms · wins: ${b.ffa} Storm Brawl, ${b.siege} Castle Crash, ${b.knockout} Team Knockout, ${b.zone} King of the Ring, ${b.boss} Giant Slayer`;
+    // (just this mode's, and only once there is one)
+    const n = b[this.kind as keyof typeof b] ?? 0;
+    return !n ? '' : this.kind === 'gauntlet' ? `Best: ${n} rooms` : `Wins in this mode: ${n}`;
   }
 
   /** Siege over: 1 your side won, -1 theirs, 0 a draw at the bell */
@@ -4755,7 +4757,7 @@ export class ActionMode {
     }
     if (kind === 'start') {
       h.textContent = 'Action';
-      text.textContent = 'Walk anywhere on the stage and take the other fighters down. Left thumb walks. Tap FIRE to shoot at the nearest fighter; hold it to charge up to five marbles and let go to fire them as one; slide your thumb off it to aim. SPECIAL fires your fighter’s own move once it’s charged. Standing still mends you.';
+      text.textContent = 'Left thumb walks. Tap FIRE to shoot, hold to charge, slide off to aim. SPECIAL fires your fighter’s own move.';
       const mode = (k: ActionKind, title: string, sub: string) => {
         const c = document.createElement('button');
         c.className = 'ac-mode';
@@ -4770,7 +4772,6 @@ export class ActionMode {
       mode('zone', 'King of the Ring', 'Three on three: hold the ring in the middle with none of theirs in it, first to 100%');
       mode('boss', 'Giant Slayer', 'You and two more against one giant fighter with huge health, before time runs out');
       cards.classList.add('modes');
-      bestEl.textContent = this.bestLine();
       button('Back', () => this.exit());
     } else if (kind === 'stage') {
       const next = DSTAGES[this.stage];
