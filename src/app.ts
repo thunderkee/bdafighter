@@ -11,6 +11,7 @@ import { fillPortraits, portrait, portraitOf } from './portraits';
 import { SKIN_IDS } from './kits';
 import { EVOLVE_SCENES } from './storyevolve';
 import { HOME } from './stagefx';
+import { DUNGEON_SCRIPTS } from './storydungeon';
 import { TalkFace } from './talkface';
 import { Barks } from './barks';
 import { FIGHT_BARKS } from './storybarks';
@@ -21,7 +22,7 @@ import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import { SquadRun } from './squadrun';
-import { ActionMode, type ActionKind, type StoryFight } from './action';
+import { ActionMode, dungeonStageName, type ActionKind, type StoryFight } from './action';
 import { buzz as haptic } from './haptics';
 import * as music from './music';
 import * as store from './storage';
@@ -1248,21 +1249,17 @@ export function boot() {
    * a duel against your rival, or a giant against a villain
    */
   type ChapterMode = 'duel' | 'brawl' | 'dungeon' | 'boss';
-  /** chapters 2, 3 and 5 hold one brawl, one dungeon and one giant between them; 1 and 4 are duels */
+  /** a duel to open; chapters 2 and 4 are dungeons; 3 and 5 hold a brawl and a giant between them, whichever the words suit */
   const MIDDLE = [1, 2, 4];
-  const RHYTHM: ChapterMode[] = ['duel', 'brawl', 'dungeon', 'duel', 'boss', 'duel'];
+  const RHYTHM: ChapterMode[] = ['duel', 'dungeon', 'brawl', 'dungeon', 'boss', 'duel'];
   const KEYS: Record<'brawl' | 'dungeon' | 'boss', RegExp> = {
     dungeon: /caravan|cage|vault|tunnel|underground|maze|crypt|cellar|mine shaft|dungeon/,
     brawl: /crowd|stampede|everyone|free-for-all|brawl|swarm|melee/,
     boss: /giant|huge|towering|colossal|overcharg/,
   };
   const ORDERS: ('brawl' | 'dungeon' | 'boss')[][] = [
-    ['brawl', 'dungeon', 'boss'],
-    ['brawl', 'boss', 'dungeon'],
     ['dungeon', 'brawl', 'boss'],
     ['dungeon', 'boss', 'brawl'],
-    ['boss', 'brawl', 'dungeon'],
-    ['boss', 'dungeon', 'brawl'],
   ];
   const chapterMode = (hero: string, ch: number): ChapterMode => {
     const p = pathOf(hero);
@@ -1286,7 +1283,12 @@ export function boot() {
   };
   /** the arenas that aren't Action stages, as the nearest one (and which dungeon stage each is) */
   const ACTION_THEME: Record<string, string> = { crystal: 'space', sandglass: 'beach', serpent: 'forest' };
-  const DUNGEON_STAGE: Record<string, number> = { snow: 2, forest: 3, serpent: 3, lava: 4, river: 5, beach: 5, cyber: 6, space: 7, crystal: 7 };
+  const DUNGEON_STAGE: Record<string, number> = { snow: 2, forest: 3, serpent: 3, lava: 4, river: 5, beach: 5, cyber: 6, city: 6, space: 7, crystal: 7 };
+  /** which dungeon stage a chapter is set in (a hero's two dungeons are never the same place) */
+  const dungeonStage = (hero: string, ch: number) => {
+    const at = (k: number) => DUNGEON_STAGE[pathOf(hero).chapters[k].arena] ?? 1;
+    return ch === 3 && at(3) === at(1) ? (at(3) % 7) + 1 : at(ch);
+  };
   /** your side in a giant fight: the last two fighters you beat on this path, now with you */
   const storyAllies = (hero: string, ch: number) => {
     const p = pathOf(hero);
@@ -1338,7 +1340,7 @@ export function boot() {
       : mode === 'dungeon' ? `Clear the rooms, take the key, open the locked door and beat ${foe}.`
       : `Bring down the giant ${foe}${allies ? ` with ${allies}` : ''}.`;
     const kind = mode === 'duel' ? 'Duel' : mode === 'brawl' ? 'Storm Brawl' : mode === 'dungeon' ? 'Dungeon' : 'Giant fight';
-    return { kind: `${kind} · ${stageById(c.arena).name}`, foe: unitOfBase(c.foe), why: c.goal ?? `Get past ${foe}.`, how };
+    return { kind: `${kind} · ${mode === 'dungeon' ? dungeonStageName(dungeonStage(hero, ch)) : stageById(c.arena).name}`, foe: unitOfBase(c.foe), why: c.goal ?? `Get past ${foe}.`, how };
   };
   /** the opponent's lines for this chapter's fight */
   const barks = new Barks($('app'), (id, el) => {
@@ -1422,6 +1424,9 @@ export function boot() {
     const c = p.chapters[ch];
     const foe = unitOfBase(c.foe);
     const hp = [0.75, 0.82, 0.9, 1, 1.08, 1.15][ch] ?? 1;
+    // (a dungeon chapter's own script: the way down, and what's said inside)
+    const script = mode === 'dungeon' ? DUNGEON_SCRIPTS[whoOf(hero)]?.[ch as 1 | 3] : undefined;
+    const caption = (l: Line) => ({ who: l.who === 'narrator' ? '' : l.who === whoOf(hero) ? mine(hero).name : characterById(unitOfBase(l.who)).name, text: l.text });
     const f: StoryFight = {
       kind: mode === 'brawl' ? 'ffa' : mode === 'dungeon' ? 'gauntlet' : 'boss',
       title: `Chapter ${ch + 1} · ${c.title}`,
@@ -1429,10 +1434,14 @@ export function boot() {
       allies: storyAllies(hero, ch),
       boss: foe,
       theme: ACTION_THEME[c.arena] ?? c.arena,
-      stage: DUNGEON_STAGE[c.arena] ?? 1,
+      stage: dungeonStage(hero, ch),
       rooms: 5,
       hp,
       goal: goalOf(hero, ch, mode).how,
+      ...(script && {
+        says: { enter: caption(script.enter), room: caption(script.room), key: caption(script.key), door: caption(script.door) },
+        bossTalk: (then: () => void) => talk(hero, `CHAPTER ${ch + 1} · THE BOTTOM`, c.title.toUpperCase(), script.boss, then, false, undefined, c.arena),
+      }),
       closing: (then) => storyClosing(hero, ch, then),
       onEnd: (win) => {
         if (!story) return;
@@ -1454,7 +1463,7 @@ export function boot() {
         else next();
       },
     };
-    const lines = [...(ch === 0 ? p.intro : []), ...c.before, ...setter(hero, ch, mode)];
+    const lines = [...(ch === 0 ? p.intro : []), ...c.before, ...(script ? script.bridge : setter(hero, ch, mode))];
     talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length}`, c.title.toUpperCase(), lines, () => {
       startBarks(hero, ch);
       storyAction?.(f);

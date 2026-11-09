@@ -34,6 +34,11 @@ export type ActionKind = 'gauntlet' | 'ffa' | 'siege' | 'knockout' | 'zone' | 'b
  * a League Story chapter played as an Action fight: who's in it (the chapter's foe first), the
  * look, and what happens when it's over (the story carries on, or you try again)
  */
+/** a caption during a story dungeon ('' who: the narrator) */
+export interface StoryLine {
+  who: string;
+  text: string;
+}
 export interface StoryFight {
   kind: 'ffa' | 'gauntlet' | 'boss';
   /** the chapter, for the panels */
@@ -51,6 +56,9 @@ export interface StoryFight {
   hp?: number;
   /** the chapter's objective, kept on screen through the fight */
   goal?: string;
+  /** a dungeon chapter's script: captions as you go, and a talk before the boss */
+  says?: { enter: StoryLine; room: StoryLine; key: StoryLine; door: StoryLine };
+  bossTalk?: (then: () => void) => void;
   /** a loss: the foe's closing words first (then the retry panel) */
   closing?: (then: () => void) => void;
   onEnd: (win: boolean) => void;
@@ -206,6 +214,8 @@ const DSTAGES: DStage[] = [
   dstage('cyber', 'Neon Vault', 0xff2bd6, 0xd890ff),
   dstage('space', 'Star Vault', 0x3ef0ff, 0xa8f4ff),
 ];
+/** a dungeon stage's name (1 to 7) */
+export const dungeonStageName = (n: number) => DSTAGES[Math.max(0, n - 1)]?.theme.name ?? 'The Crypt';
 const themeName = (t: Theme) => t.name ?? stageById(t.stage ?? '').name;
 /** the camera, shared with the other modes' setting: far (overhead), mid, near, and first (just behind your fighter) */
 export type ActionView = 'far' | 'mid' | 'near' | 'first';
@@ -603,6 +613,7 @@ export class ActionMode {
         </div>
         <div class="ac-bossbar" aria-hidden="true"><b></b><i><s></s><u></u></i></div>
         <p class="ac-goal hidden"></p>
+        <div class="ac-say" aria-live="polite"><b></b><p></p></div>
         <p class="ac-respawn" aria-live="polite"><small>RESPAWN IN</small><b></b></p>
         <p class="ac-callout"></p>
         <p class="ac-supername"></p>
@@ -634,7 +645,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['say', 'swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -863,6 +874,10 @@ export class ActionMode {
     this.lives = this.story ? 3 : 4;
     this.meBack = 0;
     this.swapAt = 0;
+    this.says = [];
+    this.sayT = 0;
+    this.hud.say.classList.remove('on');
+    this.roomSaid = this.bossTalked = false;
     this.stage = this.story?.stage ?? 1;
     this.stageRooms = 0;
     this.startStage();
@@ -870,6 +885,7 @@ export class ActionMode {
     this.hud.goal.textContent = this.story?.goal ? `OBJECTIVE · ${this.story.goal}` : '';
     this.hud.goal.classList.toggle('hidden', !this.story?.goal);
     this.teachControls();
+    if (this.story?.says && kind === 'gauntlet') setTimeout(() => !this.over && this.storySay(this.story?.says?.enter), 1000);
   }
 
   /** the controls, one rule at a time (your first few fights; after that you know them) */
@@ -2456,6 +2472,31 @@ export class ActionMode {
     this.draw(held ? dt * 0.08 : dt);
   };
 
+  /** a story dungeon's captions, one at a time */
+  private says: StoryLine[] = [];
+  private sayT = 0;
+  private roomSaid = false;
+  private bossTalked = false;
+  private storySay(l?: StoryLine) {
+    if (!l) return;
+    this.says.push(l);
+    if (this.sayT <= 0) this.nextSay();
+  }
+  private nextSay() {
+    const el = this.hud.say;
+    const l = this.says.shift();
+    if (!l) {
+      el.classList.remove('on');
+      this.sayT = 0;
+      return;
+    }
+    el.querySelector('b')!.textContent = l.who;
+    el.querySelector('p')!.textContent = l.text;
+    el.classList.toggle('narrator', !l.who);
+    el.classList.add('on');
+    this.sayT = 4.2;
+  }
+
   /** the hit-stop still to run */
   private stopT = 0;
   /** the marks of this fight, and what hangs in the air */
@@ -2474,6 +2515,7 @@ export class ActionMode {
   private step(dt: number) {
     this.impacts = 0;
     this.time += dt;
+    if (this.sayT > 0 && (this.sayT -= dt) <= 0) this.nextSay();
     this.motes?.update(dt, this.time);
     const me = this.me!;
     // you: walk with the stick (or WASD)
@@ -3390,6 +3432,10 @@ export class ActionMode {
         return;
       }
       this.callout(r.kind === 'key' ? 'ROOM CLEAR · TAKE THE KEY' : 'ROOM CLEAR · CHECKPOINT');
+      if (!this.roomSaid) {
+        this.roomSaid = true;
+        this.storySay(this.story?.says?.room);
+      }
       this.checkpoint = this.roomMiddle(r);
       // (a breather: a good part of your health back with each room)
       if (this.me) {
@@ -3588,6 +3634,15 @@ export class ActionMode {
       this.doorMeshes.push(this.barsAt(k, 0xff5a5a, 0x801010));
     }
     this.spawnRoom(r);
+    // (a story's boss has something to say first)
+    if (r.kind === 'boss' && this.story?.bossTalk && !this.bossTalked) {
+      this.bossTalked = true;
+      this.paused = true;
+      this.story.bossTalk(() => {
+        this.paused = false;
+        this.last = performance.now();
+      });
+    }
     this.callout(r.kind === 'boss' ? characterById(this.story?.boss ?? BOSSES[Math.min(this.stage, BOSSES.length) - 1].id).name.toUpperCase() : r.kind === 'key' ? 'THE KEY ROOM' : `ROOM ${this.room}`, r.kind === 'boss' ? 1 : 0);
     sfx.play(r.kind === 'boss' ? 'gong' : 'go');
   }
@@ -3716,6 +3771,7 @@ export class ActionMode {
       this.hasKey = true;
       sfx.play('win', 0.5);
       this.callout('KEY FOUND · THE BOSS DOOR AWAITS');
+      this.storySay(this.story?.says?.key);
     }
     // the boss's door: opens to the key
     this.lockedT -= dt;
@@ -3729,6 +3785,7 @@ export class ActionMode {
         this.lockMeshes = [];
         sfx.play('whoosh');
         this.callout('UNLOCKED');
+        this.storySay(this.story?.says?.door);
       } else if (this.lockedT <= 0) {
         this.lockedT = 3;
         this.callout('LOCKED · FIND THE KEY', 1);
