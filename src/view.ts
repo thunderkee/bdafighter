@@ -292,7 +292,7 @@ export class View {
   private pinMeshes: { root: THREE.Group; cap: THREE.MeshBasicMaterial }[] = [];
   private coverFlash: number[] = [];
   /** scripted camera: the VS intro or a replay */
-  cine: { kind: 'talk' | 'intro' | 'replay' | 'special'; t: number; shot: number; slot: number; by?: number; mood?: TalkMood } | null = null;
+  cine: { kind: 'talk' | 'intro' | 'replay' | 'special'; t: number; shot: number; slot: number; by?: number; mood?: TalkMood; angle?: number } | null = null;
   /** each side's marble colour, from its robot */
   /** what each slot's model was built in (your fighter's paint), to rebuild when it changes */
   private skinKey: string[] = [];
@@ -2415,21 +2415,48 @@ export class View {
         this.lookGoal.y += u * 0.55 * r;
       }
     } else if (c.kind === 'talk') {
-      // a story scene: in front of whoever is talking, a slow push in (yours from your right,
-      // theirs from their left, so the cuts read as a conversation); the narrator gets the arena
+      // a story scene: each line its own set-up and its own move (see talkShot), yours from your
+      // right and theirs from their left, so the cuts read as a conversation
       const s = c.slot >= 0 ? this.game.shooters[c.slot] : undefined;
       follow = 2.6;
+      const u = Math.min(1, c.t / 4);
+      const angle = c.angle ?? 0;
       if (s) {
         const r = this.modelScale(c.slot);
         const f = s.forward;
         const side = s.team === 0 ? 1 : -1;
-        const push = Math.min(1, c.t / 4);
-        this.camGoal.set(s.x + side * (2.0 - push * 0.3) * r, (1.45 - push * 0.1) * r, -(s.y + f * (4.4 - push * 0.8) * r));
-        this.lookGoal.set(s.x - side * 0.2 * r, 1.1 * r, -s.y);
-      } else {
+        // (x across, h up and d out in front of the speaker, in its own size)
+        const cam = (x: number, h: number, d: number) => this.camGoal.set(s.x + side * x * r, h * r, -(s.y + f * d * r));
+        const look = (x: number, h: number, d = 0) => this.lookGoal.set(s.x + side * x * r, h * r, -(s.y + f * d * r));
+        if (angle === 0) {
+          // three-quarter view, easing in
+          cam(2.0 - u * 0.3, 1.45 - u * 0.1, 4.4 - u * 0.8);
+          look(-0.2, 1.1);
+        } else if (angle === 1) {
+          // close on the face from the other side, sliding across
+          cam(-1.5 + u * 0.7, 1.4, 2.9);
+          look(0, 1.25);
+        } else if (angle === 2) {
+          // from down low looking up, easing back
+          cam(1.3, 0.4, 3.1 + u * 0.6);
+          look(0, 1.35);
+        } else {
+          // over its shoulder, at whoever it's talking to
+          cam(-1.5 - u * 0.3, 2.4, -4.8);
+          look(0.2, 0.9, 2.4);
+        }
+      } else if (angle === 0) {
         // high above your end, looking down the whole table at both fighters, drifting
         this.camGoal.set(Math.sin(c.t * 0.35) * 3, 10, -p.y + 9);
         this.lookGoal.set(0, 0, 0);
+      } else if (angle === 1) {
+        // high on the right, sliding the other way
+        this.camGoal.set(7 - c.t * 0.4, 7.5, -p.y + 7);
+        this.lookGoal.set(0, 0.5, 0);
+      } else {
+        // low on the left, looking across the arena
+        this.camGoal.set(-5 + c.t * 0.35, 3.2, -p.y + 5);
+        this.lookGoal.set(0, 1, 0);
       }
     } else if (c.kind === 'intro') {
       if (c.t < 1.7) {
@@ -2494,6 +2521,15 @@ export class View {
     const k = cut ? 1 : 1 - Math.exp(-dt * follow);
     this.camBase.lerp(this.camGoal, k);
     this.camLook.lerp(this.lookGoal, k);
+  }
+
+  /** the next set-up for the narrator, your fighter and theirs */
+  private talkNext = [0, 0, 0];
+  /** a new line of a story scene (slot -1: the narrator): a different angle from that speaker's last, cut to if `cut` */
+  talkShot(slot: number, mood: TalkMood, cut: boolean) {
+    const angle = this.talkNext[slot + 1];
+    this.talkNext[slot + 1] = (angle + 1) % (slot < 0 ? 3 : 4);
+    this.cine = { kind: 'talk', t: 0, shot: cut ? -1 : 0, slot, mood, angle };
   }
 
   // ---------- firing effects: belly flash, and a floor shockwave for special moves ----------

@@ -1168,7 +1168,7 @@ export function boot() {
     // on the table: the camera cuts to the speaker (the narrator gets the wide shot); someone who
     // isn't in this fight still shows as a face
     const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && whoOf(unitIds()[k]) === whoOf(id));
-    if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt, slot, mood };
+    if (dlgStaged && view.cine?.kind === 'talk') view.talkShot(slot, mood, dlgAt > 0);
   };
   /** before a fight, the talk's last beat is the briefing: the objective, then FIGHT */
   let dlgGoal: Goal | undefined;
@@ -1185,7 +1185,7 @@ export function boot() {
     fillPortraits(face);
     dlg.classList.add('briefing');
     // (on the table: the wide shot)
-    if (dlgStaged && view.cine?.kind === 'talk') view.cine = { kind: 'talk', t: 0, shot: dlgAt + 1, slot: -1, mood: 'say' };
+    if (dlgStaged && view.cine?.kind === 'talk') view.talkShot(-1, 'say', true);
     sfx.play('whoosh');
   };
   /** past the last line: the briefing if there is one, otherwise on */
