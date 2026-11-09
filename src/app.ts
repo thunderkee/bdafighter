@@ -661,7 +661,16 @@ export function boot() {
     view.setStage(st.stage, rebuilt);
   };
 
-  /** a story scene played out on the table before the match (its intro comes after) */
+  /** a story chapter's talk, played on the table once the fighters have landed */
+  let arrival: Scene | null = null;
+  /** a talk on the table: the camera goes to whoever is speaking */
+  const stageTalk = (head: string, title: string, lines: Line[], then: () => void, goal?: Goal) => {
+    flow = 'talk';
+    flowT = 0;
+    view.cine = { kind: 'talk', t: 0, shot: 0, slot: -1 };
+    talk(story?.hero ?? saveData.settings.character, head, title, lines, then, true, goal);
+  };
+  /** a story scene played out on the table before the match (its intro comes first) */
   type Goal = { kind: string; foe: string; why: string; how: string };
   type Scene = { head: string; title: string; lines: Line[]; then: () => void; goal?: Goal };
   const startMatch = (scene?: Scene) => {
@@ -757,18 +766,11 @@ export function boot() {
     showRounds();
     hud.classList.add('hidden');
     controls(false);
-    if (scene) {
-      // the story's talk, on the table: the camera goes to whoever is speaking
-      flow = 'talk';
-      flowT = 0;
-      introEl.classList.add('hidden');
-      view.cine = { kind: 'talk', t: 0, shot: 0, slot: -1 };
-      talk(story?.hero ?? st.character, scene.head, scene.title, scene.lines, scene.then, true, scene.goal);
-      return;
-    }
+    // (a story chapter: they jump in, then they talk, then they fight)
+    arrival = scene ?? null;
     beginIntro();
   };
-  /** the VS intro (straight after the match is set up, or after a story scene) */
+  /** the VS intro, straight after the match is set up (a story chapter's stops once both have landed, and goes to its talk) */
   const beginIntro = () => {
     flow = 'intro';
     flowT = 0;
@@ -783,6 +785,12 @@ export function boot() {
   const endIntro = () => {
     if (flow !== 'intro') return;
     introEl.classList.add('hidden');
+    if (arrival) {
+      const { head, title, lines, then, goal } = arrival;
+      arrival = null;
+      stageTalk(head, title, lines, then, goal);
+      return;
+    }
     view.cine = null;
     startRound();
   };
@@ -845,9 +853,21 @@ export function boot() {
     view.cine = null;
     replayGame = null;
     if (final) {
-      flow = 'finale';
-      flowT = 0;
-      if (matchWinner === 0 || matchWinner === 1) view.explode(loser);
+      const finale = () => {
+        view.cine = null;
+        flow = 'finale';
+        flowT = 0;
+        if (matchWinner === 0 || matchWinner === 1) view.explode(loser);
+      };
+      // (in a story, the last words come first: the blast ends the scene)
+      if (story && matchWinner === 1) {
+        flow = 'talk';
+        storyClosing(story.hero, story.ch, finale);
+      } else if (story && matchWinner === 0 && pathOf(story.hero).chapters[story.ch].after.length) {
+        barks.stop();
+        const c = pathOf(story.hero).chapters[story.ch];
+        stageTalk(`CHAPTER ${story.ch + 1} CLEAR`, c.title.toUpperCase(), c.after, finale);
+      } else finale();
       return;
     }
     roundNo++;
@@ -1457,13 +1477,7 @@ export function boot() {
         const next = () => {
           if (!story) return;
           if (story.ch < p.chapters.length) return playChapter();
-          // the ending, on the last chapter's table
-          fightChapter({ head: 'THE END', title: p.title.toUpperCase(), lines: p.ending, then: () => {
-            view.cine = null;
-            saveData = store.save({ fighterXp: { ...(saveData.fighterXp ?? {}), [hero]: xpOf(hero) + STORY_BONUS } });
-            quitArcade();
-            showToast(`STORY COMPLETE // +${STORY_BONUS} XP`, 0xffc23d);
-          } }, p.chapters.length - 1);
+          storyEnding(hero);
         };
         // (a dungeon ends at the bottom of it, not back up in the arena)
         if (c.after.length) talk(hero, `CHAPTER ${ch + 1} CLEAR`, c.title.toUpperCase(), c.after, next, false, undefined, mode === 'dungeon' ? UNDERGROUND : c.arena);
@@ -1493,7 +1507,8 @@ export function boot() {
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
     fightChapter({ head: `CHAPTER ${story.ch + 1} OF ${p.chapters.length}`, title: c.title.toUpperCase(), lines, then: () => {
       if (story) startBarks(story.hero, story.ch);
-      beginIntro();
+      view.cine = null;
+      startRound();
     }, goal: goalOf(story.hero, story.ch, 'duel') });
   };
   const playStory = () => {
@@ -1532,31 +1547,24 @@ export function boot() {
     }
     $('result-sub').textContent = `STORY · ${p.title.toUpperCase()}`;
     storyWon = w === 0;
-    afterShown = false;
   };
   let storyWon = false;
-  /** the cleared chapter's aftermath has played (the next tap goes on) */
-  let afterShown = false;
   const storyNext = () => {
     if (!story) return;
+    $('result').classList.add('hidden');
     const p = pathOf(story.hero);
     if (!storyWon) return fightChapter();
-    // what the win leads to, first, back on that chapter's table (then the next chapter, or the ending)
-    const won = p.chapters[story.ch - 1];
-    if (won?.after.length && !afterShown) {
-      afterShown = true;
-      return fightChapter({ head: `CHAPTER ${story.ch} CLEAR`, title: won.title.toUpperCase(), lines: won.after, then: storyNext }, story.ch - 1);
-    }
-    afterShown = false;
     if (story.ch < p.chapters.length) return playChapter();
-    // the ending (on the last chapter's table), and a bonus for finishing
-    const hero = story.hero;
-    fightChapter({ head: 'THE END', title: p.title.toUpperCase(), lines: p.ending, then: () => {
-      view.cine = null;
+    storyEnding(story.hero);
+  };
+  /** the ending, over the last chapter's arena, and a bonus for finishing */
+  const storyEnding = (hero: string) => {
+    const p = pathOf(hero);
+    talk(hero, 'THE END', p.title.toUpperCase(), p.ending, () => {
       saveData = store.save({ fighterXp: { ...(saveData.fighterXp ?? {}), [hero]: xpOf(hero) + STORY_BONUS } });
       quitArcade();
       showToast(`STORY COMPLETE // +${STORY_BONUS} XP`, 0xffc23d);
-    } }, p.chapters.length - 1);
+    }, false, undefined, p.chapters[p.chapters.length - 1].arena);
   };
 
   // ---------- the tower: who you've beaten, who's next, and who waits at the top ----------
@@ -1710,7 +1718,7 @@ export function boot() {
       const cards = [introEl.querySelector('.p1')!, introEl.querySelector('.p2')!, introEl.querySelector('.intro-vs')!];
       const at = [0.15, 1.85, 3.5];
       at.forEach((t, k) => {
-        if (!introStep[k] && flowT >= t) {
+        if (!introStep[k] && flowT >= t && !(arrival && k === 2)) {
           introStep[k] = true;
           cards[k].classList.add('in');
           // your card sits at the top over your fighter's shot (clear of the robot), steps
@@ -1721,7 +1729,7 @@ export function boot() {
           if (k === 2) view.shake(0.4);
         }
       });
-      if (flowT > 4.8) endIntro();
+      if (flowT > (arrival ? 3.5 : 4.8)) endIntro();
     } else if (flow === 'replay' && replayGame) {
       replayGame.advance(dt);
       if (replayGame.done) endReplay();
@@ -1732,13 +1740,7 @@ export function boot() {
         lastCount = -9;
         showBanner(duo ? (matchWinner === -1 ? 'DRAW' : `PLAYER ${matchWinner + 1} WINS`) : matchWinner === 0 ? 'YOU WIN' : matchWinner === 1 ? 'YOU LOSE' : 'DRAW', true);
       }
-      if (flowT > (lost ? 5.8 : 4.6)) {
-        // (a story chapter lost: the foe has its say before the result and RETRY)
-        if (lost && story) {
-          flow = 'talk';
-          storyClosing(story.hero, story.ch, endMatch);
-        } else endMatch();
-      }
+      if (flowT > (lost ? 5.8 : 4.6)) endMatch();
     }
   };
 

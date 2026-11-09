@@ -5830,6 +5830,7 @@ export class ShooterMesh {
     const glow = Math.min(0.85, 0.15 + span(0, 2.4) * 0.5 + power * pulse * 0.25);
     this.glowCol.setHex(c.glow);
     for (const m of this.mats) m.emissive.setRGB(this.glowCol.r * glow, this.glowCol.g * glow, this.glowCol.b * glow);
+    this.carryGun();
   }
 
   /**
@@ -5871,7 +5872,7 @@ export class ShooterMesh {
       // syllables: quick open-close, in phrases, at the fighter's own pace
       const say = Math.abs(Math.sin(t * 9.5 * st.pace)) * (0.55 + 0.45 * Math.sin(t * 2.3 * st.pace)) * (1 - span(3.2, 3.8) * 0.6);
       jaw = say * 0.9;
-      look += say * (this.jaw ? 0.03 : 0.09);
+      look += say * (this.jaw ? 0.03 : 0.18);
       const into = span(0.05, 0.4);
       const e = st.energy;
       switch (mood) {
@@ -5959,7 +5960,8 @@ export class ShooterMesh {
     this.turret.rotation.x += look * 0.3;
     const arm = (a: THREE.Object3D | null, side: number) => {
       if (!a) return;
-      a.rotation.x += 1.2 * up + beat * side * 0.7 + wide * 0.3 + (side === 1 ? point * 1.3 : 0);
+      // (weapons down while it talks, unless the line brings them up)
+      a.rotation.x = -1.3 + 1.2 * up + beat * side * 0.7 + wide * 0.3 + (side === 1 ? point * 1.3 : 0);
     };
     arm(this.armR, 1);
     arm(this.armL, -1);
@@ -5968,6 +5970,38 @@ export class ShooterMesh {
     const gape = Math.min(1, jaw) * (this.jawOpen || 0.6);
     if (this.jaw) this.jaw.rotation.x = this.rest.jaw + gape;
     if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + gape;
+    // (no arms to talk with: it talks with its body and head instead)
+    if (speaking && mood !== 'quiet' && !this.armR && !this.punchArms.length) {
+      const turn = Math.sin(t * 3.4 * st.pace) * span(0.05, 0.4);
+      this.root.rotation.y += turn * 0.09;
+      this.turret.rotation.y += turn * 0.1;
+    }
+    this.carryGun();
+  }
+
+  /** the gun goes where the hand holding it is (poses move the arms after sync, so they call this too) */
+  private carryGun() {
+    if (!this.tossGun || !this.fistR || !this.fistL) return;
+    const p = Math.min(1, this.toss.t / TOSS_TIME);
+    this.turret.updateWorldMatrix(true, true);
+    const at = (h: number) => this.turret.worldToLocal((h === 1 ? this.fistR! : this.fistL!).getWorldPosition(new THREE.Vector3()));
+    const a = at(this.toss.from);
+    const b = at(this.toss.to);
+    const flying = this.toss.from !== this.toss.to && p < 1;
+    this.tossGun.position.copy(a.lerp(b, p)).add(new THREE.Vector3(0, flying ? Math.sin(p * Math.PI) * 0.5 : 0, 0));
+    this.tossGun.rotation.set(flying ? -p * Math.PI * 2 : 0, 0, 0);
+    if (this.belt) {
+      // the belt runs from the pack to the gun's feed, wherever the gun is
+      const feed = this.tossGun.localToWorld(new THREE.Vector3(-0.2, 0.0, -0.1));
+      const a0 = this.turret.worldToLocal(feed);
+      const a1 = this.belt.a1.clone().add(new THREE.Vector3((a0.x + this.belt.a2.x) / 2, 0, 0));
+      const curve = new THREE.QuadraticBezierCurve3(a0, a1, this.belt.a2);
+      const n = this.belt.rounds.length - 1;
+      this.belt.rounds.forEach((r, q) => {
+        r.position.copy(curve.getPoint(q / n));
+        r.lookAt(this.turret.localToWorld(curve.getPoint(Math.min(1, q / n + 0.01))));
+      });
+    }
   }
 
   sync(s: Shooter, time: number, dt: number) {
@@ -6030,30 +6064,7 @@ export class ShooterMesh {
       if (hand !== this.toss.to) this.toss = { from: this.toss.to, to: hand, t: 0 };
       this.toss.t += dt;
     }
-    // (once the gun has landed and the arms have settled, the gun and belt stay put on the
-    // torso: there's nothing to recompute until the next toss)
-    if (this.tossGun && this.fistR && this.fistL && this.toss.t < TOSS_TIME + 0.5) {
-      const p = Math.min(1, this.toss.t / TOSS_TIME);
-      this.turret.updateWorldMatrix(true, true);
-      const at = (h: number) => this.turret.worldToLocal((h === 1 ? this.fistR! : this.fistL!).getWorldPosition(new THREE.Vector3()));
-      const a = at(this.toss.from);
-      const b = at(this.toss.to);
-      const flying = this.toss.from !== this.toss.to && p < 1;
-      this.tossGun.position.copy(a.lerp(b, p)).add(new THREE.Vector3(0, flying ? Math.sin(p * Math.PI) * 0.5 : 0, 0));
-      this.tossGun.rotation.set(flying ? -p * Math.PI * 2 : 0, 0, 0);
-      if (this.belt) {
-        // the belt runs from the pack to the gun's feed, wherever the gun is
-        const feed = this.tossGun.localToWorld(new THREE.Vector3(-0.2, 0.0, -0.1));
-        const a0 = this.turret.worldToLocal(feed);
-        const a1 = this.belt.a1.clone().add(new THREE.Vector3((a0.x + this.belt.a2.x) / 2, 0, 0));
-        const curve = new THREE.QuadraticBezierCurve3(a0, a1, this.belt.a2);
-        const n = this.belt.rounds.length - 1;
-        this.belt.rounds.forEach((r, q) => {
-          r.position.copy(curve.getPoint(q / n));
-          r.lookAt(this.turret.localToWorld(curve.getPoint(Math.min(1, q / n + 0.01))));
-        });
-      }
-    }
+    this.carryGun();
     // (a positive offset aims to the unit's right, which is a negative turn of the head)
     if (this.tiltHead) this.tiltHead.rotation.y = -(s.wobble ?? 0);
     this.trigger.position.z = this.triggerZ - s.recoil * 0.1;

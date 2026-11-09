@@ -25,7 +25,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Orbital Deck test squadron',
     style: 'Shield up, steady fire',
     specialty: 'No weak spot',
-    bio: 'The first frame off the line and the yardstick every other unit is measured against. Seraph does everything well and nothing badly.',
+    bio: 'The first robot ever built, and the one all others are compared to. Seraph does everything well and nothing badly.',
     traits: { health: 3, speed: 4, fireRate: 3, agility: 4 },
   },
   dragon: {
@@ -41,7 +41,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Frontier survey corps',
     style: 'Hit and reposition',
     specialty: 'Quick on the rail',
-    bio: 'A survey frame that learned to fight. Light plating, but it slides along the rail and out of a shot before the marble lands.',
+    bio: 'The League’s police robot. Light armour, but Pioneer slides out of a shot before the marble lands.',
     traits: { health: 3, speed: 5, fireRate: 3, agility: 5 },
   },
   liberty: {
@@ -57,7 +57,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Neo City prototype lab',
     style: 'Pressure from range',
     specialty: 'Sustained fire',
-    bio: 'A one-horned prototype whose frame glows red when it runs hot. Monoceros keeps up a heavy stream of shots from behind its big shoulders.',
+    bio: 'A giant thinking head with two cannons on its shoulders. Mandrill keeps up a heavy stream of shots and never stops talking.',
     traits: { health: 3, speed: 1, fireRate: 3, agility: 1 },
   },
   baron: {
@@ -65,7 +65,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Red squadron, rail racing league',
     style: 'Outrun every shot',
     specialty: 'Top speed',
-    bio: 'The red mono-eye ace who wins on speed alone. Crimson Baron covers the rail three times faster than anyone, but it can’t take many hits.',
+    bio: 'A red flying robot that wins on speed alone. Crimson Baron moves three times faster than anyone, but it can’t take many hits.',
     traits: { health: 2, speed: 2, fireRate: 5, agility: 2 },
   },
   bastion: {
@@ -81,7 +81,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Night Forest',
     style: 'Dodge, then strike',
     specialty: 'Best dodger',
-    bio: 'A plum frame with a scythe and pink eyes that you only see once it has slipped your shot. Fragile, but very hard to hit.',
+    bio: 'A plum robot with a scythe and pink eyes. You only see Nightshade once it has slipped your shot. Fragile, but very hard to hit.',
     traits: { health: 3, speed: 5, fireRate: 3, agility: 5 },
   },
   violet: {
@@ -97,7 +97,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Robattle street league',
     style: 'Fast draw, quick feet',
     specialty: 'Quick arm gun',
-    bio: 'A beetle-type street fighter with launchers on its head and a gun on each arm. Kabuto Bee lives for the quick draw.',
+    bio: 'A lion on a floating throne with a gun on each arm. Leo King lives for the quick draw.',
     traits: { health: 3, speed: 2, fireRate: 4, agility: 4 },
   },
   tyrant: {
@@ -105,7 +105,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Fallen empire',
     style: 'Walk through fire',
     specialty: 'Most armour',
-    bio: 'The would-be king with a T-rex head on his fist and a tail he swings like a blade. Tyrant King is the hardest unit to bring down.',
+    bio: 'A cruel robot with a wolf’s head on each fist and a tail it swings like a blade. Tyrant King is the hardest fighter to bring down.',
     traits: { health: 5, speed: 1, fireRate: 2, agility: 1 },
   },
   rex: {
@@ -121,7 +121,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Highland plains',
     style: 'Circle and pounce',
     specialty: 'Fastest beast',
-    bio: 'A great blue cat frame with golden fangs. Fang Hound never stops moving and picks the moment to fire.',
+    bio: 'A black-and-gold robot hound. Fang Hound never stops moving and picks the moment to fire.',
     traits: { health: 3, speed: 5, fireRate: 3, agility: 4 },
   },
   ember: {
@@ -129,7 +129,7 @@ export const PROFILES: Record<string, Profile> = {
     origin: 'Volcano nest',
     style: 'Spray and pray',
     specialty: 'Highest fire rate',
-    bio: 'A little fire lizard with a flame on its tail and a temper to match. Ember Lizard spits marbles faster than anything its size.',
+    bio: 'A little peach-orange axolotl with a big temper. Blossom spits marbles faster than anything its size.',
     traits: { health: 3, speed: 3, fireRate: 5, agility: 2 },
   },
 };
@@ -155,9 +155,9 @@ export interface Story {
 export const STORIES: Record<string, Story> = {
   angel: {
     personality: 'Calm, disciplined, quietly proud',
-    quote: 'Every frame since was measured against me.',
+    quote: 'Every robot since was measured against me.',
     story:
-      'The first unit off the Orbital Deck line, built to be the yardstick for every machine after it. Its makers wiped its memory before the League began, so Seraph fights to learn what it was really built for. The answer, it suspects, is at the top of the Spire.',
+      'The first robot ever built, the one every robot after it is compared to. Its makers wiped its memory, so Seraph fights to learn what it was built for. It thinks the answer is at the top of the Spire, the giant tower at the top of the League.',
     rival: 'nightshade',
   },
   dragon: {
@@ -171,91 +171,91 @@ export const STORIES: Record<string, Story> = {
     personality: 'By the book, fast-talking, never off duty',
     quote: 'Pull over. That marble is unlicensed.',
     story:
-      'Neo City’s League marshal, a patrol car that stands up to fight. Pioneer chases rule-breakers from arena to arena and tosses its blaster from hand to hand while it reads them their rights. Top of its wanted list: the smuggler ace Crimson Baron.',
+      'The League’s police robot, a patrol car that stands up to fight. Pioneer chases rule-breakers from arena to arena and reads them their rights mid-fight. Top of its wanted list: Crimson Baron, a flying smuggler.',
     rival: 'baron',
   },
   liberty: {
     personality: 'Stubborn, patient, honourable',
     quote: 'I don’t move. You do.',
     story:
-      'A deep-sea salvage diver that became Island Beach’s honour guard, rolling on treads taken off a sea-floor crawler. Liberty once sank the lab that built Mandrill, and the giant head has never forgiven it. It holds the line, lines up the long shot, and waits.',
+      'A deep-sea diver robot that became the guard of Island Beach, rolling on heavy treads. Liberty once sank the lab that built Mandrill, and Mandrill has never forgiven it. It holds the line, lines up the long shot, and waits.',
     rival: 'monoceros',
   },
   monoceros: {
     personality: 'Brilliant, vain, theatrical',
-    quote: 'I am the smartest thing on this rail. Possibly on any rail.',
+    quote: 'I am the smartest thing in this arena. Possibly in any arena.',
     story:
-      'A Neo City lab experiment that went too far: a giant thinking head with two cannons bolted over its shoulders and little legs to carry it. Mandrill escaped when Liberty flooded its lab, and it has been planning its revenge, out loud and at length, ever since.',
+      'A Neo City lab experiment that went too far: a giant thinking head with two cannons and little legs. Mandrill escaped when Liberty flooded its lab, and it has been planning revenge, out loud and at length, ever since.',
     rival: 'liberty',
   },
   baron: {
     personality: 'Charming, cocky, a showman',
-    quote: 'Smile for the crowd, marshal!',
+    quote: 'Smile for the crowd, Pioneer!',
     story:
-      'A flying ace grounded by the League, the Crimson Baron runs rare marbles between arenas and plays to the crowd while it does. Its drum gun never seems to run dry. Pioneer has chased it through every city on the circuit and has never quite caught it.',
+      'Banned from flying by the League, Crimson Baron smuggles rare marbles between arenas and plays to the crowd while it does. Its drum gun never seems to run dry. Pioneer has chased it through every arena and has never quite caught it.',
     rival: 'pioneer',
   },
   bastion: {
     personality: 'Silent, patient, predatory',
     quote: '…',
     story:
-      'Nobody knows who built the mantis walker of the Rainy Forest, or whether anyone did. Bastion waits without a sound until both scythes strike at once, and the marble forms where they cross. Arcade climbers meet it as the first boss of the Spire. Only Silverback has ever stood its ground.',
+      'Nobody knows who built this mantis robot of the Rainy Forest, or if anyone did. Bastion waits without a sound until both scythes strike at once. In the arcade it is the first boss of the Spire. Only Silverback has ever stood its ground.',
     rival: 'violet',
   },
   nightshade: {
     personality: 'Cold, elegant, unknowable',
     quote: 'You climbed all this way to meet yourself.',
     story:
-      'The second prototype from the Orbital Deck line, Seraph’s twin, taken before it was finished. Nightshade drifts on a single floating tail at the top of the Spire, the final boss of the arcade, and it knows what Seraph has forgotten. It has been waiting for its sibling to climb.',
+      'The second robot ever built, Seraph’s twin, taken before it was finished. Nightshade floats on a single tail at the top of the Spire, the final boss of the arcade, and it knows what Seraph has forgotten. It is waiting for Seraph to climb.',
     rival: 'angel',
   },
   violet: {
     personality: 'A gentle giant, until provoked',
     quote: 'Stand behind me.',
     story:
-      'A silverback guardian built at the Snowfield research base to protect the little survey bots. Silverback is slow to anger and almost impossible to stop once it is angry, and its palm blasters fire left, right, left. It is the only one Bastion has never got past, and it travels as a trio when it has to.',
+      'A giant ape robot built at the Snowfield to protect the survey bots, the tiny scout robots. Silverback is slow to anger and almost impossible to stop once it is angry, and its palm blasters fire left, right, left. It is the only one Bastion has never got past.',
     rival: 'bastion',
   },
   kabuto: {
     personality: 'Vain, scheming, all crown and no king',
     quote: 'A crown belongs to whoever is wearing it.',
     story:
-      'The lion on the League’s throne is a copy. Three seasons ago it took the floating palace in one night while the true King was away, and it has sold keystones to Tyrant King ever since. It let the Lava Forge burn for Tyrant’s gold, and its guard Fang Hound walked out. The exile it drove away is coming home.',
+      'Leo King is a fake. Three seasons ago it took the floating palace in one night while True Leo King was away, and it has sold keystones, the stones that keep the arena gates working, to Tyrant King ever since. It let the Lava Forge burn for gold, and its guard Fang Hound walked out. True Leo King is coming home.',
     rival: 'trueleo',
   },
   trueleo: {
     personality: 'Quiet, stubborn, rightful',
     quote: 'I left the crown once. I will not leave the kingdom twice.',
     story:
-      'The real King of the League. It left the palace to renew the treaty at the Spire and came home to find a copy wearing its crown and its face. Driven out, it has spent three seasons in exile, and now it wants its kingdom back, and every keystone the copy sold put back in its gate.',
+      'The real ruler of the League. It left the palace to renew the treaty, the old peace deal that ended the wars, and came home to find a fake, Leo King, wearing its crown and its face. Driven out for three seasons, it now wants its kingdom back, and every sold keystone put back in its gate.',
     rival: 'kabuto',
   },
   tyrant: {
     personality: 'Ruthless, ambitious, never satisfied',
     quote: 'Every arena will have my name on the gate.',
     story:
-      'A hellhound that wants to own the League outright, with a wolf’s head snarling on each fist. Tyrant King burned the Lava Forge to take its pits, and it teams up with Rex Saur as the Dino Kings when it needs the muscle. Wyvern is the one fighter it underestimated.',
+      'A black robot that wants to own the League, with a wolf’s head snarling on each fist. Tyrant King burned the Lava Forge to take its pits, and it teams up with Rex Saur when it needs the muscle. Wyvern is the one fighter it underestimated.',
     rival: 'dragon',
   },
   rex: {
     personality: 'Grumpy, tough, old-school',
     quote: 'Back in my day we bit things.',
     story:
-      'Thawed out of the Snowfield glacier still running, Rex Saur thinks every new machine is too soft and too shiny. It bites first and asks later, its orange plates bristling down its sky-blue back. It rides with Tyrant King for the fights, not the plans, and it cannot stand that cheerful little Blossom.',
+      'Thawed out of the Snowfield ice still running, Rex Saur thinks every new robot is too soft and too shiny. It bites first and asks later. It rides with Tyrant King for the fights, not the plans, and it cannot stand cheerful little Blossom.',
     rival: 'ember',
   },
   liger: {
     personality: 'Fierce, loyal, restless',
     quote: 'I left the crown to earn my own.',
     story:
-      'Once the royal guard of the true Leo King, Fang Hound walked out of the palace the night a copy took the throne, and set out to prove it could win alone. The black-and-gold war hound fires from its flanks, left then right, and its shots ricochet where you least expect. It has never knelt to the false King, and never will.',
+      'Once the royal guard of True Leo King, Fang Hound walked out of the palace the night the fake, Leo King, took the throne, and set out to prove it could win alone. It fires from its flanks, left then right, and its shots bounce where you least expect. It has never knelt to Leo King, and never will.',
     rival: 'kabuto',
   },
   ember: {
     personality: 'Cheerful, curious, a little chaotic',
     quote: 'Ooh, what does THIS button do?',
     story:
-      'The smallest fighter in the League a peach-orange axolotl hatched in the hot springs under the Lava Forge, and its head never stops turning to look at everything. Blossom is everyone’s favourite underdog, except Rex Saur’s. Its marbles go wherever its head happens to be looking, and that’s usually somewhere surprising.',
+      'The smallest fighter in the League, a peach-orange axolotl hatched in the hot springs under the Lava Forge. Its head never stops turning to look at everything. Blossom is everyone’s favourite underdog, except Rex Saur’s. Its marbles go wherever it happens to be looking.',
     rival: 'rex',
   },
 };

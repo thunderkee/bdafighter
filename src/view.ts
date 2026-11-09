@@ -1048,6 +1048,8 @@ export class View {
       const t = Math.min(1, b.age / 0.45);
       const drop = (1 - t) * 5;
       const bounce = t < 1 ? 0 : Math.abs(Math.sin(b.age * 3)) * 0.06;
+      // (nothing between the camera and whoever's talking)
+      g.visible = this.cine?.kind !== 'talk';
       g.position.set(b.x, drop + bounce, -b.y);
       // a hit shakes it and flashes it red; its cracks show how many hits are left
       const hb = b as { flash?: number; hp?: number };
