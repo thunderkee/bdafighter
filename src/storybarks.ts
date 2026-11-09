@@ -74,7 +74,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       },
     },
     {
-      open: 'The first frame, at my gate. Kneel, or earn it.',
+      open: 'The first frame, in my snow. Kneel, or earn it.',
       hurt: 'A crown does not bruise. It merely… dents.',
       low: 'Enough! You have earned the secret.',
       winning: 'Kneel. The crown keeps every secret it is owed.',
@@ -248,7 +248,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       },
     },
     {
-      open: 'A cop in my lab! Do you have a warrant? A brain?',
+      open: 'A cop, out here! Do you have a warrant? A brain?',
       hurt: 'My cannons are LICENSED, I’ll have you know!',
       low: 'Fine! The vault route! Take it and go!',
       winning: 'Genius beats procedure. Every time.',
@@ -271,7 +271,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       winning: 'Left, right, left. Pay attention.',
       losing: 'You fight hard for a book.',
       victory: 'Your book has no page for empty cages. Rise, and see what the Baron really steals.',
-      lore: ['These cages crossed the Pass under the hound’s banner.', 'Something small was kept in here. Now they are gone.'],
+      lore: ['Those cages crossed the Pass under the hound’s banner.', 'Something small was kept in them. Now they are gone.'],
       reply: {
         open: 'Ma’am, behind the tape! This is a crime scene!',
         hurt: 'Ma’am, I’m using it on obstruction right now!',
@@ -322,7 +322,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       winning: 'Three seasons, and you still can’t catch me!',
       losing: 'Ooh, marshal. The crowd’s starting to like you.',
       victory: 'Three seasons, and still no cuffs! Toodle-oo, marshal. Try again before I land.',
-      lore: ['Every stone in here, I stole back from Tyrant’s vaults.', 'The hound grounded me for refusing its cargo. I took it anyway.'],
+      lore: ['Every stone up here, I stole back from Tyrant’s vaults.', 'The hound grounded me for refusing its cargo. I took it anyway.'],
       reply: {
         open: 'Last chance for YOU, Baron! Hands up!',
         hurt: 'Three seasons of practice! All on you!',
@@ -634,7 +634,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       winning: 'Three seasons! Finally!',
       losing: 'Stop waving at the crowd mid-fight!',
       victory: 'Gotcha, Baron! That last stone goes to evidence, not the Court. By the book.',
-      lore: ['Every crime you ever did ends in this room.', 'The book says smuggling is smuggling. …Doesn’t it?'],
+      lore: ['Every crime you ever did ends in this Court.', 'The book says smuggling is smuggling. …Doesn’t it?'],
       reply: {
         open: 'One empty socket first, darling. Cuffs after. Maybe.',
         hurt: 'Bill it to the crowd, marshal! They’re paying!',
@@ -902,7 +902,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
         low: 'Show me. Then we are done.',
         winning: 'Not for long. I have not got angry yet.',
         losing: 'Then you know why I cannot stop.',
-        lore: ['Who? There were little ones in these.', 'Careful hunters are the worst kind.'],
+        lore: ['Who? There were little ones in those.', 'Careful hunters are the worst kind.'],
       },
     },
     {
@@ -1398,7 +1398,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       winning: 'Left, right, left. Protect yourself, then.',
       losing: 'You moved to shield a little one. Again.',
       victory: 'You moved to shield them again. Still a guard. Rise and prove otherwise.',
-      lore: ['My little ones are disappearing. Someone is hunting them.', 'This gate went dark. The hound’s banner flew here.'],
+      lore: ['My little ones are disappearing. Someone is hunting them.', 'The gate near here went dark. The hound’s banner flew over it.'],
       reply: {
         open: 'Not a guard. Not anymore.',
         hurt: 'Careful’s done. Try me again.',
@@ -1415,7 +1415,7 @@ export const FIGHT_BARKS: Record<string, FightBarks[]> = {
       winning: 'You keep looking back at the palace.',
       losing: 'You fight like a guard, not a hunter.',
       victory: 'Not enough, Fang. Measure again, without looking back at the palace.',
-      lore: ['A signal pulses from the Spire. Gates go dark below it.', 'The palace below us is quiet. Too quiet for a King.'],
+      lore: ['A signal pulses from the Spire. Gates go dark below it.', 'The palace far above is quiet. Too quiet for a King.'],
       reply: {
         open: 'Everyone else does. Hold still and be the yardstick.',
         hurt: 'Ask me when you’re on the floor.',

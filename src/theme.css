@@ -5379,6 +5379,11 @@ body.cine-on #pad {
   user-select: none;
   -webkit-user-select: none;
 }
+/* (a boss's talk plays over the room: only the room shows behind it) */
+#action.talking > :not(canvas),
+#action.talking > .ac-map {
+  visibility: hidden;
+}
 #action.hidden {
   display: none;
 }
@@ -8109,10 +8114,6 @@ html.land {
   max-height: 46%;
   margin-top: auto;
 }
-/* (on the table the earlier lines fade more, so the fighters show through) */
-#story-dlg.staged .cb:not(:last-child) {
-  opacity: 0.6;
-}
 .cb {
   --c: #3a6cf0;
   display: flex;
@@ -8126,9 +8127,6 @@ html.land {
 }
 .cb.narr {
   justify-content: center;
-}
-.cb:not(:last-child) {
-  opacity: 0.8;
 }
 .cb:last-child {
   animation: cb-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
@@ -9145,4 +9143,8 @@ body:not(.thumbs):not(.teaching) #pad .pad-right {
 }
 html.land #action .ac-say {
   bottom: 96px;
+}
+/* a talk down in a dungeon: torchlight and rock, not the arena up top */
+#story-dlg.underground:not(.staged) {
+  background: radial-gradient(90% 55% at 50% 30%, #6a4426, transparent 70%), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 3px, transparent 3px 64px), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0 3px, transparent 3px 96px), linear-gradient(#2a211c, #120e0c);
 }

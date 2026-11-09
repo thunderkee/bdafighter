@@ -7,14 +7,14 @@ import type { Line } from './storymode';
 export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
   angel: [
     [
-      { who: 'narrator', text: '“It has your face.” The Baron’s words follow Seraph up the Run.' },
+      { who: 'narrator', text: '“It has your face.” The Baron’s words echo through the Overgrown Ruins.' },
       { who: 'angel', text: 'No more drifting toward a signal. I vow to reach whoever wears my face.' },
-      { who: 'narrator', text: 'White plates lock over its chest. Seraph Vow climbs on toward the Snowfield.' },
+      { who: 'narrator', text: 'White plates lock over its chest. Seraph Vow climbs out, toward the Snowfield.' },
     ],
     [
       { who: 'narrator', text: 'Silverback’s blows have shaken something loose: an old treaty-war routine, sealed deep in Seraph’s frame.' },
       { who: 'angel', text: 'Measured, it said. My body remembers what I don’t.' },
-      { who: 'narrator', text: 'The routine unfolds new wings. Archon turns toward the floating palace.' },
+      { who: 'narrator', text: 'The routine unfolds new wings. Archon sets out across the Snowfield.' },
     ],
     [
       { who: 'narrator', text: 'The signal pours into the hollow where Seraph’s memory was, and fills it with light.' },
@@ -23,12 +23,12 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
     [
       { who: 'narrator', text: 'Every keystone in the Crystal Court flares at once. They know the frame that measured them.' },
       { who: 'angel', text: 'I can’t remember you. But you remember me. Lend me your light.' },
-      { who: 'narrator', text: 'Gold wings burst open. Empyrean, the first and final measure, rises to the top.' },
+      { who: 'narrator', text: 'Gold wings burst open. Empyrean, the first and final measure, dives for the Neon District.' },
     ],
   ],
   dragon: [
     [
-      { who: 'narrator', text: 'Wyvern rips plating off Tyrant’s toll gate and welds it on, right there in the sand.' },
+      { who: 'narrator', text: 'Wyvern rips plating off an old-war tomb and welds it on, right there in the Crypt.' },
       { who: 'dragon', text: 'Scrap built me. Scrap’ll do! Scalewyrm’s off to Neo City to see a head!' },
     ],
     [
@@ -47,7 +47,7 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
   ],
   pioneer: [
     [
-      { who: 'narrator', text: 'A gate-puller sale is a League-level case. Neo City depot rolls out a heavier chassis.' },
+      { who: 'narrator', text: 'A gate-puller sale is a League-level case. Deep in the Neon Vault, Pioneer finds a heavier old-war chassis.' },
       { who: 'pioneer', text: 'Bigger case, bigger badge. Says so in section nine. Sergeant Pioneer, reporting for desert duty.' },
     ],
     [
@@ -67,7 +67,7 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
   ],
   liberty: [
     [
-      { who: 'narrator', text: 'Liberty dives into the laughing cave and hauls out the drones’ dropped sonar mast.' },
+      { who: 'narrator', text: 'Deep in the laughing cave, Liberty hauls out the drones’ dropped sonar mast.' },
       { who: 'liberty', text: 'Can’t stop what I can’t see. Now I see. Liberty Vigil stands watch.' },
     ],
     [
@@ -76,11 +76,11 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
       { who: 'narrator', text: 'The lamp burns clean through the rain. Beacon rolls for River Dusk.' },
     ],
     [
-      { who: 'narrator', text: 'Far off, the tide gate flickers. Liberty’s frame stacks taller, and its lamp swings seaward.' },
+      { who: 'narrator', text: 'Through the rock of the Neon Vault, Liberty feels the tide gate flicker. Its frame stacks taller, and its lamp swings seaward.' },
       { who: 'liberty', text: 'My beach. My stone. Let it see me from here. Lighthouse, holding.' },
     ],
     [
-      { who: 'narrator', text: 'Dawn breaks over Neo City. Liberty has never been this far from its sand.' },
+      { who: 'narrator', text: 'Dawn breaks over the Serpent Run. Neo City lies ahead, and Liberty has never been this far from its sand.' },
       { who: 'narrator', text: 'Years of standing still come due. Gold plates rise, tread over tread: the Colossus of Dawn.' },
       { who: 'liberty', text: 'I don’t move. I arrive.' },
     ],
@@ -106,7 +106,7 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
   ],
   baron: [
     [
-      { who: 'narrator', text: 'The Baron swings by a hidden hangar and unwraps the racing wings the League once grounded.' },
+      { who: 'narrator', text: 'At the back of the old smugglers’ dock, the Baron unwraps the racing wings the League once grounded.' },
       { who: 'baron', text: 'Hello, gorgeous. The hound is coming, so the Crimson Ace wears the good wings.' },
     ],
     [
@@ -114,7 +114,7 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
       { who: 'baron', text: 'You all came! For me! Naturally. Smile, darlings, we fly as Red Squadron.' },
     ],
     [
-      { who: 'narrator', text: 'Near the Spire, the golden marble sings. Its light runs along the Baron’s wings.' },
+      { who: 'narrator', text: 'Deep in the Overgrown Ruins, the golden marble sings. Its light runs along the Baron’s wings.' },
       { who: 'baron', text: 'Oh, don’t thank me yet, darling. …All right, thank me. Sky Duke sounds lovely.' },
     ],
     [
@@ -125,9 +125,9 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
   ],
   bastion: [
     [
-      { who: 'narrator', text: 'On the riverbank, Bastion strips the claws from a drone and sets them along its back.' },
+      { who: 'narrator', text: 'In the black water of the Grotto, Bastion strips the claws from a drone and sets them along its back.' },
       { who: 'bastion', text: '…' },
-      { who: 'narrator', text: 'In the rain, the claws take like thorns. Thorn Bastion follows the oil.' },
+      { who: 'narrator', text: 'In the dark, the claws take like thorns. Thorn Bastion follows the oil.' },
     ],
     [
       { who: 'narrator', text: 'Under the lights, Bastion reads the schematic. It counts the cages. Then it counts again.' },
@@ -137,7 +137,7 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
     [
       { who: 'narrator', text: 'The freed survey bots won’t leave. They swarm up Bastion’s legs and start quietly rebuilding it.' },
       { who: 'bastion', text: '…' },
-      { who: 'narrator', text: 'By the grove it wears a hive of small, busy lights. Hive Reaper walks very carefully.' },
+      { who: 'narrator', text: 'By the Rainy Forest it wears a hive of small, busy lights. Hive Reaper walks very carefully.' },
     ],
     [
       { who: 'narrator', text: 'The silverback is coming. Each little bot gives up one part, and together they build a crown.' },
@@ -156,19 +156,19 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
       { who: 'narrator', text: 'Belladonna drifts out toward Sandglass Pass.' },
     ],
     [
-      { who: 'narrator', text: 'Flying home, Nightshade lets itself grieve the sibling who forgot. It lasts one moment.' },
+      { who: 'narrator', text: 'Alone on the ice, Nightshade lets itself grieve the sibling who forgot. It lasts one moment.' },
       { who: 'nightshade', text: 'Grief is only another thing to keep. Let it bloom.' },
-      { who: 'narrator', text: 'Pale petals unfold around its hood. Wraith Bloom reaches the Court as the tremor hits.' },
+      { who: 'narrator', text: 'Pale petals unfold around its hood. Wraith Bloom rises for the Court as a second tremor hits.' },
     ],
     [
-      { who: 'narrator', text: 'The Orbital Deck’s build cradle wakes. It still has one unfinished job: Nightshade.' },
+      { who: 'narrator', text: 'Far above, the Orbital Deck’s build cradle wakes. It still has one unfinished job: Nightshade.' },
       { who: 'nightshade', text: 'Finish me, then. My sibling deserves all of what I was meant to be.' },
-      { who: 'narrator', text: 'Pale plate and gold fire close around the hood. Eclipse Nocturne opens its eyes, and waits.' },
+      { who: 'narrator', text: 'Pale plate and gold fire close around the hood. Eclipse Nocturne opens its eyes, and rises to the Deck.' },
     ],
   ],
   violet: [
     [
-      { who: 'narrator', text: 'Pioneer unlocks Neo City’s impound yard. Silverback straps on iron from a seized caravan.' },
+      { who: 'narrator', text: 'Pioneer unlocks the Neon Vault’s impound store. Silverback straps on iron from a seized caravan.' },
       { who: 'violet', text: 'Cages are made of this. Now it protects them. Ironback goes to the Pass.' },
     ],
     [
@@ -179,12 +179,12 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
     [
       { who: 'narrator', text: 'Tyrant called them tools. Silverback, slow to anger its whole life, is finally angry.' },
       { who: 'violet', text: 'Tools. …Left, right, left.' },
-      { who: 'narrator', text: 'Steel swells over its shoulders, hot from within. Titanback walks to Neo City. Nothing blocks the road.' },
+      { who: 'narrator', text: 'Steel swells over its shoulders, hot from within. Titanback walks for the Neon District. Nothing blocks the road.' },
     ],
     [
-      { who: 'narrator', text: 'At the forest’s edge, Silverback’s old guardian beacon picks up dozens of tiny pings. They are alive.' },
+      { who: 'narrator', text: 'In the neon glow, Silverback’s old guardian beacon picks up dozens of tiny pings from the Rainy Forest. They are alive.' },
       { who: 'violet', text: 'I hear you. Stay behind me. All of you. Not one more.' },
-      { who: 'narrator', text: 'White and blue armour climbs it like a mountain. Peakback Primal walks into the dark.' },
+      { who: 'narrator', text: 'White and blue armour climbs it like a mountain. Peakback Primal walks for the Rainy Forest.' },
     ],
   ],
   kabuto: [
@@ -198,9 +198,9 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
       { who: 'narrator', text: 'Gold plates spread over old cracks. Something rattles inside. The Gold Pretender rides for the Forge.' },
     ],
     [
-      { who: 'narrator', text: 'Before the climb, Leo King empties the treasury onto itself. Capes, medals, a second crown.' },
+      { who: 'narrator', text: 'Before the climb, Leo King empties its own palace crates onto itself. Capes, medals, a second crown.' },
       { who: 'kabuto', text: 'A king needs one crown. An emperor needs more.' },
-      { who: 'narrator', text: 'The heralds cry Emperor. Behind their backs, the League says False Emperor.' },
+      { who: 'narrator', text: 'Emperor, it names itself. Far above, the League says False Emperor.' },
     ],
     [
       { who: 'narrator', text: 'Refused by the Spire, Leo King crushes stolen keystones against its chest and drinks them dry.' },
@@ -239,7 +239,7 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
       { who: 'narrator', text: 'Ice climbs its shoulders like a slow tide. Glacier Rex stomps toward Sandglass Pass.' },
     ],
     [
-      { who: 'narrator', text: 'Rex Saur bites the empty socket of its old gate, and swears on the taste of it.' },
+      { who: 'narrator', text: 'Rex Saur bites the stone of its old crew’s tomb, and swears on the taste of it.' },
       { who: 'rex', text: 'Second war, same teeth. This time I don’t thaw till the gates are lit.' },
       { who: 'narrator', text: 'Frost locks deep into every bolt. Permafrost Rex starts up the Spire.' },
     ],
@@ -255,12 +255,12 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
       { who: 'liger', text: 'Guards stand. Strikers hunt. Fang Striker stands for nobody. …Mostly.' },
     ],
     [
-      { who: 'narrator', text: '“You kept looking back.” Seraph’s words run hot through Fang’s frame all down the cloud road.' },
+      { who: 'narrator', text: '“You kept looking back.” Seraph’s words run hot through Fang’s frame, out on the Snowfield.' },
       { who: 'liger', text: 'I did not. …I did. So I’ll run too fast to look back.' },
       { who: 'narrator', text: 'Razor fins snap open along its flanks. Razorhound heads for the forest.' },
     ],
     [
-      { who: 'narrator', text: 'In the haunted grove lies a rusted old-war hound, still curled around the gate it kept.' },
+      { who: 'narrator', text: 'Deep in the Overgrown Ruins lies a rusted old-war hound, still curled around the gate it kept.' },
       { who: 'liger', text: 'So that’s what you were keeping. I’ll take your collar, old one. I’ll earn it.' },
       { who: 'narrator', text: 'Old-war plate bolts on, black and gold. Warhound Alpha runs for the Forge.' },
     ],
@@ -284,9 +284,9 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
       { who: 'ember', text: 'Am I in trouble? I have a CROWN! Spring Empress! Is that a job?' },
     ],
     [
-      { who: 'narrator', text: 'Blossom races into the snow, hugging its heart. Everywhere its feet land, flowers come up anyway.' },
-      { who: 'ember', text: 'Egg, it’s snowing and I’m BLOOMING! What did I press?! I didn’t press ANYTHING!' },
-      { who: 'narrator', text: 'A great pink-and-gold bloom opens over the Snowfield. Nobody, least of all Blossom, expected Everbloom.' },
+      { who: 'narrator', text: 'Blossom races along the lava, hugging its heart. Everywhere its feet land, flowers come up anyway.' },
+      { who: 'ember', text: 'Egg, it’s lava and I’m BLOOMING! What did I press?! I didn’t press ANYTHING!' },
+      { who: 'narrator', text: 'A great pink-and-gold bloom opens over the Forge. Nobody, least of all Blossom, expected Everbloom.' },
     ],
   ],
   trueleo: [
@@ -308,7 +308,7 @@ export const EVOLVE_SCENES: Record<string, [Line[], Line[], Line[], Line[]]> = {
     [
       { who: 'narrator', text: 'The Spire refused a copy. Now its signal falls on the true King, and it is warm.' },
       { who: 'trueleo', text: 'I kept none of your gates. From today, I keep them all.' },
-      { who: 'narrator', text: 'Crimson and gold blaze across the sky above the palace field. The Rightful Sovereign comes home.' },
+      { who: 'narrator', text: 'Crimson and gold blaze across the Court. The Rightful Sovereign heads down to the Soccer Field, and home.' },
     ],
   ],
 };

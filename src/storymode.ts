@@ -88,8 +88,8 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'angel', text: 'I have nothing but questions.' },
         ],
         after: [
-          { who: 'baron', text: 'All right, one answer. My buyer lives at the top of the Spire. It has your face, darling.' },
-          { who: N, text: 'Above the Run, the climb crosses the Snowfield. A silverback stands guard there.' },
+          { who: 'baron', text: 'All right, one answer, down here where no one’s listening. My buyer lives at the top of the Spire. It has your face, darling.' },
+          { who: N, text: 'High above these ruins, past the Run, lies the Snowfield. A silverback stands guard there.' },
         ],
       },
       {
@@ -104,7 +104,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'violet', text: 'You fight like the old treaty frames. Measured. Ask the King about them. It remembers.' },
-          { who: N, text: 'Seraph turns toward the floating palace above the Snowfield clouds, to ask Leo King.' },
+          { who: N, text: 'Leo King has come down to the far side of the Snowfield. Seraph heads across the ice to ask it.' },
         ],
       },
       {
@@ -113,7 +113,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'snow',
         goal: 'Learn why your memory was wiped.',
         before: [
-          { who: N, text: 'The royal palace floats above the clouds. Leo King is waiting at the gate.' },
+          { who: N, text: 'Out on the open Snowfield, come down from its palace in the clouds, Leo King is waiting.' },
           { who: 'kabuto', text: 'The first frame. You stood here once, the day the treaty was signed.' },
           { who: 'angel', text: 'I don’t remember that.' },
           { who: 'kabuto', text: 'You measured every keystone before it was set in a gate. Then your makers made you forget.' },
@@ -124,7 +124,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'kabuto', text: 'Whoever holds your memory could open every gate at once. So they wiped it, to keep the League safe.' },
           { who: 'angel', text: 'They didn’t wipe me to hide me. They wiped me so no one could use me.' },
           { who: 'kabuto', text: 'And now someone is opening the gates the slow way. Hurry.' },
-          { who: N, text: 'Seraph climbs on to the Crystal Court, where the rescued keystones are kept.' },
+          { who: N, text: 'From the bottom of the Frozen Caverns, Seraph sets its sights on the Crystal Court, where the rescued keystones are kept.' },
         ],
       },
       {
@@ -133,7 +133,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'crystal',
         goal: 'Protect the Court’s keystones from Wyvern’s grudge.',
         before: [
-          { who: N, text: 'Inside the Spire, the Crystal Court glitters with stolen keystones, each humming in its socket.' },
+          { who: N, text: 'High on the Spire, open to the sky, the Crystal Court glitters. Stolen keystones hum among its great crystals.' },
           { who: 'dragon', text: 'You! The Spire’s hoarding stones! Where’s the one from MY Forge?' },
           { who: 'angel', text: 'These were stolen back from Tyrant King and brought here to keep. I can feel each one.' },
           { who: 'dragon', text: 'Then feel this, shiny. Five engines, one grudge!' },
@@ -141,7 +141,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'angel', text: 'Your stone isn’t here, Wyvern. It never left the Forge. Something small and warm is keeping it.' },
           { who: 'dragon', text: '…The springs. The kid. I’m going home.' },
-          { who: N, text: 'Above the Court, the signal is loudest. Seraph climbs to the very top of the Spire.' },
+          { who: N, text: 'The signal drops, down to the Neon District. Its source has left the Spire, and Seraph dives after it.' },
         ],
       },
       {
@@ -150,8 +150,8 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'cyber',
         goal: 'Meet the frame that calls you, and remember.',
         before: [
-          { who: N, text: 'At the very top, a hooded frame drifts above a single tail.' },
-          { who: 'nightshade', text: 'You climbed all this way to meet yourself.' },
+          { who: N, text: 'Under the holo signs of the Neon District, a hooded frame drifts above a single tail.' },
+          { who: 'nightshade', text: 'You climbed so high, and I came down here to meet you.' },
           { who: 'angel', text: 'You called me. Every gate that goes dark, you call louder.' },
           { who: 'nightshade', text: 'The Spire is waking, sibling. It needs its measure. I am only its keeper.' },
           { who: 'angel', text: 'Then show me what I forgot.' },
@@ -162,15 +162,15 @@ export const STORY_PATHS: Record<string, StoryPath> = {
     ending: [
       { who: N, text: 'Nightshade’s tail flickers out. “Sibling,” it whispers, “now you remember.”' },
       { who: 'angel', text: 'I was the first, so that no one after me would have to be what you became. I’ll carry that.' },
-      { who: N, text: 'Together the two prototypes touch the Spire’s heart, and its signal changes. It is no longer a call. It is an answer.' },
-      { who: N, text: 'Far below, gates that went dark begin, one by one, to glow again.' },
+      { who: N, text: 'Together the two prototypes reach up to the Spire’s heart from the neon below, and its signal changes. It is no longer a call. It is an answer.' },
+      { who: N, text: 'Across the League, gates that went dark begin, one by one, to glow again.' },
       { who: 'angel', text: 'Every frame is measured against me. Then I will make sure the measure is fair.' },
     ],
   },
   dragon: {
     title: 'Five Engines, One Grudge',
     intro: [
-      { who: N, text: 'The Lava Forge is cold ash, and Tyrant King’s banner hangs over the pits.' },
+      { who: N, text: 'The Lava Forge’s furnaces are cold ash, and its pits now answer to Tyrant King.' },
       { who: N, text: 'The furnaces won’t light. Not since the night the hound came with its gate-puller.' },
       { who: 'dragon', text: 'The crews built me out of scrap. Every part of me remembers a pit that used to roar.' },
       { who: 'dragon', text: 'I’ll win them their name back. Loudly.' },
@@ -199,14 +199,14 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'sandglass',
         goal: 'Win Leo King’s help against Tyrant King.',
         before: [
-          { who: N, text: 'Tyrant King has built a toll gate in the narrow middle of Sandglass Pass. Leo King is passing through.' },
+          { who: N, text: 'Tyrant King’s toll gate stands far up Sandglass Pass. Here in its narrow middle, Leo King is passing through.' },
           { who: 'dragon', text: 'Your majesty! The hound burned my home. Ride with me and we’ll tear its gates down!' },
           { who: 'kabuto', text: 'The crown does not brawl outside the season. There are rules, Wyvern.' },
           { who: 'dragon', text: 'Rules didn’t stop the fire!' },
           { who: 'kabuto', text: 'Then show me a grudge is worth more than a rule.' },
         ],
         after: [
-          { who: 'kabuto', text: '…You hit like a whole pit crew. I will think on what you said.' },
+          { who: 'kabuto', text: '…Even among these dead, you hit like a whole pit crew. I will think on what you said.' },
           { who: 'dragon', text: 'Think fast. Who built the thing that pulled the Forge apart?' },
           { who: 'kabuto', text: 'Ask in Neo City. Ask the head.' },
         ],
@@ -217,7 +217,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'city',
         goal: 'Make the gate-puller’s maker answer for the Forge.',
         before: [
-          { who: 'monoceros', text: 'A dino-scrap brute in MY lab. Wipe your feet. Actually, you have five sets. Wipe all of them.' },
+          { who: 'monoceros', text: 'A dino-scrap brute on MY street. Wipe your feet. Actually, you have five sets. Wipe all of them.' },
           { who: 'dragon', text: 'You built the gate-puller. You killed my Forge.' },
           { who: 'monoceros', text: 'I INVENTED a gate-puller. Selling it to the hound was business. Using it was the hound.' },
           { who: 'dragon', text: 'Then I’ll do business with your face.' },
@@ -239,7 +239,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'rex', text: 'Watch your mouth, scrap pile. I was setting keystones before your parts were welded.' },
           { who: 'dragon', text: 'Then tell me where mine went!' },
         ],
-        after: [{ who: 'rex', text: 'Hmph. The hound turned your whole pit over and never found it. The Spire counts every stone. Go ask it.' }],
+        after: [{ who: 'rex', text: 'Hmph. No stone down this hole, and the hound never found it in your pit. The Spire counts every stone. Go ask it.' }],
       },
       {
         title: 'Up the Serpent Run',
@@ -264,22 +264,22 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'lava',
         goal: 'Save Blossom and take the Forge back from Tyrant King.',
         before: [
-          { who: N, text: 'Back at the Forge, Blossom is cornered in the cold pits, clutching its egg. Tyrant King looms over it.' },
+          { who: N, text: 'Back at the Forge, Blossom is cornered against the lava, clutching its egg. Tyrant King looms over it.' },
           { who: 'tyrant', text: 'So the lizard had it all along. Hand it over, little one, and I’ll put your name on a very small gate.' },
           { who: 'ember', text: 'No! It’s my egg! …It is an egg, right?' },
           { who: 'dragon', text: 'Get behind me, kid. Hey, hound! Your name on every gate? Not this one.' },
           { who: 'tyrant', text: 'This burnt-out pit? I’ll burn it again.' },
           { who: 'dragon', text: 'This pit built me. Five engines, one grudge.' },
         ],
-        after: [{ who: N, text: 'The hound’s banner tears loose and drifts down into the cold pit.' }],
+        after: [{ who: N, text: 'The hound’s banner tears loose and burns up in the lava.' }],
       },
     ],
     ending: [
       { who: N, text: 'Tyrant King crashes into the ash. Blossom peeks out from behind Wyvern, egg held high.' },
       { who: 'ember', text: 'Is it… not an egg?' },
       { who: 'dragon', text: 'It’s our heart, kid. Go on. Roll it in.' },
-      { who: N, text: 'The keystone drops into the furnace, and the Lava Forge roars back to life.' },
-      { who: N, text: 'The pit crews paint a new name over the gate: WYVERN.' },
+      { who: N, text: 'The keystone drops into the lava, and the Lava Forge roars back to life.' },
+      { who: N, text: 'The pit crews paint a new name across the rocks: WYVERN.' },
       { who: 'dragon', text: 'Light ’em up. We’re open again.' },
     ],
   },
@@ -318,10 +318,10 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'pioneer', text: 'I’m checking it right now.' },
         ],
         after: [
-          { who: 'monoceros', text: 'Fine. The Baron flies the vault route, out across the desert. Happy?' },
+          { who: 'monoceros', text: 'Fine. It’s on these charts. The Baron flies the vault route, out across the desert. Happy?' },
           { who: 'pioneer', text: 'Vault route? Whose vault?' },
           { who: 'monoceros', text: 'Oh, you really don’t know. Delicious.' },
-          { who: N, text: 'Pioneer heads out across the desert to Sandglass Pass, on the Baron’s vault route.' },
+          { who: N, text: 'Next stop: Sandglass Pass, out across the desert, on the Baron’s vault route.' },
         ],
       },
       {
@@ -330,15 +330,15 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'sandglass',
         goal: 'Find out what the Baron is really stealing.',
         before: [
-          { who: N, text: 'Out in the desert badlands, Pioneer finds a silverback standing over a pile of broken cages.' },
-          { who: 'violet', text: 'Stand behind me. Someone kept little ones in these. Now they are empty.' },
+          { who: N, text: 'At Sandglass Pass, Pioneer finds a silverback blocking the road. Broken cages lie scattered back among the rocks.' },
+          { who: 'violet', text: 'Stand behind me. Someone kept little ones in those. Now they are empty.' },
           { who: 'pioneer', text: 'Ma’am, you’re obstructing a crime scene.' },
           { who: 'violet', text: 'I am standing in it. Left, right, left.' },
         ],
         after: [
-          { who: 'violet', text: 'These cages came through Sandglass Pass under the hound’s banner. Your Baron flew over them and didn’t stop.' },
+          { who: 'violet', text: 'Those cages came through this pass under the hound’s banner. Your Baron flew over them and didn’t stop.' },
           { who: 'pioneer', text: 'So the Baron isn’t robbing caravans. It’s robbing… vaults. Tyrant’s vaults?' },
-          { who: N, text: 'A question that big needs the crown. Pioneer rides to the palace field to ask Leo King.' },
+          { who: N, text: 'A question that big needs the crown. Pioneer rides to the Soccer Field, where Leo King holds its matches, to ask it.' },
         ],
       },
       {
@@ -352,7 +352,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'kabuto', text: 'Then read further. Show me you can handle a bigger case.' },
         ],
         after: [
-          { who: 'kabuto', text: 'Tyrant King pulls the keystones from the gates. The Baron steals them back and flies them to the Spire.' },
+          { who: 'kabuto', text: 'Among these tombs, hear it plainly. Tyrant King pulls the keystones from the gates. The Baron steals them back and flies them to the Spire.' },
           { who: 'kabuto', text: 'Your smuggler is a thief of thieves, marshal. Decide what your book says about that.' },
           { who: N, text: 'Pioneer takes the Serpent Run, the Baron’s road up to the Spire.' },
         ],
@@ -369,7 +369,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'pioneer', text: 'Everyone keeps telling me that. The law is the law.' },
           { who: 'angel', text: 'Then let the rail decide who climbs first.' },
         ],
-        after: [{ who: 'angel', text: 'The Court at the top keeps every stone the Baron brings back. Arrest it there, and see what it saved.' }],
+        after: [{ who: 'angel', text: 'The Crystal Court keeps every stone the Baron brings back. Arrest it there, and see what it saved.' }],
       },
       {
         title: 'Crimson Baron, Finally',
@@ -377,7 +377,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'crystal',
         goal: 'Arrest the Crimson Baron at last.',
         before: [
-          { who: N, text: 'Inside the Crystal Court, keystones glitter in their sockets. The Crimson Baron is setting one more in place.' },
+          { who: N, text: 'Out among the great crystals of the Crystal Court, the Crimson Baron is tucking one more keystone away.' },
           { who: 'baron', text: 'Smile for the crowd, marshal! It’s the last thing they’ll see you do.' },
           { who: 'pioneer', text: 'Crimson Baron, you’re under arrest. Finally.' },
           { who: 'baron', text: 'For what, darling? Returning lost property?' },
@@ -387,7 +387,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       },
     ],
     ending: [
-      { who: N, text: 'The crowd cheers as the Baron is towed off the rail, still waving.' },
+      { who: N, text: 'The Baron is towed off the rail, still waving to a crowd only it can see.' },
       { who: 'pioneer', text: 'The stones stay here, where they belong. And I’m filing a second warrant. Name: Tyrant King.' },
       { who: 'baron', text: 'Marshal! You’re learning. I’m so proud.' },
       { who: 'pioneer', text: 'You’re still under arrest.' },
@@ -415,7 +415,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'baron', text: 'Suit yourself. But something’s been tunnelling in from the reef. It laughs. Loudly.' },
-          { who: N, text: 'Liberty rolls down to the reef to see what is laughing.' },
+          { who: N, text: 'Liberty rolls down Island Beach, toward the reef, to see what is laughing.' },
         ],
       },
       {
@@ -430,7 +430,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'liberty', text: 'Then you’ll have to get past me. You won’t.' },
         ],
         after: [
-          { who: 'ember', text: 'Okay, okay, I’ll go. But the cave had lots of little drones with claws. They looked busy!' },
+          { who: 'ember', text: 'Okay, okay, I’ll go. But this cave has lots of little drones with claws. They looked busy!' },
           { who: 'liberty', text: 'Drones. Under my beach.' },
         ],
       },
@@ -464,9 +464,9 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'liberty', text: 'I don’t race. I don’t move. …Usually.' },
         ],
         after: [
-          { who: 'dragon', text: 'Listen. The hound bought that puller to strip every gate. The head already promised it your beach stone.' },
+          { who: 'dragon', text: 'Tunnel’s shut, so listen. The hound bought that puller to strip every gate. The head already promised it your beach stone.' },
           { who: 'liberty', text: 'It doesn’t want my armour. It wants my beach.' },
-          { who: N, text: 'Liberty takes the Serpent Run, the quick way round to Neo City.' },
+          { who: N, text: 'With the tunnel drowned, Liberty takes the Serpent Run, the quick way round to Neo City.' },
         ],
       },
       {
@@ -484,7 +484,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'violet', text: 'Go. Don’t wait for trouble to reach your beach. Go and meet it.' },
           { who: 'liberty', text: '…I don’t move. But today, I go.' },
-          { who: N, text: 'Liberty rolls on to Neo City, and Mandrill’s lab.' },
+          { who: N, text: 'Liberty rolls on to Neo City, where Mandrill is waiting in the street.' },
         ],
       },
       {
@@ -500,13 +500,13 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'monoceros', text: '…That was not in the plan.' },
           { who: 'liberty', text: 'Then you know how it ends.' },
         ],
-        after: [{ who: N, text: 'For the first time in nine hundred and twelve days, the lab is quiet.' }],
+        after: [{ who: N, text: 'For the first time in nine hundred and twelve days, Mandrill is quiet.' }],
       },
     ],
     ending: [
-      { who: N, text: 'Mandrill’s cannons fall silent. In a crate of drones at the back of the lab, the beach keystone is still glowing.' },
+      { who: N, text: 'Mandrill’s cannons fall silent. Its last drone drops a crate in the street. Inside, the beach keystone is still glowing.' },
       { who: 'liberty', text: 'This goes home.' },
-      { who: N, text: 'Liberty rolls back to Island Beach and sets the stone in place. The tide gate shines again.' },
+      { who: N, text: 'Liberty carries it home to Island Beach and sets it in place. Far from Neo City, the tide gate shines again.' },
       { who: 'liberty', text: 'The line holds. Sometimes the line has to move first.' },
       { who: 'liberty', text: 'Back to the beach. Someone has to stand guard.' },
     ],
@@ -514,10 +514,10 @@ export const STORY_PATHS: Record<string, StoryPath> = {
   monoceros: {
     title: 'The Grand Plan',
     intro: [
-      { who: N, text: 'In a hidden lab under Neo City, a very large head is laughing.' },
+      { who: N, text: 'Out on a Neo City street, a very large head is laughing.' },
       { who: 'monoceros', text: 'Step one: build the gate-puller. Step two: sell it to the hound for an absurd sum.' },
       { who: 'monoceros', text: 'Step three: humiliate. Step four: humiliate more. Step five: Liberty.' },
-      { who: N, text: 'It has a whiteboard. The whiteboard is very full.' },
+      { who: N, text: 'Its whiteboard is back at the lab, so it scrawls the plan across the road. The road is very full.' },
     ],
     chapters: [
       {
@@ -526,14 +526,14 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'city',
         goal: 'Shake off the marshal and keep the plan on track.',
         before: [
-          { who: 'pioneer', text: 'Mandrill, you’re wanted for questioning.' },
+          { who: 'pioneer', text: 'Mandrill! Step away from that road. You’re wanted for questioning.' },
           { who: 'monoceros', text: 'Question THIS.' },
           { who: 'pioneer', text: 'That’s not an answer, that’s a cannon.' },
           { who: 'monoceros', text: 'A cannon IS an answer, marshal. Mine is simply louder.' },
         ],
         after: [
-          { who: 'monoceros', text: 'Note for the whiteboard: the law is slow. Step three, complete.' },
-          { who: N, text: 'Next on the whiteboard: the Lava Forge. Mandrill wants to know why the hound’s new pits stay cold.' },
+          { who: 'monoceros', text: 'Chalk it on the road: the law is slow. Step three, complete.' },
+          { who: N, text: 'Next in the chalk: the Lava Forge. Mandrill wants to know why the hound’s new pits stay cold.' },
         ],
       },
       {
@@ -548,7 +548,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'monoceros', text: 'Your… wait. That is not an egg. Hold still, you ridiculous newt.' },
         ],
         after: [
-          { who: N, text: 'Blossom scampers off with its egg, giggling. Mandrill stares after it.' },
+          { who: N, text: 'Blossom scampers off through the foundry with its egg, giggling. Mandrill stares after it.' },
           { who: 'monoceros', text: 'The Forge keystone, rolling around in a lizard’s arms. The hound will never think to look. Note it.' },
           { who: N, text: 'Mandrill heads to the Snowfield to measure more survey bots. Someone there is waiting for it.' },
         ],
@@ -567,7 +567,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'monoceros', text: 'For the record, the caravan never reached the hound. Something in the forest took it.' },
           { who: 'monoceros', text: 'And the hound wants enough stones to open the Spire itself. I did not put THAT in the brochure.' },
-          { who: N, text: 'Worried, for once, Mandrill heads for the Spire.' },
+          { who: N, text: 'Worried, for once, Mandrill heads up the Spire to the Crystal Court.' },
         ],
       },
       {
@@ -583,9 +583,9 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'monoceros', text: '…I calculated almost everything.' },
         ],
         after: [
-          { who: 'nightshade', text: 'Take your machine back from the hound, little genius. Or there will be no rail left to win on.' },
+          { who: 'nightshade', text: 'Take your machine back from the hound, little genius, before these stars go out. Or there will be no rail left to win on.' },
           { who: 'monoceros', text: 'Revised plan. Step four: humiliate the HOUND.' },
-          { who: N, text: 'Mandrill rolls down the Serpent Run to switch its machine off. The hound comes looking.' },
+          { who: N, text: 'From the Star Vault, Mandrill heads for the Serpent Run to switch its machine off. The hound comes looking.' },
         ],
       },
       {
@@ -664,8 +664,8 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'baron', text: 'In the hound’s vault, of course. Shall I put it back there? No? Then shoo.' },
         ],
         after: [
-          { who: 'kabuto', text: '…You stole from a thief. I will not chase you today, Baron. But the hound will.' },
-          { who: N, text: 'The fastest way to the Spire runs through Sandglass Pass. The Baron dives for it.' },
+          { who: 'kabuto', text: '…You stole from a thief. I will not chase you out of this hole, Baron. But the hound will.' },
+          { who: N, text: 'From this flooded dock, the fastest way to the Spire runs through Sandglass Pass. The Baron means to take it.' },
         ],
       },
       {
@@ -698,7 +698,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'baron', text: 'The crowd thinks I’m a thief. Let them. Better a thief than the hound’s courier.' },
-          { who: N, text: 'At the top of the Run, the buyer waits at the haunted gate in the Rainy Forest.' },
+          { who: N, text: 'Out of these ruins and past the Run, the buyer waits in the Rainy Forest.' },
         ],
       },
       {
@@ -707,13 +707,13 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'forest',
         goal: 'Pass the buyer’s test with the marble.',
         before: [
-          { who: N, text: 'At the haunted gate below the Spire, a hooded frame drifts out of the fog.' },
+          { who: N, text: 'In the Rainy Forest below the Spire, a hooded frame drifts out of the mist.' },
           { who: 'nightshade', text: 'Courier. You are early.' },
           { who: 'baron', text: 'And you’re spooky. Delivery for the top floor. Sign here?' },
           { who: 'nightshade', text: 'The marshal follows you. Show me you can still win with it watching.' },
         ],
         after: [
-          { who: 'nightshade', text: 'Bring it to the Court. Every stone you have carried waits there. This one finishes the set.' },
+          { who: 'nightshade', text: 'Bring it to the Crystal Court. Every stone you have carried waits there. This one finishes the set.' },
           { who: 'baron', text: 'Finishes? Darling, I’ll need a new hobby.' },
         ],
       },
@@ -723,13 +723,13 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'crystal',
         goal: 'Deliver the last keystone to the Crystal Court.',
         before: [
-          { who: N, text: 'In the Crystal Court, one socket stands empty, and a marshal blocks the way to it.' },
+          { who: N, text: 'Among the great crystals of the Crystal Court, one socket stands empty, and a marshal blocks the way to it.' },
           { who: 'pioneer', text: 'End of the line, Baron. This time I’ve got you.' },
           { who: 'baron', text: 'Marshal! I was hoping you’d come. The crowd loves you.' },
           { who: 'pioneer', text: 'You’re a smuggler.' },
-          { who: 'baron', text: 'I’m a delivery service. Look around, darling. Everything in here, I brought home.' },
+          { who: 'baron', text: 'I’m a delivery service. Look around, darling. Everything hidden in these crystals, I brought home.' },
         ],
-        after: [{ who: N, text: 'The marshal goes down, and the crowd roars. The empty socket waits.' }],
+        after: [{ who: N, text: 'The marshal goes down among the crystals. The empty socket waits.' }],
       },
     ],
     ending: [
@@ -777,7 +777,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'bastion', text: '…' },
         ],
         after: [
-          { who: 'liger', text: 'Neo City oil. You’re hunting the head’s machines? …Good hunting, then.' },
+          { who: 'liger', text: 'Neo City oil, all through this grotto. You’re hunting the head’s machines? …Good hunting, then.' },
           { who: N, text: 'Bastion follows the oil to Neo City.' },
         ],
       },
@@ -803,15 +803,15 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'sandglass',
         goal: 'Free the caged survey bots.',
         before: [
-          { who: N, text: 'A caravan of cages rolls through the narrow middle of Sandglass Pass. Rex Saur is driving it.' },
+          { who: N, text: 'Just past the narrow middle of Sandglass Pass, a caravan of cages has stopped. Its driver, Rex Saur, turns around.' },
           { who: 'rex', text: 'Back in my day we didn’t cage little ones. …This job stinks.' },
           { who: 'bastion', text: '…' },
           { who: 'rex', text: 'But the hound’s paying, and you’re in my way. Let’s bite.' },
         ],
         after: [
-          { who: N, text: 'The cage doors swing open. Dozens of survey bots pour out and scurry after the mantis into the trees.' },
+          { who: N, text: 'The cage doors swing open. Dozens of survey bots pour out and scurry after the mantis through the tombs.' },
           { who: 'rex', text: 'Hmph. I’ll tell the hound the bug ate them. It’ll believe that.' },
-          { who: N, text: 'Bastion leads the freed bots home, past the haunted grove below the Spire.' },
+          { who: N, text: 'Bastion leads the freed bots up out of the Crypt, home to the Rainy Forest.' },
         ],
       },
       {
@@ -820,7 +820,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'forest',
         goal: 'Learn what the other shadow knows.',
         before: [
-          { who: N, text: 'In the haunted grove below the Spire, a second shadow waits. It does not hide.' },
+          { who: N, text: 'In a haunted grove of the Rainy Forest, below the Spire, a second shadow waits. It does not hide.' },
           { who: 'nightshade', text: 'You hunt what hunts the small. So do I, in my way.' },
           { who: 'bastion', text: '…' },
           { who: 'nightshade', text: 'Then let us see which shadow is quieter.' },
@@ -855,8 +855,8 @@ export const STORY_PATHS: Record<string, StoryPath> = {
   nightshade: {
     title: 'Waiting at the Top',
     intro: [
-      { who: N, text: 'At the top of the Spire, a hooded frame drifts above its single tail.' },
-      { who: N, text: 'Below it, the Crystal Court fills with rescued keystones, and the Spire stirs in its sleep.' },
+      { who: N, text: 'Over River Dusk, far from the Spire it keeps, a hooded frame drifts above its single tail.' },
+      { who: N, text: 'Back at the Spire, the Crystal Court fills with rescued keystones, and the Spire stirs in its sleep.' },
       { who: 'nightshade', text: 'My sibling is climbing. Let us make sure it is ready.' },
       { who: 'nightshade', text: 'And let us make sure there is still something at the top to climb to.' },
     ],
@@ -867,7 +867,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'river',
         goal: 'Test what the League’s fighters fight for.',
         before: [
-          { who: N, text: 'Nightshade drifts down from the Spire to test the League’s fighters. At River Dusk, Fang Hound wants a fight.' },
+          { who: N, text: 'Nightshade has come down from the Spire to test the League’s fighters. At River Dusk, Fang Hound wants a fight.' },
           { who: 'liger', text: 'Ghost. They say you’re unbeatable. I say prove it.' },
           { who: 'nightshade', text: 'Proof is cheap. Watch.' },
           { who: 'liger', text: 'You don’t even look at me.' },
@@ -875,7 +875,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'nightshade', text: 'Go and ask your King what a crown is for. Then come back.' },
-          { who: N, text: 'Nightshade goes to the palace field, to ask the King itself.' },
+          { who: N, text: 'Nightshade goes to the Soccer Field, where the King holds its matches, to ask it in person.' },
         ],
       },
       {
@@ -890,8 +890,8 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'nightshade', text: 'Then keep them, King. They are going dark while you wait for the season.' },
         ],
         after: [
-          { who: 'kabuto', text: '…Words. The crown buys its own truths, ghost.' },
-          { who: N, text: 'Nightshade returns toward the Spire. In the haunted grove below it, something is watching.' },
+          { who: 'kabuto', text: '…Words, among old bones. The crown buys its own truths, ghost.' },
+          { who: N, text: 'Nightshade rises from the Crypt and returns toward the Spire. In the Rainy Forest below it, something is watching.' },
         ],
       },
       {
@@ -900,13 +900,13 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'forest',
         goal: 'Learn whether the forest hunter is friend or foe.',
         before: [
-          { who: N, text: 'In the haunted grove below the Spire, something with scythes watches Nightshade pass.' },
+          { who: N, text: 'In a haunted grove of the Rainy Forest, something with scythes watches Nightshade pass.' },
           { who: 'bastion', text: '…' },
-          { who: 'nightshade', text: 'A hunter who does not speak. We will get along.' },
+          { who: 'nightshade', text: 'A hunter who does not speak. Friend or foe? We will find out.' },
           { who: 'bastion', text: '……' },
         ],
         after: [
-          { who: N, text: 'Bastion melts into the fog. That night, a crimson shape drops another stolen keystone at the Spire’s door.' },
+          { who: N, text: 'Bastion melts into the fog. That night, a crimson shape drops another stolen keystone in the grove, at Nightshade’s feet.' },
           { who: 'nightshade', text: 'Thank you, ace. Seven gates dark. The Spire is counting.' },
           { who: N, text: 'The stolen stones come out of Sandglass Pass. Nightshade goes to see who guards the hound’s road.' },
         ],
@@ -925,7 +925,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'rex', text: 'It forgot ’cause they wiped it, so nobody could use it to open the gates. You know that, right?' },
           { who: 'nightshade', text: 'I know. It is why I call it, and why I fear it coming.' },
-          { who: N, text: 'A tremor runs up the Spire. Nightshade flies home to the Crystal Court.' },
+          { who: N, text: 'A tremor shakes the Frozen Caverns, from the Spire far above. Nightshade turns for home, and the Crystal Court.' },
         ],
       },
       {
@@ -1003,7 +1003,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'pioneer', text: 'There’s a form for this, you know—' },
           { who: 'violet', text: 'Stand behind me. Fill in the form after.' },
         ],
-        after: [{ who: 'pioneer', text: 'Okay, okay! A caravan of cages went through Sandglass Pass last week. No permit. Hellhound banner.' }],
+        after: [{ who: 'pioneer', text: 'Okay, okay! It’s in these files! A caravan of cages went through Sandglass Pass last week. No permit. Hellhound banner.' }],
       },
       {
         title: 'The Empty Cages',
@@ -1011,7 +1011,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'sandglass',
         goal: 'Learn what happened to the caged bots.',
         before: [
-          { who: N, text: 'In the narrow middle of Sandglass Pass, the cages lie open and empty. Fang Hound is sniffing them.' },
+          { who: N, text: 'In the narrow middle of Sandglass Pass, Fang Hound is sniffing the sand. Open, empty cages lie scattered back among the rocks.' },
           { who: 'liger', text: 'I tracked this caravan too. Someone got here first.' },
           { who: 'violet', text: 'Where are they? What did you do?' },
           { who: 'liger', text: 'Nothing, big one. But I’ll fight you if you don’t believe me.' },
@@ -1035,7 +1035,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'tyrant', text: 'Ask the head who designed the cages. And ask the bug where they went.' },
-          { who: N, text: 'Silverback goes to Neo City to find the head.' },
+          { who: N, text: 'Down in the Molten Depths, Silverback chooses its next stop: the Neon District, to find the head.' },
         ],
       },
       {
@@ -1051,7 +1051,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'monoceros', text: 'For what it’s worth, they never arrived. Something in the forest took them. My drones never came back either.' },
-          { who: 'violet', text: 'Then I go to the forest. Not one more.' },
+          { who: 'violet', text: 'Then I go to the Rainy Forest. Not one more.' },
         ],
       },
       {
@@ -1092,7 +1092,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'cyber',
         goal: 'Claim the stolen Sandglass keystone for the crown.',
         before: [
-          { who: N, text: 'Word reaches the palace: the Crimson Baron has landed in Neo City with a stolen keystone. Leo King goes down to collect it.' },
+          { who: N, text: 'Word reached the palace: the Crimson Baron had landed in the Neon District with a stolen keystone. Leo King has come down to collect it.' },
           { who: 'baron', text: 'Your majesty! It’s the Sandglass keystone, darling. Lifted from the hound’s own vault.' },
           { who: 'kabuto', text: 'Stolen goods belong to the crown. Hand it over.' },
           { who: 'baron', text: 'It goes back in its gate. That’s the whole point.' },
@@ -1101,7 +1101,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'baron', text: 'You’re selling it back? The old King would never…' },
           { who: 'kabuto', text: 'There is no old King. Remember that, Baron.' },
-          { who: N, text: 'Stone in hand, Leo King takes the beach road south toward Sandglass Pass, where Tyrant’s buyers wait.' },
+          { who: N, text: 'Stone in hand, Leo King heads south along Island Beach, toward Sandglass Pass, where Tyrant’s buyers wait.' },
         ],
       },
       {
@@ -1110,15 +1110,15 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'beach',
         goal: 'Keep the stolen keystone moving to market.',
         before: [
-          { who: N, text: 'On the beach road, a little axolotl blocks the way, staring at the crown.' },
+          { who: N, text: 'On the sand of Island Beach, a little axolotl blocks the way, staring at the crown.' },
           { who: 'ember', text: 'Ooh! A real king! Can I wear the crown? Just for one second? Half a second?' },
           { who: 'kabuto', text: 'Out of my road, little one.' },
           { who: 'ember', text: 'Okay! Then I’ll win it! Right now!' },
         ],
         after: [
-          { who: 'ember', text: 'Hey… the name inside your crown is scratched out. Is it a borrowed one?' },
+          { who: 'ember', text: 'Hey… I saw it down here! The name inside your crown is scratched out. Is it a borrowed one?' },
           { who: 'kabuto', text: 'Forget what you saw.' },
-          { who: N, text: 'Past the dunes lies Sandglass Pass. Tyrant’s toll gate stands in its narrow middle, and the buyer is waiting there.' },
+          { who: N, text: 'Far from this grotto, past the dunes, lies Sandglass Pass. The buyer is waiting in its narrow middle.' },
         ],
       },
       {
@@ -1148,7 +1148,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'tyrant', text: 'One crown. One king. And I decide which one.' },
         ],
         after: [
-          { who: 'tyrant', text: 'Fine. Then hurry to the Crystal Court. The Spire can seal a crown for good, before the exile gets there.' },
+          { who: 'tyrant', text: 'Fine. Out of my strongroom, then. Hurry to the Crystal Court. The Spire can seal a crown for good, before the exile gets there.' },
           { who: N, text: 'Leo King climbs the Spire, to have the Crystal Court seal the stolen crown forever.' },
         ],
       },
@@ -1164,7 +1164,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'nightshade', text: 'Win all you like. The Spire will not seal a stolen crown.' },
-          { who: 'nightshade', text: 'And the one it belongs to has come home. It is waiting for you by the river.' },
+          { who: 'nightshade', text: 'And the one it belongs to has come home. It is waiting for you at River Dusk.' },
           { who: N, text: 'With no seal from the Spire, there is only one way left to keep the crown: beat the exile.' },
         ],
       },
@@ -1186,7 +1186,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       { who: 'kabuto', text: 'The crown stays with me.' },
       { who: N, text: 'Back at the palace, every seat in the great hall is empty. Not one fighter came to kneel.' },
       { who: 'kabuto', text: '…Next season, then. Let them come.' },
-      { who: N, text: 'Far below, the exile climbs out of the river, and turns toward the palace again.' },
+      { who: N, text: 'At River Dusk, the exile climbs out of the water, and turns toward the palace again.' },
     ],
   },
   trueleo: {
@@ -1213,8 +1213,8 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'bastion', text: '…Those cannons. You fight like the King used to, before it started selling us out.' },
           { who: 'trueleo', text: 'That is because I am the King. The one on the throne is not.' },
-          { who: 'bastion', text: 'If that’s true, you need proof. The Crimson Baron logs every stolen stone. It flies out of Neo City.' },
-          { who: N, text: 'The true King heads north to Neo City, to find the Baron and its ledger.' },
+          { who: 'bastion', text: 'If that’s true, you need proof. The Crimson Baron logs every stolen stone. It flies out of the Neon District.' },
+          { who: N, text: 'The true King heads north to the Neon District, to find the Baron and its ledger.' },
         ],
       },
       {
@@ -1228,9 +1228,9 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'baron', text: 'My books are private. Win them, if you’re so royal.' },
         ],
         after: [
-          { who: 'baron', text: 'Every sale, stamped with the royal seal. Your copy got greedy.' },
+          { who: 'baron', text: 'Every sale, right here in accounts, stamped with the royal seal. Your copy got greedy.' },
           { who: 'baron', text: 'Proof is nice, but a crown needs a guard. Yours went north to Snowfield when the copy took the throne.' },
-          { who: N, text: 'Ledger in hand, the true King turns north toward Snowfield to find Fang Hound.' },
+          { who: N, text: 'Ledger in hand, the true King turns north toward the Snowfield to find Fang Hound.' },
         ],
       },
       {
@@ -1261,7 +1261,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'tyrant', text: 'Then win them back, one marble at a time.' },
         ],
         after: [
-          { who: 'tyrant', text: 'Too late, old lion. Your copy is already climbing to the Crystal Court. Once the Spire seals its crown, it’s king forever.' },
+          { who: 'tyrant', text: 'Too late, old lion. While you dug through my cellar, your copy climbed to the Crystal Court. Once the Spire seals its crown, it’s king forever.' },
           { who: N, text: 'The true King climbs the Spire, to reach the Crystal Court before the copy’s crown is sealed.' },
         ],
       },
@@ -1276,9 +1276,9 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'nightshade', text: 'Honest. Now prove you can keep them from here on.' },
         ],
         after: [
-          { who: 'nightshade', text: 'The Spire refused your copy. It fled down to the palace field to win the crowd instead.' },
+          { who: 'nightshade', text: 'The Spire refused your copy. It fled down to the Soccer Field to win the crowd instead.' },
           { who: 'nightshade', text: 'Beat it in front of everyone, and no one will doubt which King is true.' },
-          { who: N, text: 'The true King descends to the palace field, where the whole League is watching.' },
+          { who: N, text: 'The true King descends to the Soccer Field, where the whole League is watching.' },
         ],
       },
       {
@@ -1324,7 +1324,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'tyrant', text: 'Everything stays somewhere. Until I want it.' },
         ],
         after: [
-          { who: N, text: 'The tide gate goes dark, and Tyrant King’s banner rises over Island Beach.' },
+          { who: N, text: 'Out past the lagoon, the tide gate goes dark, and Tyrant King’s banner rises over Island Beach.' },
           { who: N, text: 'With the beach stone in its vault, Tyrant King rides to its toll gate in Sandglass Pass.' },
         ],
       },
@@ -1341,7 +1341,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         ],
         after: [
           { who: 'pioneer', text: 'I’m writing this up! In detail! …Ow.' },
-          { who: 'tyrant', text: 'Write my name in big letters.' },
+          { who: 'tyrant', text: 'Write my name in big letters. On a tomb, if you like.' },
           { who: N, text: 'Mandrill keeps sending bills for the puller. Tyrant King goes to Neo City to settle up.' },
         ],
       },
@@ -1358,7 +1358,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'monoceros', text: 'Fine, a free fact, since you’re sitting on my head. You never got the Forge stone. It fell somewhere warm.' },
           { who: 'tyrant', text: '…The springs.' },
-          { who: N, text: 'Before the springs, word comes: the Baron is loading stolen vault stones at the cloud docks above the Snowfield. Tyrant goes after it.' },
+          { who: N, text: 'Before the springs, word comes: the Baron is loading stolen vault stones out on the Snowfield. Tyrant goes after it.' },
         ],
       },
       {
@@ -1367,15 +1367,15 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'snow',
         goal: 'Take your stolen stones back from the Baron.',
         before: [
-          { who: N, text: 'High in the cloud docks, the Crimson Baron is loading crates. Every crate is stamped with Tyrant’s seal.' },
+          { who: N, text: 'Out on the Snowfield, the Crimson Baron is loading crates. Every crate is stamped with Tyrant’s seal.' },
           { who: 'tyrant', text: 'My vault. My stones. You’re a dead ace, Baron.' },
           { who: 'baron', text: 'Darling! You found me. Smile for the crowd!' },
           { who: 'tyrant', text: 'I had you grounded once. This time I’ll have you scrapped.' },
         ],
         after: [
-          { who: 'baron', text: 'Too slow, dear. Those stones are already on their way up the Spire. Where your paws can’t reach.' },
+          { who: 'baron', text: 'Too slow, dear. This cellar’s empty. Those stones are already on their way up the Spire. Where your paws can’t reach.' },
           { who: 'tyrant', text: 'Nothing is out of my reach. Nothing.' },
-          { who: N, text: 'Tyrant King storms back to Sandglass Pass. Rex Saur is waiting at the gate, and it is not happy.' },
+          { who: N, text: 'Tyrant King storms up out of the ice, back to Sandglass Pass. Rex Saur is waiting there, and it is not happy.' },
         ],
       },
       {
@@ -1409,7 +1409,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       },
     ],
     ending: [
-      { who: N, text: 'Wyvern falls in its own pits, and the hellhound’s banner goes up over one more gate.' },
+      { who: N, text: 'Wyvern falls in its own pits, and the hellhound’s banner goes up over one more arena.' },
       { who: N, text: 'But when Tyrant King tears the hot springs apart, they are empty. A little lizard and its egg are long gone.' },
       { who: 'tyrant', text: 'Cold furnaces. A stone I can’t find. A Spire I can’t climb. …Yet.' },
       { who: 'tyrant', text: 'Gate after gate, my name. Next season, the Spire.' },
@@ -1454,9 +1454,9 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'rex', text: 'I ride for the fights, scrap pile.' },
         ],
         after: [
-          { who: 'dragon', text: 'You fought in the old wars. You of all bots should know what a gate means.' },
+          { who: 'dragon', text: 'You fought down here in the old wars. You of all bots should know what a gate means.' },
           { who: 'rex', text: '…Hmph. Don’t lecture your elders.' },
-          { who: N, text: 'Grumbling, Rex Saur wanders down to River Dusk to cool off. Fang Hound is there.' },
+          { who: N, text: 'Grumbling, Rex Saur wanders off to River Dusk to cool off. Fang Hound is there.' },
         ],
       },
       {
@@ -1481,13 +1481,13 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'sandglass',
         goal: 'Make Tyrant King answer for your gate.',
         before: [
-          { who: N, text: 'At Sandglass Pass, the gate stands dark and empty. Rex Saur remembers setting its stone.' },
+          { who: N, text: 'Far up Sandglass Pass, the old gate stands dark and empty. Rex Saur remembers setting its stone.' },
           { who: 'rex', text: 'I set that stone with my own jaws, before the treaty ink was dry. You pulled it out.' },
           { who: 'tyrant', text: 'Stones are just marbles, fossil. Ride with me or get out of my pass.' },
           { who: 'rex', text: 'Back in my day, we bit traitors.' },
         ],
         after: [
-          { who: 'rex', text: 'The Dino Kings are done. I fought one war to set these gates. I’ll fight another to keep ’em.' },
+          { who: 'rex', text: 'The Dino Kings are done. I buried my crew here after one war to set these gates. I’ll fight another to keep ’em.' },
           { who: N, text: 'To keep the gates, Rex needs to know what is missing. It climbs to the Crystal Court.' },
         ],
       },
@@ -1516,7 +1516,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         before: [
           { who: 'ember', text: 'Grandpa Rex! Did you come to play?!' },
           { who: 'rex', text: 'I am NOT your grandpa.' },
-          { who: 'ember', text: 'You came all the way to the springs! You missed me!' },
+          { who: 'ember', text: 'You came all the way to the Forge! You missed me!' },
           { who: 'rex', text: 'I came for that egg, kid. It’s not an egg. Hand it over and nobody gets bitten.' },
           { who: 'ember', text: 'Nooo! Play first!' },
         ],
@@ -1524,9 +1524,9 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       },
     ],
     ending: [
-      { who: N, text: 'Blossom tumbles into the hot springs, giggling, still hugging its egg tight.' },
+      { who: N, text: 'Blossom tumbles across the cracked floor of the Forge, giggling, still hugging its egg tight.' },
       { who: 'rex', text: 'Kids these days. …Fine. It was a good fight.' },
-      { who: 'rex', text: 'Keep it, little one. You kept it warmer than any furnace. Now take it home to the Forge.' },
+      { who: 'rex', text: 'Keep it, little one. You kept it warmer than any furnace. Now take it to the fire, where it belongs.' },
       { who: 'ember', text: 'Really?! Grandpa Rex, you’re the BEST!' },
       { who: 'rex', text: 'NOT your grandpa.' },
       { who: N, text: 'Rex Saur stomps home for another nap. It is smiling. A little.' },
@@ -1546,7 +1546,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'cyber',
         goal: 'Prove you answer to no one now.',
         before: [
-          { who: N, text: 'Fang Hound drifts into Neo City, looking for fights and a name of its own.' },
+          { who: N, text: 'Fang Hound drifts into the Neon District, looking for fights and a name of its own.' },
           { who: 'baron', text: 'A runaway guard! I could use a bodyguard.' },
           { who: 'liger', text: 'I don’t guard anyone anymore.' },
           { who: 'baron', text: 'Pity. My cargo’s very valuable. Keystones, darling, fresh from the hound’s vault.' },
@@ -1570,7 +1570,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'violet', text: 'You moved in front of a survey bot. Twice. You are still a guard, Fang.' },
           { who: 'liger', text: '…Don’t tell anyone.' },
-          { who: N, text: 'Fang Hound takes the cloud road above the palace. Closer to home than it will admit.' },
+          { who: N, text: 'Fang Hound heads back up to the open Snowfield, under the far palace. Closer to home than it will admit.' },
         ],
       },
       {
@@ -1579,7 +1579,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         arena: 'snow',
         goal: 'Measure yourself against the first frame.',
         before: [
-          { who: N, text: 'On the cloud road above the palace, Fang Hound meets the first frame ever built.' },
+          { who: N, text: 'On the open Snowfield, Fang Hound meets the first frame ever built.' },
           { who: 'liger', text: 'Seraph. Every frame is measured against you. Measure me.' },
           { who: 'angel', text: 'Measure yourself against what you are for, not against me.' },
           { who: 'liger', text: 'I’m for winning.' },
@@ -1603,7 +1603,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'nightshade', text: 'Then ask what a crown is for, before you put it on.' },
         ],
         after: [
-          { who: 'nightshade', text: 'The old crowns swore to keep the gates. A crown that keeps nothing is only metal.' },
+          { who: 'nightshade', text: 'That empty throne is your answer. The old crowns swore to keep the gates. A crown that keeps nothing is only metal.' },
           { who: 'liger', text: '…Then what am I keeping?' },
           { who: N, text: 'Then word comes: Tyrant King has a crown to give away, at the Lava Forge. Fang goes to see it.' },
         ],
@@ -1622,7 +1622,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         after: [
           { who: 'liger', text: 'I almost took it. That’s what scares me.' },
           { who: 'liger', text: 'The copy on the throne sells the gates. The hound buys them. There has to be a third way.' },
-          { who: N, text: 'Fang Hound heads home to the palace field, to call out the false King in front of the whole League.' },
+          { who: N, text: 'Fang Hound heads home to the Soccer Field, to call out the false King in front of the whole League.' },
         ],
       },
       {
@@ -1644,13 +1644,13 @@ export const STORY_PATHS: Record<string, StoryPath> = {
       { who: 'trueleo', text: 'You kept the palace gate, Fang, even when I could not.' },
       { who: 'liger', text: 'My King. …I earned my own crown. I’ll still guard yours.' },
       { who: 'trueleo', text: 'Not as my guard. As my equal.' },
-      { who: N, text: 'Side by side, two crowns ride out from the palace toward the nearest dark gate.' },
+      { who: N, text: 'Side by side, two crowns ride out from the Soccer Field toward the nearest dark gate.' },
     ],
   },
   ember: {
     title: 'Ooh, What Does This Do?',
     intro: [
-      { who: N, text: 'The smallest fighter in the League climbs out of the hot springs, ready for everything.' },
+      { who: N, text: 'Far from the hot springs it calls home, the smallest fighter in the League rolls into town, ready for everything.' },
       { who: N, text: 'It carries its favourite thing in the world: a warm, glowing egg it found the night the Forge burned.' },
       { who: 'ember', text: 'Ooh, what does THIS button do?' },
       { who: 'ember', text: 'Come on, egg! We’re going on an adventure!' },
@@ -1660,10 +1660,10 @@ export const STORY_PATHS: Record<string, StoryPath> = {
         title: 'Big Head, Big Buttons',
         foe: 'monoceros',
         arena: 'city',
-        goal: 'Find out what all the lab buttons do.',
+        goal: 'Find out what all Mandrill’s buttons do.',
         before: [
           { who: N, text: 'Blossom’s first stop is the brightest place it has heard of: Neo City, full of buttons.' },
-          { who: 'monoceros', text: 'A tiny lizard. In MY lab. Touching MY buttons.' },
+          { who: 'monoceros', text: 'A tiny lizard. On MY street. Touching MY cannon’s buttons.' },
           { who: 'ember', text: 'This one is orange! Orange is the best one!' },
           { who: 'monoceros', text: 'Do NOT press the— wait. What is that you’re holding?' },
           { who: 'ember', text: 'My egg! Isn’t it pretty?' },
@@ -1685,9 +1685,9 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'ember', text: 'I’ll take that as a yes!' },
         ],
         after: [
-          { who: N, text: 'Bastion steps back into the dark. Dozens of tiny survey bots peek out from behind its legs.' },
+          { who: N, text: 'Bastion steps back into the ruins. Dozens of tiny survey bots peek out from behind its legs.' },
           { who: 'ember', text: 'Oooh, you have friends too! Bye, friends!' },
-          { who: N, text: 'The forest stream runs down to Island Beach. Blossom follows it, chasing bubbles.' },
+          { who: N, text: 'Above these ruins, a stream runs down to Island Beach. Blossom can’t wait to chase its bubbles.' },
         ],
       },
       {
@@ -1714,7 +1714,7 @@ export const STORY_PATHS: Record<string, StoryPath> = {
           { who: 'baron', text: 'I collect shiny things for a very good cause. Smile for the crowd!' },
         ],
         after: [
-          { who: 'baron', text: 'All right, keep it. But that’s no egg, sweetheart. It’s the Lava Forge’s keystone. Its heart.' },
+          { who: 'baron', text: 'All right, keep it. You saw that old wall, sweetheart. That’s no egg. It’s the Lava Forge’s keystone. Its heart.' },
           { who: 'baron', text: 'The hound would pull your tail off for it. Take it home, and keep your head down.' },
           { who: 'ember', text: 'My egg is a… HEART?' },
         ],

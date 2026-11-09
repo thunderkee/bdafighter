@@ -1126,6 +1126,8 @@ export function boot() {
       // no WebGL to spare: the plain background stays
     }
   };
+  /** a talk's backdrop when it's happening down in a dungeon */
+  const UNDERGROUND = 'underground';
   const talkFace = new TalkFace();
   const moodOf = (t: string) => (/!/.test(t) ? 'shout' : /\?\s*$/.test(t) ? 'ask' : /^…|…$|\.\.\.$/.test(t.trim()) ? 'quiet' : 'say') as 'shout' | 'ask' | 'quiet' | 'say';
   let liveRow: HTMLElement | null = null;
@@ -1151,9 +1153,11 @@ export function boot() {
     row.querySelector('p')!.textContent = l.text;
     // (how it's said, from the line itself: a shout, a question, trailing off, or plain talk)
     const mood = moodOf(l.text);
-    // the speaker talks, live, in the newest bubble; the earlier ones keep a still of them
-    dlgStill();
-    if (!narr) {
+    // one line at a time: the speaker talks, live, in the only bubble on screen
+    liveRow = null;
+    chat.replaceChildren();
+    if (narr) talkFace.stop();
+    else {
       row.querySelector('b')!.textContent = characterById(id).name;
       row.querySelector('.cb-pic')!.append(talkFace.canvas);
       liveRow = row;
@@ -1161,8 +1165,6 @@ export function boot() {
       talkFace.show(id, mood);
     }
     chat.append(row);
-    // (the oldest lines scroll off the top)
-    while (chat.children.length > 12) chat.firstElementChild!.remove();
     // on the table: the camera cuts to the speaker (the narrator gets the wide shot); someone who
     // isn't in this fight still shows as a face
     const slot = narr || !dlgStaged ? -1 : game.shooters.findIndex((sh, k) => k < 2 && sh.active && whoOf(unitIds()[k]) === whoOf(id));
@@ -1198,7 +1200,8 @@ export function boot() {
     done?.();
   };
   const talk = (hero: string, head: string, title: string, lines: Line[], then: () => void, staged = false, goal?: Goal, arena?: string) => {
-    if (arena) setArena(dlg, arena);
+    dlg.classList.toggle('underground', arena === UNDERGROUND);
+    if (arena && arena !== UNDERGROUND) setArena(dlg, arena);
     else dlg.classList.remove('has-arena');
     dlgHero = hero;
     dlgLines = lines;
@@ -1412,7 +1415,10 @@ export function boot() {
       };
       box.addEventListener('click', go);
     };
-    if (lines?.length) talk(hero, 'EVOLUTION', characterById(hero).name.toUpperCase(), lines, reveal, false, undefined, pathOf(hero).chapters[story?.ch ?? 0]?.arena);
+    // (it happens where the last chapter ended: down in the dungeon, or in that arena)
+    const was_ = (story?.ch ?? 1) - 1;
+    const place = chapterMode(hero, was_) === 'dungeon' ? UNDERGROUND : pathOf(hero).chapters[was_]?.arena;
+    if (lines?.length) talk(hero, 'EVOLUTION', characterById(hero).name.toUpperCase(), lines, reveal, false, undefined, place);
     else reveal();
   };
   /** a chapter fought in Action: the talk over the backdrop, then straight into it */
@@ -1440,7 +1446,7 @@ export function boot() {
       goal: goalOf(hero, ch, mode).how,
       ...(script && {
         says: { enter: caption(script.enter), room: caption(script.room), key: caption(script.key), door: caption(script.door) },
-        bossTalk: (then: () => void) => talk(hero, `CHAPTER ${ch + 1} · THE BOTTOM`, c.title.toUpperCase(), script.boss, then, false, undefined, c.arena),
+        bossTalk: (then: () => void) => talk(hero, `CHAPTER ${ch + 1} · THE BOTTOM`, c.title.toUpperCase(), script.boss, then, true),
       }),
       closing: (then) => storyClosing(hero, ch, then),
       onEnd: (win) => {
@@ -1459,7 +1465,8 @@ export function boot() {
             showToast(`STORY COMPLETE // +${STORY_BONUS} XP`, 0xffc23d);
           } }, p.chapters.length - 1);
         };
-        if (c.after.length) talk(hero, `CHAPTER ${ch + 1} CLEAR`, c.title.toUpperCase(), c.after, next, false, undefined, c.arena);
+        // (a dungeon ends at the bottom of it, not back up in the arena)
+        if (c.after.length) talk(hero, `CHAPTER ${ch + 1} CLEAR`, c.title.toUpperCase(), c.after, next, false, undefined, mode === 'dungeon' ? UNDERGROUND : c.arena);
         else next();
       },
     };

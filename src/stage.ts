@@ -149,7 +149,7 @@ export const STAGES: StageDef[] = [
   },
   {
     id: 'cyber',
-    name: 'Cyberpunk',
+    name: 'Neon District',
     swatch: [0x14081f, 0xff2bd6],
     sky: 0x07030f,
     fog: [0x1a0828, 30, 80],

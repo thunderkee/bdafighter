@@ -3638,7 +3638,9 @@ export class ActionMode {
     if (r.kind === 'boss' && this.story?.bossTalk && !this.bossTalked) {
       this.bossTalked = true;
       this.paused = true;
+      this.el.classList.add('talking');
       this.story.bossTalk(() => {
+        this.el.classList.remove('talking');
         this.paused = false;
         this.last = performance.now();
       });

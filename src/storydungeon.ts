@@ -38,7 +38,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     },
     3: {
       bridge: [
-        { who: 'narrator', text: 'Leo King strikes the gate. A royal lift drops through the clouds, down into the ice below the Snowfield.' },
+        { who: 'narrator', text: 'Leo King strikes the ice. An old-war hatch grinds open, down into the dark below the Snowfield.' },
         { who: 'kabuto', text: 'The treaty’s secrets are kept cold. Follow, if you remember the way.' },
       ],
       enter: { who: 'narrator', text: 'The Frozen Caverns: the cold hall where the treaty’s stones were weighed.' },
@@ -91,7 +91,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     1: {
       bridge: [
         { who: 'monoceros', text: 'Read THIS clause, marshal!' },
-        { who: 'narrator', text: 'A panel slams open under Mandrill. It drops out of sight, and Pioneer dives in after it.' },
+        { who: 'narrator', text: 'A panel in the road slams open under Mandrill. It drops out of sight, and Pioneer dives in after it.' },
       ],
       enter: { who: 'pioneer', text: 'Neon Vault, under Neo City. No permit on file. Noted.' },
       room: { who: 'pioneer', text: 'Old-war map tables, still glowing. Someone’s been running off copies. Evidence.' },
@@ -107,9 +107,9 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     3: {
       bridge: [
         { who: 'kabuto', text: 'Read it where it was written, marshal. Below the field.' },
-        { who: 'narrator', text: 'The centre circle of the palace field sinks like a lift, down into the dark.' },
+        { who: 'narrator', text: 'The centre circle of the Soccer Field sinks like a lift, down into the dark.' },
       ],
-      enter: { who: 'pioneer', text: 'The Crypt, under the palace field. Rows of old marshals. Hats off.' },
+      enter: { who: 'pioneer', text: 'The Crypt, under the Soccer Field. Rows of old marshals. Hats off.' },
       room: { who: 'pioneer', text: 'Old marshals, buried with their rulebooks. Every one open at the last page.' },
       key: { who: 'pioneer', text: 'Key’s on a marshal’s belt. Sorry, sir. Signing it out.' },
       door: { who: 'pioneer', text: 'Sealed by royal order, three seasons ago. Noted for the file.' },
@@ -159,7 +159,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     1: {
       bridge: [
         { who: 'ember', text: 'Catch me! Catch me! Egg wants to go DOWN!' },
-        { who: 'narrator', text: 'Blossom hops into a crack in the cold pit. Mandrill, on very small legs, goes after it, complaining.' },
+        { who: 'narrator', text: 'Blossom hops into a crack in the Forge floor. Mandrill, on very small legs, goes after it, complaining.' },
       ],
       enter: { who: 'monoceros', text: 'Molten Depths: the Forge’s old-war foundry. Hot below, cold above. Curious.' },
       room: { who: 'monoceros', text: 'Every furnace line runs up to one empty socket. Note it.' },
@@ -261,9 +261,9 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     1: {
       bridge: [
         { who: 'kabuto', text: 'Kneel, then, where the old crowns kneel.' },
-        { who: 'narrator', text: 'The palace field splits along an old seam. The King descends, and Nightshade drifts down after it.' },
+        { who: 'narrator', text: 'The Soccer Field splits along an old seam. The King descends, and Nightshade drifts down after it.' },
       ],
-      enter: { who: 'nightshade', text: 'The Crypt beneath the palace. Every crown the League has buried.' },
+      enter: { who: 'nightshade', text: 'The Crypt beneath the Soccer Field. Every crown the League has buried.' },
       room: { who: 'nightshade', text: 'The old Kings lie here, each with its oath. They kept them.' },
       key: { who: 'nightshade', text: 'This key has dust on it. No King has come down in seasons.' },
       door: { who: 'nightshade', text: 'The King forced this door. Odd, for one who should hold its key.' },
@@ -295,7 +295,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     1: {
       bridge: [
         { who: 'pioneer', text: 'Those files are in the restricted vault, ma’am. You can’t go down there!' },
-        { who: 'narrator', text: 'Pioneer jumps in the lift to get there first. Silverback takes the stairs, and the door.' },
+        { who: 'narrator', text: 'Pioneer jumps down a service lift in the pavement to get there first. Silverback takes the stairs, and the door.' },
       ],
       enter: { who: 'violet', text: 'Neon Vault. Old-war records, and all these lights. Little ones would hide here.' },
       room: { who: 'violet', text: 'Old-war ledger. Every small bot, listed by size. Like parts.' },
@@ -363,7 +363,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     1: {
       bridge: [
         { who: 'baron', text: 'Private means downstairs, darling! Do wipe your feet.' },
-        { who: 'narrator', text: 'The Baron drops through a hangar floor with its ledger. The true King goes after it.' },
+        { who: 'narrator', text: 'The Baron drops through a hatch in the glowing street with its ledger. The true King goes after it.' },
       ],
       enter: { who: 'trueleo', text: 'The Neon Vault. I sealed this place myself. Someone has opened it.' },
       room: { who: 'trueleo', text: 'Old treaty rolls. My signature, and a forged one beneath it.' },
@@ -397,7 +397,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     1: {
       bridge: [
         { who: 'pioneer', text: 'The League’s title to this pass is in the crypt below. I’ll be fetching it!' },
-        { who: 'narrator', text: 'The marshal drops through the tollhouse hatch. Tyrant King, amused, tears the hatch off and follows.' },
+        { who: 'narrator', text: 'The marshal drops through a hatch in the sand. Tyrant King, amused, tears the hatch off and follows.' },
       ],
       enter: { who: 'tyrant', text: 'The Crypt. Old-war generals, rows of them. Not one name I know.' },
       room: { who: 'tyrant', text: 'Every tomb has a name on it. Soon I’ll have them recut.' },
@@ -413,7 +413,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     3: {
       bridge: [
         { who: 'baron', text: 'Mind the ice, darling. The loading chute’s quite steep!' },
-        { who: 'narrator', text: 'The Baron kicks its crates down the dock chute and slides after them, into the ice below the Snowfield.' },
+        { who: 'narrator', text: 'The Baron kicks its crates down an old ice chute and slides after them, into the dark below the Snowfield.' },
       ],
       enter: { who: 'tyrant', text: 'Frozen Caverns. The old-war cold store, and my crates sliding through it.' },
       room: { who: 'tyrant', text: 'Every gate’s name is cut into these shelves. Soon, only one name.' },
@@ -447,7 +447,7 @@ export const DUNGEON_SCRIPTS: Record<string, Record<1 | 3, DungeonScript>> = {
     3: {
       bridge: [
         { who: 'tyrant', text: 'Want your stone, fossil? Go down the hole it came out of.' },
-        { who: 'narrator', text: 'Tyrant King drops down the empty socket’s shaft. Rex Saur goes after it, teeth first.' },
+        { who: 'narrator', text: 'Tyrant King drops down a shaft in the floor of the Pass. Rex Saur goes after it, teeth first.' },
       ],
       enter: { who: 'rex', text: 'The Crypt, under my gate. We buried the setters here. All but me.' },
       room: { who: 'rex', text: 'Hmph. The bones are up and walking. Somebody’s been digging ’em out.' },
