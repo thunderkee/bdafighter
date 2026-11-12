@@ -3,7 +3,6 @@ import { fromGeometry, meshGeometry } from './meshkit';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Shooter } from './game';
 import { Flair } from './flair';
-import { FORM_SCALE } from './evolution';
 import { loadRoster, type Block, type ColorRef, type Role, type RosterData, type Traits, type UnitEntry, type V3 } from './roster';
 import shippedRoster from './roster-shipped.json';
 import { cachedPublished } from './published';
@@ -14,6 +13,7 @@ import { BOSSES, MONSTERS, PROPS } from './monsters';
 import { FITS } from './kits';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
+import { isPainted, paintedTexture, paintedUV } from './decals';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -1031,8 +1031,8 @@ export class ShooterMesh {
     // every unit is moulded plastic: soft gloss, a clear top coat catching the studio light
     this.mats = plasticize(this.root, def.matte, !!def.v21, def.armourTex);
     this.flair?.paint(this.mats);
-    // (the roster's sizes, and how much each form of an evolution has grown)
-    if (def.finish) this.fit.multiplyScalar((STATURE[def.id.replace(/-\d+$/, '')] ?? 1) * (FORM_SCALE[def.form ?? 0] ?? 1));
+    // (the roster's sizes; every form of an evolution stands the same)
+    if (def.finish) this.fit.multiplyScalar(STATURE[def.id.replace(/-\d+$/, '')] ?? 1);
     if (def.finishStill) this.root.scale.copy(this.fit);
   }
 
@@ -1759,13 +1759,14 @@ export class ShooterMesh {
       let mat = cache.get(key);
       if (!mat) {
         const common = {
-          color,
+          // (a painted block's picture already carries its colour)
+          color: isPainted(spec.tex) ? 0xffffff : color,
           side: spec.double ? THREE.DoubleSide : THREE.FrontSide,
           transparent: (spec.opacity ?? 1) < 1 || !!spec.additive,
           opacity: spec.opacity ?? 1,
           blending: spec.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
           depthWrite: !spec.additive,
-          map: spec.tex ? armourTexture(spec.tex as ArmourTex) : null,
+          map: spec.tex ? (isPainted(spec.tex) ? paintedTexture(spec.tex, def.palette, color) : armourTexture(spec.tex as ArmourTex)) : null,
         };
         if (spec.kind === 'basic') mat = new THREE.MeshBasicMaterial(common);
         else if (spec.kind === 'phong') mat = new THREE.MeshPhongMaterial({ ...common, shininess: 90, specular: 0xffffff });
@@ -1867,6 +1868,7 @@ export class ShooterMesh {
           break;
       }
     };
+    const painted: THREE.Mesh[] = [];
     const make = (b: Block, path: string): THREE.Object3D => {
       const o = b.shape === 'group' ? new THREE.Group() : new THREE.Mesh(blockGeometry(b), material(b.mat));
       o.position.fromArray(b.p);
@@ -1874,7 +1876,9 @@ export class ShooterMesh {
       o.scale.fromArray(b.s);
       o.userData.path = path;
       if (b.mat?.tex && b.shape !== 'group') {
-        projectPatternUV((o as THREE.Mesh).geometry, b.mat.texScale ?? 1);
+        // (a painted block is mapped once the model stands whole, so its front is the fighter's front)
+        if (isPainted(b.mat.tex)) painted.push(o as THREE.Mesh);
+        else projectPatternUV((o as THREE.Mesh).geometry, b.mat.texScale ?? 1);
         o.userData.texScale = b.mat.texScale ?? 1;
       }
       if (b.name) o.name = b.name;
@@ -1886,6 +1890,12 @@ export class ShooterMesh {
     // the top block is the root itself
     this.root.userData.path = 'r';
     (bp.children ?? []).forEach((c, i) => this.root.add(make(c, `r/${i}`)));
+    this.root.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(this.root.matrixWorld).invert();
+    for (const m of painted) {
+      const tex = (m.material as THREE.Material).userData.tex as string;
+      paintedUV(m.geometry, tex, m.userData.texScale ?? 1, new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
+    }
     // every model needs these, even if the design leaves them out
     if (!this.trigger) {
       this.trigger = new THREE.Object3D();

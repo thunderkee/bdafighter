@@ -3,7 +3,7 @@ import type { CharacterDef } from './robot';
 /**
  * Each fighter's evolution line: five forms on its own road, unlocked by levelling it up. The skin
  * slot holds them (standard, vanguard, striker, phantom, legend are forms I to V). Every form adds
- * armour from the fighter's own kit and grows; the last two change colour on the way to the final form.
+ * armour from the fighter's own kit and stays the same size; the last two change colour on the way to the final form.
  */
 export interface Line {
   /** forms II to V */
@@ -32,8 +32,6 @@ export const LINES: Record<string, Line> = {
 
 export const lineOf = (def: Pick<CharacterDef, 'id' | 'base'>): Line | undefined => LINES[def.id.replace(/-\d+$/, '')] ?? LINES[(def.base ?? def.id).replace(/-\d+$/, '')];
 
-/** how large each form stands */
-export const FORM_SCALE = [1, 1.05, 1.1, 1.17, 1.26];
 /** how far towards the final colours each form has come */
 const FORM_COLOUR = [0, 0, 0.15, 0.55, 1];
 

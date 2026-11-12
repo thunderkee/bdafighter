@@ -2125,9 +2125,14 @@ export function boot() {
   };
   /** the Customize tab: one slot at a time (skin, paint, marbles), its choices as tiles; locked ones show their level */
   let styleSlot: Slot = 'skin';
+  /** a locked choice tried on in the preview (not equipped), and whose */
+  let peek = '';
+  let peekFor = '';
   const SKIN_TIER = ['Form I', 'Form II', 'Form III', 'Form IV', 'Form V'];
   const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
   const showStyle = (id: string) => {
+    if (peekFor !== id) peek = '';
+    peekFor = id;
     const e = equipOf(id);
     const def = characterById(id);
     const skins = skinsOf(def);
@@ -2155,7 +2160,8 @@ export function boot() {
         sub = k ? (styleSlot === 'paint' ? 'Paint job' : 'Marbles') : 'Default';
       }
       const on = (e[styleSlot] ?? '') === o.v;
-      return `<button class="st-tile${on ? ' on' : ''}${o.ok ? '' : ' locked'}" data-v="${o.v}" ${o.ok ? '' : 'disabled'}>${art}<b>${o.name}</b><small>${o.ok ? sub : `🔒 LV ${o.lv}`}</small></button>`;
+      const peeking = !o.ok && peek === o.v;
+      return `<button class="st-tile${on ? ' on' : ''}${o.ok ? '' : ' locked'}${peeking ? ' trying' : ''}" data-v="${o.v}">${art}<b>${o.name}</b><small>${o.ok ? sub : peeking ? 'Previewing' : `🔒 LV ${o.lv}`}</small></button>`;
     };
     const tabs = (['skin', 'paint', 'marble'] as Slot[])
       .map((sl) => `<button data-slot="${sl}" class="${sl === styleSlot ? 'on' : ''}">${SLOT_NAME[sl]}</button>`)
@@ -2177,6 +2183,10 @@ export function boot() {
         b.addEventListener('click', () => {
           styleSlot = b.dataset.slot as Slot;
           sfx.play('tick', 0.4);
+          if (peek) {
+            peek = '';
+            preview.showUnit(id, mine(id));
+          }
           showStyle(id);
         }),
       );
@@ -2184,6 +2194,7 @@ export function boot() {
       .querySelectorAll<HTMLButtonElement>('.st-tile:not(.locked)')
       .forEach((b) =>
         b.addEventListener('click', () => {
+          peek = '';
           setEquip(id, styleSlot, b.dataset.v || undefined);
           sfx.play('tick', 0.5);
           preview.showUnit(id, mine(id));
@@ -2191,10 +2202,27 @@ export function boot() {
           applySettings();
         }),
       );
+    // a locked one can still be tried on: tap to see it on the fighter, tap again to go back
+    $('pv-style')
+      .querySelectorAll<HTMLButtonElement>('.st-tile.locked')
+      .forEach((b) =>
+        b.addEventListener('click', () => {
+          const v = b.dataset.v ?? '';
+          peek = peek === v ? '' : v;
+          sfx.play('tick', 0.4);
+          preview.showUnit(id, peek ? skinned(id, { ...equipOf(id), [styleSlot]: peek }) : mine(id));
+          showStyle(id);
+        }),
+      );
   };
   document.querySelectorAll<HTMLElement>('#info-tabs button').forEach((b) =>
     b.addEventListener('click', () => {
       infoTab = b.dataset.info as typeof infoTab;
+      // (leaving Customize puts back what's really on)
+      if (peek && infoTab !== 'style') {
+        peek = '';
+        preview.showUnit(saveData.settings.character, mine(saveData.settings.character));
+      }
       showInfo();
       if (infoTab === 'stats') replay($('pv-stats'), 'refill');
       if (infoTab === 'style') showStyle(saveData.settings.character);

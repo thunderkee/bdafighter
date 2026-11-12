@@ -8947,6 +8947,21 @@ body:not(.thumbs):not(.teaching) #pad .pad-right {
 .st-tile.locked .st-art.skin img {
   filter: brightness(0) drop-shadow(1px 0 0 #6f86d8) drop-shadow(-1px 0 0 #6f86d8);
 }
+/* a locked choice being tried on: still locked, but shown */
+.st-tile.locked {
+  cursor: pointer;
+}
+.st-tile.locked.trying {
+  box-shadow: 0 3px 0 var(--line), 0 0 0 3px var(--ui-gold);
+  outline: 2px dashed var(--line);
+  outline-offset: -6px;
+}
+.st-tile.locked.trying .st-art.skin img {
+  filter: none;
+}
+.st-tile.locked.trying small {
+  opacity: 1;
+}
 /* a story evolution: it charges, flashes white, and comes out changed */
 #story-evolve {
   position: absolute;

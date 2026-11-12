@@ -389,7 +389,7 @@ export class Flair {
     }
   }
 
-  /** the forms of an evolution: everything larger, then shards and a halo of light */
+  /** the forms of an evolution: shards, then a halo of light (every form stands the same size) */
   private orbit: THREE.Group | null = null;
   private backLight: THREE.Object3D[] = [];
   showBackLight(on: boolean) {
@@ -405,9 +405,6 @@ export class Flair {
       });
       return;
     }
-    const k = 1 + form * 0.09;
-    // (the fighter's own back shape grows with it)
-    for (const m of this.turret.children) if (m.userData.flair) m.scale.multiplyScalar(k);
     const c = def.palette;
     const body = new THREE.Box3().setFromObject(this.root);
     const top = body.max.y;
