@@ -5,7 +5,7 @@ import { InkOnly } from './post';
 import { ShooterMesh, characterById, playable, propModel, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
-import { BITE, CHARGE, DASH, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
+import { BITE, CHARGE, DASH, HEAD_SWEEP, chargeDash, showDashPips, spendDash, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
 import * as sfx from './audio';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
@@ -327,6 +327,15 @@ interface Unit {
   queue: { t: number; angle: number; o: Partial<Shot> }[];
   cubes: number;
   boss: boolean;
+  /** a dash: time left in it and its direction; and its three charges (see DASH) */
+  dashT: number;
+  dashX: number;
+  dashZ: number;
+  dashN: number;
+  dashFill: number;
+  dashGap: number;
+  /** a CPU's beat before it thinks about dashing again */
+  dashLook: number;
   // the CPU's mind
   think: number;
   target: Unit | null;
@@ -451,13 +460,9 @@ type Spark = { mesh: THREE.Mesh; v: THREE.Vector3; life: number; max: number; fl
 type Fx = { mesh: THREE.Mesh; t: number; life: number; step: (k: number, m: THREE.Mesh) => void };
 
 export class ActionMode {
-  /** your dash: asked for (DASH or X), time left in it, its direction, and the wait before the next */
+  /** you asked to dash (DASH or X) */
   private dashWanted = false;
-  private dashT = 0;
-  private dashX = 0;
-  private dashZ = 0;
-  private dashCd = 0;
-  /** its afterimages and speed streaks */
+  /** dash afterimages and speed streaks */
   private dashFx: DashFx | null = null;
   private el: HTMLElement;
   private canvas: HTMLCanvasElement;
@@ -639,7 +644,7 @@ export class ActionMode {
           <button class="icon-btn view ac-view" aria-label="Switch view">NEAR</button>
           <button class="ac-special" aria-label="Special move">SPECIAL</button>
           <!-- a quick burst the way the stick points (X on a keyboard) -->
-          <button class="ac-dash" aria-label="Dash">DASH</button>
+          <button class="ac-dash" aria-label="Dash">DASH<i class="dash-pips"><b></b><b></b><b></b></i></button>
           <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
         </div>
         <!-- the team modes: take over a teammate (its face shows who's next) -->
@@ -1762,6 +1767,13 @@ export class ActionMode {
       queue: [],
       cubes: 0,
       boss,
+      dashT: 0,
+      dashX: 0,
+      dashZ: 0,
+      dashN: DASH.charges,
+      dashFill: 0,
+      dashGap: 0,
+      dashLook: 0,
       think: Math.random() * 0.3,
       target: null,
       aimDelay: 0.4,
@@ -2580,28 +2592,14 @@ export class ActionMode {
       const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1) * (me.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       me.vx = mx * sp;
       me.vz = mz * sp;
-      // a dash: a quick burst the way the stick points (or the way you face), then a wait before the next
-      this.dashCd = Math.max(0, this.dashCd - dt);
-      if (this.dashWanted && this.dashCd <= 0 && me.stunT <= 0 && me.spT < 0) {
+      // a dash: a quick burst the way the stick points (or the way you face)
+      if (this.dashWanted) {
         const len = Math.hypot(mx, mz);
-        [this.dashX, this.dashZ] = len > 0.2 ? [mx / len, mz / len] : [Math.sin(me.face), -Math.cos(me.face)];
-        this.dashT = DASH.time;
-        this.dashCd = DASH.cooldown;
-        if (len <= 0.2) me.face = Math.atan2(this.dashX, -this.dashZ);
-        sfx.play('whoosh', 0.7);
-        this.burst(me.x - this.dashX * 0.4, 0.15, me.z - this.dashZ * 0.4, 0xdfe6ee, 20, 3.5, { size: 0.07 });
-        this.dashFx ??= new DashFx(this.scene);
-        this.dashFx.streaks({ x: me.x, z: me.z }, { x: this.dashX, z: this.dashZ }, 0.02, 0x6fe0ff, 0.35);
+        if (len > 0.2) this.startDash(me, mx, mz);
+        else this.startDash(me, Math.sin(me.face), -Math.cos(me.face));
       }
       this.dashWanted = false;
-      if (this.dashT > 0) {
-        this.dashT -= dt;
-        me.vx = this.dashX * DASH.speed;
-        me.vz = this.dashZ * DASH.speed;
-        // glowing afterimages along the way
-        this.dashFx?.dashing(me, me.wrap, 0x6fe0ff, dt);
-      } else this.dashFx?.stopped(me);
-      this.dashFx?.update(dt);
+      this.dashMove(me, dt);
       // the trigger: held on the aim stick (once dragged), the mouse button, or Space
       // FIRE held: at the nearest enemy, or wherever your thumb slides off the button to aim
       const a = this.aimStick;
@@ -2639,6 +2637,7 @@ export class ActionMode {
     if (this.kind === 'knockout') this.kRoundT += dt;
     for (const u of this.units) if (u.cpu && u.alive) this.think(u, dt);
     for (const u of this.units) this.tickUnit(u, dt);
+    this.dashFx?.update(dt);
     this.tickBoxes(dt);
     this.moveShots(dt);
     this.pickups();
@@ -2681,6 +2680,8 @@ export class ActionMode {
 
   private tickUnit(u: Unit, dt: number) {
     if (!u.alive) return;
+    chargeDash(u, dt);
+    u.dashLook = Math.max(0, u.dashLook - dt);
     u.reveal = Math.max(0, u.reveal - dt);
     u.slowT = Math.max(0, u.slowT - dt);
     u.stunT = Math.max(0, u.stunT - dt);
@@ -4138,6 +4139,11 @@ export class ActionMode {
         const agility = traitMul(u.def.traits?.agility, 'agility');
         dx += (s.vz / sp) * side * 1.4 * agility;
         dz += (-s.vx / sp) * side * 1.4 * agility;
+        // a close call: sometimes it dashes clear (nimbler fighters more often)
+        if (dist < 2.2 && u.dashLook <= 0) {
+          u.dashLook = 0.5;
+          if (Math.random() < 0.45 * agility) this.startDash(u, (s.vz / sp) * side, (-s.vx / sp) * side);
+        }
         break;
       }
     }
@@ -4163,11 +4169,48 @@ export class ActionMode {
       const sp = u.stunT > 0 ? 0 : u.speed * (u.slowT > 0 ? 0.5 : 1) * (u.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       u.vx = ax * sp;
       u.vz = az * sp;
+      if (u.dashT > 0) this.dashMove(u, dt);
       this.walk(u, u.vx * dt, u.vz * dt);
       if (!tgt) u.face = Math.atan2(ax, -az);
     } else {
       u.vx = u.vz = 0;
+      if (u.dashT > 0) {
+        this.dashMove(u, dt);
+        this.walk(u, u.vx * dt, u.vz * dt);
+      }
     }
+  }
+
+  /** start a dash the way (dx, dz) points, if one is charged */
+  private startDash(u: Unit, dx: number, dz: number) {
+    if (u.dashT > 0 || u.dashN <= 0 || u.dashGap > 0 || u.stunT > 0 || u.spT >= 0) return;
+    const len = Math.hypot(dx, dz) || 1;
+    u.dashX = dx / len;
+    u.dashZ = dz / len;
+    u.dashT = DASH.time;
+    spendDash(u);
+    u.face = Math.atan2(u.dashX, -u.dashZ);
+    sfx.play('whoosh', u === this.me ? 0.7 : 0.35);
+    this.burst(u.x - u.dashX * 0.4, 0.15, u.z - u.dashZ * 0.4, 0xdfe6ee, 20, 3.5, { size: 0.07 });
+    this.dashFx ??= new DashFx(this.scene);
+    this.dashFx.streaks({ x: u.x, z: u.z }, { x: u.dashX, z: u.dashZ }, 0.02, this.dashColor(u), 0.35);
+  }
+
+  /** while a dash lasts it sets the speed, and leaves afterimages */
+  private dashMove(u: Unit, dt: number) {
+    if (u.dashT <= 0) {
+      this.dashFx?.stopped(u);
+      return;
+    }
+    u.dashT -= dt;
+    u.vx = u.dashX * DASH.speed;
+    u.vz = u.dashZ * DASH.speed;
+    this.dashFx?.dashing(u, u.wrap, this.dashColor(u), dt);
+  }
+
+  /** your side's dashes glow cyan, the other side's orange */
+  private dashColor(u: Unit) {
+    return u.team === this.me?.team ? 0x6fe0ff : 0xff8a4a;
   }
 
   /** the next tile on the shortest walk to (tx, tz), round walls, crates and water */
@@ -4491,8 +4534,8 @@ export class ActionMode {
   // ---------- HUD and panels ----------
 
   private updateHud() {
-    // (DASH dims while it recharges)
-    this.hud.dash.classList.toggle('cooling', this.dashCd > 0);
+    // (DASH: a pip per charged dash, the next one filling; dim once all three are spent)
+    if (this.me) showDashPips(this.hud.dash, this.me);
     const title = this.hud.title;
     const alive = this.units.filter((u) => u.alive).length;
     const clock = (T: number) => {

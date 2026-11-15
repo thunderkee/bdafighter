@@ -1,7 +1,7 @@
 import { AI_PROFILES, ARENA, BALANCE, BALANCE_ARENA, MAG_ARENA, MAG_ARENA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { computeStats, STARTER_BUILD } from './parts';
-import { CHARGE, Game, MOVE_NAMES, SPIRIT_MOVES, SPIRIT_OF, STEP, chargeLevel, slotTeam, type Shooter } from './game';
+import { CHARGE, Game, MOVE_NAMES, SPIRIT_MOVES, SPIRIT_OF, STEP, chargeLevel, showDashPips, slotTeam, type Shooter } from './game';
 import { View } from './view';
 import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
@@ -3422,7 +3422,7 @@ export function boot() {
       }
       spBox[i].classList.toggle('broken', s.shieldLock > 0);
       // (DASH dims while it recharges)
-      if (i === 0) $('dash-btn').classList.toggle('cooling', s.dashCd > 0);
+      if (i === 0) showDashPips($('dash-btn'), s);
       // super meters: pips fill per hit, glow when the next shot is a super
       superPips[i].forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));
       superRows[i].classList.toggle('ready', s.superReady);

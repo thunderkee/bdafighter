@@ -36,7 +36,7 @@ export class AIController {
   private holdTime = 0;
   private shieldT = 0;
   private shieldCheck = 0;
-  private reactQueue: { at: number; target: number }[] = [];
+  private reactQueue: { at: number; target: number; dash: boolean }[] = [];
   private t = 0;
   /** seconds until it next considers charging a big shot */
   private chargeCool = rand(3, 6);
@@ -323,12 +323,20 @@ export class AIController {
       let side = px > me.x ? -1 : 1;
       const target = me.x + side * (danger + 0.4);
       if (target < me.lane[0] || target > me.lane[1]) side = -side;
-      this.reactQueue.push({ at: this.t + pr.reaction / this.agility, target: me.x + side * (danger + 0.4) });
+      // a dash: nearly always when walking won't get it clear before the marble arrives, and now and
+      // then on an easy dodge too, for show (sharper, nimbler CPUs more often)
+      const left = tHit - pr.reaction / this.agility;
+      const walkTime = (danger + 0.4) / Math.max(0.1, me.stats.moveSpeed * pr.moveSpeedMul);
+      const tight = walkTime > left * 0.9;
+      // (it has already chosen to dodge, so its skill isn't counted twice: only how nimble it is)
+      const dash = Math.random() < (tight ? 0.85 : 0.5) * Math.min(1.3, Math.max(0.7, this.agility));
+      this.reactQueue.push({ at: this.t + pr.reaction / this.agility, target: me.x + side * (danger + 0.4), dash });
     }
     for (let i = this.reactQueue.length - 1; i >= 0; i--) {
       if (this.reactQueue[i].at <= this.t) {
         this.dodgeTarget = this.reactQueue[i].target;
         this.dodgeTimer = 0.45;
+        if (this.reactQueue[i].dash) me.dashReq = true;
         this.reactQueue.splice(i, 1);
       }
     }

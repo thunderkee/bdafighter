@@ -5141,14 +5141,39 @@ body.arena-rules .spirit {
     background-position: 200% 0;
   }
 }
+/* the DASH key's charges: three pips under the word, each fills as it charges back */
+.dash-pips {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.dash-pips b {
+  --f: 0;
+  width: 16px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, currentColor calc(var(--f) * 100%), rgba(0, 0, 0, 0.25) calc(var(--f) * 100%));
+  opacity: 0.55;
+}
+.dash-pips b.on {
+  background: #6fe0ff;
+  box-shadow: 0 0 4px #6fe0ff;
+  opacity: 1;
+}
 /* SPECIAL over DASH in the action well: the well's own gap spaces them */
 body.arena-rules .pad-actions > #special-btn {
   margin-bottom: 0;
 }
 /* DASH, over the fire key: a slim key that dims while it recharges */
 .pad-right .pad-btn.dash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   width: 88px;
-  height: 40px;
+  height: 44px;
   border-radius: 14px;
   font: 400 14px var(--display);
   letter-spacing: 0.08em;
@@ -5160,7 +5185,7 @@ body.arena-rules .pad-actions > #special-btn {
 @media (max-width: 360px), (max-height: 700px) {
   .pad-right .pad-btn.dash {
     width: 70px;
-    height: 32px;
+    height: 38px;
     border-radius: 12px;
     font-size: 11px;
   }
@@ -5738,7 +5763,12 @@ body.cine-on #pad {
 }
 /* DASH, between SPECIAL and FIRE: a slim cream key that dims while it recharges */
 #action .ac-dash {
-  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  height: 42px;
   border: 3px solid var(--line);
   border-radius: 14px;
   background: linear-gradient(180deg, var(--case-hi), var(--case));

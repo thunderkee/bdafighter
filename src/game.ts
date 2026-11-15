@@ -318,11 +318,14 @@ export class Shooter {
   moveAxis = 0;
   moveTarget: number | null = null;
   firing = false;
-  /** asked to dash this tick (the DASH button or X); how long the dash has left, which way, and the wait before the next */
+  /** asked to dash this tick (the DASH button or X); how long the dash has left, and which way */
   dashReq = false;
   dashT = 0;
   dashDir: 1 | -1 = 1;
-  dashCd = 0;
+  /** dashes ready (three at most), the next one charging (0..1), and the beat before another */
+  dashN: number = DASH.charges;
+  dashFill = 0;
+  dashGap = 0;
   /** taking part in this match (enemy slots beyond the pack size are off) */
   active = true;
   /** knocked out mid-round while teammates fight on */
@@ -496,7 +499,8 @@ export class Shooter {
     this.moveTarget = null;
     this.firing = false;
     this.dashReq = false;
-    this.dashT = this.dashCd = 0;
+    this.dashT = this.dashFill = this.dashGap = 0;
+    this.dashN = DASH.charges;
     this.maxHealth = maxHealth;
     this.health = maxHealth;
     this.ammo = stats.capacity;
@@ -558,8 +562,43 @@ export const BITE = { radius: 1.6, mass: 3, damage: 1.8 };
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
 /** stepping forward: half way from the rail to the middle of the table, and how fast */
 export const ADVANCE = { depth: ARENA.railY / 2, speed: 9 };
-/** a dash: a quick burst along the rail (`time` s at `speed` m/s, about a third of it), then a wait before the next */
-export const DASH = { time: 0.15, speed: 17, cooldown: 0.8 };
+/**
+ * a dash: a quick burst along the rail (`time` s at `speed` m/s, about a third of it). Three in a
+ * row (`gap` s apart at the least), then they charge back one at a time, `recharge` s each.
+ */
+export const DASH = { time: 0.15, speed: 17, charges: 3, gap: 0.22, recharge: 1.2 };
+/** a robot's dashes: how many are ready, the next one charging (0..1) and the beat before another */
+export interface DashCharge {
+  dashN: number;
+  dashFill: number;
+  dashGap: number;
+}
+/** charge dashes back one at a time; true when one can go now */
+export function chargeDash(d: DashCharge, dt: number) {
+  d.dashGap = Math.max(0, d.dashGap - dt);
+  if (d.dashN < DASH.charges) {
+    d.dashFill += dt / DASH.recharge;
+    if (d.dashFill >= 1) {
+      d.dashN++;
+      d.dashFill = d.dashN < DASH.charges ? d.dashFill - 1 : 0;
+    }
+  } else d.dashFill = 0;
+  return d.dashN > 0 && d.dashGap <= 0;
+}
+/** spend one dash */
+export function spendDash(d: DashCharge) {
+  d.dashN--;
+  d.dashGap = DASH.gap;
+}
+/** the DASH key's three pips: lit per charged dash, the next one filling up; the key dims when none are left */
+export function showDashPips(btn: HTMLElement, d: DashCharge) {
+  const pips = btn.querySelectorAll<HTMLElement>('.dash-pips b');
+  pips.forEach((pip, k) => {
+    pip.classList.toggle('on', k < d.dashN);
+    pip.style.setProperty('--f', k === d.dashN ? String(d.dashFill) : k < d.dashN ? '1' : '0');
+  });
+  btn.classList.toggle('cooling', d.dashN <= 0);
+}
 
 export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 
@@ -1851,12 +1890,12 @@ export class Game {
     const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1) * (s.chillT > 0 ? 0.4 : 1) * (locked ? LOCK.moveMul : 1);
     const prevX = s.x;
     // a dash: the way it's moving or steering, else toward the middle of the rail
-    s.dashCd = Math.max(0, s.dashCd - adt);
-    if (s.dashReq && canAct && s.dashCd <= 0 && s.dashT <= 0) {
+    const canDash = chargeDash(s, adt);
+    if (s.dashReq && canAct && canDash && s.dashT <= 0) {
       const steer = s.moveAxis !== 0 ? s.moveAxis : s.moveTarget !== null && Math.abs(s.moveTarget - s.x) > 0.05 ? s.moveTarget - s.x : s.vx !== 0 ? s.vx : -s.x || 1;
       s.dashDir = steer > 0 ? 1 : -1;
       s.dashT = DASH.time;
-      s.dashCd = DASH.cooldown;
+      spendDash(s);
       // (a drag target would pull it straight back)
       if (s.moveTarget !== null) s.moveTarget = s.x + s.dashDir * DASH.time * DASH.speed;
       this.fx.push({ type: 'dash', slot: s.slot, dir: s.dashDir });
