@@ -13,7 +13,7 @@ import { BOSSES, MONSTERS, PROPS } from './monsters';
 import { FITS } from './kits';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
-import { isPainted, paintedTexture, paintedUV } from './decals';
+import { isKit, isPainted, isSheet, paintKit, paintedTexture, paintedUV, sheetUV } from './decals';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -1777,6 +1777,8 @@ export class ShooterMesh {
           mat = lam;
         }
         if (spec.tex) mat.userData.tex = spec.tex;
+        // (a painted block's own colour, for its picture)
+        if (isPainted(spec.tex)) mat.userData.base = color;
         cache.set(key, mat);
       }
       return mat;
@@ -1893,8 +1895,17 @@ export class ShooterMesh {
     this.root.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(this.root.matrixWorld).invert();
     for (const m of painted) {
-      const tex = (m.material as THREE.Material).userData.tex as string;
-      paintedUV(m.geometry, tex, m.userData.texScale ?? 1, new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
+      const mat = m.material as THREE.MeshLambertMaterial;
+      const tex = mat.userData.tex as string;
+      const place = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+      if (isKit(tex)) {
+        // every face panelled at its own size: a texture of its own
+        const own = mat.clone();
+        own.map = paintKit(m.geometry, tex, def.palette, mat.userData.base as number, place, (m.userData.path as string) ?? '');
+        m.material = own;
+        this.mats.push(own);
+      } else if (isSheet(tex)) sheetUV(m.geometry, tex, (m.userData.path as string) ?? '', place);
+      else paintedUV(m.geometry, tex, m.userData.texScale ?? 1, place);
     }
     // every model needs these, even if the design leaves them out
     if (!this.trigger) {

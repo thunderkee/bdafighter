@@ -289,6 +289,7 @@ export type Fx =
   | { type: 'pickup'; slot: number; item: ItemType }
   | { type: 'use'; slot: number; item: ItemType }
   | { type: 'heal'; slot: number; amount: number }
+  | { type: 'dash'; slot: number; dir: 1 | -1 }
   | { type: 'gate-pass'; x: number; y: number; gate: GateType; team: Team }
   | { type: 'gate-break'; x: number; y: number; gate: GateType }
   | { type: 'cover-hit'; x: number; y: number; idx: number }
@@ -317,6 +318,11 @@ export class Shooter {
   moveAxis = 0;
   moveTarget: number | null = null;
   firing = false;
+  /** asked to dash this tick (the DASH button or X); how long the dash has left, which way, and the wait before the next */
+  dashReq = false;
+  dashT = 0;
+  dashDir: 1 | -1 = 1;
+  dashCd = 0;
   /** taking part in this match (enemy slots beyond the pack size are off) */
   active = true;
   /** knocked out mid-round while teammates fight on */
@@ -489,6 +495,8 @@ export class Shooter {
     this.moveAxis = 0;
     this.moveTarget = null;
     this.firing = false;
+    this.dashReq = false;
+    this.dashT = this.dashCd = 0;
     this.maxHealth = maxHealth;
     this.health = maxHealth;
     this.ammo = stats.capacity;
@@ -550,6 +558,8 @@ export const BITE = { radius: 1.6, mass: 3, damage: 1.8 };
 const PASS = { start: 2.4, clear: 1.6, depth: 1.3, speed: 13 };
 /** stepping forward: half way from the rail to the middle of the table, and how fast */
 export const ADVANCE = { depth: ARENA.railY / 2, speed: 9 };
+/** a dash: a quick burst along the rail (`time` s at `speed` m/s, about a third of it), then a wait before the next */
+export const DASH = { time: 0.15, speed: 17, cooldown: 0.8 };
 
 export type Phase = 'countdown' | 'fight' | 'ko' | 'over';
 
@@ -1840,7 +1850,24 @@ export class Game {
     const locked = this.shooters.some((o) => o.team !== s.team && o.alive && o.lockT > 0 && o.lockSlot === s.slot);
     const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1) * (s.chillT > 0 ? 0.4 : 1) * (locked ? LOCK.moveMul : 1);
     const prevX = s.x;
-    if (canAct || this.phase === 'countdown') {
+    // a dash: the way it's moving or steering, else toward the middle of the rail
+    s.dashCd = Math.max(0, s.dashCd - adt);
+    if (s.dashReq && canAct && s.dashCd <= 0 && s.dashT <= 0) {
+      const steer = s.moveAxis !== 0 ? s.moveAxis : s.moveTarget !== null && Math.abs(s.moveTarget - s.x) > 0.05 ? s.moveTarget - s.x : s.vx !== 0 ? s.vx : -s.x || 1;
+      s.dashDir = steer > 0 ? 1 : -1;
+      s.dashT = DASH.time;
+      s.dashCd = DASH.cooldown;
+      // (a drag target would pull it straight back)
+      if (s.moveTarget !== null) s.moveTarget = s.x + s.dashDir * DASH.time * DASH.speed;
+      this.fx.push({ type: 'dash', slot: s.slot, dir: s.dashDir });
+      sfx.play('whoosh', s.slot === 0 ? 0.7 : 0.4);
+    }
+    s.dashReq = false;
+    if (s.dashT > 0) {
+      const step = Math.min(s.dashT, adt);
+      s.dashT -= step;
+      s.x += s.dashDir * DASH.speed * step;
+    } else if (canAct || this.phase === 'countdown') {
       if (s.moveTarget !== null) {
         const delta = Math.max(lo, Math.min(hi, s.moveTarget)) - s.x;
         const stepMax = speed * 1.6 * adt;

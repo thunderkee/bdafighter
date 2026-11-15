@@ -11,9 +11,9 @@ const TRIPLE_ANGLE = 0.42; // radians for the front-left / front-right fire butt
  *   right 60% of the screen — tap to fire, hold to charge a big shot, drag sideways to aim
  * Buttons layout: on-screen ◀ ▶ and FIRE replace the gesture zones.
  * Mouse (can be switched off): cursor aims, hold button to fire.
- * Keyboard: A/D or arrows move (or turn aim, per settings), Q/E nudge aim, Space fires.
+ * Keyboard: A/D or arrows move (or turn aim, per settings), Q/E nudge aim, Space fires, X dashes.
  */
-type PadButton = 'left' | 'right' | 'fire' | 'down' | 'fireL' | 'fireR';
+type PadButton = 'left' | 'right' | 'fire' | 'down' | 'fireL' | 'fireR' | 'dash';
 
 /**
  * On-screen pad that tracks every finger on it. Which button a finger holds
@@ -189,7 +189,11 @@ export class Input {
   onUseItem: (() => void) | null = null;
   settings: Settings = { ...DEFAULT_SETTINGS };
   /** held state of the on-screen buttons, refreshed from the pad every tick */
-  buttons = { left: false, right: false, fire: false, down: false, fireL: false, fireR: false };
+  buttons = { left: false, right: false, fire: false, down: false, fireL: false, fireR: false, dash: false };
+  /** the DASH button as last seen, so pressing it dashes once (holding it doesn't keep dashing) */
+  private dashWas = false;
+  /** X pressed since the last tick */
+  private dashKey = false;
   pad: PadTracker | null = null;
 
   private moveTouch: { id: number; x0: number; y0: number; s0: number } | null = null;
@@ -309,6 +313,7 @@ export class Input {
     this.first();
     if (['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && this.enabled) this.onUseItem?.();
+    if (e.code === 'KeyX' && !e.repeat && this.enabled) this.dashKey = true;
     this.keys.add(e.code);
   };
 
@@ -361,6 +366,10 @@ export class Input {
     p.shielding = b.down || !!this.pad?.pulled() || k.has('KeyS') || k.has('ArrowDown') || this.shieldDrag;
     // step forward: push the move finger away from you (or hold W / Up)
     p.advancing = !p.shielding && (!!this.pad?.pushed() || k.has('KeyW') || k.has('ArrowUp') || this.advanceDrag);
+    // dash: a press of the DASH button (or X), the way the robot is moving
+    if ((b.dash && !this.dashWas) || this.dashKey) p.dashReq = true;
+    this.dashWas = b.dash;
+    this.dashKey = false;
   }
 }
 

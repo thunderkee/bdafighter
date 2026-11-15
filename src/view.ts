@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DashFx } from './dashfx';
 import { ARENA, COLORS, MATCH } from './config';
 import { CHARGE, MAX_SHOOTERS, chargeLevel, slotTeam, type Drop, type Game, type Gate, type Team } from './game';
 
@@ -188,6 +189,9 @@ class RobotFx {
     this.ghostOf = src;
   }
 }
+
+/** a dash's glow: your side cool cyan, the other side hot orange */
+const dashColor = (slot: number) => (slotTeam(slot) === 0 ? 0x6fe0ff : 0xff8a4a);
 
 export class View {
   renderer: THREE.WebGLRenderer;
@@ -955,6 +959,15 @@ export class View {
           this.burst(s.x, s.y, ITEMS.heal.color, 40, 1, { h: 0.4, float: true, size: 0.09 });
           break;
         }
+        case 'dash': {
+          const s = g.shooters[f.slot];
+          // a kick of dust off the rail behind it, and speed streaks along the floor
+          this.burst(s.x - f.dir * 0.5, s.y, 0xdfe6ee, 22, 3.5, { h: 0.15, size: 0.08 });
+          const root = this.shooters[f.slot].root;
+          this.dashFx ??= new DashFx(this.scene);
+          this.dashFx.streaks({ x: root.position.x, z: root.position.z }, { x: f.dir, z: 0 }, 0.05, dashColor(f.slot), 0.45);
+          break;
+        }
       }
     }
     g.fx.length = 0;
@@ -1021,6 +1034,9 @@ export class View {
     });
   }
 
+  /** dash afterimages and streaks */
+  private dashFx: DashFx | null = null;
+
   render(dt: number, showAim: boolean) {
     const g = this.game;
     this.time += dt;
@@ -1029,6 +1045,14 @@ export class View {
     this.worldTime += wdt;
     this.glows.length = 0;
     this.handleFx();
+    // a dashing robot leaves glowing afterimages along its path
+    this.dashFx ??= new DashFx(this.scene);
+    g.shooters.forEach((s, i) => {
+      const sm = this.shooters[i];
+      if (s.dashT > 0 && sm && s.alive) this.dashFx!.dashing(i, sm.root, dashColor(i), dt);
+      else this.dashFx!.stopped(i);
+    });
+    this.dashFx.update(dt);
     this.stage.update(wdt, this.worldTime);
     // ammo boxes (Arena rules): a clear crate of 8 marbles, dropping in with a bounce
     const boxes = (this.game as { boxes?: { id: number; x: number; y: number; age: number }[] }).boxes ?? [];

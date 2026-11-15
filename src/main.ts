@@ -41,6 +41,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
 import('./published')
   .then(({ refreshPublished }) => refreshPublished())
   .catch(() => {})
+  // (the hand-painted fighter sheets, so no fighter is drawn before its paint is in)
+  .then(() => import('./decals'))
+  .then(({ sheetsReady }) => sheetsReady)
+  .catch(() => {})
   .then(() => import('./app'))
   .then(({ boot }) => boot())
   .catch((err) => {

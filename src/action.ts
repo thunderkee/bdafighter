@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import { DashFx } from './dashfx';
 import { celify } from './cel';
 import { InkOnly } from './post';
 import { ShooterMesh, characterById, playable, propModel, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
-import { BITE, CHARGE, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
+import { BITE, CHARGE, DASH, HEAD_SWEEP, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
 import * as sfx from './audio';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
@@ -450,6 +451,14 @@ type Spark = { mesh: THREE.Mesh; v: THREE.Vector3; life: number; max: number; fl
 type Fx = { mesh: THREE.Mesh; t: number; life: number; step: (k: number, m: THREE.Mesh) => void };
 
 export class ActionMode {
+  /** your dash: asked for (DASH or X), time left in it, its direction, and the wait before the next */
+  private dashWanted = false;
+  private dashT = 0;
+  private dashX = 0;
+  private dashZ = 0;
+  private dashCd = 0;
+  /** its afterimages and speed streaks */
+  private dashFx: DashFx | null = null;
   private el: HTMLElement;
   private canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
@@ -629,6 +638,8 @@ export class ActionMode {
           <!-- the view switch, where the other modes keep it: on top of the right thumb's group -->
           <button class="icon-btn view ac-view" aria-label="Switch view">NEAR</button>
           <button class="ac-special" aria-label="Special move">SPECIAL</button>
+          <!-- a quick burst the way the stick points (X on a keyboard) -->
+          <button class="ac-dash" aria-label="Dash">DASH</button>
           <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
         </div>
         <!-- the team modes: take over a teammate (its face shows who's next) -->
@@ -645,7 +656,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['say', 'swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['say', 'swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'dash', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -736,6 +747,11 @@ export class ActionMode {
     this.canvas.addEventListener('pointerdown', this.down);
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.hud.special.addEventListener('pointerdown', this.specialDown);
+    this.hud.dash.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dashWanted = true;
+    });
     this.hud.fire.addEventListener('pointerdown', this.fireDown);
     window.addEventListener('pointermove', this.pmove);
     window.addEventListener('pointerup', this.up);
@@ -979,6 +995,7 @@ export class ActionMode {
     for (const w of this.wrecks) this.dropWreck(w);
     this.wrecks = [];
     for (const sp of this.sparks) sp.mesh.removeFromParent();
+    this.dashFx?.clear();
     this.sparks = [];
     for (const f of this.fxs) f.mesh.removeFromParent();
     this.fxs = [];
@@ -2563,6 +2580,28 @@ export class ActionMode {
       const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1) * (me.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
       me.vx = mx * sp;
       me.vz = mz * sp;
+      // a dash: a quick burst the way the stick points (or the way you face), then a wait before the next
+      this.dashCd = Math.max(0, this.dashCd - dt);
+      if (this.dashWanted && this.dashCd <= 0 && me.stunT <= 0 && me.spT < 0) {
+        const len = Math.hypot(mx, mz);
+        [this.dashX, this.dashZ] = len > 0.2 ? [mx / len, mz / len] : [Math.sin(me.face), -Math.cos(me.face)];
+        this.dashT = DASH.time;
+        this.dashCd = DASH.cooldown;
+        if (len <= 0.2) me.face = Math.atan2(this.dashX, -this.dashZ);
+        sfx.play('whoosh', 0.7);
+        this.burst(me.x - this.dashX * 0.4, 0.15, me.z - this.dashZ * 0.4, 0xdfe6ee, 20, 3.5, { size: 0.07 });
+        this.dashFx ??= new DashFx(this.scene);
+        this.dashFx.streaks({ x: me.x, z: me.z }, { x: this.dashX, z: this.dashZ }, 0.02, 0x6fe0ff, 0.35);
+      }
+      this.dashWanted = false;
+      if (this.dashT > 0) {
+        this.dashT -= dt;
+        me.vx = this.dashX * DASH.speed;
+        me.vz = this.dashZ * DASH.speed;
+        // glowing afterimages along the way
+        this.dashFx?.dashing(me, me.wrap, 0x6fe0ff, dt);
+      } else this.dashFx?.stopped(me);
+      this.dashFx?.update(dt);
       // the trigger: held on the aim stick (once dragged), the mouse button, or Space
       // FIRE held: at the nearest enemy, or wherever your thumb slides off the button to aim
       const a = this.aimStick;
@@ -4452,6 +4491,8 @@ export class ActionMode {
   // ---------- HUD and panels ----------
 
   private updateHud() {
+    // (DASH dims while it recharges)
+    this.hud.dash.classList.toggle('cooling', this.dashCd > 0);
     const title = this.hud.title;
     const alive = this.units.filter((u) => u.alive).length;
     const clock = (T: number) => {
@@ -5103,6 +5144,7 @@ export class ActionMode {
     if (this.over || this.paused || !this.me?.alive) return;
     if (e.code === 'Space') this.keyFire = true;
     if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) this.special(this.me, this.autoAim());
+    if (e.code === 'KeyX' && !e.repeat) this.dashWanted = true;
     if (e.code === 'KeyV') this.cycleView();
     if (e.code === 'Escape') this.exit();
   };

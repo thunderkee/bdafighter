@@ -5141,6 +5141,30 @@ body.arena-rules .spirit {
     background-position: 200% 0;
   }
 }
+/* SPECIAL over DASH in the action well: the well's own gap spaces them */
+body.arena-rules .pad-actions > #special-btn {
+  margin-bottom: 0;
+}
+/* DASH, over the fire key: a slim key that dims while it recharges */
+.pad-right .pad-btn.dash {
+  width: 88px;
+  height: 40px;
+  border-radius: 14px;
+  font: 400 14px var(--display);
+  letter-spacing: 0.08em;
+  transition: opacity 0.15s;
+}
+.pad-right .pad-btn.dash.cooling {
+  opacity: 0.45;
+}
+@media (max-width: 360px), (max-height: 700px) {
+  .pad-right .pad-btn.dash {
+    width: 70px;
+    height: 32px;
+    border-radius: 12px;
+    font-size: 11px;
+  }
+}
 /* the SPECIAL button over FIRE: dim until the gauge is full, then it burns */
 #special-btn {
   display: none;
@@ -5711,6 +5735,26 @@ body.cine-on #pad {
 #action .ac-special.ready {
   background: linear-gradient(#ffd84a, #ff7a3a);
   animation: badge-pulse 0.9s ease-in-out infinite;
+}
+/* DASH, between SPECIAL and FIRE: a slim cream key that dims while it recharges */
+#action .ac-dash {
+  height: 36px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--case-hi), var(--case));
+  color: var(--line);
+  font: 400 14px var(--display);
+  letter-spacing: 0.08em;
+  box-shadow: 0 4px 0 var(--line);
+  pointer-events: auto;
+  transition: opacity 0.15s;
+}
+#action .ac-dash:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--line);
+}
+#action .ac-dash.cooling {
+  opacity: 0.45;
 }
 #action .ac-pop {
   position: absolute;

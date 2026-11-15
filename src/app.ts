@@ -685,8 +685,11 @@ export function boot() {
     document.body.classList.toggle('duo', duo);
     const cam = duo ? 'split' : st.camera;
     document.body.classList.toggle('arena-rules', arenaRules);
-    // (the special button sits over FIRE on the pad; with gestures it floats on the HUD)
-    if (arenaRules) (S().layout === 'buttons' ? document.querySelector('#pad .pad-fire.single')! : $('hud')).prepend($('special-btn'));
+    // (the special button sits over DASH and FIRE on the pad, as in the arena; with gestures it floats on the HUD)
+    if (arenaRules) {
+      if (S().layout === 'buttons') $('dash-btn').before($('special-btn'));
+      else $('hud').prepend($('special-btn'));
+    }
     if (view.cameraMode !== cam) {
       view.cameraMode = cam;
       view.resize();
@@ -3418,6 +3421,8 @@ export function boot() {
         }
       }
       spBox[i].classList.toggle('broken', s.shieldLock > 0);
+      // (DASH dims while it recharges)
+      if (i === 0) $('dash-btn').classList.toggle('cooling', s.dashCd > 0);
       // super meters: pips fill per hit, glow when the next shot is a super
       superPips[i].forEach((pip, k) => pip.classList.toggle('on', s.superReady || k < s.charge));
       superRows[i].classList.toggle('ready', s.superReady);

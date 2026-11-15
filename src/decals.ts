@@ -1,7 +1,11 @@
 import * as THREE from 'three';
+import SHEETS from './art/sheets.json';
+import seraphSheet from './art/seraph-sheet.webp';
+import trueLeoSheet from './art/true-leo-king-sheet.webp';
 
 /**
- * Painted textures for a block: small pixel-art pictures in full colour, drawn once on a canvas.
+ * Painted textures for a block: pictures in full colour, drawn once on a canvas: pixel art, or
+ * printed panel art drawn smooth at a high resolution like a model kit's decals.
  * Two kinds, named on a block's material as `tex`:
  *  - `decal:<name>` sits once across the block's front face (`decal:<name>@back` on its back face);
  *    every other face shows the block's own colour.
@@ -13,6 +17,8 @@ export interface Pal {
   /** the painted block's own colour, and a colour that reads on it for markings */
   base: string;
   mark: string;
+  /** a warm printing colour for numbers and warnings: the accent when it's a strong colour, else gold */
+  print: string;
   body: string;
   trim: string;
   accent: string;
@@ -24,6 +30,8 @@ interface Pic {
   w: number;
   h: number;
   draw: Painter;
+  /** drawn at a high resolution with smooth edges (printed panel art), not pixel art */
+  hi?: boolean;
 }
 
 // Leo King's colours
@@ -196,146 +204,320 @@ const LEO: Record<string, Pic> = {
   },
 };
 
-// ---- a 3x5 pixel font for unit numbers and short codes ----
+// ---- printed panel art: drawn at a high resolution with smooth edges, like a model kit's decals ----
+/** a squared stencil numeral set on a 3x5 grid */
 const GLYPH: Record<string, string> = {
   '0': '111101101101111',
-  '1': '010110010010111',
+  '1': '110010010010111',
   '2': '111001111100111',
   '3': '111001111001111',
   '4': '101101111001001',
   '5': '111100111001111',
   '6': '111100111101111',
-  '7': '111001010010010',
+  '7': '111001001001001',
   '8': '111101111101111',
   '9': '111101111001111',
 };
-type Px = (x: number, y: number, w: number, h: number, c: string) => void;
-/** write text at (x, y), each font pixel s by s */
-function text(px: Px, str: string, x: number, y: number, c: string, s = 1) {
+type G = CanvasRenderingContext2D;
+/** a number in the stencil face: each cell `c` across, a slight slant, chamfered outer corners */
+function numerals(g: G, str: string, x: number, y: number, c: number, col: string, slant = 0.12) {
+  g.save();
+  g.fillStyle = col;
+  g.transform(1, 0, -slant, 1, slant * (y + 2.5 * c), 0);
   for (const ch of str) {
     const gl = GLYPH[ch];
-    if (gl) for (let i = 0; i < 15; i++) if (gl[i] === '1') px(x + (i % 3) * s, y + Math.floor(i / 3) * s, s, s, c);
-    x += 4 * s;
+    if (gl)
+      for (let i = 0; i < 15; i++)
+        if (gl[i] === '1') g.fillRect(x + (i % 3) * c - 0.4, y + Math.floor(i / 3) * c - 0.4, c + 0.8, c + 0.8);
+    x += 3.7 * c;
+  }
+  g.restore();
+}
+const numW = (str: string, c: number) => (str.length * 3.7 - 0.7) * c;
+function rr(g: G, x: number, y: number, w: number, h: number, r: number, col: string) {
+  g.fillStyle = col;
+  g.beginPath();
+  g.roundRect(x, y, w, h, r);
+  g.fill();
+}
+/** a run of chevrons pointing right */
+function chevrons(g: G, x: number, y: number, h: number, n: number, col: string) {
+  g.fillStyle = col;
+  for (let k = 0; k < n; k++) {
+    const x0 = x + k * h * 0.75;
+    g.beginPath();
+    g.moveTo(x0, y);
+    g.lineTo(x0 + h * 0.4, y);
+    g.lineTo(x0 + h * 0.8, y + h / 2);
+    g.lineTo(x0 + h * 0.4, y + h);
+    g.lineTo(x0, y + h);
+    g.lineTo(x0 + h * 0.4, y + h / 2);
+    g.closePath();
+    g.fill();
   }
 }
-const textW = (str: string, s = 1) => str.length * 4 * s - s;
+/** a few lines of fine print */
+function print(g: G, x: number, y: number, w: number, n: number, col: string, lh = 4) {
+  g.fillStyle = col;
+  for (let k = 0; k < n; k++) g.fillRect(x, y + k * lh, w * (k % 3 === 2 ? 0.55 : k % 2 ? 0.8 : 1), lh * 0.5);
+}
+function hazard(g: G, x: number, y: number, w: number, h: number) {
+  g.save();
+  g.beginPath();
+  g.rect(x, y, w, h);
+  g.clip();
+  g.fillStyle = '#ffcf2e';
+  g.fillRect(x, y, w, h);
+  g.fillStyle = '#16141c';
+  for (let k = -h; k < w + h; k += h * 1.4) {
+    g.beginPath();
+    g.moveTo(x + k, y + h);
+    g.lineTo(x + k + h * 0.7, y + h);
+    g.lineTo(x + k + h * 1.4, y);
+    g.lineTo(x + k + h * 0.7, y);
+    g.closePath();
+    g.fill();
+  }
+  g.restore();
+}
+function gauge(g: G, cx: number, cy: number, r: number, face: string, tick: string, a: number) {
+  g.fillStyle = '#16141c';
+  g.beginPath();
+  g.arc(cx, cy, r + 2, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = face;
+  g.beginPath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = tick;
+  g.lineWidth = Math.max(1.5, r * 0.18);
+  g.beginPath();
+  g.arc(cx, cy, r * 0.7, Math.PI * 0.8, Math.PI * 1.9);
+  g.stroke();
+  g.strokeStyle = '#16141c';
+  g.lineWidth = Math.max(1.2, r * 0.12);
+  g.beginPath();
+  g.moveTo(cx, cy);
+  g.lineTo(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8);
+  g.stroke();
+}
+function vents(g: G, x: number, y: number, w: number, h: number, n: number, col: string, slot: string) {
+  rr(g, x, y, w, h, 2, col);
+  const step = h / n;
+  g.fillStyle = slot;
+  for (let k = 0; k < n; k++) g.fillRect(x + 3, y + k * step + step * 0.3, w - 6, step * 0.4);
+}
+/** a made-up machine-readable code block */
+function code(g: G, x: number, y: number, s: number, col: string, bg: string) {
+  rr(g, x - 2, y - 2, s + 4, s + 4, 1, bg);
+  g.fillStyle = col;
+  const n = 7;
+  const c = s / n;
+  let seed = 7;
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) {
+      seed = (seed * 9301 + 49297) % 233280;
+      const corner = (i < 2 && j < 2) || (i < 2 && j > 4) || (i > 4 && j < 2);
+      if (corner || seed / 233280 > 0.55) g.fillRect(x + i * c, y + j * c, c, c);
+    }
+}
+function star(g: G, cx: number, cy: number, r: number, col: string) {
+  g.fillStyle = col;
+  g.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5;
+    const rad = k % 2 ? r * 0.42 : r;
+    g.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+  }
+  g.closePath();
+  g.fill();
+}
 
-const HAZARD = '#ffd23e';
 const shade = (hex: string, k: number) => {
   const n = parseInt(hex.slice(1), 16);
   const f = (v: number) => Math.max(0, Math.min(255, Math.round(k < 1 ? v * k : v + (255 - v) * (k - 1))));
   return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => f(v).toString(16).padStart(2, '0')).join('')}`;
 };
 
-/** Seraph and its colourways: a numbered unit, panel lines, warnings and a cockpit hatch */
+/** the numbered units, Seraph (001) and True Leo King (002): numbers, warnings, gauges and labels */
 const UNIT: Record<string, Pic> = {
-  /** the chest plate: a star over the unit number, with panel lines */
+  /** the chest: the unit number on a plate, a star over it when the arg asks (`001*`) */
   chest: {
-    w: 30,
-    h: 20,
-    draw: (_g, px, c, num) => {
-      px(0, 0, 30, 20, c.base);
-      px(0, 0, 30, 1, shade(c.base, 1.25));
-      px(0, 19, 30, 1, shade(c.base, 0.7));
+    w: 160,
+    h: 110,
+    hi: true,
+    draw: (g, _px, c, arg) => {
+      const num = arg.replace('*', '');
+      const plate = shade(c.base, 0.86);
       // panel seams
-      px(4, 2, 1, 16, shade(c.base, 0.78));
-      px(25, 2, 1, 16, shade(c.base, 0.78));
-      // the star
-      px(14, 2, 2, 1, c.mark);
-      px(13, 3, 4, 1, c.mark);
-      px(10, 4, 10, 1, c.mark);
-      px(12, 5, 6, 1, c.mark);
-      px(12, 6, 2, 1, c.mark);
-      px(16, 6, 2, 1, c.mark);
-      // the number on a dark plate
-      const w = textW(num, 2);
-      const x = Math.round((30 - w) / 2);
-      px(x - 2, 8, w + 4, 12, shade(c.base, 0.82));
-      text(px, num, x, 9, c.mark, 2);
+      g.fillStyle = shade(c.base, 0.72);
+      g.fillRect(10, 8, 3, 94);
+      g.fillRect(147, 8, 3, 94);
+      g.fillRect(16, 100, 128, 3);
+      if (arg.includes('*')) star(g, 80, 22, 13, c.mark);
+      const cell = 8;
+      const w = numW(num, cell);
+      rr(g, 80 - w / 2 - 9, 40, w + 18, cell * 5 + 12, 5, plate);
+      numerals(g, num, 80 - w / 2, 46, cell, c.mark);
+      // a small warning tick each side
+      chevrons(g, 24, 52, 11, 2, plate);
+      g.save();
+      g.translate(160, 0);
+      g.scale(-1, 1);
+      chevrons(g, 24, 52, 11, 2, plate);
+      g.restore();
     },
   },
-  /** the helmet's face: a crest of chevrons up the forehead, vents and a code block */
+  /** the helmet's front: a crest of chevrons up the forehead, vents either side */
   helm: {
-    w: 26,
-    h: 22,
-    draw: (_g, px, c) => {
-      px(0, 0, 26, 22, c.base);
-      px(0, 21, 26, 1, shade(c.base, 0.82));
-      // the crest stripe and its chevrons
-      px(11, 0, 4, 12, c.mark);
-      for (let y = 2; y < 11; y += 3) {
-        px(9, y, 2, 1, c.mark);
-        px(15, y, 2, 1, c.mark);
-        px(12, y, 2, 1, c.base);
+    w: 128,
+    h: 110,
+    hi: true,
+    draw: (g, _px, c) => {
+      g.fillStyle = c.print;
+      g.fillRect(52, 0, 24, 60);
+      for (let k = 0; k < 4; k++) {
+        const y = 8 + k * 12;
+        g.fillStyle = c.base;
+        g.beginPath();
+        g.moveTo(56, y);
+        g.lineTo(64, y + 6);
+        g.lineTo(72, y);
+        g.lineTo(72, y + 4);
+        g.lineTo(64, y + 10);
+        g.lineTo(56, y + 4);
+        g.closePath();
+        g.fill();
       }
-      // side vents
-      for (let y = 4; y < 10; y += 2) {
-        px(2, y, 4, 1, c.joint);
-        px(20, y, 4, 1, c.joint);
-      }
-      // a little code block
-      px(20, 13, 4, 4, c.joint);
-      px(21, 14, 1, 1, c.base);
-      px(22, 15, 1, 1, c.base);
-      px(2, 14, 3, 1, c.mark);
+      chevrons(g, 14, 22, 10, 2, c.print);
+      g.save();
+      g.translate(128, 0);
+      g.scale(-1, 1);
+      chevrons(g, 14, 22, 10, 2, c.print);
+      g.restore();
     },
   },
-  /** a shoulder pad: banded top and bottom, the unit number on every side */
+  /** a side of the head: a code block and a line of print */
+  tag: {
+    w: 96,
+    h: 96,
+    hi: true,
+    draw: (g, _px, c) => {
+      code(g, 56, 30, 22, '#16141c', shade(c.base, 1.15));
+      print(g, 20, 34, 26, 4, shade(c.base, 0.62), 5);
+    },
+  },
+  /** a shoulder pad: the number large, a chevron run and a label over it, thin bands */
   pad: {
-    w: 15,
-    h: 14,
-    draw: (_g, px, c, num) => {
-      px(0, 0, 15, 14, c.base);
-      px(0, 0, 15, 1, c.mark);
-      px(0, 12, 15, 2, c.mark);
-      px(0, 11, 15, 1, shade(c.base, 0.82));
-      // a warning dash run
-      for (let x = 1; x < 14; x += 3) px(x, 3, 2, 1, c.mark);
-      const w = textW(num);
-      text(px, num, Math.round((15 - w) / 2), 5, c.mark);
+    w: 128,
+    h: 120,
+    hi: true,
+    draw: (g, _px, c, num) => {
+      g.fillStyle = c.print;
+      g.fillRect(0, 0, 128, 7);
+      g.fillRect(0, 108, 128, 12);
+      g.fillStyle = shade(c.base, 0.8);
+      g.fillRect(0, 104, 128, 3);
+      chevrons(g, 72, 20, 11, 3, c.print);
+      print(g, 22, 21, 36, 3, shade(c.base, 0.62), 4);
+      const cell = 7;
+      const w = numW(num, cell);
+      numerals(g, num, 64 - w / 2, 46, cell, c.print);
     },
   },
-  /** the back hatch: hazard stripes, two gauges, buttons, a screen and vents */
+  /** the back: a framed hatch, hazard band, three gauges, a screen, vents */
   hatch: {
-    w: 24,
-    h: 22,
-    draw: (_g, px, c) => {
-      px(0, 0, 24, 22, c.joint);
-      px(0, 0, 24, 1, shade(c.joint, 1.6));
-      // hazard band
-      for (let x = 0; x < 24; x += 4) {
-        px(x, 2, 2, 3, HAZARD);
-        px(x + 2, 2, 2, 3, '#1a1a1a');
+    w: 128,
+    h: 132,
+    hi: true,
+    draw: (g, _px, c) => {
+      rr(g, 8, 6, 112, 120, 6, '#2e2c38');
+      rr(g, 13, 11, 102, 110, 4, '#e4ded0');
+      hazard(g, 18, 16, 92, 10);
+      rr(g, 18, 31, 92, 36, 3, '#1f1d27');
+      gauge(g, 34, 49, 11, '#f2f0ea', c.print, 2.2);
+      gauge(g, 64, 49, 11, '#f2f0ea', '#3ac8ff', 0.4);
+      gauge(g, 94, 49, 11, '#f2f0ea', '#ff5a3a', -0.6);
+      rr(g, 48, 72, 32, 12, 2, '#16141c');
+      g.fillStyle = c.eye;
+      g.fillRect(51, 75, 26, 6);
+      for (const [x, col] of [[24, '#3aff6a'], [32, '#ffcf2e'], [96, '#ff3a4a'], [104, '#3ac8ff']] as const) {
+        g.fillStyle = col;
+        g.fillRect(x, 75, 5, 5);
       }
-      // gauges
-      px(3, 7, 6, 5, '#e8ecf0');
-      px(5, 8, 2, 3, c.eye);
-      px(15, 7, 6, 5, '#e8ecf0');
-      px(17, 8, 2, 3, c.accent);
-      // buttons and a screen
-      px(10, 7, 4, 3, c.eye);
-      px(10, 11, 1, 1, '#ff3a4a');
-      px(13, 11, 1, 1, '#3aff6a');
-      // vents
-      for (let y = 14; y < 20; y += 2) {
-        px(3, y, 7, 1, shade(c.joint, 0.5));
-        px(14, y, 7, 1, shade(c.joint, 0.5));
-      }
-      px(11, 15, 2, 4, c.accent);
+      vents(g, 20, 89, 36, 26, 5, '#2e2c38', '#0e0d12');
+      vents(g, 72, 89, 36, 26, 5, '#2e2c38', '#0e0d12');
+      rr(g, 58, 96, 12, 12, 2, c.print);
     },
   },
-  /** a shin or foot plate: a chevron band and a line of small print */
+  /** a side of the chest: a handheld-style unit with a screen and a row of lights */
+  device: {
+    w: 96,
+    h: 110,
+    hi: true,
+    draw: (g, _px, c) => {
+      rr(g, 26, 14, 44, 82, 6, '#2e2c38');
+      rr(g, 31, 19, 34, 40, 3, '#e4ded0');
+      rr(g, 35, 23, 26, 32, 2, '#16141c');
+      g.fillStyle = c.eye;
+      g.fillRect(38, 27, 20, 4);
+      g.fillStyle = '#3ac8ff';
+      g.fillRect(38, 35, 14, 3);
+      g.fillRect(38, 41, 18, 3);
+      for (const [k, col] of ['#3aff6a', '#ffcf2e', '#ff3a4a', '#3aff6a'].entries()) {
+        g.fillStyle = col;
+        g.fillRect(34 + k * 8, 66, 5, 5);
+      }
+      print(g, 34, 78, 28, 3, '#8a8696', 4);
+    },
+  },
+  /** a shin: a dark label with a crest and print, a warning tick at the foot */
   shin: {
-    w: 16,
-    h: 16,
-    draw: (_g, px, c) => {
-      px(0, 0, 16, 16, c.base);
-      px(0, 15, 16, 1, shade(c.base, 0.8));
-      px(3, 4, 10, 2, c.mark);
-      px(5, 6, 6, 1, c.mark);
-      px(7, 7, 2, 1, c.mark);
-      for (let x = 3; x < 13; x += 2) px(x, 11, 1, 1, c.joint);
-      px(3, 13, 6, 1, c.joint);
+    w: 96,
+    h: 110,
+    hi: true,
+    draw: (g, _px, c) => {
+      rr(g, 24, 16, 48, 46, 5, '#1f1d27');
+      g.strokeStyle = c.print;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(48, 32, 9, 0, Math.PI * 2);
+      g.stroke();
+      star(g, 48, 32, 5, c.print);
+      print(g, 31, 47, 34, 3, '#8a8696', 4);
+      g.fillStyle = c.print;
+      g.fillRect(24, 70, 48, 4);
+      g.beginPath();
+      g.moveTo(36, 82);
+      g.lineTo(60, 82);
+      g.lineTo(48, 94);
+      g.closePath();
+      g.fill();
+    },
+  },
+  /** an upper arm: a chevron run and a short label */
+  arm: {
+    w: 96,
+    h: 96,
+    hi: true,
+    draw: (g, _px, c) => {
+      chevrons(g, 20, 30, 14, 3, c.print);
+      print(g, 20, 56, 44, 3, shade(c.base, 0.62), 5);
+    },
+  },
+  /** a hip plate: a gold warning triangle */
+  hip: {
+    w: 64,
+    h: 64,
+    hi: true,
+    draw: (g, _px, c) => {
+      g.fillStyle = c.print;
+      g.beginPath();
+      g.moveTo(16, 22);
+      g.lineTo(48, 22);
+      g.lineTo(32, 44);
+      g.closePath();
+      g.fill();
     },
   },
 };
@@ -343,11 +525,14 @@ const UNIT: Record<string, Pic> = {
 const PICS: Record<string, Pic> = { ...LEO, ...UNIT };
 
 const cache = new Map<string, THREE.Texture>();
-const SPARE = 2;
+/** printed art is drawn at twice its size, for clean edges up close */
+const HI = 2;
 const hex = (n: number) => `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
 
 /** is this a painted texture name (rather than a tonal armour pattern)? */
-export const isPainted = (tex: string | undefined) => !!tex && (tex.startsWith('decal:') || tex.startsWith('paint:'));
+export const isPainted = (tex: string | undefined) => !!tex && (tex.startsWith('decal:') || tex.startsWith('paint:') || tex.startsWith('sheet:') || isKit(tex));
+/** a kit block's texture is made for the block itself, once the model stands whole (see paintKit) */
+export const isKit = (tex: string | undefined) => !!tex && (tex === 'kit' || tex.startsWith('kit+'));
 
 /**
  * `decal:<name>[~<arg>][@<faces>]`, several joined with `+` for different pictures on different
@@ -370,50 +555,76 @@ const parse = (tex: string) => {
   }
   return { kind, parts };
 };
-/** a decal's pictures sit side by side, then the spare columns of the block's own colour */
+/**
+ * a decal's pictures side by side on one sheet, a gap of the block's colour between them (so
+ * smooth filtering doesn't bleed one into the next), then spare columns of it for the bare faces
+ */
 const sheet = (parts: Part[]) => {
-  const W = parts.reduce((n, p) => n + p.pic.w, 0) + SPARE;
-  const H = Math.max(...parts.map((p) => p.pic.h));
-  return { W, H };
+  const hi = parts.some((p) => p.pic.hi);
+  const gap = hi ? 8 : 0;
+  const spare = hi ? 8 : 2;
+  let x = 0;
+  const at = parts.map((p) => {
+    const k = p.pic.hi ? HI : 1;
+    const r = { x, w: p.pic.w * k, h: p.pic.h * k, k };
+    x += r.w + gap;
+    return r;
+  });
+  return { at, W: x + spare, H: Math.max(...at.map((r) => r.h)), spare, hi };
 };
 
 const lum = (n: number) => (0.3 * ((n >> 16) & 255) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255)) / 255;
 export function paintedTexture(tex: string, palette: { body: number; trim: number; accent: number; joint: number; eye: number }, base: number) {
+  if (isKit(tex)) return null;
+  if (tex.startsWith('sheet:')) return sheetTexture(tex);
   const { kind, parts } = parse(tex);
   if (!parts.length) return null;
   const tile = kind === 'paint';
   // markings: the first of accent, body or cream that stands out from the block
   const mark = [palette.accent, palette.body, 0xf2ead8].find((c) => Math.abs(lum(c) - lum(base)) > 0.25) ?? 0xf2ead8;
-  const pal: Pal = { base: hex(base), mark: hex(mark), body: hex(palette.body), trim: hex(palette.trim), accent: hex(palette.accent), joint: hex(palette.joint), eye: hex(palette.eye) };
+  // printing: the accent if it's a strong colour that shows on the block, else gold, else the marking colour
+  const sat = (n: number) => {
+    const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    return (Math.max(...ch) - Math.min(...ch)) / 255;
+  };
+  const prn = [sat(palette.accent) > 0.3 ? palette.accent : -1, 0xf2b440].find((c) => c >= 0 && Math.abs(lum(c) - lum(base)) > 0.18) ?? mark;
+  const pal: Pal = { base: hex(base), mark: hex(mark), print: hex(prn), body: hex(palette.body), trim: hex(palette.trim), accent: hex(palette.accent), joint: hex(palette.joint), eye: hex(palette.eye) };
   const key = `${tex}|${Object.values(pal).join('')}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const c = document.createElement('canvas');
-  const { W, H } = tile ? { W: parts[0].pic.w, H: parts[0].pic.h } : sheet(parts);
-  c.width = W;
-  c.height = H;
+  const sh = tile ? { at: [{ x: 0, w: parts[0].pic.w, h: parts[0].pic.h, k: 1 }], W: parts[0].pic.w, H: parts[0].pic.h, hi: false } : sheet(parts);
+  c.width = sh.W;
+  c.height = sh.H;
   const g = c.getContext('2d')!;
   g.fillStyle = pal.base;
-  g.fillRect(0, 0, W, H);
-  let x0 = 0;
-  for (const part of tile ? parts.slice(0, 1) : parts) {
-    const ox = x0;
+  g.fillRect(0, 0, sh.W, sh.H);
+  sh.at.forEach((r, n) => {
+    const part = parts[n];
+    g.save();
+    g.translate(r.x, 0);
+    g.scale(r.k, r.k);
     part.pic.draw(
       g,
       (x, y, w, h, col) => {
         g.fillStyle = col;
-        g.fillRect(ox + x, y, w, h);
+        g.fillRect(x, y, w, h);
       },
       pal,
       part.arg,
     );
-    x0 += part.pic.w;
-  }
+    g.restore();
+  });
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
-  t.generateMipmaps = false;
+  if (sh.hi) {
+    // printed art: smooth, and kept sharp at a glancing angle
+    t.anisotropy = 4;
+  } else {
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+  }
   if (tile) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   cache.set(key, t);
   return t;
@@ -447,15 +658,14 @@ export function paintedUV(g: THREE.BufferGeometry, tex: string, scale = 1, place
       else uv.set([x * ku, y * kv], i * 2);
     }
   } else {
-    const { W, H } = sheet(parts);
+    const { at: rects, W, H, spare } = sheet(parts);
     // which picture a side shows, and where that picture sits on the sheet
     const owner: Record<string, { u0: number; du: number; v0: number; dv: number }> = {};
-    let x0 = 0;
-    for (const part of parts) {
-      const at = { u0: x0 / W, du: part.pic.w / W, v0: 1 - part.pic.h / H, dv: part.pic.h / H };
+    parts.forEach((part, n) => {
+      const r = rects[n];
+      const at = { u0: r.x / W, du: r.w / W, v0: 1 - r.h / H, dv: r.h / H };
       for (const sd of part.faces === 'ring' ? ['front', 'back', 'xpos', 'xneg'] : [part.faces]) owner[sd] ??= at;
-      x0 += part.pic.w;
-    }
+    });
     const span = (a: number, lo: number, hi: number) => (a - lo) / (hi - lo || 1);
     const sideOf = (i: number) => {
       const [nx, nz] = [nor.getX(i), nor.getZ(i)];
@@ -469,7 +679,7 @@ export function paintedUV(g: THREE.BufferGeometry, tex: string, scale = 1, place
       if (sd && owner[sd]) (boxes[sd] ??= new THREE.Box3()).expandByPoint(v3.fromBufferAttribute(pos, i));
     }
     // (the spare columns of the block's colour)
-    const cu = 1 - SPARE / 2 / W;
+    const cu = 1 - spare / 2 / W;
     for (let i = 0; i < pos.count; i++) {
       const sd = sideOf(i);
       const at = sd ? owner[sd] : undefined;
@@ -485,4 +695,352 @@ export function paintedUV(g: THREE.BufferGeometry, tex: string, scale = 1, place
     }
   }
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
+// ---- kit: every face of a block panelled like a model kit, each face drawn to its own size ----
+
+/** a conical lab flask in a ring: the makers' mark */
+function flask(g: G, cx: number, cy: number, r: number, col: string) {
+  g.strokeStyle = col;
+  g.fillStyle = col;
+  g.lineWidth = Math.max(1, r * 0.12);
+  g.beginPath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.stroke();
+  g.beginPath();
+  g.moveTo(cx - r * 0.18, cy - r * 0.62);
+  g.lineTo(cx + r * 0.18, cy - r * 0.62);
+  g.lineTo(cx + r * 0.18, cy - r * 0.15);
+  g.lineTo(cx + r * 0.55, cy + r * 0.5);
+  g.lineTo(cx - r * 0.55, cy + r * 0.5);
+  g.lineTo(cx - r * 0.18, cy - r * 0.15);
+  g.closePath();
+  g.fill();
+}
+
+/** a small, steady number from a string, for choosing a face's details the same way every time */
+function hash(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296;
+}
+
+/** a panelled face, w by h pixels: an inset panel line, a seam on a long face, rivets, and maybe one detail */
+function panel(g: G, w: number, h: number, c: Pal, seed: string) {
+  g.fillStyle = c.base;
+  g.fillRect(0, 0, w, h);
+  if (w < 14 || h < 14) return;
+  const line = shade(c.base, 0.66);
+  const inset = Math.max(4, Math.min(w, h) * 0.07);
+  g.strokeStyle = line;
+  g.lineWidth = 2.5;
+  g.strokeRect(inset, inset, w - inset * 2, h - inset * 2);
+  const r = (k: number) => hash(seed + k);
+  // a seam across a long face
+  if (w > 70 && w > h * 1.3) {
+    const x = w * (0.35 + r(1) * 0.3);
+    g.beginPath();
+    g.moveTo(x, inset);
+    g.lineTo(x, h - inset);
+    g.stroke();
+  } else if (h > 70 && h > w * 1.3) {
+    const y = h * (0.35 + r(1) * 0.3);
+    g.beginPath();
+    g.moveTo(inset, y);
+    g.lineTo(w - inset, y);
+    g.stroke();
+  }
+  // rivets
+  if (w > 30 && h > 30) {
+    g.fillStyle = shade(c.base, 0.6);
+    const d = inset + 6;
+    for (const [x, y] of [[d, d], [w - d, d], [d, h - d], [w - d, h - d]]) {
+      g.beginPath();
+      g.arc(x, y, 2.6, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  if (w < 56 || h < 48) return;
+  // one detail, or none
+  const pick = r(2);
+  const s = Math.min(w, h);
+  const cx = w * (0.3 + r(3) * 0.4);
+  const cy = h * (0.3 + r(4) * 0.4);
+  if (pick < 0.12) hazard(g, inset + 6, (r(5) < 0.5 ? inset + 5 : h - inset - 5 - s * 0.1), Math.min(w * 0.5, 90), Math.max(4, s * 0.1));
+  else if (pick < 0.24) {
+    // a band of the printing colour along one edge, hatched with the block's colour
+    const bw = Math.max(8, s * 0.16);
+    const side = Math.floor(r(6) * 3);
+    const [bx, by, bwid, bht] = side === 0 ? [inset, inset, bw, h - inset * 2] : side === 1 ? [w - inset - bw, inset, bw, h - inset * 2] : [inset, h - inset - bw, w - inset * 2, bw];
+    g.save();
+    g.beginPath();
+    g.rect(bx, by, bwid, bht);
+    g.clip();
+    g.fillStyle = c.print;
+    g.fillRect(bx, by, bwid, bht);
+    g.strokeStyle = c.base;
+    g.lineWidth = bw * 0.22;
+    for (let k = -Math.max(w, h); k < Math.max(w, h) * 2; k += bw * 0.7) {
+      g.beginPath();
+      g.moveTo(bx + k, by + bht);
+      g.lineTo(bx + k + bht, by);
+      g.stroke();
+    }
+    g.restore();
+  } else if (pick < 0.32) {
+    // twin racing stripes down the long way
+    g.fillStyle = c.print;
+    const t = Math.max(4, s * 0.09);
+    if (h >= w) {
+      g.fillRect(w / 2 - t * 1.6, 0, t, h);
+      g.fillRect(w / 2 + t * 0.6, 0, t, h);
+    } else {
+      g.fillRect(0, h / 2 - t * 1.6, w, t);
+      g.fillRect(0, h / 2 + t * 0.6, w, t);
+    }
+  } else if (pick < 0.4) star(g, cx, cy, s * 0.16, c.mark);
+  else if (pick < 0.48) flask(g, cx, cy, s * 0.16, c.mark);
+  else if (pick < 0.58) {
+    const lw = Math.min(w * 0.42, 70);
+    const lh = Math.min(h * 0.3, 36);
+    rr(g, cx - lw / 2, cy - lh / 2, lw, lh, 3, '#1f1d27');
+    print(g, cx - lw / 2 + 5, cy - lh / 2 + 5, lw - 10, Math.max(1, Math.floor((lh - 8) / 5)), '#8a8696', 5);
+  } else if (pick < 0.7) chevrons(g, cx - s * 0.2, cy - s * 0.07, s * 0.14, 3, c.print);
+  else if (pick < 0.78) code(g, w - inset - 6 - s * 0.18, inset + 6, s * 0.18, '#16141c', shade(c.base, 1.15));
+  else {
+    g.fillStyle = c.print;
+    g.fillRect(inset + 6, h - inset - 9, w * 0.35, 2.5);
+    g.fillRect(inset + 6, h - inset - 5, w * 0.22, 2.5);
+  }
+}
+
+type Side = 'front' | 'back' | 'xpos' | 'xneg' | 'top' | 'bottom';
+const PPU = 160;
+/** kit textures by what they show, so copies of the same fighter share them */
+const kitCache = new Map<string, THREE.Texture>();
+/**
+ * `kit` or `kit+<decal parts>`: panels every face of the block, each drawn at its real size (so
+ * rivets stay round), and puts the named decals on their faces. Sets the block's texture
+ * coordinates and returns its own texture.
+ */
+export function paintKit(
+  geo: THREE.BufferGeometry,
+  tex: string,
+  palette: { body: number; trim: number; accent: number; joint: number; eye: number },
+  base: number,
+  place: THREE.Matrix4,
+  seed: string,
+) {
+  const src = geo.attributes.position;
+  const srcN = geo.attributes.normal;
+  if (!src || !srcN) return null;
+  const m = place.clone().setPosition(0, 0, 0);
+  const pos = src.clone().applyMatrix4(m);
+  const nor = srcN.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(m));
+  const sideOf = (i: number): Side | '' => {
+    const [nx, ny, nz] = [nor.getX(i), nor.getY(i), nor.getZ(i)];
+    return nz < -0.7 ? 'front' : nz > 0.7 ? 'back' : nx > 0.7 ? 'xpos' : nx < -0.7 ? 'xneg' : ny > 0.7 ? 'top' : ny < -0.7 ? 'bottom' : '';
+  };
+  const boxes: Partial<Record<Side, THREE.Box3>> = {};
+  const v3 = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const sd = sideOf(i);
+    if (sd) (boxes[sd] ??= new THREE.Box3()).expandByPoint(v3.fromBufferAttribute(pos, i));
+  }
+  // the decals asked for, by face
+  const decals = tex.includes('+') ? parse('decal:' + tex.slice(tex.indexOf('+') + 1)).parts : [];
+  const owner: Partial<Record<Side, Part>> = {};
+  for (const p of decals) for (const sd of p.faces === 'ring' ? ['front', 'back', 'xpos', 'xneg'] : [p.faces]) owner[sd as Side] ??= p;
+  // lay the faces out in a row, each its own size
+  const dims = (sd: Side, b: THREE.Box3) => {
+    const s = b.getSize(new THREE.Vector3());
+    return sd === 'front' || sd === 'back' ? [s.x, s.y] : sd === 'xpos' || sd === 'xneg' ? [s.z, s.y] : [s.x, s.z];
+  };
+  const GAP = 4;
+  let x = 0;
+  const rects: Partial<Record<Side, { x: number; w: number; h: number }>> = {};
+  for (const sd of Object.keys(boxes) as Side[]) {
+    const p = owner[sd];
+    const [fw, fh] = dims(sd, boxes[sd]!);
+    const w = p ? p.pic.w * (p.pic.hi ? HI : 1) : Math.max(4, Math.min(300, Math.round(fw * PPU)));
+    const h = p ? p.pic.h * (p.pic.hi ? HI : 1) : Math.max(4, Math.min(300, Math.round(fh * PPU)));
+    rects[sd] = { x, w, h };
+    x += w + GAP;
+  }
+  const W = x + 6;
+  const H = Math.max(8, ...Object.values(rects).map((r) => r!.h));
+  const mark = [palette.accent, palette.body, 0xf2ead8].find((c) => Math.abs(lum(c) - lum(base)) > 0.25) ?? 0xf2ead8;
+  const sat = (n: number) => {
+    const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    return (Math.max(...ch) - Math.min(...ch)) / 255;
+  };
+  const prn = [sat(palette.accent) > 0.3 ? palette.accent : -1, 0xf2b440].find((c) => c >= 0 && Math.abs(lum(c) - lum(base)) > 0.18) ?? mark;
+  const pal: Pal = { base: hex(base), mark: hex(mark), print: hex(prn), body: hex(palette.body), trim: hex(palette.trim), accent: hex(palette.accent), joint: hex(palette.joint), eye: hex(palette.eye) };
+  const key = `${tex}|${seed}|${Object.values(pal).join('')}|${JSON.stringify(rects)}`;
+  let t = kitCache.get(key);
+  if (!t) {
+    t = drawKit(W, H, rects, owner, pal, seed);
+    kitCache.set(key, t);
+  }
+  setKitUV(geo, pos, sideOf, boxes, rects, W, H);
+  return t;
+}
+
+function drawKit(W: number, H: number, rects: Partial<Record<Side, { x: number; w: number; h: number }>>, owner: Partial<Record<Side, Part>>, pal: Pal, seed: string) {
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d')!;
+  g.fillStyle = pal.base;
+  g.fillRect(0, 0, W, H);
+  for (const sd of Object.keys(rects) as Side[]) {
+    const r = rects[sd]!;
+    const p = owner[sd];
+    g.save();
+    g.translate(r.x, 0);
+    g.beginPath();
+    g.rect(0, 0, r.w, r.h);
+    g.clip();
+    if (p) {
+      const k = p.pic.hi ? HI : 1;
+      g.scale(k, k);
+      p.pic.draw(
+        g,
+        (px, py, pw, ph, col) => {
+          g.fillStyle = col;
+          g.fillRect(px, py, pw, ph);
+        },
+        pal,
+        p.arg,
+      );
+    } else panel(g, r.w, r.h, pal, seed + sd);
+    g.restore();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** texture coordinates: each face across its own rectangle */
+function setKitUV(
+  geo: THREE.BufferGeometry,
+  pos: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
+  sideOf: (i: number) => Side | '',
+  boxes: Partial<Record<Side, THREE.Box3>>,
+  rects: Partial<Record<Side, { x: number; w: number; h: number }>>,
+  W: number,
+  H: number,
+) {
+  const span = (a: number, lo: number, hi: number) => (a - lo) / (hi - lo || 1);
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const sd = sideOf(i);
+    const r = sd ? rects[sd] : undefined;
+    if (!sd || !r) {
+      uv.set([1 - 3 / W, 0.5], i * 2);
+      continue;
+    }
+    const bb = boxes[sd]!;
+    const [px, py, pz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    // seen from straight on, each face's own left-to-right and bottom-to-top
+    let u: number;
+    let v: number;
+    if (sd === 'front') [u, v] = [1 - span(px, bb.min.x, bb.max.x), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'back') [u, v] = [span(px, bb.min.x, bb.max.x), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'xpos') [u, v] = [1 - span(pz, bb.min.z, bb.max.z), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'xneg') [u, v] = [span(pz, bb.min.z, bb.max.z), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'top') [u, v] = [1 - span(px, bb.min.x, bb.max.x), span(pz, bb.min.z, bb.max.z)];
+    else [u, v] = [1 - span(px, bb.min.x, bb.max.x), 1 - span(pz, bb.min.z, bb.max.z)];
+    const uu = Math.min(Math.max(u, 0.002), 0.998);
+    const vv = Math.min(Math.max(v, 0.002), 0.998);
+    uv.set([(r.x + uu * r.w) / W, 1 - (r.h - vv * r.h) / H], i * 2);
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
+// ---- painted sheets: a fighter's whole texture painted by hand on its decal template ----
+
+/**
+ * Each sheet is the fighter's decal template (art/decal-templates) painted over: every face of
+ * every armour block sits at its place in the layout, so a face reads its own rectangle.
+ */
+const SHEET_URL: Record<string, string> = { seraph: seraphSheet, trueleo: trueLeoSheet };
+type Layout = { w: number; h: number; faces: Record<string, Partial<Record<Side, [number, number, number, number]>>> };
+const LAYOUT = SHEETS as unknown as Record<string, Layout>;
+const sheetTex = new Map<string, THREE.Texture>();
+const sheetLoads: Promise<void>[] = [];
+for (const [name, url] of Object.entries(SHEET_URL)) {
+  const img = new Image();
+  const t = new THREE.Texture(img);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  sheetTex.set(name, t);
+  sheetLoads.push(
+    new Promise<void>((done) => {
+      img.onload = () => {
+        t.needsUpdate = true;
+        done();
+      };
+      img.onerror = () => done();
+    }),
+  );
+  img.src = url;
+}
+/** resolves once every painted sheet has loaded (the game waits for it behind the loading screen) */
+export const sheetsReady = Promise.all(sheetLoads).then(() => undefined);
+export const isSheet = (tex: string | undefined) => !!tex && tex.startsWith('sheet:');
+export const sheetTexture = (tex: string) => sheetTex.get(tex.slice(6)) ?? null;
+
+/** texture coordinates for a block on a painted sheet: each face across its rectangle on the sheet */
+export function sheetUV(geo: THREE.BufferGeometry, tex: string, path: string, place: THREE.Matrix4) {
+  const L = LAYOUT[tex.slice(6)];
+  const rects = L?.faces[path];
+  const src = geo.attributes.position;
+  const srcN = geo.attributes.normal;
+  if (!rects || !src || !srcN) return;
+  const m = place.clone().setPosition(0, 0, 0);
+  const pos = src.clone().applyMatrix4(m);
+  const nor = srcN.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(m));
+  const sideOf = (i: number): Side | '' => {
+    const [nx, ny, nz] = [nor.getX(i), nor.getY(i), nor.getZ(i)];
+    return nz < -0.7 ? 'front' : nz > 0.7 ? 'back' : nx > 0.7 ? 'xpos' : nx < -0.7 ? 'xneg' : ny > 0.7 ? 'top' : ny < -0.7 ? 'bottom' : '';
+  };
+  const boxes: Partial<Record<Side, THREE.Box3>> = {};
+  const v3 = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const sd = sideOf(i);
+    if (sd) (boxes[sd] ??= new THREE.Box3()).expandByPoint(v3.fromBufferAttribute(pos, i));
+  }
+  // a face too thin to be on the sheet takes the colour at the middle of the block's biggest face
+  const big = Object.values(rects).sort((a, b) => b![2] * b![3] - a![2] * a![3])[0]!;
+  const solid = [(big[0] + big[2] / 2) / L.w, 1 - (big[1] + big[3] / 2) / L.h];
+  const span = (a: number, lo: number, hi: number) => (a - lo) / (hi - lo || 1);
+  // (a little in from each edge, so smooth sampling stays inside the painted shape)
+  const IN = 0.03;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const sd = sideOf(i);
+    const r = sd ? rects[sd] : undefined;
+    if (!sd || !r) {
+      uv.set(solid, i * 2);
+      continue;
+    }
+    const bb = boxes[sd]!;
+    const [px, py, pz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    // the same unfolding as the template: each face seen straight on
+    let u: number;
+    let v: number;
+    if (sd === 'front') [u, v] = [1 - span(px, bb.min.x, bb.max.x), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'back') [u, v] = [span(px, bb.min.x, bb.max.x), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'xpos') [u, v] = [1 - span(pz, bb.min.z, bb.max.z), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'xneg') [u, v] = [span(pz, bb.min.z, bb.max.z), span(py, bb.min.y, bb.max.y)];
+    else if (sd === 'top') [u, v] = [1 - span(px, bb.min.x, bb.max.x), span(pz, bb.min.z, bb.max.z)];
+    else [u, v] = [1 - span(px, bb.min.x, bb.max.x), 1 - span(pz, bb.min.z, bb.max.z)];
+    u = IN + u * (1 - IN * 2);
+    v = IN + v * (1 - IN * 2);
+    // on the sheet the face's top is its rectangle's top
+    uv.set([(r[0] + u * r[2]) / L.w, 1 - (r[1] + (1 - v) * r[3]) / L.h], i * 2);
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
