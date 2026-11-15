@@ -2715,6 +2715,22 @@ body.duo .charge-meter {
   color: #fff;
   opacity: 0.8;
 }
+/* on the road bar: a tick for each rival, a split mark for the fork */
+#squad .sq-road .mk {
+  position: absolute;
+  top: -3px;
+  width: 4px;
+  height: 14px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #ff8a4a;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+#squad .sq-road .mk.fork {
+  width: 10px;
+  margin-left: -5px;
+  background: linear-gradient(90deg, #5ad8e0 50%, #ff6a8a 50%);
+}
 #squad .sq-boss {
   display: grid;
   gap: 4px;
@@ -2905,6 +2921,67 @@ body.duo #enemy-tag {
 }
 #duo-hp .bar.p2 b {
   background: var(--coral);
+}
+/* the two tabs on the centre line, one on each edge: white half-discs, their writing turned
+   to run along the line so it reads the same from either end */
+body.duo .hud-btns {
+  display: none !important;
+}
+#duo-hp .duo-tab {
+  position: absolute;
+  top: 50%;
+  width: 52px;
+  height: 104px;
+  margin-top: -52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: #fff;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  color: var(--line);
+}
+#duo-hp .duo-score {
+  left: 0;
+  border-radius: 0 52px 52px 0;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding-right: 6px;
+}
+#duo-hp .duo-score b {
+  font: 400 26px var(--display);
+  line-height: 1;
+  transform: rotate(-90deg);
+}
+#duo-hp .duo-score b.p1 {
+  color: var(--good);
+}
+#duo-hp .duo-score b.p2 {
+  color: var(--coral);
+}
+#duo-hp .duo-score i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+}
+#duo-hp .duo-pause {
+  right: 0;
+  border-radius: 52px 0 0 52px;
+  padding-left: 6px;
+  pointer-events: auto;
+  cursor: pointer;
+  font: 400 15px var(--display);
+  letter-spacing: 0.08em;
+}
+/* (the word runs up the line, like the score) */
+#duo-hp .duo-pause span {
+  display: block;
+  transform: rotate(-90deg);
+  white-space: nowrap;
+}
+#duo-hp .duo-pause:active {
+  transform: scale(0.94);
 }
 
 /* ================= Arcade tower: the ladder before each fight ================= */

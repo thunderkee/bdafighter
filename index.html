@@ -137,7 +137,7 @@
           </div>
         </div>
         <!-- split-screen 2 players: the screen's divider and each player's health, in their own half -->
-        <div id="duo-hp"><i class="split-line"></i><div class="bar p1"><span>P1</span><i><b></b></i></div><div class="bar p2"><span>P2</span><i><b></b></i></div></div>
+        <div id="duo-hp"><i class="split-line"></i><!-- on the line between the two halves, so it belongs to neither player: the round score on one edge, pause on the other --><div class="duo-tab duo-score" aria-label="Rounds won"><b class="p1" id="duo-r1">0</b><i></i><b class="p2" id="duo-r2">0</b></div><button class="duo-tab duo-pause" id="duo-pause" aria-label="Pause"><span>PAUSE</span></button><div class="bar p1"><span>P1</span><i><b></b></i></div><div class="bar p2"><span>P2</span><i><b></b></i></div></div>
         <!-- the tutorial: one step at a time, over the practice match -->
         <div id="tut" class="hidden">
           <em class="tut-step">STEP 1 / 6</em>

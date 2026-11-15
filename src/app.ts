@@ -593,7 +593,14 @@ export function boot() {
         .querySelectorAll('i')
         .forEach((pip, k) => pip.classList.toggle('won', k < roundWins[i]));
     }
+    // (two players: the score tab on the line between them)
+    $('duo-r1').textContent = String(roundWins[0]);
+    $('duo-r2').textContent = String(roundWins[1]);
   };
+  $('duo-pause').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('pause-btn').click();
+  });
 
   /** held items nobody used: they come along into the next round (and yours into the next arcade stage) */
   let carry: (ItemType | null)[] = [];
@@ -2508,8 +2515,8 @@ export function boot() {
     const m = Math.ceil(ms / 60000);
     return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
   };
-  /** a mode can be played right now (the event modes only while it's their turn) */
-  const available = (id: string) => !ROTATION.includes(id) || rotation().now === id;
+  /** every mode can be played any time (the rotation only picks which one is featured as the event) */
+  const available = (_id: string) => true;
   const featured = () => {
     const id = S().playMode ?? 'ffa';
     return modeById(id) && available(id) ? modeById(id)! : modeById('versus')!;
@@ -2520,7 +2527,7 @@ export function boot() {
     $('play-name').textContent = f.name;
     $('play-modes').dataset.kind = f.kind;
     const r = rotation();
-    $('play-sub').textContent = ROTATION.includes(f.id) ? `Event · ${hhmm(r.left)} left` : 'Tap to change';
+    $('play-sub').textContent = r.now === f.id ? `Event · ${hhmm(r.left)} left` : 'Tap to change';
     // (the Fighters button wears your fighter's face)
     const face = $('fighters-face');
     if (face.dataset.id !== S().character) {
@@ -2543,8 +2550,8 @@ export function boot() {
       const b = document.createElement('button');
       b.className = 'bs-card mode' + (m.id === featured().id ? ' on' : '') + (live ? '' : ' off');
       b.dataset.kind = m.kind;
-      // the strip over the card, only on the rotating modes: when it changes
-      const strip = ROTATION.includes(m.id) ? (live ? `Event · ends in ${hhmm(r.left)}` : m.id === r.next ? `Next · in ${hhmm(r.left)}` : 'Coming later') : '';
+      // the strip over the card: only on the event mode, and when it hands over
+      const strip = r.now === m.id ? `Event · ends in ${hhmm(r.left)}` : '';
       b.innerHTML = `${strip ? `<em class="${live && ROTATION.includes(m.id) ? 'live' : ''}">${strip}</em>` : ''}<i>${modeIcon(m.id)}</i><b>${m.name}</b><small>${m.sub}</small>`;
       b.disabled = !live;
       b.addEventListener('click', () => {
@@ -3246,7 +3253,8 @@ export function boot() {
     // (the menus, the select screen, options, results and pause are opaque: the arena behind them
     // isn't drawn at all, nor while Squad Run is up)
     const covered = screen !== 'playing' || paused || !!squadRun?.active || !!actionMode?.active;
-    if (!covered) view.render(paused ? 0 : dt, screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
+    // (no aim line with two players on one screen)
+    if (!covered) view.render(paused ? 0 : dt, !duo && screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
       const shown = [view.game.shooters[0], view.game.shooters[focus().slot] ?? view.game.shooters[1]];
       if (shown[1] && faceSlot !== shown[1].slot) {
