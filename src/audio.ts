@@ -1,7 +1,7 @@
 // Synthesised sound effects. Nothing plays until unlock() runs inside a
 // user gesture, which is what mobile browsers and web portals require.
 
-type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose' | 'super' | 'superhit' | 'charge' | 'pop' | 'explode' | 'clatter' | 'whoosh' | 'gong' | 'slam';
+type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose' | 'super' | 'superhit' | 'charge' | 'pop' | 'explode' | 'clatter' | 'whoosh' | 'gong' | 'slam' | 'grind' | 'steel';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -10,7 +10,7 @@ let muted = false;
 const lastPlayed = new Map<Sfx, number>();
 
 // minimum seconds between two plays of the same sound
-const THROTTLE: Partial<Record<Sfx, number>> = { clack: 0.03, wall: 0.05, bump: 0.06, fire: 0.04 };
+const THROTTLE: Partial<Record<Sfx, number>> = { clack: 0.03, wall: 0.05, bump: 0.06, fire: 0.04, grind: 0.09, steel: 0.08 };
 
 export function unlock() {
   if (ctx) {
@@ -174,6 +174,19 @@ export function play(name: Sfx, intensity = 1) {
       tone('sine', 150, 40, 0.5, 0.8);
       burst(0.25, 0.45, 'lowpass', 2200);
       tone('sawtooth', 880, 220, 0.18, 0.12);
+      break;
+    case 'grind':
+      // saw teeth biting metal: a gritty hiss over a wavering whine
+      burst(0.14, 0.22 * v, 'bandpass', 2400 + Math.random() * 1600, 2.5);
+      burst(0.12, 0.14 * v, 'lowpass', 380);
+      tone('sawtooth', 620 * jitter, 560 * jitter, 0.13, 0.05 * v);
+      if (Math.random() < 0.35) tone('square', 3200 + Math.random() * 1800, 1800, 0.03, 0.04 * v);
+      break;
+    case 'steel':
+      // a cannon thump and the clang of a steel ball leaving the barrel
+      tone('sine', 140, 50, 0.22, 0.45 * v);
+      burst(0.12, 0.3 * v, 'lowpass', 900);
+      tone('triangle', 1250 * jitter, 1180 * jitter, 0.25, 0.08 * v);
       break;
     case 'win':
       [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.22, 0.2, i * 0.11));

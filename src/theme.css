@@ -9314,3 +9314,30 @@ html.land #action .ac-say {
 #story-dlg.underground:not(.staged) {
   background: radial-gradient(90% 55% at 50% 30%, #6a4426, transparent 70%), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 3px, transparent 3px 64px), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0 3px, transparent 3px 96px), linear-gradient(#2a211c, #120e0c);
 }
+
+/* Gate Rush: an enemy fighter's special, its cinematic banner (the arena's, in the foe's colours) */
+#squad .sq-sfx {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  overflow: hidden;
+}
+#squad .sq-sfx.hidden {
+  display: none;
+}
+#squad .sq-sfx .sfx-band {
+  background: linear-gradient(90deg, #d8323a, #8a4cf0);
+  rotate: 8deg;
+}
+#squad .sq-sfx.go .sfx-band {
+  animation: sfx-slash 2.4s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+#squad .sq-sfx .sfx-lines {
+  animation-duration: 2.4s;
+}
+/* (the HUD steps aside while it plays) */
+#squad.sq-cine .sq-hud {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
