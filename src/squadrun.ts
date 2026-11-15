@@ -451,7 +451,7 @@ export class SquadRun {
       <div class="sq-panel">
         <h2>Gate Rush</h2>
         <p class="sq-unit"></p>
-        <p class="sq-text">Steer your squad through the gates: blue grows it, red shrinks it, and shooting a + or − gate fills its bar to raise its number (× and ÷ stay as they are). Beat the rivals on the road, pick your route at the fork, shoot frozen fighters free to join you, and take down the boss at the end.</p>
+        <p class="sq-text">Steer your squad through the gates: blue grows it, red shrinks it, and shooting a + or − gate fills its bar to raise its number (÷ stays as it is). Beat the rivals on the road, pick your route at the fork, shoot frozen fighters free to join you, and take down the boss at the end.</p>
         <p class="sq-best"></p>
         <div class="sq-buttons"><button class="sq-go key">Start</button><button class="sq-back key">Back</button></div>
       </div>`;
@@ -857,7 +857,7 @@ export class SquadRun {
         if (!GRINDER_AT.some((gd) => Math.abs(gd - (d + 34)) < 8) && d + 34 < BOSS_AT - 40) this.spawnGate(this.z - 34);
         // (closer while the squad builds up, sparser later on; never quite even, and now and then a
         // second gate right behind the first)
-        this.gateAt += d > 250 && Math.random() < 0.14 ? 16 : (d < 200 ? 40 : 64) + (Math.random() * 20 - 10);
+        this.gateAt += d > 250 && Math.random() < 0.14 ? 16 : (d < 200 ? 44 : 70) + (Math.random() * 20 - 10);
       }
       if (d + 34 > this.waveAt) {
         this.spawnWave(this.z - 34, d);
@@ -1129,9 +1129,7 @@ export class SquadRun {
     const d = this.dist();
     // (fewer gates, and fewer plain + ones: a × often, otherwise a + big enough to matter)
     const good = (): Op => {
-      const r = Math.random();
-      // (early on a + builds the squad up; later, with a squad worth multiplying, mostly ×)
-      if (r < (d < 60 ? 0.15 : 0.55)) return { kind: 'x', n: d > 500 && r < 0.12 ? 3 : 2 };
+      // (no × gates: the good side is always a +)
       return { kind: '+', n: 6 + Math.floor(Math.random() * (8 + d / 30)) };
     };
     // the other side takes away: mostly a −, further on often a ÷, only now and then a small +
@@ -1158,7 +1156,7 @@ export class SquadRun {
     } else if (layout === 'triple') {
       // three narrow panels: one good, one bad, one either way (a × now and then)
       spans = [[-L, -L / 3], [-L / 3, L / 3], [L / 3, L]];
-      ops = shuffle([good(), bad(), Math.random() < 0.3 ? { kind: 'x', n: 2 } : Math.random() < 0.5 ? good() : bad()]);
+      ops = shuffle([good(), bad(), Math.random() < 0.5 ? good() : bad()]);
     } else if (layout === 'slider') {
       // a narrow panel sliding across the road: usually a bonus to catch, sometimes one to dodge
       const w = 2.4;
