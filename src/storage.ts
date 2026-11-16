@@ -69,7 +69,7 @@ export interface Settings {
   realism: boolean;
   /** cel shading: banded toon lighting with ink outlines */
   cel: boolean;
-  /** battery saver: a lighter render (less resolution and post) and 30 fps (on by default on phones) */
+  /** battery saver: a lighter render (less resolution and post), still 60 fps (on by default on phones) */
   batterySaver: boolean;
   /** Action mode across the whole screen, turned on its side (it asks the phone to rotate where it can) */
   landscape?: boolean;

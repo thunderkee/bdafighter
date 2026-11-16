@@ -3021,7 +3021,6 @@ export function boot() {
   let fpsFrames = 0;
   let fps = 0;
 
-  let lastDrawn = 0;
   let wasShielding = false;
   /** the soundtrack follows the screen: menus, a fight (a boss stage gets its own), Squad Run */
   const scoreMusic = () => {
@@ -3078,9 +3077,6 @@ export function boot() {
           ? { foeFrac: game.teamFrac(1), meFrac: game.teamFrac(0), rounds: [roundWins[0], roundWins[1]] }
           : (actionMode?.active && actionMode.storyFeed()) || null,
       );
-    // battery saver: 30 frames a second in a fight (a 60 Hz screen shows every other one)
-    if (S().batterySaver && screen === 'playing' && now - lastDrawn < 1000 / 30 - 4) return;
-    lastDrawn = now;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     // a tap as your shield comes up

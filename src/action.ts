@@ -2489,7 +2489,6 @@ export class ActionMode {
   private frame = (now: number) => {
     if (!this.running) return;
     this.raf = requestAnimationFrame(this.frame);
-    if (this.saverOn && now - this.last < 1000 / 30 - 4) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     // (a beat of slow motion as your special goes)

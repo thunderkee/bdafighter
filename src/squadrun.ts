@@ -791,7 +791,7 @@ export class SquadRun {
 
   // ---------- the loop ----------
 
-  /** battery saver: 1.5x density and 30 frames a second */
+  /** battery saver: 1.5x density */
   private saverOn = false;
   private applySaver() {
     this.saverOn = !!this.opts.saver?.();
@@ -802,7 +802,6 @@ export class SquadRun {
   private frame = (now: number) => {
     if (!this.running) return;
     this.raf = requestAnimationFrame(this.frame);
-    if (this.saverOn && now - this.last < 1000 / 30 - 4) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (!this.over) this.step(dt);
