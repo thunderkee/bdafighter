@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DashFx } from './dashfx';
 import { celify } from './cel';
 import { InkOnly } from './post';
+import { showResultHero } from './resulthero';
 import { ShooterMesh, characterById, playable, propModel, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
@@ -934,6 +935,7 @@ export class ActionMode {
         <button class="ac-swap" aria-label="Switch fighter"><img alt="" /><span>SWITCH</span></button>
       </div>
       <div class="ac-panel">
+        <div class="ac-hero hidden"></div>
         <h2>Action</h2>
         <p class="ac-unit"></p>
         <p class="ac-text"></p>
@@ -5686,6 +5688,14 @@ export class ActionMode {
     cards.innerHTML = '';
     cards.classList.remove('modes', 'gear');
     buttons.innerHTML = '';
+    // (a result: your fighter turning on the card, cheering a win or slumped over a loss)
+    const heroBox = p.querySelector('.ac-hero') as HTMLElement;
+    const result = kind === 'win' || kind === 'lose';
+    heroBox.classList.toggle('hidden', !result);
+    if (result) {
+      const draw = this.kind === 'siege' && this.siegeOutcome === 0;
+      showResultHero(heroBox, this.me?.def ?? characterById(this.unitId), draw ? 'draw' : kind);
+    }
     (p.querySelector('.ac-xp') as HTMLElement).classList.add('hidden');
     const button = (label: string, fn: () => void, cls = '') => {
       const b = document.createElement('button');

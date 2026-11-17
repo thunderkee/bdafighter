@@ -9429,3 +9429,131 @@ html.land #action .ac-level {
   background: linear-gradient(90deg, #2a8af0, #3ae0c8);
   rotate: -8deg;
 }
+
+/* ================= result: your fighter turning on the card, cheering or slumped ================= */
+.result-face.result-hero,
+.ac-hero,
+.sq-hero {
+  position: relative;
+  width: 190px;
+  height: 196px;
+  margin: -6px auto 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  rotate: 0deg;
+  animation: none;
+  /* (a pool of light it stands in) */
+  background: radial-gradient(ellipse 52% 30% at 50% 84%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%);
+}
+.result-face.result-hero.win,
+.ac-hero.win,
+.sq-hero.win {
+  box-shadow: none;
+  background: radial-gradient(ellipse 52% 30% at 50% 84%, rgba(255, 220, 110, 0.7), rgba(255, 210, 62, 0) 70%), radial-gradient(circle at 50% 45%, rgba(255, 210, 62, 0.22), rgba(255, 210, 62, 0) 62%);
+}
+.result-face.result-hero.lose,
+.ac-hero.lose,
+.sq-hero.lose {
+  background: radial-gradient(ellipse 52% 30% at 50% 84%, rgba(60, 64, 90, 0.35), rgba(60, 64, 90, 0) 70%);
+}
+.result-hero .rh-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+.result-hero.lose .rh-canvas {
+  filter: saturate(0.6) brightness(0.92);
+}
+.rh-confetti {
+  position: absolute;
+  inset: -14px -30px 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.rh-confetti i {
+  position: absolute;
+  top: -12px;
+  width: 7px;
+  height: 11px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: rh-fall linear infinite;
+}
+@keyframes rh-fall {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate(var(--sx), 220px) rotate(var(--r)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rh-confetti { display: none; }
+}
+html.land #result > .result-face.result-hero { width: 150px; height: 150px; }
+/*
+ * Action and Gate Rush results: the card and your fighter as one block, centred on the screen. The
+ * fighter stands big over the card, its legs down in the card's top (the card's padding makes room),
+ * the rest of it rising above the card's edge. --rh is the picture's height, --rh-in how much of it
+ * sits inside the card.
+ */
+#action .ac-panel:has(.ac-hero:not(.hidden)),
+#squad .sq-panel:has(.sq-hero:not(.hidden)) {
+  --rh: min(470px, 52vh);
+  --rh-in: 116px;
+  /* (the picture hangs this far below its box: the text starts close under the fighter's feet) */
+  --rh-drop: 24px;
+  margin-top: 0;
+  /* (centred as a whole: the card's own middle, moved down by half of what stands above it) */
+  transform: translateY(calc(-50% + (var(--rh) - var(--rh-in) - var(--rh-drop)) / 2));
+}
+.ac-hero,
+.sq-hero {
+  width: auto;
+  height: var(--rh-in);
+  /* (the card's top padding becomes the fighter's ground: the box runs from the card's top edge) */
+  margin: -22px -20px 6px;
+  background: none;
+}
+.ac-hero.win,
+.sq-hero.win,
+.ac-hero.lose,
+.sq-hero.lose {
+  background: none;
+}
+#action .ac-panel .ac-hero canvas.rh-canvas,
+#squad .sq-panel .sq-hero canvas.rh-canvas {
+  position: absolute;
+  right: auto;
+  top: auto;
+  left: 50%;
+  bottom: calc(-1 * var(--rh-drop));
+  width: min(560px, 100vw);
+  height: var(--rh);
+  translate: -50% 0;
+  pointer-events: none;
+}
+.ac-hero .rh-confetti,
+.sq-hero .rh-confetti {
+  inset: calc(var(--rh-in) - var(--rh)) 0 0;
+}
+/* (Versus: under the title, so it grows in place instead) */
+#result > .result-face.result-hero {
+  width: 230px;
+  height: 250px;
+}
+html.land #action .ac-panel:has(.ac-hero:not(.hidden)),
+html.land #squad .sq-panel:has(.sq-hero:not(.hidden)) {
+  --rh: min(320px, 50vh);
+  --rh-in: 80px;
+  --rh-drop: 16px;
+}
+/* (a result covers the game behind it in a dark veil: the card and its fighter are all there is) */
+#action .ac-panel:has(.ac-hero:not(.hidden)),
+#squad .sq-panel:has(.sq-hero:not(.hidden)) {
+  z-index: 60;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 200vmax rgba(10, 8, 20, 0.86);
+}

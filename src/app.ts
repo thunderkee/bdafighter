@@ -8,6 +8,7 @@ import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
 import { BUILTINS, characterById, playable, playableId } from './robot';
+import { setResultSkins, showResultHero } from './resulthero';
 import { fillPortraits, portrait, portraitOf } from './portraits';
 import { SKIN_IDS } from './kits';
 import { EVOLVE_SCENES } from './storyevolve';
@@ -546,6 +547,8 @@ export function boot() {
   };
   /** your fighter as it looks in its cosmetics */
   const mine = (id: string) => (story && id === story.hero ? skinned(id, { ...equipOf(id), skin: formAt(story.ch) ? SKIN_IDS[formAt(story.ch)] : ORIGINAL }) : skinned(id, equipOf(id)));
+  // (the result cards show your fighter in its cosmetics)
+  setResultSkins(mine);
   const setEquip = (id: string, slot: Slot, value: string | undefined) => {
     const e = { ...equipOf(id) };
     if (value) e[slot] = value;
@@ -907,10 +910,11 @@ export function boot() {
     title.textContent = duo ? (w === -1 ? 'DRAW' : `PLAYER ${w + 1} WINS`) : w === 0 ? 'VICTORY' : w === 1 ? 'DEFEAT' : 'DRAW';
     title.className = 'result-title ' + (w === 0 ? 'win' : w === 1 ? 'lose' : '');
     $('result-sub').textContent = `Rounds ${roundWins[0]} – ${roundWins[1]}`;
-    // your fighter on the result, as the lobby has it
+    // your fighter on the result, turning and acting out the win (or the loss)
     const face = $('result-face');
-    face.innerHTML = `<i data-portrait="${saveData.settings.character}" data-crop="bust"></i>`;
-    face.className = 'result-face ' + (w === 0 ? 'win' : w === 1 ? 'lose' : '');
+    face.innerHTML = '';
+    face.className = 'result-face';
+    showResultHero(face, characterById(saveData.settings.character), duo ? (w === -1 ? 'draw' : 'win') : w === 0 ? 'win' : w === 1 ? 'lose' : 'draw');
     showResultExtras(w);
     fillPortraits(face);
     fillPortraits($('result-foe'));

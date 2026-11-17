@@ -5,7 +5,7 @@ import { formPalette } from './evolution';
 
 /**
  * Cosmetics: every fighter has five skins (versions of itself with their own parts and stats,
- * see kits.ts), three paint jobs and three marble finishes. The first skin is free; the rest
+ * see kits.ts), five paint jobs and three marble finishes. The first skin is free; the rest
  * unlock as the fighter levels up, along with the paint jobs and marbles.
  */
 export type Slot = 'skin' | 'paint' | 'marble';
@@ -22,9 +22,11 @@ export const REWARDS: Reward[] = [
   { lv: 3, slot: 'marble', id: 'pearl', name: 'Pearl marbles' },
   { lv: 4, slot: 'paint', id: 'paint:0', name: 'Paint job' },
   { lv: 5, slot: 'skin', id: 'skin:2', name: 'Skin' },
+  { lv: 5, slot: 'paint', id: 'paint:3', name: 'Paint job' },
   { lv: 6, slot: 'marble', id: 'galaxy', name: 'Galaxy marbles' },
   { lv: 7, slot: 'paint', id: 'paint:1', name: 'Paint job' },
   { lv: 8, slot: 'skin', id: 'skin:3', name: 'Skin' },
+  { lv: 8, slot: 'paint', id: 'paint:4', name: 'Paint job' },
   { lv: 9, slot: 'marble', id: 'lava', name: 'Lava marbles' },
   { lv: 10, slot: 'paint', id: 'paint:2', name: 'Paint job' },
   { lv: 10, slot: 'skin', id: 'skin:4', name: 'Skin' },

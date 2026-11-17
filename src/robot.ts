@@ -6032,6 +6032,60 @@ export class ShooterMesh {
     this.carryGun();
   }
 
+  /**
+   * the losing pose (the result card's, after sync each frame): head hung, arms limp, crying into a
+   * hand, a slow shake of the head, a heavy sigh, a foot scuffing the ground, over and over. Every
+   * rig takes it its own way: arms hang and one rubs its eyes; fist arms sag; a sword droops to the
+   * ground; a beast with no arms hangs its head lower and its jaw sags. The fighter's own pace and
+   * stance time and shape it, so no two mope quite alike.
+   */
+  sadPose(t: number) {
+    const st = TALK[this.id.replace(/-\d+$/, '')] ?? TALK_PLAIN;
+    const ease = (u: number) => {
+      const c = Math.max(0, Math.min(1, u));
+      return c * c * (3 - 2 * c);
+    };
+    // its own pace through the loop, offset by who it is so a roster doesn't mope in step
+    const T = 6.4 / Math.max(0.7, Math.min(1.3, st.pace));
+    const c = ((t * 1 + st.hunch * 3 + st.sway * 2) % T) / T;
+    const bump = (a: number, b: number) => (c > a && c < b ? Math.sin(((c - a) / (b - a)) * Math.PI) : 0);
+    const span = (a: number, b: number) => ease((c - a) / (b - a));
+    const armless = !this.armR && !this.punchArms.length && !this.slashArm;
+    // the beats: crying (0-.36), shaking its head (.36-.58), a sigh (.58-.74), scuffing a foot (.74-1)
+    const cry = bump(0.02, 0.36);
+    const sniff = cry * Math.pow(Math.max(0, Math.sin(t * 11)), 8);
+    const no = c > 0.36 && c < 0.58 ? Math.sin(((c - 0.36) / 0.22) * Math.PI * 3) * (1 - span(0.52, 0.58)) : 0;
+    const sigh = bump(0.58, 0.74);
+    const scuff = bump(0.74, 0.98);
+    // hung head, lower still while crying and sinking after the sigh's breath in
+    const down = 0.95 + cry * 0.35 + (armless ? 0.35 : 0) - sigh * 0.5 + span(0.66, 0.74) * 0.25 * (1 - span(0.9, 1));
+    this.turret.rotation.x += -down * 0.33 - sniff * 0.08;
+    this.turret.rotation.y += no * 0.32 + scuff * 0.12;
+    // the body: hunched forward (toward the camera), sunk low, rising for the breath in, a twist away to scuff
+    const crouch = 0.42 + st.hunch * 0.5 - sigh * 0.3 + sniff * 0.15;
+    this.root.position.y -= crouch * 0.07;
+    this.root.rotation.x += -(0.12 + crouch * 0.1 - sigh * 0.06);
+    this.root.rotation.y += scuff * 0.22 + Math.sin(t * 1.1) * 0.04;
+    this.root.rotation.z += Math.sin(t * 0.9) * 0.045 + sniff * 0.03 * Math.sin(t * 23);
+    this.root.scale.y *= 1 - crouch * 0.05;
+    // arms: limp at the sides, swinging a little; the right one comes up to rub its eyes while it cries
+    const limp = Math.sin(t * 1.4) * 0.05;
+    const wipe = span(0.04, 0.12) * (1 - span(0.28, 0.36));
+    if (this.armR) this.armR.rotation.x = -1.35 + limp + wipe * (1.05 + Math.sin(t * 9) * 0.12) + sigh * 0.2;
+    if (this.armL) this.armL.rotation.x = -1.35 - limp + sigh * 0.2;
+    this.punchArms.forEach((a, i) => (a.rotation.x = (this.punchRest[i] ?? 0) - 0.35 + (i % 2 ? -limp : limp) + (i === 0 ? wipe * 0.9 : 0) + sigh * 0.15));
+    if (this.slashArm) {
+      // the blade hangs, its tip near the ground
+      this.slashArm.rotation.x = this.rest.slash - 1.25 + limp + sigh * 0.2;
+      if (this.slashArmL) this.slashArmL.rotation.x = this.slashArm.rotation.x;
+    }
+    // the jaw: shut tight while it cries, a slack open breath on the sigh, hanging a little on a beast
+    const gape = (armless ? 0.15 : 0) + sigh * 0.45;
+    if (this.jaw) this.jaw.rotation.x = this.rest.jaw + gape * (this.jawOpen || 0.6);
+    if (this.jaw2) this.jaw2.rotation.x = this.rest.jaw + gape * (this.jawOpen || 0.6);
+    this.carryGun();
+  }
+
   /** the gun goes where the hand holding it is (poses move the arms after sync, so they call this too) */
   private carryGun() {
     if (!this.tossGun || !this.fistR || !this.fistL) return;

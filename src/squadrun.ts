@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { celify } from './cel';
 import { InkOnly } from './post';
+import { showResultHero } from './resulthero';
 import { texturize } from './surface';
 import { ShooterMesh, characterById, playable, studioEnv, type CharacterDef } from './robot';
 import * as sfx from './audio';
@@ -486,6 +487,7 @@ export class SquadRun {
       </div>
       <div class="sq-sfx hidden"><i class="sfx-lines"></i><div class="sfx-band"><i class="sfx-face"></i><div><span></span><b></b></div></div></div>
       <div class="sq-panel">
+        <div class="sq-hero hidden"></div>
         <h2>Gate Rush</h2>
         <p class="sq-unit"></p>
         <p class="sq-text"></p>
@@ -783,6 +785,10 @@ export class SquadRun {
     if (!kind) return;
     const best = this.best();
     const score = this.score();
+    // (a result: your fighter turning on the card, cheering a win or slumped over a loss)
+    const heroBox = p.querySelector('.sq-hero') as HTMLElement;
+    heroBox.classList.toggle('hidden', kind === 'start');
+    if (kind !== 'start') showResultHero(heroBox, characterById(this.unitId), kind);
     const h = p.querySelector('h2')!;
     const text = p.querySelector('.sq-text') as HTMLElement;
     const go = p.querySelector('.sq-go')!;
