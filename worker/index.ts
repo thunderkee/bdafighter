@@ -30,21 +30,25 @@ interface DOState {
 declare const WebSocketPair: { new (): { 0: WebSocket; 1: WebSocket } };
 
 /**
- * A room: the host opens it, one guest joins. Everything one side sends goes to the other as it
- * is (the host's game is the one that counts; the guest sends its controls, the host the table).
- * The room tells each side when the other arrives or leaves. Hibernation keeps it free while idle.
+ * A room: the host opens it, up to `max - 1` guests join (2 for a duel, up to 6 for a brawl).
+ * Each guest gets an id (g1, g2, ...). What a guest sends goes to the host as `<id>|<message>`;
+ * what the host sends goes to every guest, or to one when it starts `@<id>|`. The room tells the
+ * host when a guest arrives or leaves (with its id), and every guest when the host leaves.
+ * Hibernation keeps it free while idle.
  */
 export class Room {
   constructor(private state: DOState) {}
 
   async fetch(req: Request): Promise<Response> {
     if (req.headers.get('upgrade') !== 'websocket') return new Response('Expected a WebSocket.', { status: 426 });
-    const role = new URL(req.url).searchParams.get('role') === 'host' ? 'host' : 'guest';
+    const url = new URL(req.url);
+    const role = url.searchParams.get('role') === 'host' ? 'host' : 'guest';
+    const max = Math.max(2, Math.min(6, Number(url.searchParams.get('max')) || 2));
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
     const host = this.state.getWebSockets('host')[0];
-    const guest = this.state.getWebSockets('guest')[0];
+    const guests = this.state.getWebSockets('guest');
     // (a refusal still opens the socket, so the page can read why, then closes it)
     const refuse = (reason: string) => {
       (server as unknown as { accept(): void }).accept();
@@ -54,31 +58,50 @@ export class Room {
     };
     if (role === 'host' && host) return refuse('taken');
     if (role === 'guest' && !host) return refuse('no-room');
-    if (role === 'guest' && guest) return refuse('full');
-    this.state.acceptWebSocket(server, [role]);
-    if (role === 'guest') {
-      host!.send(JSON.stringify({ t: 'peer', on: true }));
-      server.send(JSON.stringify({ t: 'peer', on: true }));
-    } else server.send(JSON.stringify({ t: 'hosting' }));
+    if (role === 'host') {
+      this.state.acceptWebSocket(server, ['host', `max${max}`]);
+      server.send(JSON.stringify({ t: 'hosting' }));
+      return new Response(null, { status: 101, webSocket: client } as ResponseInit);
+    }
+    const cap = Number(this.state.getTags(host!).find((t) => t.startsWith('max'))?.slice(3)) || 2;
+    if (guests.length >= cap - 1) return refuse('full');
+    const taken = new Set(guests.flatMap((g) => this.state.getTags(g)));
+    let id = 'g1';
+    for (let k = 1; k <= 5; k++)
+      if (!taken.has(`g${k}`)) {
+        id = `g${k}`;
+        break;
+      }
+    this.state.acceptWebSocket(server, ['guest', id]);
+    host!.send(JSON.stringify({ t: 'peer', on: true, id }));
+    server.send(JSON.stringify({ t: 'peer', on: true, id }));
     return new Response(null, { status: 101, webSocket: client } as ResponseInit);
   }
 
-  private other(ws: WebSocket) {
-    const role = this.state.getTags(ws)[0];
-    return this.state.getWebSockets(role === 'host' ? 'guest' : 'host')[0];
+  private idOf(ws: WebSocket) {
+    return this.state.getTags(ws).find((t) => /^g\d$/.test(t)) ?? '';
   }
 
   webSocketMessage(ws: WebSocket, msg: string | ArrayBuffer) {
+    if (typeof msg !== 'string') return;
+    const tags = this.state.getTags(ws);
     try {
-      this.other(ws)?.send(msg);
+      if (tags.includes('host')) {
+        // to one guest, or to them all
+        const to = msg.startsWith('@') ? msg.slice(1, msg.indexOf('|')) : '';
+        const body = to ? msg.slice(msg.indexOf('|') + 1) : msg;
+        for (const g of this.state.getWebSockets(to || 'guest')) g.send(body);
+      } else this.state.getWebSockets('host')[0]?.send(`${this.idOf(ws)}|${msg}`);
     } catch {
       // the other side is mid-close: its own close tells the sender
     }
   }
 
   webSocketClose(ws: WebSocket) {
+    const tags = this.state.getTags(ws);
     try {
-      this.other(ws)?.send(JSON.stringify({ t: 'peer', on: false }));
+      if (tags.includes('host')) for (const g of this.state.getWebSockets('guest')) g.send(JSON.stringify({ t: 'peer', on: false }));
+      else this.state.getWebSockets('host')[0]?.send(JSON.stringify({ t: 'peer', on: false, id: this.idOf(ws) }));
     } catch {
       // nobody left to tell
     }
@@ -92,56 +115,6 @@ export class Room {
   webSocketError(ws: WebSocket) {
     this.webSocketClose(ws);
   }
-}
-
-const KEY = 'roster';
-const MAX_BYTES = 4_000_000;
-const KEEP_DAYS = 180;
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
-
-/** compare without leaking how much of the key matched */
-function sameKey(a: string, b: string) {
-  const enc = new TextEncoder();
-  const x = enc.encode(a);
-  const y = enc.encode(b);
-  let diff = x.length ^ y.length;
-  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  return diff === 0;
-}
-
-/** a roster is { units: { [id]: { id, base, ... } } } */
-function validUnits(data: unknown): data is { units: Record<string, { id: string; base: string }> } {
-  if (!data || typeof data !== 'object') return false;
-  const units = (data as { units?: unknown }).units;
-  if (!units || typeof units !== 'object' || Array.isArray(units)) return false;
-  return Object.entries(units as Record<string, unknown>).every(([id, u]) => {
-    const e = u as { id?: unknown; base?: unknown };
-    return !!u && typeof u === 'object' && e.id === id && typeof e.base === 'string' && id.length <= 64;
-  });
-}
-
-async function publish(req: Request, env: Env) {
-  if (!env.STUDIO_KEY) return json({ error: 'Publishing is not set up yet: add the STUDIO_KEY secret to the Worker.' }, 503);
-  if (!sameKey(req.headers.get('authorization') ?? '', `Bearer ${env.STUDIO_KEY}`)) return json({ error: 'Wrong studio key.' }, 401);
-  const text = await req.text();
-  if (text.length > MAX_BYTES) return json({ error: 'Roster too large.' }, 413);
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    return json({ error: 'Not valid JSON.' }, 400);
-  }
-  if (!validUnits(data)) return json({ error: 'Not a roster: expected { units: { id: { id, base, ... } } }.' }, 400);
-  const prevText = await env.ROSTER.get(KEY);
-  const prev = prevText ? (JSON.parse(prevText) as { version?: number }) : null;
-  const version = (prev?.version ?? 0) + 1;
-  // keep the one being replaced, so a bad publish can be rolled back from the studio
-  if (prevText && prev?.version) await env.ROSTER.put(`${KEY}:v${prev.version}`, prevText, { expirationTtl: KEEP_DAYS * 86400 });
-  const doc = { version, updatedAt: new Date().toISOString(), units: data.units };
-  await env.ROSTER.put(KEY, JSON.stringify(doc));
-  return json({ ok: true, version, updatedAt: doc.updatedAt });
 }
 
 export default {

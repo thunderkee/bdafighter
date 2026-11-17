@@ -9677,3 +9677,35 @@ html.land #squad .sq-panel:has(.sq-hero:not(.hidden)) {
 #paused #restart-btn.hidden + #pause-settings-btn {
   grid-column: 1 / -1;
 }
+/* the brawl lobby: who's in, and the host's Start */
+.ol-players {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ol-players:empty {
+  display: none;
+}
+.ol-players li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 700;
+  text-align: left;
+}
+.ol-players li b {
+  min-width: 42px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ui-dim);
+}
+#online #ol-start:disabled {
+  opacity: 0.5;
+}

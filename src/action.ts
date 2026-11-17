@@ -8,6 +8,7 @@ import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
 import { BITE, CHARGE, DASH, EVADE, HEAD_SWEEP, chargeDash, showDashPips, spendDash, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
 import * as sfx from './audio';
+import type { Msg, Net } from './net';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
 import { DROP, DRAGON, INVISIBLE, ITEMS, MISSILE } from './items';
@@ -626,6 +627,20 @@ interface Unit {
   /** Boss Fight's giant */
   giant: boolean;
 }
+/** a human's controls for one tick (yours, or a guest's sent over the room) */
+interface HumanIn {
+  mx: number;
+  mz: number;
+  /** where it aims (null: not aiming this tick, the old aim stands) */
+  aim: number | null;
+  fire: boolean;
+  /** a thumb on the aim stick (it doesn't turn to walk then) */
+  aiming: boolean;
+  dash: boolean;
+  /** a special called, and its angle (null: none) */
+  sp: number | null;
+  tps: boolean;
+}
 interface Fort {
   team: number;
   x: number;
@@ -679,13 +694,24 @@ interface Shot {
 }
 /** what a crate (or a knocked-out fighter) leaves: a power cube, or one of the main game's items */
 type DropKind = 'cube' | 'heal' | 'dragon' | 'steel' | 'special' | 'invisible';
-type Drop = { x: number; z: number; kind: DropKind; mesh: THREE.Object3D };
+type Drop = { x: number; z: number; kind: DropKind; mesh: THREE.Object3D; id?: number };
+/** online: drops and items as numbers on the wire */
+const DROP_KINDS: DropKind[] = ['cube', 'heal', 'dragon', 'steel', 'special', 'invisible'];
+const ITEM_CODES: (Unit['item'])[] = [null, 'dragon', 'steel'];
+/** a player in an online room: its id there (h for the host, g1 to g5), fighter and name */
+export interface NetPlayer {
+  nid: string;
+  char: string;
+  name: string;
+}
 const DROP_NAME: Record<DropKind, string> = { cube: 'POWER UP', heal: 'REPAIR', dragon: 'DRAGON SHOT', steel: 'STEEL BALL', special: 'SPECIAL FULL', invisible: 'INVISIBLE' };
 /** a crate's item, by weight (the free-for-all's crates hold power cubes) */
 /** an item crate's colour: the main game's item colours */
 const ITEM_COLOR: Record<Exclude<DropKind, 'cube'>, number> = { heal: ITEMS.heal.color, dragon: ITEMS.dragon.color, steel: ITEMS.missile.color, special: 0xffd23e, invisible: ITEMS.invisible.color };
 /** the main game's item crates: they drop in from above, take two hits, and the item goes to whoever breaks one */
 interface ItemBox {
+  /** online: the same crate on every player's screen */
+  id?: number;
   kind: Exclude<DropKind, 'cube'>;
   x: number;
   z: number;
@@ -1068,6 +1094,505 @@ export class ActionMode {
     window.addEventListener('resize', this.resize);
   }
 
+  // ---------- online brawl: a room's players in one Storm Brawl or Team Knockout ----------
+  //
+  // The host's game is the one that counts: it seats each guest in a CPU fighter's place, plays
+  // their controls as it plays yours, and every frame sends the field (fighters, marbles, drops,
+  // crates, the storm, the round) with the effects and sounds the frame made. A guest builds the
+  // same stage and fighters, shows what comes, and sends its controls back. A guest on the second
+  // side of a Knockout sees the field mirrored end to end, so its side starts at the bottom too.
+
+  private net: { role: 'host' | 'guest'; conn: Net; me: string; players: NetPlayer[] } | null = null;
+  /** the host: each guest's latest controls */
+  private remoteIn = new Map<string, HumanIn>();
+  /** which room player plays each human fighter */
+  private unitNid = new Map<Unit, string>();
+  /** the CPU fighters' paint jobs, so a guest dresses them the same */
+  private paintOf = new WeakMap<CharacterDef, string>();
+  /** a guest on Knockout's second side: the field turned end to end */
+  private flipZ = false;
+  /** the host: while its game steps, its effects and sounds are noted for the guests */
+  private recording = false;
+  private fxOut: unknown[][] = [];
+  private seq = 0;
+  /** the brawl's places, by player */
+  private places = new Map<string, number>();
+  private crateCount = -1;
+  private lastIn = '';
+  private localAim: number | null = null;
+  /** a guest: waiting for the host's stage */
+  private netWait = false;
+  private seenRound = 1;
+  private tapped = false;
+
+  /** an online match: the host starts it (and its rematches); a guest joins when the host does */
+  startOnline(o: { role: 'host' | 'guest'; conn: Net; me: string; players: NetPlayer[]; kind: ActionKind }) {
+    this.net = { role: o.role, conn: o.conn, me: o.me, players: o.players };
+    this.story = null;
+    this.unitId = o.players.find((p) => p.nid === o.me)?.char ?? this.unitId;
+    this.places.clear();
+    this.remoteIn.clear();
+    this.unitNid.clear();
+    this.fxOut = [];
+    this.flipZ = false;
+    this.applySaver();
+    this.goWide(!!this.opts.landscape?.());
+    this.showView();
+    this.el.classList.remove('hidden');
+    this.resize();
+    this.running = true;
+    this.last = performance.now();
+    cancelAnimationFrame(this.raf);
+    this.raf = requestAnimationFrame(this.frame);
+    if (o.role === 'host') {
+      this.tapFx();
+      o.conn.send({ t: 'bstart', kind: o.kind, players: o.players });
+      this.begin(o.kind);
+      this.seatPlayers();
+      this.sendStage();
+    } else {
+      this.over = true;
+      this.netWait = true;
+      this.clearStage();
+      this.showPanel(null);
+      this.callout('WAITING FOR THE HOST');
+    }
+  }
+
+  /** the room is gone (the host left, or the connection dropped): out, after a word */
+  netLost(why: string) {
+    if (!this.net) return;
+    this.net = null;
+    this.over = true;
+    this.callout(why, 1);
+    setTimeout(() => this.running && this.exit(), 1800);
+  }
+
+  /** a number to two places (what the room carries) */
+  private r2 = (v: number) => Math.round(v * 100) / 100;
+  /** an angle turned end to end, for a guest on Knockout's second side (and back) */
+  private flipA(a: number) {
+    return this.flipZ ? Math.PI - a : a;
+  }
+  private flipK(k: number) {
+    if (!this.flipZ) return k;
+    const j = Math.floor(k / this.W);
+    return (this.H - 1 - j) * this.W + (k - j * this.W);
+  }
+  /** an event in the host's game the guests need (a hit, a KO, an item, a round) */
+  private ev(...e: unknown[]) {
+    if (this.net?.role === 'host' && this.recording) this.fxOut.push(e);
+    else if (this.net?.role === 'host') this.fxOut.push(e);
+  }
+
+  /** the host: its effects and sounds noted as they're made, while its game steps */
+  private tapFx() {
+    if (this.tapped) return;
+    this.tapped = true;
+    const self = this as unknown as Record<string, (...a: unknown[]) => unknown>;
+    for (const name of ['burst', 'ringFx', 'swirl', 'pillarFx', 'sfxAt']) {
+      const orig = self[name].bind(this);
+      self[name] = (...a: unknown[]) => {
+        if (this.recording && this.net?.role === 'host') this.fxOut.push([name, ...a.map((v) => (typeof v === 'number' ? this.r2(v) : v))]);
+        return orig(...a);
+      };
+    }
+  }
+
+  /** the host: each guest takes a CPU fighter's place (Knockout: the sides kept even, theirs first) */
+  private seatPlayers() {
+    const net = this.net!;
+    this.unitNid.set(this.me!, net.me);
+    net.players
+      .filter((p) => p.nid !== net.me)
+      .forEach((p, k) => {
+        const free = (team?: number) => this.units.findIndex((u) => u.cpu && !this.unitNid.has(u) && (team === undefined || u.team === team));
+        let at = this.kind === 'knockout' ? free(k % 2 === 0 ? 1 : 0) : free();
+        if (at < 0) at = free();
+        if (at < 0) return;
+        const old = this.units[at];
+        old.mesh.dispose();
+        old.wrap.removeFromParent();
+        old.shadow.removeFromParent();
+        old.bar.remove();
+        const u = this.makeUnit(characterById(p.char), old.x, old.z, true, old.team);
+        this.units.pop();
+        this.units[at] = u;
+        u.face = old.face;
+        u.cpu = false;
+        u.bar.querySelector('span')!.textContent = p.name.toUpperCase();
+        this.unitNid.set(u, p.nid);
+        this.remoteIn.set(p.nid, { mx: 0, mz: 0, aim: null, fire: false, aiming: false, dash: false, sp: null, tps: false });
+      });
+  }
+
+  /** the host: the stage as built, and who stands where (a guest builds the same) */
+  private sendStage() {
+    const r2 = this.r2;
+    const units = this.units.map((u) => ({ id: u.def.id, paint: this.paintOf.get(u.def) ?? null, team: u.team, x: r2(u.x), z: r2(u.z), face: r2(u.face), nid: this.unitNid.get(u) ?? null, name: this.net!.players.find((p) => p.nid === this.unitNid.get(u))?.name ?? u.def.name }));
+    this.net!.conn.send({ t: 'a', k: 'stage', kind: this.kind, theme: this.theme.id, W: this.W, H: this.H, grid: Array.from(this.grid), crates: [...this.crateHp.entries()], units });
+    this.crateCount = -1;
+  }
+
+  /** a guest: the host's stage, and its fighters */
+  private buildFromHost(m: Record<string, unknown>) {
+    const me = this.net!.me;
+    this.clearStage();
+    this.kind = m.kind as ActionKind;
+    this.mega = false;
+    this.kos = 0;
+    this.time = 0;
+    this.kRound = this.seenRound = 1;
+    this.kWins = [0, 0];
+    this.kRoundT = 0;
+    this.kBreak = 0;
+    this.warned = false;
+    this.siegeOutcome = 0;
+    this.theme = THEMES.find((t) => t.id === m.theme) ?? THEMES[0];
+    this.W = m.W as number;
+    this.H = m.H as number;
+    const units = m.units as { id: string; paint: string | null; team: number; x: number; z: number; face: number; nid: string | null; name: string }[];
+    this.flipZ = this.kind === 'knockout' && units.find((u) => u.nid === me)?.team === 1;
+    const grid = m.grid as number[];
+    this.grid = new Uint8Array(grid.length);
+    grid.forEach((t, k) => (this.grid[this.flipK(k)] = t));
+    for (const [k, hp] of m.crates as [number, number][]) this.crateHp.set(this.flipK(k), hp);
+    this.elev = this.ramp = null;
+    this.lightK = 1;
+    this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
+    this.drawStage();
+    this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
+    (this.el.querySelector('.ac-map') as HTMLElement).classList.remove('on');
+    this.hud.level.classList.remove('on');
+    for (const d of units) {
+      const base = characterById(d.id);
+      const def = d.nid === me ? (this.opts.skin?.(d.id) ?? base) : d.paint ? skinned(d.id, { paint: d.paint }) : base;
+      const team = this.flipZ ? 1 - d.team : d.team;
+      const u = this.makeUnit(def, d.x, this.flipZ ? -d.z : d.z, d.nid !== me, team);
+      u.face = this.flipA(d.face);
+      if (d.nid) this.unitNid.set(u, d.nid);
+      if (d.nid && d.nid !== me) u.bar.querySelector('span')!.textContent = d.name.toUpperCase();
+      if (d.nid === me) this.me = u;
+    }
+    this.el.querySelector('.ac-unit')!.textContent = this.me?.def.name ?? '';
+    this.netWait = false;
+    this.over = false;
+    this.camSnap = true;
+    this.lastIn = '';
+    const where = themeName(this.theme).toUpperCase();
+    this.callout(this.kind === 'knockout' ? 'TEAM KNOCKOUT · ROUND 1' : `STORM BRAWL · ${where}`);
+    sfx.play('go');
+    this.showPanel(null);
+    this.updateHud();
+  }
+
+  /** the host: the guests' controls, and who's come and gone */
+  private pumpHost() {
+    const net = this.net!;
+    const q = net.conn.queue;
+    while (q.length) {
+      const m = q.shift()! as Msg & Record<string, unknown>;
+      const from = m._from;
+      if (m.t === 'a' && from) {
+        const ri = this.remoteIn.get(from);
+        if (!ri) continue;
+        if (m.k === 'in') {
+          ri.mx = m.mx as number;
+          ri.mz = m.mz as number;
+          ri.aim = m.aim as number | null;
+          ri.fire = !!m.fire;
+          ri.aiming = !!m.aiming;
+          if (m.dash) ri.dash = true;
+        } else if (m.k === 'sp') ri.sp = m.a as number;
+      } else if (m.t === 'peer' && !m.on && m.id) {
+        // a guest left: its fighter plays on by itself
+        for (const [u, nid] of this.unitNid)
+          if (nid === m.id) {
+            u.cpu = true;
+            this.unitNid.delete(u);
+            this.remoteIn.delete(nid);
+            this.callout(`${net.players.find((p) => p.nid === nid)?.name.toUpperCase() ?? 'A PLAYER'} LEFT`);
+          }
+      } else if (m.t === 'hello' && from) net.conn.sendTo(from, { t: 'error', reason: 'started' });
+    }
+  }
+
+  /** the host: this frame's field, to every guest */
+  private sendSnap() {
+    const r2 = this.r2;
+    const U: number[] = [];
+    for (const u of this.units)
+      U.push(
+        r2(u.x), r2(u.z), r2(u.vx), r2(u.vz), r2(u.face), r2(u.aim), Math.round(u.hp), Math.round(u.max), u.alive ? 1 : 0, r2(u.ammo),
+        u.mag, r2(u.charge), r2(u.invis), r2(u.reveal), r2(u.stunT), r2(u.slowT), r2(u.dashT), u.dashN, r2(u.dashFill), r2(u.spT),
+        r2(u.spLen), r2(u.chargeHold), u.stored, u.cubes, r2(u.burst), r2(u.back), u.firing ? 1 : 0, ITEM_CODES.indexOf(u.item), r2(u.pose.kickT), r2(u.pose.heavyT),
+        r2(u.pose.windT), r2(u.pose.recoil), r2(u.pose.flash), u.hand, u.lastHand, r2(u.wobble), r2(u.evadeT), u.queue.length,
+      );
+    const S: number[] = [];
+    for (const sh of this.shots) S.push(r2(sh.x), r2(sh.z), r2(sh.r), sh.color.getHex(), this.units.indexOf(sh.owner), sh.big ? 1 : 0, sh.spirit ? 1 : 0, sh.dive ?? -1, r2(sh.left));
+    const D: number[] = [];
+    for (const d of this.drops) D.push(d.id ?? 0, r2(d.x), r2(d.z), DROP_KINDS.indexOf(d.kind));
+    const B: number[] = [];
+    for (const b of this.boxes) B.push(b.id ?? 0, DROP_KINDS.indexOf(b.kind), r2(b.x), r2(b.z), b.hp, r2(b.age), r2(b.life), r2(b.flash), r2(b.root.rotation.y));
+    const snap: Record<string, unknown> = { t: 'a', k: 's', u: U, s: S, d: D, b: B, g: [r2(this.storm), r2(this.time), this.kRound, r2(this.kRoundT), this.kWins[0], this.kWins[1], r2(this.kBreak), this.over ? 1 : 0], fx: this.fxOut };
+    // (the crates still standing, when one has broken)
+    if (this.crateHp.size !== this.crateCount) {
+      this.crateCount = this.crateHp.size;
+      snap.cr = [...this.crateHp.keys()];
+    }
+    this.fxOut = [];
+    this.net!.conn.send(snap as Msg);
+  }
+
+  /** a guest: your controls to the host (turned back to its way round), when they change */
+  private sendInput(inp: HumanIn) {
+    this.localAim = inp.aim;
+    const m = { t: 'a' as const, k: 'in', mx: this.r2(inp.mx), mz: this.r2(this.flipZ ? -inp.mz : inp.mz), aim: inp.aim === null ? null : this.r2(this.flipA(inp.aim)), fire: inp.fire ? 1 : 0, aiming: inp.aiming ? 1 : 0, dash: inp.dash ? 1 : 0 };
+    const key = JSON.stringify(m);
+    if (key === this.lastIn && !inp.dash) return;
+    this.lastIn = key;
+    this.net!.conn.send(m);
+  }
+
+  /** a guest: the host's messages, in order */
+  private pumpGuest() {
+    const net = this.net!;
+    const q = net.conn.queue;
+    while (this.net && q.length) {
+      const m = q.shift()! as Msg & Record<string, unknown>;
+      if (m.t === 'bstart') {
+        // a rematch: back to waiting for the new stage (unless it goes on without you)
+        if (!(m.players as NetPlayer[]).some((p) => p.nid === net.me)) {
+          this.netLost('THE REMATCH STARTED WITHOUT YOU');
+          continue;
+        }
+        this.startOnline({ role: 'guest', conn: net.conn, me: net.me, players: m.players as NetPlayer[], kind: m.kind as ActionKind });
+      } else if (m.t === 'peer' && !m.on) this.netLost('THE HOST LEFT');
+      else if (m.t === 'a' && m.k === 'stage') this.buildFromHost(m);
+      else if (m.t === 'a' && m.k === 's' && !this.netWait) this.applySnap(m);
+    }
+  }
+
+  private colors = new Map<number, THREE.Color>();
+  private noHits = new Set<Unit>();
+  /** a guest: the host's field on yours */
+  private applySnap(m: Record<string, unknown>) {
+    const zf = this.flipZ ? -1 : 1;
+    const v = m.u as number[];
+    const N = 38;
+    this.units.forEach((u, i) => {
+      const o = i * N;
+      if (o + N > v.length) return;
+      u.x = v[o];
+      u.z = v[o + 1] * zf;
+      u.vx = v[o + 2];
+      u.vz = v[o + 3] * zf;
+      u.face = this.flipA(v[o + 4]);
+      u.aim = u === this.me && this.localAim !== null ? this.localAim : this.flipA(v[o + 5]);
+      u.hp = v[o + 6];
+      u.max = v[o + 7];
+      const alive = !!v[o + 8];
+      u.ammo = v[o + 9];
+      u.mag = v[o + 10];
+      u.charge = v[o + 11];
+      u.invis = v[o + 12];
+      u.reveal = v[o + 13];
+      u.stunT = v[o + 14];
+      u.slowT = v[o + 15];
+      u.dashT = v[o + 16];
+      u.dashN = v[o + 17];
+      u.dashFill = v[o + 18];
+      u.spT = v[o + 19];
+      u.spLen = v[o + 20];
+      u.chargeHold = v[o + 21];
+      u.stored = v[o + 22];
+      u.cubes = v[o + 23];
+      u.burst = v[o + 24];
+      u.back = v[o + 25];
+      u.firing = !!v[o + 26];
+      u.item = ITEM_CODES[v[o + 27]] ?? null;
+      u.pose.kickT = v[o + 28];
+      u.pose.heavyT = v[o + 29];
+      u.pose.windT = v[o + 30];
+      u.pose.recoil = v[o + 31];
+      u.pose.flash = v[o + 32];
+      u.hand = u.pose.hand = v[o + 33];
+      u.lastHand = u.pose.lastHand = v[o + 34];
+      u.wobble = u.pose.wobble = v[o + 35];
+      u.evadeT = v[o + 36];
+      u.queue = v[o + 37] ? [{ t: 0, angle: 0, o: {} }] : [];
+      u.pose.health = (u.hp / Math.max(1, u.max)) * 100;
+      u.pose.stored = u.stored;
+      if (alive !== u.alive) {
+        if (alive) this.reviveLocal(u);
+        else this.koLocal(u);
+      }
+    });
+    // the marbles
+    const sv = m.s as number[];
+    const shots: Shot[] = [];
+    for (let o = 0; o + 9 <= sv.length; o += 9) {
+      const hex = sv[o + 3];
+      let color = this.colors.get(hex);
+      if (!color) this.colors.set(hex, (color = new THREE.Color(hex)));
+      const owner = this.units[sv[o + 4]] ?? (this.me as Unit);
+      shots.push({ x: sv[o], z: sv[o + 1] * zf, vx: 0, vz: 0, owner, dmg: 0, r: sv[o + 2], left: sv[o + 8], bounce: 0, pierce: 0, hit: this.noHits, color, big: !!sv[o + 5], spirit: !!sv[o + 6], dive: sv[o + 7] < 0 ? undefined : sv[o + 7] });
+    }
+    this.shots = shots;
+    // what's lying about (made and taken away as the host's come and go)
+    const dv = m.d as number[];
+    const want = new Map<number, [number, number, DropKind]>();
+    for (let o = 0; o + 4 <= dv.length; o += 4) want.set(dv[o], [dv[o + 1], dv[o + 2] * zf, DROP_KINDS[dv[o + 3]]]);
+    for (let k = this.drops.length - 1; k >= 0; k--)
+      if (!want.has(this.drops[k].id ?? -1)) {
+        this.drops[k].mesh.removeFromParent();
+        this.drops.splice(k, 1);
+      }
+    for (const [id, [x, z, kind]] of want)
+      if (!this.drops.some((d) => d.id === id)) {
+        this.drop(x, z, kind);
+        this.drops[this.drops.length - 1].id = id;
+      }
+    // the item crates
+    const bv = m.b as number[];
+    const seen = new Set<number>();
+    for (let o = 0; o + 9 <= bv.length; o += 9) {
+      const id = bv[o];
+      seen.add(id);
+      let b = this.boxes.find((x) => x.id === id);
+      if (!b) b = this.makeBox(DROP_KINDS[bv[o + 1]] as ItemBox['kind'], bv[o + 2], bv[o + 3] * zf, bv[o + 8], id);
+      b.hp = bv[o + 4];
+      b.age = bv[o + 5];
+      b.life = bv[o + 6];
+      b.flash = bv[o + 7];
+    }
+    for (let k = this.boxes.length - 1; k >= 0; k--) if (!seen.has(this.boxes[k].id ?? -1)) this.removeBox(k);
+    // the crates still standing
+    if (m.cr) {
+      const left = new Set((m.cr as number[]).map((k) => this.flipK(k)));
+      for (const k of [...this.crateHp.keys()])
+        if (!left.has(k)) {
+          this.grid[k] = FLOOR;
+          this.crateHp.delete(k);
+          this.crateMesh.get(k)?.removeFromParent();
+          this.crateMesh.delete(k);
+        }
+    }
+    // the storm, the clock and the round
+    const g = m.g as number[];
+    this.storm = g[0];
+    this.time = g[1];
+    if (g[2] !== this.seenRound) {
+      this.seenRound = g[2];
+      this.camSnap = true;
+      this.callout(`ROUND ${g[2]}`);
+      sfx.play('go');
+    }
+    this.kRound = g[2];
+    this.kRoundT = g[3];
+    this.kWins = this.flipZ ? [g[5], g[4]] : [g[4], g[5]];
+    this.kBreak = g[6];
+    // the host's effects, sounds and events
+    for (const e of m.fx as unknown[][]) this.replayFx(e);
+    this.updateHud();
+  }
+
+  /** a guest: one of the host's effects or events, from where you stand */
+  private replayFx(e: unknown[]) {
+    const zf = this.flipZ ? -1 : 1;
+    const [k, ...a] = e as [string, ...number[]];
+    const n = a as number[];
+    const at = (i: number) => this.units[n[i]];
+    switch (k) {
+      case 'burst':
+        return this.burst(n[0], n[1], n[2] * zf, n[3], n[4], n[5], (a[6] as unknown as object) ?? {});
+      case 'ringFx':
+        return this.ringFx(n[0], n[1] * zf, n[2], n[3], n[4], n[5]);
+      case 'swirl':
+        return this.swirl(n[0], n[1], n[2] * zf, n[3]);
+      case 'pillarFx':
+        return this.pillarFx(n[0], n[1] * zf, n[2], n[3]);
+      case 'sfxAt':
+        return this.sfxAt(a[0] as unknown as sfx.Sfx, n[1], n[2] * zf, n[3], false);
+      case 'hurt': {
+        const u = at(0);
+        const from = at(2);
+        if (!u) return;
+        if (from === this.me || u === this.me) this.pop(u.x, u.z, `-${Math.max(1, Math.round((n[1] / Math.max(1, u.max)) * 100))}%`, from === this.me ? 'hit' : 'ouch');
+        if (u === this.me) {
+          this.opts.vibrate?.(14);
+          sfx.play('hurt', 0.5);
+        }
+        return;
+      }
+      case 'ko': {
+        const u = at(0);
+        if (at(1) === this.me && u !== this.me) this.kos++;
+        if (u === this.me) this.callout(this.kind === 'ffa' ? `KNOCKED OUT · #${n[2]} · WATCHING` : 'KNOCKED OUT · YOUR SIDE FIGHTS ON', 1);
+        return;
+      }
+      case 'gain': {
+        const u = at(0);
+        const kind = DROP_KINDS[n[1]];
+        if (u !== this.me || !kind) return;
+        sfx.play('charge', 0.6);
+        this.pop(u.x, u.z, DROP_NAME[kind], 'good');
+        if (kind === 'dragon' || kind === 'steel') this.callout(`${DROP_NAME[kind]} · YOUR NEXT SHOT`);
+        if (kind === 'invisible') this.callout(`INVISIBLE · ${ITEMS.invisible.duration}s`);
+        return;
+      }
+      case 'round': {
+        const w = this.flipZ && (n[0] === 0 || n[0] === 1) ? 1 - n[0] : n[0];
+        this.callout(w === 0 ? `ROUND ${n[1]} TO YOUR SIDE` : w === 1 ? `ROUND ${n[1]} TO THEIRS` : `ROUND ${n[1]} · A DRAW`, w === 1 ? 1 : 0);
+        return;
+      }
+      case 'kend':
+        return this.finishSiege(this.flipZ ? -n[0] : n[0]);
+      case 'fend':
+        return this.endFfaOnline(a[0] as unknown as Record<string, number>);
+    }
+  }
+
+  /** a guest: a fighter goes down on your screen (the host's KO) */
+  private koLocal(u: Unit) {
+    u.alive = false;
+    u.hp = 0;
+    u.shadow.visible = false;
+    u.bar.classList.add('gone');
+    u.firing = false;
+    u.stored = u.chargeHold = 0;
+    u.spT = -1;
+    u.queue = [];
+    this.wrecks.push({ u, mesh: u.mesh, t: 0, pops: 0, shattered: false, debris: [] });
+  }
+  /** a guest: back on its feet (a new Knockout round) */
+  private reviveLocal(u: Unit) {
+    u.alive = true;
+    if (u.mesh.broken) {
+      const mesh = new ShooterMesh(u.def.id, u.def.ball, u.def);
+      mesh.size = u.giant ? 1.25 : u.boss ? 0.78 : 0.55;
+      u.wrap.add(mesh.root);
+      u.mesh = mesh;
+    }
+    u.wrap.visible = u.shadow.visible = true;
+    u.bar.classList.remove('gone');
+    if (u === this.me) this.camSnap = true;
+  }
+
+  /** the brawl's over: everyone's place, and yours on the panel */
+  private endFfaOnline(places: Record<string, number>) {
+    if (!this.net) return;
+    this.over = true;
+    this.shots = [];
+    const place = places[this.net.me] ?? 1;
+    this.callout(place === 1 ? 'LAST ONE STANDING!' : `#${place} · THE BRAWL IS OVER`, place === 1 ? 0 : 1);
+    setTimeout(() => {
+      if (!this.running) return;
+      sfx.play(place === 1 ? 'win' : 'lose');
+      this.result(place === 1, place);
+    }, 1400);
+  }
+
   // ---------- lifecycle ----------
 
   /** play a League Story chapter: straight into its fight, and back to the story when it's over */
@@ -1112,6 +1637,10 @@ export class ActionMode {
   }
 
   private exit() {
+    this.net = null;
+    this.unitNid.clear();
+    this.remoteIn.clear();
+    this.flipZ = false;
     clearTimeout(this.hintTimer);
     this.running = false;
     cancelAnimationFrame(this.raf);
@@ -2401,7 +2930,7 @@ export class ActionMode {
   private switchFighter() {
     const old = this.me;
     const next = this.nextAlly();
-    if (!old || !next || this.paused || this.time < this.swapAt) return;
+    if (!old || !next || this.paused || this.time < this.swapAt || this.net) return;
     this.swapAt = this.time + 0.35;
     for (const u of [old, next]) {
       u.firing = u.pressShot = false;
@@ -2470,7 +2999,10 @@ export class ActionMode {
   private painted(def: CharacterDef) {
     const jobs = kitOf(def)?.paint ?? [];
     if (!jobs.length) return def;
-    return skinned(def.id, { paint: jobs[Math.floor(Math.random() * jobs.length)].id });
+    const paint = jobs[Math.floor(Math.random() * jobs.length)].id;
+    const d = skinned(def.id, { paint });
+    this.paintOf.set(d, paint);
+    return d;
   }
 
   private spawnFoes() {
@@ -2766,6 +3298,11 @@ export class ActionMode {
 
   /** its own special, as in the main game: the same balls, homing, quirks and damage shares */
   private special(u: Unit, angle: number) {
+    // (online, a guest asks the host: its game is the one that counts)
+    if (this.net?.role === 'guest') {
+      if (u === this.me && u.alive && u.charge >= 1) this.net.conn.send({ t: 'a', k: 'sp', a: this.flipA(angle) });
+      return;
+    }
     if (!u.alive || u.charge < 1 || u.stunT > 0) return;
     u.charge = 0;
     u.firing = false;
@@ -2954,6 +3491,7 @@ export class ActionMode {
     }
     const dmg = Math.round(amount);
     u.hp -= dmg;
+    this.ev('hurt', this.units.indexOf(u), dmg, from ? this.units.indexOf(from) : -1);
     u.reveal = Math.max(u.reveal, 1);
     u.calm = 0;
     u.pose.flash = 1;
@@ -2989,6 +3527,14 @@ export class ActionMode {
     this.wrecks.push({ u, mesh: u.mesh, t: 0, pops: 0, shattered: false, debris: [] });
     if (from === this.me) this.kos++;
     if (from === this.me || u === this.me) this.stopT = Math.max(this.stopT, 0.1);
+    // online: a human down in the brawl takes the place it went out in, and watches the rest
+    let place = 0;
+    if (this.net && this.kind === 'ffa' && this.unitNid.has(u)) {
+      place = this.units.filter((x) => x.alive).length + 1;
+      this.places.set(this.unitNid.get(u)!, place);
+      if (u === this.me) this.callout(`KNOCKED OUT · #${place} · WATCHING`, 1);
+    }
+    this.ev('ko', this.units.indexOf(u), from ? this.units.indexOf(from) : -1, place);
     if (this.teams) {
       // respawns: Siege and Hot Zone, and your side in Boss Fight; never in Knockout
       const back = this.kind === 'siege' || this.kind === 'zone' || (this.kind === 'boss' && u.team === 0);
@@ -3012,7 +3558,7 @@ export class ActionMode {
       this.updateHud();
       return;
     }
-    if (u === this.me) {
+    if (u === this.me && !this.net) {
       const place = this.units.filter((x) => x.alive).length + 1;
       setTimeout(() => this.finish(false, place), 1700);
     }
@@ -3032,7 +3578,7 @@ export class ActionMode {
     mesh.position.set(x, 0.35, z);
     this.world.add(mesh);
     texturize(mesh);
-    this.drops.push({ x, z, kind, mesh });
+    this.drops.push({ x, z, kind, mesh, id: ++this.seq });
   }
 
   private breakCrate(k: number) {
@@ -3090,7 +3636,18 @@ export class ActionMode {
     // (a heavy hit lands: everything holds for a couple of frames)
     const held = this.stopT > 0;
     if (held) this.stopT -= dt;
+    // online, a guest shows the host's game: its controls go out, the field comes back
+    if (this.net?.role === 'guest') {
+      this.pumpGuest();
+      if (!this.over && !this.netWait && this.me?.alive) this.sendInput(this.readInput(dt));
+      this.draw(held ? dt * 0.08 : dt);
+      return;
+    }
+    if (this.net) this.pumpHost();
+    this.recording = !!this.net;
     if (!this.over && !this.paused && !held) this.step(this.slowT > 0 ? dt * 0.3 : dt);
+    this.recording = false;
+    if (this.net) this.sendSnap();
     this.draw(held ? dt * 0.08 : dt);
   };
 
@@ -3134,11 +3691,8 @@ export class ActionMode {
     if (big || Math.random() < 0.18) this.scars.add(x, z, big ? 0.6 : 0.26);
   }
 
-  private step(dt: number) {
-    this.impacts = 0;
-    this.time += dt;
-    if (this.sayT > 0 && (this.sayT -= dt) <= 0) this.nextSay();
-    this.motes?.update(dt, this.time);
+  /** what your controls ask for this tick: a walk, an aim (if you're aiming), the trigger, a dash */
+  private readInput(dt: number): HumanIn {
     const me = this.me!;
     // you: walk with the stick (or WASD)
     let mx = 0;
@@ -3181,39 +3735,77 @@ export class ActionMode {
       const side = shooting ? mx : 0;
       [mx, mz] = [Math.sin(f) * ahead + Math.cos(f) * side, -Math.cos(f) * ahead + Math.sin(f) * side];
     }
+    let aim: number | null = null;
+    let fire = false;
+    let dash = false;
     if (me.alive) {
-      const sp = me.stunT > 0 ? 0 : me.speed * (me.slowT > 0 ? 0.5 : 1) * (me.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
-      me.vx = mx * sp;
-      me.vz = mz * sp;
-      // a dash: a quick burst the way the stick points (or the way you face)
-      if (this.dashWanted) {
-        const len = Math.hypot(mx, mz);
-        if (len > 0.2) this.startDash(me, mx, mz);
-        else this.startDash(me, Math.sin(me.face), -Math.cos(me.face));
-      }
+      dash = this.dashWanted;
       this.dashWanted = false;
-      this.dashMove(me, dt);
       // the trigger: held on the aim stick (once dragged), the mouse button, or Space
       // FIRE held: at the nearest enemy, or wherever your thumb slides off the button to aim
       const a = this.aimStick;
       const dragged = a && Math.hypot(a.x - a.x0, a.y - a.y0) > 30;
-      if (a) me.aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) + (behind(this.view) ? this.camYaw : 0) : this.autoAim();
-      if (this.mouseFire) me.aim = this.mouseAngle();
-      if (this.keyFire) me.aim = this.autoAim();
-      me.firing = me.spT < 0 && (!!a || this.mouseFire || this.keyFire || me.burst > 0);
+      if (a) aim = dragged ? Math.atan2(a.x - a.x0, -(a.y - a.y0)) + (behind(this.view) ? this.camYaw : 0) : this.autoAim();
+      if (this.mouseFire) aim = this.mouseAngle();
+      if (this.keyFire) aim = this.autoAim();
+      fire = !!a || this.mouseFire || this.keyFire;
       // charging: turned to face the closest enemy (unless you're aiming by hand), and it's marked
       this.chargeTarget = null;
       if (me.chargeHold > 0.12 && !dragged && !this.mouseFire) {
         const t = this.nearestEnemy().u;
         if (t) {
-          me.aim = Math.atan2(t.x - me.x, -(t.z - me.z));
+          aim = Math.atan2(t.x - me.x, -(t.z - me.z));
           this.chargeTarget = t;
         }
       }
-      if (me.chargeHold > 0.12) me.face = me.aim;
-      this.walk(me, me.vx * dt, me.vz * dt);
-      // (TPS has already turned you: walking back, you keep facing ahead)
-      if (!tps && (mx || mz) && !me.firing && !this.aimStick) me.face = Math.atan2(mx, -mz);
+    }
+    return { mx, mz, aim, fire, aiming: !!this.aimStick, dash, sp: null, tps };
+  }
+
+  /** a human's controls on its fighter (yours, or online a guest's) */
+  private applyHuman(u: Unit, inp: HumanIn, dt: number) {
+    if (!u.alive) return;
+    let { mx, mz } = inp;
+    if (u.spT >= 0) mx = mz = 0;
+    const sp = u.stunT > 0 ? 0 : u.speed * (u.slowT > 0 ? 0.5 : 1) * (u.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1);
+    u.vx = mx * sp;
+    u.vz = mz * sp;
+    // a dash: a quick burst the way the stick points (or the way you face)
+    if (inp.dash) {
+      const len = Math.hypot(mx, mz);
+      if (len > 0.2) this.startDash(u, mx, mz);
+      else this.startDash(u, Math.sin(u.face), -Math.cos(u.face));
+    }
+    this.dashMove(u, dt);
+    if (inp.aim !== null) u.aim = inp.aim;
+    u.firing = u.spT < 0 && (inp.fire || u.burst > 0);
+    if (u.chargeHold > 0.12) u.face = u.aim;
+    this.walk(u, u.vx * dt, u.vz * dt);
+    // (TPS has already turned you: walking back, you keep facing ahead)
+    if (!inp.tps && (mx || mz) && !u.firing && !inp.aiming) u.face = Math.atan2(mx, -mz);
+  }
+
+  private step(dt: number) {
+    this.impacts = 0;
+    this.time += dt;
+    if (this.sayT > 0 && (this.sayT -= dt) <= 0) this.nextSay();
+    this.motes?.update(dt, this.time);
+    const me = this.me!;
+    // you: your controls, then the guests' (online, the host plays every human's fighter)
+    const inp = this.readInput(dt);
+    this.applyHuman(me, inp, dt);
+    if (this.net?.role === 'host') {
+      for (const u of this.units) {
+        const nid = this.unitNid.get(u);
+        const ri = nid ? this.remoteIn.get(nid) : undefined;
+        if (!ri || u === me) continue;
+        this.applyHuman(u, ri, dt);
+        ri.dash = false;
+        if (ri.sp !== null) {
+          this.special(u, ri.sp);
+          ri.sp = null;
+        }
+      }
     }
     if (this.kind === 'siege') {
       this.tickForts(dt);
@@ -3298,7 +3890,8 @@ export class ActionMode {
     // Blossom's head sweeps side to side (slower while firing), and its shots follow it
     if (sp?.wobble) u.wobble = Math.sin((u.wobbleN += dt * HEAD_SWEEP * (u.firing ? 0.35 : 1))) * sp.wobble;
     // the charge shot: you charge by holding FIRE past a moment; a CPU charges when it plans to
-    const human = u === this.me;
+    // (online a guest's fighter is human too: it charges by holding, like yours)
+    const human = !u.cpu;
     if (human || u.chargeWant > 0 || u.chargeHold > 0 || u.stored > 0) {
       const holding = u.stunT <= 0 && (human ? u.firing : u.chargeWant > 0);
       let letGo = false;
@@ -3313,8 +3906,8 @@ export class ActionMode {
             u.idle = 0;
             // (each marble stored sends a ring out round its feet)
             this.ringFx(u.x, u.z, 0xffd23e, 0.3, 0.8 + u.stored * 0.18, 0.4);
-            if (human) this.shake = Math.max(this.shake, 0.04 + u.stored * 0.015);
-            this.sfxAt('tick', u.x, u.z, (0.6 + u.stored * 0.12) * (human ? 1 : 0.4), human);
+            if (u === this.me) this.shake = Math.max(this.shake, 0.04 + u.stored * 0.015);
+            this.sfxAt('tick', u.x, u.z, (0.6 + u.stored * 0.12) * (u === this.me ? 1 : 0.4), u === this.me);
           }
           if (!human && u.stored > 0 && (u.stored >= u.chargeWant || u.ammo < 1)) letGo = true;
         }
@@ -3557,6 +4150,7 @@ export class ActionMode {
     else if (kind === 'special') u.charge = 1;
     else if (kind === 'invisible') u.invis = ITEMS.invisible.duration;
     else u.item = kind;
+    this.ev('gain', this.units.indexOf(u), DROP_KINDS.indexOf(kind));
     if (u === this.me) {
       sfx.play('charge', 0.6);
       this.pop(u.x, u.z, DROP_NAME[kind], 'good');
@@ -3593,6 +4187,14 @@ export class ActionMode {
       if (this.units.some((u) => u.alive && Math.hypot(u.x - p.x, u.z - p.z) < 2.5)) continue;
       if (this.boxes.some((o) => Math.hypot(o.x - p.x, o.z - p.z) < 3)) continue;
       const kind = this.crateItem() as ItemBox['kind'];
+      this.makeBox(kind, p.x, p.z, Math.random() * 0.8 - 0.4);
+      this.sfxAt('whoosh', p.x, p.z, 0.5);
+      return;
+    }
+  }
+  /** an item crate on the floor (online, a guest makes the host's) */
+  private makeBox(kind: ItemBox['kind'], x: number, z: number, rot: number, id = ++this.seq) {
+    {
       const c = ITEM_COLOR[kind];
       // as in the main game: a dark crate with glowing bands in the item's colour, and a ring on the floor
       const root = new THREE.Group();
@@ -3604,13 +4206,13 @@ export class ActionMode {
         [0.66, 0.66, 0.08],
       ])
         root.add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), glow));
-      root.rotation.y = Math.random() * 0.8 - 0.4;
+      root.rotation.y = rot;
       const marker = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
       this.world.add(root, marker);
       texturize(root);
-      this.boxes.push({ kind, x: p.x, z: p.z, hp: DROP.hp, life: DROP.landedLife, age: 0, flash: 0, root, marker });
-      this.sfxAt('whoosh', p.x, p.z, 0.5);
-      return;
+      const b: ItemBox = { id, kind, x, z, hp: DROP.hp, life: DROP.landedLife, age: 0, flash: 0, root, marker };
+      this.boxes.push(b);
+      return b;
     }
   }
   private removeBox(k: number) {
@@ -4203,6 +4805,7 @@ export class ActionMode {
       }
       if (winner === -1 && (left[0] && left[1])) return;
       if (winner === 0 || winner === 1) this.kWins[winner]++;
+      this.ev('round', winner, this.kRound);
       if (this.kWins[0] >= 2 || this.kWins[1] >= 2) {
         this.finishSiege(this.kWins[0] >= 2 ? 1 : -1);
         return;
@@ -4221,6 +4824,19 @@ export class ActionMode {
       if (!this.over && this.time >= SIEGE_TIME - 30 && !this.warned) {
         this.warned = true;
         this.callout('30 SECONDS LEFT');
+      }
+      return;
+    }
+    // online brawl: it runs on until one fighter is left, or no human is
+    if (this.net && this.kind === 'ffa') {
+      if (this.over) return;
+      const alive = this.units.filter((u) => u.alive);
+      const humans = alive.filter((u) => this.unitNid.has(u));
+      if (alive.length <= 1 || !humans.length) {
+        for (const u of humans) this.places.set(this.unitNid.get(u)!, 1);
+        const places = Object.fromEntries(this.places);
+        this.ev('fend', places);
+        this.endFfaOnline(places);
       }
       return;
     }
@@ -5305,7 +5921,9 @@ export class ActionMode {
       const pct = Math.max(1, Math.ceil((u.hp / u.max) * 100));
       u.bar.querySelector('i')!.setAttribute('data-hp', `${pct}%`);
       u.bar.classList.toggle('low', pct <= 30);
-      if (!u.cpu) (u.bar.querySelector('u') as HTMLElement).style.width = `${(u.ammo / u.mag) * 100}%`;
+      // (your bar carries your magazine; a guest's fighter, online, wears a plain one)
+      const mag = u.bar.querySelector('u') as HTMLElement | null;
+      if (mag) mag.style.width = `${(u.ammo / u.mag) * 100}%`;
     }
     for (const f of this.forts) {
       this.v.set(f.x, 2.75 - (behind(this.view) ? 0.3 : 0), f.z).project(this.camera);
@@ -5621,6 +6239,7 @@ export class ActionMode {
   private warned = false;
   private finishSiege(result: number) {
     if (this.over) return;
+    this.ev('kend', result);
     this.siegeOutcome = result;
     setTimeout(() => this.finish(result > 0, result > 0 ? 1 : result < 0 ? 2 : 0), result ? 1200 : 300);
     const SAY: Record<string, [string, string]> = {
@@ -5785,6 +6404,15 @@ export class ActionMode {
       } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Dungeon cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
       if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${DSTAGES.length} stages: ${this.room - 1} rooms and ${this.kos} monsters down.` : `You reached stage ${this.stage} (${themeName(this.theme)}) and cleared ${this.room - 1} rooms with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
       bestEl.textContent = this.bestLine();
+      // online: the host calls the rematch; everyone can leave the room
+      if (this.net) {
+        const net = this.net;
+        if (this.kind === 'ffa') h.textContent = place === 1 ? 'Victory!' : `#${place} of ${this.units.length}`;
+        bestEl.textContent = net.role === 'host' ? `Room ${net.conn.code}` : `Room ${net.conn.code} · the host can call a rematch`;
+        if (net.role === 'host') button('Rematch', () => this.startOnline({ role: 'host', conn: net.conn, me: net.me, players: net.players.filter((p) => p.nid === net.me || [...this.unitNid.values()].includes(p.nid)), kind: this.kind }), 'primary');
+        button('Leave', () => this.exit());
+        return;
+      }
       button('Play again', () => this.begin(this.mega ? 'mega' : this.kind), 'primary');
       button('Modes', () => {
         this.clearStage();

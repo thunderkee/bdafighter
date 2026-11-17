@@ -355,8 +355,8 @@
       <!-- ================= ONLINE LOBBY: host a room, or join one with its code ================= -->
       <div id="online" class="screen device hidden" role="dialog" aria-label="Online Clash">
         <div class="pause-card ol-card">
-          <div class="result-title">Online</div>
-          <p class="ol-lead">Fight a friend on another device. You bring <b id="ol-you">your fighter</b>; the host's arena and rules are played.</p>
+          <div class="result-title" id="ol-title">Online</div>
+          <p class="ol-lead" id="ol-lead">Fight a friend on another device. You bring <b id="ol-you">your fighter</b>; the host's arena and rules are played.</p>
           <div id="ol-home" class="ol-home">
             <button id="ol-host" class="key orange">Host a room</button>
             <div class="ol-or"><span>or join with a code</span></div>
@@ -369,6 +369,8 @@
             <small>Room code</small>
             <b id="ol-room" class="ol-room">ABCD</b>
             <button id="ol-copy" class="key">Send invite link</button>
+            <ul id="ol-players" class="ol-players"></ul>
+            <button id="ol-start" class="key orange hidden">Start</button>
           </div>
           <p id="ol-status" class="ol-status" role="status" aria-live="polite"></p>
           <button id="ol-cancel" class="key quit">Back</button>

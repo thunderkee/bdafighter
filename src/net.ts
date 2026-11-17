@@ -47,15 +47,23 @@ export interface InputMsg {
   dash: 0 | 1;
 }
 
-export type Msg =
+export type Msg = (
   | { t: 'hosting' }
-  | { t: 'peer'; on: boolean }
+  | { t: 'peer'; on: boolean; id?: string }
   | { t: 'error'; reason: string }
   | { t: 'hello'; id: string; name: string }
   | { t: 'start'; cfg: Record<string, unknown>; id: string; name: string }
   | { t: 'next' }
+  | { t: 'lobby'; kind: string; players: string[] }
+  | { t: 'bstart'; kind: string; players: { nid: string; char: string; name: string }[] }
   | InputMsg
-  | Snap;
+  | Snap
+  // (an online brawl's own messages: action.ts reads them)
+  | { t: 'a'; [k: string]: unknown }
+) & {
+  /** the host: which guest sent it (g1 to g5) */
+  _from?: string;
+};
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 export const newCode = () => Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
@@ -74,17 +82,24 @@ export class Net {
   constructor(
     readonly code: string,
     readonly role: Role,
+    /** players the room holds (host only): 2 for a duel, up to 6 for a brawl */
+    max = 2,
   ) {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    this.ws = new WebSocket(`${proto}://${location.host}/api/room/${code}?role=${role}`);
+    this.ws = new WebSocket(`${proto}://${location.host}/api/room/${code}?role=${role}&max=${max}`);
     this.ws.onopen = () => (this.open = true);
     this.ws.onmessage = (e) => {
       let m: Msg;
+      let text = e.data as string;
+      // (the host hears its guests as "<id>|<message>")
+      const from = /^g\d\|/.test(text) ? text.slice(0, 2) : undefined;
+      if (from) text = text.slice(3);
       try {
-        m = JSON.parse(e.data as string) as Msg;
+        m = JSON.parse(text) as Msg;
       } catch {
         return;
       }
+      if (from) m._from = from;
       this.queue.push(m);
       this.onMessage?.(m);
     };
@@ -96,6 +111,11 @@ export class Net {
 
   send(m: Msg) {
     if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m));
+  }
+
+  /** the host: to one guest only */
+  sendTo(id: string, m: Msg) {
+    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(`@${id}|${JSON.stringify(m)}`);
   }
 
   close() {

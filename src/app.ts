@@ -25,6 +25,7 @@ import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
 import { applyInput, applySnap, cleanCode, InputWriter, Net, newCode, SnapWriter, type Msg } from './net';
+import type { NetPlayer } from './action';
 import { SquadRun, type RushStory } from './squadrun';
 import { ActionMode, dungeonStageName, type ActionKind, type StoryFight } from './action';
 import { buzz as haptic } from './haptics';
@@ -152,7 +153,24 @@ export function boot() {
   let duo = false;
   /** online versus (a room on the Worker): the host runs the match, the guest's controls drive the
    *  opponent; the guest shows the host's table from its own end. `foe` is the other player's fighter */
-  let online: { net: Net; role: 'host' | 'guest'; foe: string; foeName: string; cfg?: Partial<store.Settings> } | null = null;
+  let online: {
+    net: Net;
+    role: 'host' | 'guest';
+    foe: string;
+    foeName: string;
+    cfg?: Partial<store.Settings>;
+    /** what the room plays: a duel, or an Action brawl (Storm Brawl, Team Knockout) */
+    kind: 'clash' | 'ffa' | 'knockout';
+    /** a guest: its id in the room */
+    myId?: string;
+    /** a brawl room before it starts: who's in (the host keeps the list) */
+    lobby: NetPlayer[];
+    /** the brawl has started: Action reads the room's messages from here on */
+    brawl: boolean;
+  } | null = null;
+  /** the kind of room the lobby will host */
+  let lobbyKind: 'clash' | 'ffa' | 'knockout' = 'clash';
+  const KIND_NAME = { clash: 'Online Clash', ffa: 'Online Brawl', knockout: 'Online Knockout' } as const;
   const snapWriter = new SnapWriter();
   const inputWriter = new InputWriter();
   /** the host's match rules the guest plays by (its own controls and display settings stay its own) */
@@ -1939,7 +1957,7 @@ export function boot() {
   let actionKind: ActionKind | null = null;
   /** Action's screen, made the first time it's needed */
   const actionScreen = () => {
-    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => toTitle(), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), landscape: () => document.documentElement.classList.contains('land'), lock: () => S().orientation === 'landscape', cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
+    actionMode ??= new ActionMode($('app'), { unit: playableId(S().character), skin: mine, onExit: () => (endOnline(), toTitle()), reward: (box, id, gain) => grantXp(box, id, gain), camera: () => S().camera, setCamera: (camera) => saveSetting({ camera }), landscape: () => document.documentElement.classList.contains('land'), lock: () => S().orientation === 'landscape', cpuCharge: () => S().cpuCharge ?? true, allyCharge: () => S().allyCharge ?? true, saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
     if (debug) (window as unknown as Record<string, unknown>).__action = actionMode;
     show('');
     return actionMode;
@@ -2606,6 +2624,8 @@ export function boot() {
     classic: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>',
     squad: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
     online: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    onlinebrawl: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    onlineko: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
     duo: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     ffa: '<path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/>',
     mega: '<circle cx="6" cy="12" r="3.2"/><circle cx="18" cy="12" r="3.2"/><path d="M9.2 12h5.6"/><path d="M12 3v3M12 18v3M3 6l2 2M21 6l-2 2M3 18l2-2M21 18l-2-2"/>',
@@ -2631,8 +2651,10 @@ export function boot() {
     { id: 'classic', name: 'Classic Duel', sub: 'The original rules: auto-reload, no specials', kind: 'duel', go: press('classic-btn') },
     { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', go: press('squad-btn') },
     { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'duel', go: press('duo-btn') },
-    { id: 'online', name: 'Online Clash', sub: 'Fight a friend on another device with a room code', kind: 'duel', go: () => openLobby() },
+    { id: 'online', name: 'Online Clash', sub: 'Fight a friend on another device with a room code', kind: 'duel', go: () => openLobby('', '', 'clash') },
     { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', go: arena('ffa') },
+    { id: 'onlinebrawl', name: 'Online Brawl', sub: 'Storm Brawl with up to 5 friends on a room code', kind: 'arena', go: () => openLobby('', '', 'ffa') },
+    { id: 'onlineko', name: 'Online Knockout', sub: 'Team Knockout with friends, three a side', kind: 'arena', go: () => openLobby('', '', 'knockout') },
     { id: 'mega', name: 'Mega Brawl', sub: 'Twenty fighters, a stage eight times the size, portals to jump across', kind: 'arena', go: arena('mega') },
     { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', go: arena('knockout') },
     { id: 'siege', name: 'Castle Crash', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', go: arena('siege') },
@@ -2958,8 +2980,16 @@ export function boot() {
     sfx.tap.fn = null;
   };
   const closeLobby = () => olEl.classList.add('hidden');
-  const openLobby = (status = '', code = '') => {
+  const openLobby = (status = '', code = '', kind?: 'clash' | 'ffa' | 'knockout') => {
     sfx.unlock();
+    if (kind) lobbyKind = kind;
+    $('ol-title').textContent = lobbyKind === 'clash' ? 'Online' : lobbyKind === 'ffa' ? 'Brawl' : 'Knockout';
+    $('ol-lead').innerHTML =
+      lobbyKind === 'clash'
+        ? 'Fight a friend on another device. You bring <b id="ol-you"></b>; the host’s arena and rules are played.'
+        : `${lobbyKind === 'ffa' ? 'Storm Brawl' : 'Team Knockout'} with up to 5 friends; CPU fighters fill the empty places. You bring <b id="ol-you"></b>.`;
+    $('ol-players').innerHTML = '';
+    $('ol-start').classList.add('hidden');
     olView('home');
     olStatus(status);
     $<HTMLInputElement>('ol-code').value = code;
@@ -2969,6 +2999,12 @@ export function boot() {
   /** the connection dropped, or the other player left */
   const lostPeer = (why: string) => {
     if (!online) return;
+    // (mid-brawl: Action says so and leaves; it goes back to the title on its way out)
+    if (online.brawl && actionMode?.active) {
+      endOnline();
+      actionMode.netLost(why.toUpperCase().replace(/\.$/, ''));
+      return;
+    }
     endOnline();
     if (screen === 'playing' || screen === 'result') {
       leaveMatch();
@@ -2978,8 +3014,8 @@ export function boot() {
   };
   const connect = (code: string, role: 'host' | 'guest') => {
     endOnline();
-    const net = new Net(code, role);
-    online = { net, role, foe: '', foeName: '' };
+    const net = new Net(code, role, role === 'host' && lobbyKind !== 'clash' ? 6 : 2);
+    online = { net, role, foe: '', foeName: '', kind: role === 'host' ? lobbyKind : 'clash', lobby: [], brawl: false };
     net.onClose = () => {
       if (online?.net !== net) return;
       // (a refused join: the room said why just before it closed)
@@ -2993,7 +3029,35 @@ export function boot() {
     connect(code, 'host');
     olView('wait');
     $('ol-room').textContent = code;
-    olStatus('Waiting for your friend to join…');
+    if (lobbyKind !== 'clash') {
+      online!.lobby = [{ nid: 'h', char: saveData.settings.character, name: mine(saveData.settings.character).name }];
+      showPlayers();
+    }
+    olStatus(lobbyKind === 'clash' ? 'Waiting for your friend to join…' : 'Waiting for friends to join…');
+  };
+  /** a brawl room's players, in the lobby (the host's Start once someone's in) */
+  const showPlayers = (names = online?.lobby.map((p) => p.name) ?? []) => {
+    $('ol-players').innerHTML = names.map((n, k) => `<li><b>${k === 0 ? 'HOST' : `P${k + 1}`}</b>${n.replace(/[<>&]/g, '')}</li>`).join('');
+    const host = online?.role === 'host';
+    $('ol-start').classList.toggle('hidden', !host);
+    ($('ol-start') as HTMLButtonElement).disabled = names.length < 2;
+    $('ol-start').textContent = names.length < 2 ? 'Start (waiting for a friend)' : `Start · ${names.length} players`;
+  };
+  /** the host: the room's player list to everyone in it */
+  const sendLobby = () => {
+    if (!online || online.role !== 'host') return;
+    online.net.send({ t: 'lobby', kind: online.kind, players: online.lobby.map((p) => p.name) });
+    showPlayers();
+  };
+  /** into the brawl: the host starts it, the guests follow */
+  const startBrawl = (role: 'host' | 'guest', players: NetPlayer[], kind: 'ffa' | 'knockout') => {
+    if (!online) return;
+    online.brawl = true;
+    online.kind = kind;
+    closeLobby();
+    sfx.unlock();
+    show('');
+    actionScreen().startOnline({ role, conn: online.net, me: role === 'host' ? 'h' : (online.myId ?? 'g1'), players, kind });
   };
   const joinRoom = (raw: string) => {
     const code = cleanCode(raw);
@@ -3017,16 +3081,46 @@ export function boot() {
     if (m.t === 'error') {
       // (a code already in use: just roll another)
       if (m.reason === 'taken' && host) return hostRoom();
-      const why = m.reason === 'no-room' ? 'No room with that code. Check it with your friend.' : m.reason === 'full' ? 'That room already has two players.' : 'Couldn’t join that room.';
+      const why = m.reason === 'no-room' ? 'No room with that code. Check it with your friend.' : m.reason === 'full' ? 'That room is full.' : m.reason === 'started' ? 'That match has already started.' : 'Couldn’t join that room.';
       endOnline();
       return olStatus(why);
     }
     if (m.t === 'peer') {
-      if (!m.on) return lostPeer('Your opponent left the match.');
+      // a brawl room's guest leaving before the start: off the list
+      if (!m.on && host && online.kind !== 'clash') {
+        online.lobby = online.lobby.filter((p) => p.nid !== m.id);
+        sendLobby();
+        return olStatus(`A player left. ${online.lobby.length} in the room.`);
+      }
+      if (!m.on) return lostPeer(online.kind === 'clash' ? 'Your opponent left the match.' : 'The host left the room.');
+      if (!host) online.myId = m.id;
+      if (host && online.kind !== 'clash') return olStatus('Someone is joining…');
       if (host) olStatus('Your friend is here. Starting…');
       // the guest says who it's bringing; the host starts the match when it hears
       else online.net.send({ t: 'hello', id: saveData.settings.character, name: mine(saveData.settings.character).name });
       return;
+    }
+    if (m.t === 'hello' && host && online.kind !== 'clash') {
+      if (m._from && !online.lobby.some((p) => p.nid === m._from)) online.lobby.push({ nid: m._from, char: characterById(m.id).id, name: m.name });
+      sendLobby();
+      return olStatus(`${m.name} joined. Start when everyone's in.`);
+    }
+    if (m.t === 'lobby' && !host) {
+      online.kind = m.kind as 'ffa' | 'knockout';
+      olView('wait');
+      $('ol-room').textContent = online.net.code;
+      $('ol-title').textContent = online.kind === 'ffa' ? 'Brawl' : 'Knockout';
+      $('ol-lead').textContent = `${online.kind === 'ffa' ? 'Storm Brawl' : 'Team Knockout'} with friends; CPU fighters fill the empty places.`;
+      showPlayers(m.players);
+      return olStatus(`${KIND_NAME[online.kind]} · waiting for the host to start`);
+    }
+    if (m.t === 'bstart' && !host) {
+      // (joined just as it started: not in it)
+      if (!m.players.some((p) => p.nid === online!.myId)) {
+        endOnline();
+        return olStatus('That match started without you. Ask the host for the next one.');
+      }
+      return startBrawl('guest', m.players, m.kind as 'ffa' | 'knockout');
     }
     if (m.t === 'hello' && host) {
       online.foe = characterById(m.id).id;
@@ -3047,7 +3141,8 @@ export function boot() {
   /** take this frame's messages: the host's controls from the guest, the guest's table from the host */
   const pumpNet = () => {
     const q = online?.net.queue;
-    while (online && q && q.length) {
+    // (in a brawl, Action takes the room's messages itself)
+    while (online && !online.brawl && q && q.length) {
       const m = q[0];
       if (m.t === 's') {
         if (online.role !== 'guest' || screen !== 'playing') {
@@ -3093,6 +3188,9 @@ export function boot() {
     $('paused').classList.add('hidden');
   };
   $('ol-host').addEventListener('click', hostRoom);
+  $('ol-start').addEventListener('click', () => {
+    if (online?.role === 'host' && online.lobby.length >= 2 && online.kind !== 'clash') startBrawl('host', online.lobby, online.kind);
+  });
   $('ol-join').addEventListener('click', () => joinRoom($<HTMLInputElement>('ol-code').value));
   $('ol-code').addEventListener('keydown', (e) => {
     if ((e as KeyboardEvent).key === 'Enter') joinRoom($<HTMLInputElement>('ol-code').value);
