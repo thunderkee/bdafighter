@@ -69,6 +69,8 @@ export interface Settings {
   realism: boolean;
   /** cel shading: banded toon lighting with ink outlines */
   cel: boolean;
+  /** fighters' armour hand-pixelled like a low-poly game model */
+  pixelTex: boolean;
   /** battery saver: a lighter render (less resolution and post), still 60 fps (on by default on phones) */
   batterySaver: boolean;
   /** Action mode across the whole screen, turned on its side (it asks the phone to rotate where it can) */
@@ -164,6 +166,7 @@ export const DEFAULT_SETTINGS: Settings = {
   effects: true,
   realism: true,
   cel: true,
+  pixelTex: true,
   batterySaver: typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0),
   landscape: false,
   orientation: 'portrait',

@@ -438,6 +438,11 @@
                 <div class="seg" data-setting="cel"><button data-value="true">On</button><button data-value="false">Off</button></div>
               </div>
               <div class="set-row">
+                <div class="set-head"><b>Pixel armour</b></div>
+                <span>Hand-pixelled textures on every fighter</span>
+                <div class="seg" data-setting="pixelTex"><button data-value="true">On</button><button data-value="false">Off</button></div>
+              </div>
+              <div class="set-row">
                 <div class="set-head"><b>Battery saver</b></div>
                 <span>Runs cooler on a phone</span>
                 <div class="seg" data-setting="batterySaver"><button data-value="true">On</button><button data-value="false">Off</button></div>
@@ -695,6 +700,7 @@
       <div id="debug" class="hidden"></div>
       <div id="fps" class="hidden"></div>
     </div>
+    <script type="module" src="/src/bench-scenes.js"></script><!-- (does nothing without ?bench) -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -13,7 +13,7 @@ import { BOSSES, MONSTERS, PROPS } from './monsters';
 import { FITS } from './kits';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
-import { isKit, isPainted, isSheet, paintKit, paintedTexture, paintedUV, sheetUV } from './decals';
+import { isKit, isPainted, isSheet, paintKit, paintPixel, paintedTexture, paintedUV, pixelStyle, sheetUV } from './decals';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -1906,6 +1906,30 @@ export class ShooterMesh {
         this.mats.push(own);
       } else if (isSheet(tex)) sheetUV(m.geometry, tex, (m.userData.path as string) ?? '', place);
       else paintedUV(m.geometry, tex, m.userData.texScale ?? 1, place);
+    }
+    // the pixel style: every plain armour block hand-pixelled at its own size (lights, glass and
+    // painted blocks keep their own look)
+    if (pixelStyle()) {
+      const plain: THREE.Mesh[] = [];
+      this.root.traverse((o) => {
+        const m = o as THREE.Mesh;
+        const mat = m.material as THREE.MeshLambertMaterial;
+        if (!m.isMesh || Array.isArray(mat) || !mat || !(mat as THREE.MeshLambertMaterial).isMeshLambertMaterial) return;
+        if (mat.userData.tex || mat.transparent || mat.map) return;
+        plain.push(m);
+      });
+      for (const m of plain) {
+        const mat = m.material as THREE.MeshLambertMaterial;
+        const place = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+        const map = paintPixel(m.geometry, mat.color.getHex(), def.palette.eye, place, (m.userData.path as string) ?? '');
+        if (!map) continue;
+        const own = mat.clone();
+        own.map = map;
+        own.color.setHex(0xffffff);
+        own.userData.pixel = true;
+        m.material = own;
+        this.mats.push(own);
+      }
     }
     // every model needs these, even if the design leaves them out
     if (!this.trigger) {

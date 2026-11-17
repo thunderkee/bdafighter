@@ -1044,3 +1044,176 @@ export function sheetUV(geo: THREE.BufferGeometry, tex: string, path: string, pl
   }
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
+
+// ---- pixel: every face hand-pixelled like a low-poly game model (chunky texels, a lit top rim,
+// dithered shade at the foot, glowing stripes and little pixel marks) ----
+
+/** texels per world unit: chunky on purpose */
+const TPU = 36;
+const pixelCache = new Map<string, THREE.Texture>();
+/** the pixel style is on for models built from now on */
+let pixelOn = false;
+export const setPixelStyle = (on: boolean) => {
+  pixelOn = on;
+};
+export const pixelStyle = () => pixelOn;
+
+/**
+ * one face, w by h texels, shaded as a form lit from above and to the left (nothing random):
+ * - the face steps from lit at the top to shaded at the foot (a top face is lit, a bottom one dark)
+ * - its edge is bevelled: a bright lip along the top and left, a shadow along the bottom and right
+ * - a big face has a panel pressed into it: shadow inside the top and left lip, light on the
+ *   bottom and right one, the floor a shade down
+ * - a long face has a groove across it (a dark line with a lit one under it)
+ * - a big front face carries a light strip along its panel's top edge
+ */
+function pixelFace(g: G, w: number, h: number, base: number, side: Side) {
+  const b = hex(base);
+  const L = lum(base);
+  // (a dark part needs a lift to show its shape; a light one needs less)
+  const up = (k: number) => shade(b, 1 + (L < 0.2 ? k * 1.6 : L > 0.8 ? k * 0.35 : k));
+  const down = (k: number) => shade(b, 1 - (L < 0.2 ? k * 0.7 : k));
+  const fill = (x: number, y: number, ww: number, hh: number, col: string) => {
+    if (ww <= 0 || hh <= 0) return;
+    g.fillStyle = col;
+    g.fillRect(x, y, ww, hh);
+  };
+  const upright = side !== 'top' && side !== 'bottom';
+  // the light across the face: three steps, top to foot
+  if (side === 'top') fill(0, 0, w, h, up(0.14));
+  else if (side === 'bottom') fill(0, 0, w, h, down(0.38));
+  else {
+    fill(0, 0, w, h, b);
+    if (h >= 6) {
+      fill(0, 0, w, Math.round(h * 0.28), up(0.08));
+      fill(0, Math.round(h * 0.78), w, h, down(0.14));
+    }
+  }
+  if (w < 3 || h < 3) return;
+  // the bevel round the edge
+  const lip = side === 'bottom' ? down(0.25) : up(0.32);
+  const lipSide = side === 'bottom' ? down(0.3) : up(0.16);
+  const shadow = down(side === 'top' ? 0.18 : 0.34);
+  fill(0, 0, w, 1, lip);
+  fill(0, 1, 1, h - 1, lipSide);
+  fill(0, h - 1, w, 1, shadow);
+  fill(w - 1, 1, 1, h - 1, down(side === 'top' ? 0.12 : 0.24));
+  if (side === 'bottom') return;
+  // a panel pressed in: on a face with room for it
+  const inset = Math.max(2, Math.round(Math.min(w, h) * 0.16));
+  const px0 = inset;
+  const py0 = inset;
+  const pw = w - inset * 2;
+  const ph = h - inset * 2;
+  const panel = pw >= 5 && ph >= 4 && w >= 10 && h >= 9;
+  if (panel) {
+    fill(px0, py0, pw, ph, down(upright ? 0.07 : 0.05));
+    // shadow falls inside the top and left lip; the bottom and right lip catch the light
+    fill(px0, py0, pw, 1, down(0.36));
+    fill(px0, py0 + 1, 1, ph - 1, down(0.26));
+    fill(px0, py0 + ph - 1, pw, 1, up(0.26));
+    fill(px0 + pw - 1, py0 + 1, 1, ph - 2, up(0.14));
+  }
+  // a groove across a long face, through its middle (dark, lit just under it)
+  if (upright && h >= 14 && h > w * 1.6) {
+    const y = Math.round(h * 0.55);
+    fill(1, y, w - 2, 1, down(0.38));
+    fill(1, y + 1, w - 2, 1, up(0.2));
+  } else if (w >= 14 && w > h * 1.8) {
+    const x = Math.round(w * 0.5);
+    fill(x, 1, 1, h - 2, down(0.38));
+    fill(x + 1, 1, 1, h - 2, up(0.2));
+  }
+  // a light strip along the panel's top edge: on a big front face only, where it reads as a lamp
+  if (panel && side === 'front' && pw >= 9 && ph >= 7) {
+    const len = Math.max(3, Math.round(pw * 0.55));
+    fill(px0 + 2, py0 + 2, len, 1, '#f6fbff');
+    fill(px0 + 2, py0 + 3, len, 1, up(0.4));
+  }
+}
+
+/**
+ * `pixel`: hand-pixels every face of the block at its real size (chunky texels, nearest filtering)
+ * and sets the block's texture coordinates. Returns its texture (the block's colour is baked in).
+ */
+export function paintPixel(geo: THREE.BufferGeometry, base: number, eye: number, place: THREE.Matrix4, seed: string) {
+  const src = geo.attributes.position;
+  const srcN = geo.attributes.normal;
+  if (!src || !srcN) return null;
+  const m = place.clone().setPosition(0, 0, 0);
+  const pos = src.clone().applyMatrix4(m);
+  const nor = srcN.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(m));
+  // every vertex takes the side its normal leans to most (so round parts are box-mapped)
+  const sideOf = (i: number): Side => {
+    const [nx, ny, nz] = [nor.getX(i), nor.getY(i), nor.getZ(i)];
+    const [ax, ay, az] = [Math.abs(nx), Math.abs(ny), Math.abs(nz)];
+    if (az >= ax && az >= ay) return nz < 0 ? 'front' : 'back';
+    if (ax >= ay) return nx > 0 ? 'xpos' : 'xneg';
+    return ny > 0 ? 'top' : 'bottom';
+  };
+  const boxes: Partial<Record<Side, THREE.Box3>> = {};
+  const v3 = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) (boxes[sideOf(i)] ??= new THREE.Box3()).expandByPoint(v3.fromBufferAttribute(pos, i));
+  const dims = (sd: Side, b: THREE.Box3) => {
+    const s = b.getSize(new THREE.Vector3());
+    return sd === 'front' || sd === 'back' ? [s.x, s.y] : sd === 'xpos' || sd === 'xneg' ? [s.z, s.y] : [s.x, s.z];
+  };
+  const GAP = 1;
+  let x = 0;
+  const rects: Partial<Record<Side, { x: number; w: number; h: number }>> = {};
+  for (const sd of Object.keys(boxes) as Side[]) {
+    const [fw, fh] = dims(sd, boxes[sd]!);
+    const w = Math.max(2, Math.min(96, Math.round(fw * TPU)));
+    const h = Math.max(2, Math.min(96, Math.round(fh * TPU)));
+    rects[sd] = { x, w, h };
+    x += w + GAP;
+  }
+  const W = x + 2;
+  const H = Math.max(2, ...Object.values(rects).map((r) => r!.h));
+  const key = `${base}|${eye}|${seed}|${JSON.stringify(rects)}`;
+  let t = pixelCache.get(key);
+  if (!t) {
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const g = c.getContext('2d')!;
+    g.fillStyle = hex(base);
+    g.fillRect(0, 0, W, H);
+    for (const sd of Object.keys(rects) as Side[]) {
+      const r = rects[sd]!;
+      g.save();
+      g.translate(r.x, 0);
+      pixelFace(g, r.w, r.h, base, sd);
+      g.restore();
+    }
+    t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+    pixelCache.set(key, t);
+  }
+  // texture coordinates: each face across its own rectangle, kept a hair inside it
+  const span = (a: number, lo: number, hi: number) => (a - lo) / (hi - lo || 1);
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const sd = sideOf(i);
+    const r = rects[sd]!;
+    const bb = boxes[sd]!;
+    const [qx, qy, qz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    let u: number;
+    let v: number;
+    if (sd === 'front') [u, v] = [1 - span(qx, bb.min.x, bb.max.x), span(qy, bb.min.y, bb.max.y)];
+    else if (sd === 'back') [u, v] = [span(qx, bb.min.x, bb.max.x), span(qy, bb.min.y, bb.max.y)];
+    else if (sd === 'xpos') [u, v] = [1 - span(qz, bb.min.z, bb.max.z), span(qy, bb.min.y, bb.max.y)];
+    else if (sd === 'xneg') [u, v] = [span(qz, bb.min.z, bb.max.z), span(qy, bb.min.y, bb.max.y)];
+    else if (sd === 'top') [u, v] = [1 - span(qx, bb.min.x, bb.max.x), span(qz, bb.min.z, bb.max.z)];
+    else [u, v] = [1 - span(qx, bb.min.x, bb.max.x), 1 - span(qz, bb.min.z, bb.max.z)];
+    const e = 0.5 / Math.max(r.w, r.h);
+    const uu = Math.min(Math.max(u, e), 1 - e);
+    const vv = Math.min(Math.max(v, e), 1 - e);
+    uv.set([(r.x + uu * r.w) / W, 1 - (r.h - vv * r.h) / H], i * 2);
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return t;
+}

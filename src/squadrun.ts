@@ -17,6 +17,7 @@ import { ITEMS, type ItemType } from './items';
  * waits at the end. Clones fire small, weak marbles; your fighter and its allies fire big ones.
  */
 
+const GATE_RUSH_HELP = 'Steer your squad through the gates: blue grows it, red shrinks it, and shooting a + or − gate fills its bar to raise its number (÷ stays as it is). Beat the rivals on the road, pick your route at the fork, shoot frozen fighters free to join you, and take down the boss at the end.';
 const LANE = 4.2; // half the lane's width
 const SPEED = 6; // how fast the squad advances
 const BOSS_AT = 1000; // distance to the boss
@@ -332,6 +333,20 @@ const THEMES: Record<RoadTheme, { asphalt: string; line: string; kerb: string; s
 /** a fake shooter for driving a ShooterMesh's own walk and fire animation */
 const pose = () => ({ x: 0, y: 0, team: 0, aim: 0, shieldUp: false, recoil: 0, windT: 9, kickT: 9, hand: 1, lastHand: 1, wobble: 0, vx: 0, flash: 0, stagger: 0, health: 100, heavyT: 9, firing: false });
 
+/** a run played as a story chapter's road: who leads, who stands in the way, who waits at the end */
+export interface RushStory {
+  title: string;
+  /** how it's won, in the chapter's words */
+  how: string;
+  /** the boss at the end (a fighter id) */
+  boss: string;
+  /** the rivals: the first on the road, then the one down each route at the fork (fresh fighters fill any gap) */
+  rivals: string[];
+  /** the fighters frozen along the road, freed and joining in order */
+  frozen: string[];
+  onEnd: (win: boolean) => void;
+}
+
 export class SquadRun {
   private el: HTMLElement;
   private canvas: HTMLCanvasElement;
@@ -343,6 +358,8 @@ export class SquadRun {
   private last = 0;
   private running = false;
   private unitId: string;
+  /** set when the run is a story chapter's road */
+  private story: RushStory | null = null;
 
   // the run
   private cx = 0;
@@ -451,7 +468,7 @@ export class SquadRun {
       <div class="sq-panel">
         <h2>Gate Rush</h2>
         <p class="sq-unit"></p>
-        <p class="sq-text">Steer your squad through the gates: blue grows it, red shrinks it, and shooting a + or − gate fills its bar to raise its number (÷ stays as it is). Beat the rivals on the road, pick your route at the fork, shoot frozen fighters free to join you, and take down the boss at the end.</p>
+        <p class="sq-text"></p>
         <p class="sq-best"></p>
         <div class="sq-buttons"><button class="sq-go key">Start</button><button class="sq-back key">Back</button></div>
       </div>`;
@@ -481,8 +498,9 @@ export class SquadRun {
   }
 
   /** show the start panel with this fighter leading */
-  open(unit: string) {
+  open(unit: string, story: RushStory | null = null) {
     this.unitId = unit;
+    this.story = story;
     this.applySaver();
     this.el.classList.remove('hidden');
     this.reset();
@@ -498,7 +516,10 @@ export class SquadRun {
     this.running = false;
     cancelAnimationFrame(this.raf);
     this.el.classList.add('hidden');
-    this.opts.onExit();
+    const st = this.story;
+    this.story = null;
+    if (st) st.onEnd(false);
+    else this.opts.onExit();
   }
 
   get active() {
@@ -725,16 +746,19 @@ export class SquadRun {
     const h = p.querySelector('h2')!;
     const text = p.querySelector('.sq-text') as HTMLElement;
     const go = p.querySelector('.sq-go')!;
+    const st = this.story;
     if (kind === 'start') {
-      h.textContent = 'Gate Rush';
+      h.textContent = st ? st.title : 'Gate Rush';
+      text.textContent = st ? st.how : GATE_RUSH_HELP;
       text.classList.remove('hidden');
       go.textContent = 'Start';
     } else {
       h.textContent = kind === 'win' ? 'Boss down!' : 'Squad lost';
       text.classList.add('hidden');
-      go.textContent = 'Run again';
+      go.textContent = st ? 'Try again' : 'Run again';
     }
-    p.querySelector('.sq-best')!.textContent = kind === 'start' ? (best ? `BEST ${best}` : '') : `SCORE ${score}${score >= best ? ' · NEW BEST' : ` · BEST ${best}`}`;
+    // (a story road keeps no score: it's won or it's tried again)
+    p.querySelector('.sq-best')!.textContent = st ? '' : kind === 'start' ? (best ? `BEST ${best}` : '') : `SCORE ${score}${score >= best ? ' · NEW BEST' : ` · BEST ${best}`}`;
   }
 
   private best() {
@@ -755,6 +779,23 @@ export class SquadRun {
 
   private finish(win: boolean) {
     this.over = true;
+    if (this.story) {
+      const st = this.story;
+      sfx.play(win ? 'win' : 'lose');
+      this.tap(win ? [20, 40, 20, 40, 60] : [120, 60, 120]);
+      // (a win goes straight back to the story; a loss offers the road again)
+      if (win)
+        setTimeout(() => {
+          if (this.story !== st) return;
+          this.running = false;
+          cancelAnimationFrame(this.raf);
+          this.el.classList.add('hidden');
+          this.story = null;
+          st.onEnd(true);
+        }, 1800);
+      else setTimeout(() => this.showPanel('lose'), 700);
+      return;
+    }
     const s = this.score();
     try {
       if (s > this.best()) localStorage.setItem(BEST_KEY, String(s));
@@ -1349,7 +1390,7 @@ export class SquadRun {
 
   private spawnBoss() {
     const pool = playable().filter((c) => c.id !== this.unitId && !c.id.startsWith('custom'));
-    const def = pool[Math.floor(Math.random() * pool.length)] ?? characterById(this.unitId);
+    const def = this.story ? characterById(this.story.boss) : pool[Math.floor(Math.random() * pool.length)] ?? characterById(this.unitId);
     const mesh = new ShooterMesh(def.id, def.ball, def);
     mesh.size = 3.2;
     this.scene.add(mesh.root);
@@ -1570,9 +1611,14 @@ export class SquadRun {
 
   /** fighters not yet met on this run (not yours, not custom ones) */
   private freshFighters() {
-    const used = new Set([this.unitId, this.rival?.def.id, ...(this.routeDefs?.map((d) => d.id) ?? []), ...this.allies.map((a) => a.def.id), ...this.frozen.map((f) => f.def.id)]);
+    const used = new Set([this.unitId, this.story?.boss, this.rival?.def.id, ...(this.routeDefs?.map((d) => d.id) ?? []), ...this.allies.map((a) => a.def.id), ...this.frozen.map((f) => f.def.id)]);
     const pool = playable().filter((c) => !used.has(c.id) && !c.id.startsWith('custom'));
     return pool.length ? pool : playable().filter((c) => c.id !== this.unitId);
+  }
+  /** the story's pick for this spot, unless it's already on the road (then a fresh fighter) */
+  private cast(id: string | undefined) {
+    const fresh = this.freshFighters();
+    return (id && fresh.find((c) => c.id === id)) || this.pick(fresh);
   }
   private pick(pool: CharacterDef[]) {
     return pool[Math.floor(Math.random() * pool.length)] ?? characterById(this.unitId);
@@ -1581,7 +1627,7 @@ export class SquadRun {
   private spawnRival() {
     const idx = this.rivalsMet++;
     // the second rival is the one waiting down the route you took
-    const def = idx === 1 && this.routeDefs ? this.routeDefs[this.route ?? 0] : this.pick(this.freshFighters());
+    const def = idx === 1 && this.routeDefs ? this.routeDefs[this.route ?? 0] : this.cast(this.story?.rivals[0]);
     const mesh = new ShooterMesh(def.id, def.ball, def);
     mesh.size = 0.62;
     this.scene.add(mesh.root);
@@ -1719,10 +1765,10 @@ export class SquadRun {
   // ---------- the fork: two routes, a different rival down each ----------
 
   private spawnFork() {
-    const a = this.pick(this.freshFighters());
+    const a = this.cast(this.story?.rivals[1]);
     // (the first is set before the second is picked, so the two routes never share a rival)
     this.routeDefs = [a, a];
-    this.routeDefs = [a, this.pick(this.freshFighters())];
+    this.routeDefs = [a, this.cast(this.story?.rivals[2])];
     const zf = -FORK_AT;
     const g = new THREE.Group();
     // two roads, not one split: a grass island between them, and each side its own road from
@@ -1808,8 +1854,8 @@ export class SquadRun {
   // ---------- frozen fighters: shoot the ice off and they join you ----------
 
   private spawnFrozen() {
+    const def = this.cast(this.story?.frozen[this.frozenMet]);
     this.frozenMet++;
-    const def = this.pick(this.freshFighters());
     const mesh = new ShooterMesh(def.id, def.ball, def);
     mesh.size = 0.62;
     this.scene.add(mesh.root);

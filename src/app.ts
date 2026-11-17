@@ -1,5 +1,6 @@
 import { AI_PROFILES, ARENA, BALANCE, BALANCE_ARENA, MAG_ARENA, MAG_ARENA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
+import { setPixelStyle } from './decals';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, MOVE_NAMES, SPIRIT_MOVES, SPIRIT_OF, STEP, chargeLevel, showDashPips, slotTeam, type Shooter } from './game';
 import { View } from './view';
@@ -21,7 +22,7 @@ import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
-import { SquadRun } from './squadrun';
+import { SquadRun, type RushStory } from './squadrun';
 import { ActionMode, dungeonStageName, type ActionKind, type StoryFight } from './action';
 import { buzz as haptic } from './haptics';
 import * as music from './music';
@@ -77,6 +78,8 @@ const ITEM_ICONS: Record<ItemType, string> = {
 
 export function boot() {
   let saveData = store.load();
+  // (the armour style is set before any fighter is built)
+  setPixelStyle(saveData.settings.pixelTex !== false);
   {
     // the 2.1 set is the roster now: old 1.0 / 2.0 picks move to their 2.1s
     const st = saveData.settings;
@@ -1136,6 +1139,8 @@ export function boot() {
   // ---------- story mode: six chapters for each fighter, talk before every fight and after each win ----------
   /** opens Action for a story chapter (set once Action's screen is wired up, further down) */
   let storyAction: ((f: StoryFight) => void) | null = null;
+  /** opens Gate Rush as a story chapter's road (set once Gate Rush is wired up) */
+  let rushRoad: ((hero: string, story: RushStory) => void) | null = null;
   const unitOfBase = (b: string) => playable().find((u) => whoOf(u.id) === b)?.id ?? `${b}-22`;
   const pathOf = (id: string) => STORY_PATHS[whoOf(id)];
   const chOf = (id: string) => saveData.storyCh?.[id] ?? 0;
@@ -1500,7 +1505,65 @@ export function boot() {
       storyAction?.(f);
     }, false, goalOf(hero, ch, mode), c.arena);
   };
-  if (debug) Object.assign(window as unknown as Record<string, unknown>, { __chapterMode: chapterMode, __setter: setter, __allies: storyAllies });
+  /**
+   * the road to the fifth chapter is a Gate Rush: the fighters beaten early on this path come back
+   * as rivals with squads of their own, the friends who would stand with you next are frozen on the
+   * road (free them and they join), and the chapter's foe waits at the end. Won once per sitting.
+   */
+  const RUSH_CH = 4;
+  const rushed = new Set<string>();
+  const rushCast = (hero: string, ch: number) => {
+    const p = pathOf(hero);
+    const foe = p.chapters[ch].foe;
+    const frozen = storyAllies(hero, ch);
+    const seen = new Set([whoOf(hero), foe]);
+    const rivals: string[] = [];
+    for (let k = 0; k < ch; k++) {
+      const b = p.chapters[k].foe;
+      if (seen.has(b)) continue;
+      seen.add(b);
+      const u = unitOfBase(b);
+      if (!frozen.includes(u)) rivals.push(u);
+    }
+    return { boss: unitOfBase(foe), rivals, frozen };
+  };
+  const rushChapter = () => {
+    if (!story || !rushRoad) return;
+    const hero = story.hero;
+    const ch = story.ch;
+    const p = pathOf(hero);
+    const c = p.chapters[ch];
+    const cast = rushCast(hero, ch);
+    const name = (id: string) => characterById(id).name;
+    const list = (ids: string[]) => (ids.length > 1 ? `${ids.slice(0, -1).map(name).join(', ')} and ${name(ids[ids.length - 1])}` : ids.map(name).join(''));
+    const foe = name(cast.boss);
+    const place = stageById(c.arena).name;
+    const lines: Line[] = [
+      ...(ch === 0 ? p.intro : []),
+      { who: 'narrator', text: `The road to ${place} is held. ${foe} has raised a horde across it, and gates that grow a squad or tear it down.` },
+      ...(cast.rivals.length ? [{ who: 'narrator', text: `${list(cast.rivals)} ${cast.rivals.length > 1 ? 'have' : 'has'} not forgotten losing to you. ${cast.rivals.length > 1 ? 'They wait' : 'It waits'} on the road with squads of ${cast.rivals.length > 1 ? 'their' : 'its'} own.` }] : []),
+      ...(cast.frozen.length ? [{ who: 'narrator', text: `${list(cast.frozen)}, coming to stand with you, ${cast.frozen.length > 1 ? 'were' : 'was'} caught in ${foe}'s ice along the way. Shoot ${cast.frozen.length > 1 ? 'them' : 'it'} free.` }] : []),
+    ];
+    const how = `Grow your squad through the gates and keep the horde off. Beat ${cast.rivals.length ? list(cast.rivals) : 'the rivals'} on the road${cast.frozen.length ? `, free ${list(cast.frozen)}` : ''}, and bring down ${foe} at the end.`;
+    const goal: Goal = { kind: `Gate Rush · The road to ${place}`, foe: cast.boss, why: `Fight your way to ${foe}.`, how };
+    talk(hero, `CHAPTER ${ch + 1} OF ${p.chapters.length} · THE ROAD`, c.title.toUpperCase(), lines, () => {
+      rushRoad?.(hero, {
+        title: `The road to ${place}`,
+        how,
+        boss: cast.boss,
+        rivals: cast.rivals,
+        frozen: cast.frozen,
+        onEnd: (win) => {
+          if (!story || story.hero !== hero) return;
+          if (!win) return toTitle();
+          rushed.add(`${hero}:${ch}`);
+          // (the foe falls back to its arena, and the chapter goes on there)
+          talk(hero, `CHAPTER ${ch + 1} · ROAD CLEAR`, c.title.toUpperCase(), [{ who: 'narrator', text: `${foe}'s squad breaks. ${foe} falls back to ${place}, and you follow.` }], playChapter, false, undefined, c.arena);
+        },
+      });
+    }, false, goal, c.arena);
+  };
+  if (debug) Object.assign(window as unknown as Record<string, unknown>, { __chapterMode: chapterMode, __setter: setter, __allies: storyAllies, __rushCast: rushCast });
   /** talk on the table, then fight (the story's opening comes before the first chapter) */
   const playChapter = () => {
     if (!story) return;
@@ -1512,6 +1575,8 @@ export function boot() {
     }
     const p = pathOf(story.hero);
     const c = p.chapters[story.ch];
+    // (the road to chapter five comes first)
+    if (story.ch === RUSH_CH && p.chapters.length > RUSH_CH + 1 && !rushed.has(`${story.hero}:${story.ch}`)) return rushChapter();
     const mode = chapterMode(story.hero, story.ch);
     if (mode !== 'duel') return actionChapter(mode);
     const lines = story.ch === 0 ? [...p.intro, ...c.before] : c.before;
@@ -1809,13 +1874,21 @@ export function boot() {
   $('duo-btn').addEventListener('click', () => openSelect('duo'));
   // Squad Run: its own little game over the top, led by your fighter; the arena sleeps meanwhile
   let squadRun: SquadRun | null = null;
+  const squad = () => {
+    squadRun ??= new SquadRun($('app'), { unit: playableId(S().character), onExit: () => toTitle(), saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
+    if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
+    return squadRun;
+  };
   $('squad-btn').addEventListener('click', () => {
     sfx.unlock();
-    squadRun ??= new SquadRun($('app'), { unit: playableId(S().character), onExit: () => toTitle(), saver: () => !!S().batterySaver, vibrate: (p) => S().vibrate && buzz(p) });
     show('');
-    squadRun.open(playableId(S().character));
-    if (debug) (window as unknown as Record<string, unknown>).__squad = squadRun;
+    squad().open(playableId(S().character));
   });
+  /** a story chapter's road, run as a Gate Rush */
+  rushRoad = (hero, story_) => {
+    show('');
+    squad().open(hero, story_);
+  };
   // Action: walk the stage freely (Gauntlet rooms or a free-for-all), over the top like Squad Run
   let actionMode: ActionMode | null = null;
   /** a mode to go straight into when Action opens (from the home screen) */
@@ -1967,6 +2040,7 @@ export function boot() {
     const st = saveData.settings;
     input.settings = { ...st };
     // outside a match the table updates now; mid-match it waits for the next one
+    setPixelStyle(st.pixelTex !== false);
     if (screen !== 'playing') {
       game.puckCount = st.pucks;
       game.placePucks();
@@ -2037,6 +2111,8 @@ export function boot() {
       else if (['enemyIQ', 'enemyHealth', 'enemySpeed', 'enemyAgility', 'enemyPower'].includes(key)) saveSetting({ [key]: value, difficulty: 'custom' } as Partial<store.Settings>);
       else saveSetting({ [key]: value } as Partial<store.Settings>);
       if (key === 'orientation') lockOrientation();
+      // (every fighter is rebuilt in its new armour)
+      if (key === 'pixelTex') location.reload();
     }),
   );
   $('reset-opponent').addEventListener('click', () => saveSetting({ ...store.OPPONENT_DEFAULTS, difficulty: 'normal' }));
