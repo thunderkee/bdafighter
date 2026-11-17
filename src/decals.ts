@@ -1065,7 +1065,7 @@ export const pixelStyle = () => pixelOn;
  * - an accent light in a front face's corner (mirrored on the body's left side, so pairs match)
  * A painted face (over a picture) takes only the light and the bevel.
  */
-function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = false, mirror = false, accent = '#3ff0d0', sym = false) {
+function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = false, mirror = false, accent = '#3ff0d0', sym = false, dist: Uint8Array | null = null) {
   const b = hex(base);
   const L = lum(base);
   // (a dark part needs a lift to show its shape; a light one needs less). Over a painted picture
@@ -1077,14 +1077,28 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
     g.fillStyle = col;
     g.fillRect(x, y, ww, hh);
   };
+  /**
+   * How far in from the face's own outline a texel sits (1 on the edge, 0 outside it). The face
+   * isn't always the whole rectangle: a wedge or a trapezoid covers part of it, and every line
+   * (the bevel, the engraved inset, the marks) follows its real shape, not the rectangle's.
+   */
+  const D = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+    return dist ? dist[y * w + x] : Math.min(x + 1, y + 1, w - x, h - y);
+  };
+  /** a mark: drawn only where it's this far inside the face, so nothing is cut off by a slanted edge */
+  const mark = (x: number, y: number, ww: number, hh: number, col: string, minD = 2) => {
+    if (ww <= 0 || hh <= 0) return;
+    g.fillStyle = col;
+    for (let yy = Math.max(0, y); yy < Math.min(h, y + hh); yy++) for (let xx = Math.max(0, x); xx < Math.min(w, x + ww); xx++) if (D(xx, yy) >= minD) g.fillRect(xx, yy, 1, 1);
+  };
   // (marks are placed from the face's inner edge, mirrored for the body's other side)
   const X = (x: number) => (mirror ? w - 1 - x : x);
   // (a face on the body's centre line carries every mark on both halves)
   const dot = (x: number, y: number, col: string, t = 1) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
-    g.fillStyle = col;
-    g.fillRect(mirror ? w - x - t : x, y, t, t);
-    if (sym) g.fillRect(mirror ? x : w - x - t, y, t, t);
+    mark(mirror ? w - x - t : x, y, t, t, col);
+    if (sym) mark(mirror ? x : w - x - t, y, t, t, col);
   };
   // the light across the face: three steps, top to foot
   if (side === 'top') fill(0, 0, w, h, up(0.14));
@@ -1097,11 +1111,24 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
     }
   }
   if (w < 3 || h < 3) return;
+  // the bevel: round the face's own outline, lit where the edge faces up or left, shaded where it
+  // faces down or right
   const bevel = () => {
-    fill(0, 0, w, 1, side === 'bottom' ? down(0.25) : up(0.34));
-    fill(0, 1, 1, h - 1, side === 'bottom' ? down(0.3) : up(0.16));
-    fill(0, h - 1, w, 1, down(side === 'top' ? 0.18 : 0.34));
-    fill(w - 1, 1, 1, h - 1, down(side === 'top' ? 0.12 : 0.24));
+    const cols = {
+      top: side === 'bottom' ? down(0.25) : up(0.34),
+      left: side === 'bottom' ? down(0.3) : up(0.16),
+      bottom: down(side === 'top' ? 0.18 : 0.34),
+      right: down(side === 'top' ? 0.12 : 0.24),
+    };
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        if (D(x, y) !== 1) continue;
+        // which way the outside is (straight neighbours first, then the corners)
+        const out = (dx: number, dy: number) => D(x + dx, y + dy) === 0;
+        const k = out(0, 1) ? 'bottom' : out(1, 0) ? 'right' : out(0, -1) ? 'top' : out(-1, 0) ? 'left' : out(1, 1) || out(-1, 1) ? 'bottom' : out(1, -1) ? 'right' : 'top';
+        g.fillStyle = cols[k];
+        g.fillRect(x, y, 1, 1);
+      }
   };
   if (side === 'bottom' || over) return bevel();
   const S = Math.min(w, h);
@@ -1118,16 +1145,32 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
   // ---- panel lining: the face is built of plates, the seams engraved (a dark line, a lit edge
   // under or right of it). Placed by the face's shape, so a pair of parts gets the same lines ----
   const seamH = (y: number, x0 = 1, x1 = w - 1) => {
-    fill(x0, y, x1 - x0, 1, down(0.36));
-    fill(x0, y + 1, x1 - x0, 1, up(0.18));
+    mark(x0, y, x1 - x0, 1, down(0.36));
+    mark(x0, y + 1, x1 - x0, 1, up(0.18));
   };
   const seamV = (x: number, y0 = 1, y1 = h - 1) => {
-    fill(x, y0, 1, y1 - y0, down(0.36));
-    fill(x + 1, y0, 1, y1 - y0, up(0.14));
+    mark(x, y0, 1, y1 - y0, down(0.36));
+    mark(x + 1, y0, 1, y1 - y0, up(0.14));
   };
   const rivet = (x: number, y: number) => {
-    fill(x, y, 1, 1, up(0.4));
-    fill(x + 1, y + 1, 1, 1, down(0.45));
+    mark(x, y, 1, 1, up(0.4), 3);
+    mark(x + 1, y + 1, 1, 1, down(0.45), 3);
+  };
+  /** an inset plate: its outline engraved `m` texels in from the face's own edge, all the way round */
+  const inset = (m: number) => {
+    const dark = down(0.36);
+    const lit = up(0.18);
+    const ring = (x: number, y: number) => D(x, y) === m + 1;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        if (ring(x, y)) {
+          g.fillStyle = dark;
+          g.fillRect(x, y, 1, 1);
+        } else if (D(x, y) >= 2 && (ring(x, y - 1) || ring(x - 1, y))) {
+          g.fillStyle = lit;
+          g.fillRect(x, y, 1, 1);
+        }
+      }
   };
   // (the plates' corners, for rivets)
   const corners: [number, number][] = [];
@@ -1148,10 +1191,7 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
     } else {
       // a square-ish face: a plate inset in it, its outline engraved
       const m = Math.max(3, Math.round(S * 0.2));
-      seamH(m, m, w - m);
-      seamH(h - m - 2, m, w - m);
-      seamV(m, m, h - m - 1);
-      seamV(w - m - 2, m, h - m - 1);
+      inset(m);
       corners.push([2, 2], [w - 4, 2], [2, h - 4], [w - 4, h - 4]);
     }
   }
@@ -1165,8 +1205,8 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
     const vx = Math.round((w - vw) / 2);
     const vy = Math.round(h * 0.6);
     for (let k = 0; k < 3; k++) {
-      fill(vx, vy + k * 2, vw, 1, down(0.5));
-      fill(vx, vy + k * 2 + 1, vw, 1, up(0.12));
+      mark(vx, vy + k * 2, vw, 1, down(0.5), 3);
+      mark(vx, vy + k * 2 + 1, vw, 1, up(0.12), 3);
     }
   } else if (side === 'front' && w >= 22 && h >= 16 && pick < 0.6) {
     // a label plate: a light panel with printed lines, up high (in the middle on the centre line)
@@ -1176,25 +1216,30 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
     const py = Math.round(h * 0.2);
     const plate = L > 0.7 ? down(0.16) : up(0.55);
     const ink = L > 0.7 ? down(0.55) : down(0.3);
-    const P = (x: number, y: number, ww: number, hh: number, col: string) => (sym ? fill(x, y, ww, hh, col) : fill(X(x + ww - 1) - (mirror ? 0 : ww - 1), y, ww, hh, col));
-    P(px, py, pw, ph, plate);
-    P(px + 1, py + 1, Math.round(pw * 0.6), 1, ink);
-    if (ph >= 6) P(px + 1, py + 3, Math.round(pw * 0.4), 1, ink);
-    P(px + pw - 3, py + ph - 3, 2, 2, ink);
+    const P = (x: number, y: number, ww: number, hh: number, col: string) => (sym ? mark(x, y, ww, hh, col, 3) : mark(X(x + ww - 1) - (mirror ? 0 : ww - 1), y, ww, hh, col, 3));
+    // (only where the whole plate fits inside the face's shape)
+    let fits = true;
+    for (let yy = py; yy < py + ph && fits; yy++) for (let xx = 0; xx < pw && fits; xx++) if (D(sym ? px + xx : X(px + xx), yy) < 3) fits = false;
+    if (fits) {
+      P(px, py, pw, ph, plate);
+      P(px + 1, py + 1, Math.round(pw * 0.6), 1, ink);
+      if (ph >= 6) P(px + 1, py + 3, Math.round(pw * 0.4), 1, ink);
+      P(px + pw - 3, py + ph - 3, 2, 2, ink);
+    }
   } else if (side === 'back' && w >= 22 && h >= 12) {
     // a hazard band across the foot: stripes of the accent and a dark tone
     const bh = Math.max(3, Math.round(h * 0.14));
     const by = h - bh - 3;
-    for (let x = 2; x < w - 2; x++) for (let y = by; y < by + bh; y++) fill(x, y, 1, 1, Math.floor((x + y) / 2) % 2 ? accent : down(0.5));
+    for (let x = 2; x < w - 2; x++) for (let y = by; y < by + bh; y++) mark(x, y, 1, 1, Math.floor((x + y) / 2) % 2 ? accent : down(0.5), 3);
     seamH(by - 1, 2, w - 2);
   } else if (upright && S >= 18 && pick > 0.7) {
     // a bolt: a round plate with a slot
     const cx = Math.round(w / 2) - 2;
     const cy = Math.round(h * 0.7) - 2;
-    fill(cx + 1, cy, 2, 4, down(0.28));
-    fill(cx, cy + 1, 4, 2, down(0.28));
-    fill(cx + 1, cy + 1, 2, 1, up(0.3));
-    fill(cx + 1, cy + 2, 2, 1, down(0.5));
+    mark(cx + 1, cy, 2, 4, down(0.28), 3);
+    mark(cx, cy + 1, 4, 2, down(0.28), 3);
+    mark(cx + 1, cy + 1, 2, 1, up(0.3), 3);
+    mark(cx + 1, cy + 2, 2, 1, down(0.5), 3);
   }
   // an accent light in a front face's lower corner
   if (side === 'front' && w >= 14 && h >= 14) {
@@ -1258,7 +1303,91 @@ export function paintPixel(
   }
   const W = x + 2;
   const H = Math.max(2, ...Object.values(rects).map((r) => r!.h));
-  const key = `${base}|${eye}|${mirror ? 1 : 0}${centred ? 'c' : ''}|${sheet?.key ?? ''}|${JSON.stringify(rects)}`;
+  // where each face's texels fall in its rectangle (u, v from 0 to 1 across it)
+  const span = (a: number, lo: number, hi: number) => (a - lo) / (hi - lo || 1);
+  const faceUV = (i: number, sd: Side): [number, number] => {
+    const bb = boxes[sd]!;
+    const [qx, qy, qz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    if (sd === 'front') return [1 - span(qx, bb.min.x, bb.max.x), span(qy, bb.min.y, bb.max.y)];
+    if (sd === 'back') return [span(qx, bb.min.x, bb.max.x), span(qy, bb.min.y, bb.max.y)];
+    if (sd === 'xpos') return [1 - span(qz, bb.min.z, bb.max.z), span(qy, bb.min.y, bb.max.y)];
+    if (sd === 'xneg') return [span(qz, bb.min.z, bb.max.z), span(qy, bb.min.y, bb.max.y)];
+    if (sd === 'top') return [1 - span(qx, bb.min.x, bb.max.x), span(qz, bb.min.z, bb.max.z)];
+    return [1 - span(qx, bb.min.x, bb.max.x), 1 - span(qz, bb.min.z, bb.max.z)];
+  };
+  // each face's real shape in its rectangle: its triangles filled in texels, then every texel's
+  // distance in from that outline (so a wedge's lines run along its slant, not the rectangle's)
+  const dists: Partial<Record<Side, Uint8Array>> = {};
+  {
+    const masks: Partial<Record<Side, Uint8Array>> = {};
+    for (const sd of Object.keys(rects) as Side[]) masks[sd] = new Uint8Array(rects[sd]!.w * rects[sd]!.h);
+    const index = geo.index;
+    const tris = index ? index.count / 3 : pos.count / 3;
+    const vi = (t: number, k: number) => (index ? index.getX(t * 3 + k) : t * 3 + k);
+    for (let t = 0; t < tris; t++) {
+      const ids = [vi(t, 0), vi(t, 1), vi(t, 2)];
+      const sd = sideOf(ids[0]);
+      const r = rects[sd]!;
+      const mk = masks[sd]!;
+      const P = ids.map((i) => {
+        const [u, v] = faceUV(i, sd);
+        return [u * r.w, (1 - v) * r.h];
+      });
+      const [ax, ay] = P[0];
+      const [bx, by] = P[1];
+      const [cx2, cy2] = P[2];
+      const area = (bx - ax) * (cy2 - ay) - (by - ay) * (cx2 - ax);
+      const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx2)));
+      const x1 = Math.min(r.w - 1, Math.ceil(Math.max(ax, bx, cx2)));
+      const y0 = Math.max(0, Math.floor(Math.min(ay, by, cy2)));
+      const y1 = Math.min(r.h - 1, Math.ceil(Math.max(ay, by, cy2)));
+      if (Math.abs(area) < 1e-9) continue;
+      for (let yy = y0; yy <= y1; yy++)
+        for (let xx = x0; xx <= x1; xx++) {
+          // (a texel counts when its centre is in the triangle, with a little give at the edges)
+          const px = xx + 0.5;
+          const py = yy + 0.5;
+          // (each edge's signed distance in texels; a third of a texel's give)
+          const sg = Math.sign(area);
+          const w0 = (((bx - px) * (cy2 - py) - (by - py) * (cx2 - px)) * sg) / (Math.hypot(cx2 - bx, cy2 - by) || 1);
+          const w1 = (((cx2 - px) * (ay - py) - (cy2 - py) * (ax - px)) * sg) / (Math.hypot(ax - cx2, ay - cy2) || 1);
+          const w2 = (((ax - px) * (by - py) - (ay - py) * (bx - px)) * sg) / (Math.hypot(bx - ax, by - ay) || 1);
+          if (w0 >= -0.35 && w1 >= -0.35 && w2 >= -0.35) mk[yy * r.w + xx] = 1;
+        }
+    }
+    for (const sd of Object.keys(rects) as Side[]) {
+      const { w, h } = rects[sd]!;
+      const mk = masks[sd]!;
+      // (a face too thin to cover any texel's centre: the whole rectangle, as before)
+      if (!mk.some((v) => v)) mk.fill(1);
+      // chessboard distance in from the outline (outside the rectangle counts as outside)
+      const d = new Uint8Array(w * h);
+      const BIG = 255;
+      for (let i = 0; i < w * h; i++) d[i] = mk[i] ? BIG : 0;
+      const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : d[y * w + x]);
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          const i = y * w + x;
+          if (!d[i]) continue;
+          d[i] = Math.min(d[i], at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + 1, at(x + 1, y - 1) + 1);
+        }
+      for (let y = h - 1; y >= 0; y--)
+        for (let x = w - 1; x >= 0; x--) {
+          const i = y * w + x;
+          if (!d[i]) continue;
+          d[i] = Math.min(d[i], at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + 1, at(x - 1, y + 1) + 1);
+        }
+      dists[sd] = d;
+    }
+  }
+  // (the shape is part of what a texture looks like: two blocks share one only when they match)
+  const shapeKey = (Object.keys(dists) as Side[]).map((sd) => {
+    const d = dists[sd]!;
+    let hv = 0;
+    for (let i = 0; i < d.length; i++) hv = (hv * 31 + (d[i] === 1 ? 1 : d[i] ? 2 : 0) + i) | 0;
+    return hv.toString(36);
+  }).join(',');
+  const key = `${base}|${eye}|${mirror ? 1 : 0}${centred ? 'c' : ''}|${sheet?.key ?? ''}|${JSON.stringify(rects)}|${shapeKey}`;
   let t = pixelCache.get(key);
   if (!t) {
     const c = document.createElement('canvas');
@@ -1281,7 +1410,7 @@ export function paintPixel(
       // (a side face's marks start from its front edge on either side; the others follow the body)
       const flip = sd === 'xpos' ? true : sd === 'xneg' ? false : mirror;
       const sym = centred && sd !== 'xpos' && sd !== 'xneg';
-      pixelFace(g, r.w, r.h, base, sd, !!pic, flip, hex(eye), sym);
+      pixelFace(g, r.w, r.h, base, sd, !!pic, flip, hex(eye), sym, dists[sd] ?? null);
       g.restore();
     }
     t = new THREE.CanvasTexture(c);
@@ -1292,21 +1421,11 @@ export function paintPixel(
     pixelCache.set(key, t);
   }
   // texture coordinates: each face across its own rectangle, kept a hair inside it
-  const span = (a: number, lo: number, hi: number) => (a - lo) / (hi - lo || 1);
   const uv = new Float32Array(pos.count * 2);
   for (let i = 0; i < pos.count; i++) {
     const sd = sideOf(i);
     const r = rects[sd]!;
-    const bb = boxes[sd]!;
-    const [qx, qy, qz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
-    let u: number;
-    let v: number;
-    if (sd === 'front') [u, v] = [1 - span(qx, bb.min.x, bb.max.x), span(qy, bb.min.y, bb.max.y)];
-    else if (sd === 'back') [u, v] = [span(qx, bb.min.x, bb.max.x), span(qy, bb.min.y, bb.max.y)];
-    else if (sd === 'xpos') [u, v] = [1 - span(qz, bb.min.z, bb.max.z), span(qy, bb.min.y, bb.max.y)];
-    else if (sd === 'xneg') [u, v] = [span(qz, bb.min.z, bb.max.z), span(qy, bb.min.y, bb.max.y)];
-    else if (sd === 'top') [u, v] = [1 - span(qx, bb.min.x, bb.max.x), span(qz, bb.min.z, bb.max.z)];
-    else [u, v] = [1 - span(qx, bb.min.x, bb.max.x), 1 - span(qz, bb.min.z, bb.max.z)];
+    const [u, v] = faceUV(i, sd);
     const e = 0.5 / Math.max(r.w, r.h);
     const uu = Math.min(Math.max(u, e), 1 - e);
     const vv = Math.min(Math.max(v, e), 1 - e);
