@@ -13,7 +13,7 @@ import { BOSSES, MONSTERS, PROPS } from './monsters';
 import { FITS } from './kits';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
-import { isKit, isPainted, isSheet, paintKit, paintPixel, paintedTexture, paintedUV, pixelStyle, sheetSource, sheetUV } from './decals';
+import { isKit, isPainted, isSheet, paintKit, paintPixel, paintedTexture, paintedUV, pixelStyle, sheetUV } from './decals';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -1753,7 +1753,9 @@ export class ShooterMesh {
   private buildBlueprint(bp: Block, def: CharacterDef, ball: number) {
     const cache = new Map<string, THREE.Material>();
     const material = (m: Block['mat']) => {
-      const spec = m ?? { kind: 'lambert', color: 'body' };
+      // (a block once mapped onto a hand-painted sheet is a plain block now: everyone shares one
+      // armour style, the pixel one)
+      const spec = m?.tex && isSheet(m.tex) ? { ...m, tex: undefined } : (m ?? { kind: 'lambert', color: 'body' });
       const color = resolveColor(spec.color, def, ball);
       const key = `${spec.kind}|${color}|${spec.double ? 1 : 0}|${spec.opacity ?? 1}|${spec.additive ? 1 : 0}|${spec.tex ?? ''}`;
       let mat = cache.get(key);
@@ -1877,7 +1879,7 @@ export class ShooterMesh {
       o.rotation.set(b.r[0], b.r[1], b.r[2]);
       o.scale.fromArray(b.s);
       o.userData.path = path;
-      if (b.mat?.tex && b.shape !== 'group') {
+      if (b.mat?.tex && !isSheet(b.mat.tex) && b.shape !== 'group') {
         // (a painted block is mapped once the model stands whole, so its front is the fighter's front)
         if (isPainted(b.mat.tex)) painted.push(o as THREE.Mesh);
         else projectPatternUV((o as THREE.Mesh).geometry, b.mat.texScale ?? 1);
@@ -1904,17 +1906,6 @@ export class ShooterMesh {
         own.map = paintKit(m.geometry, tex, def.palette, mat.userData.base as number, place, (m.userData.path as string) ?? '');
         m.material = own;
         this.mats.push(own);
-      } else if (isSheet(tex) && pixelStyle()) {
-        // the pixel style over a painted sheet: each face's patch of the picture, pixelled and shaded
-        const path = (m.userData.path as string) ?? '';
-        const map = paintPixel(m.geometry, mat.userData.base as number, def.palette.eye, place, path, sheetSource(tex, path));
-        if (map) {
-          const own = mat.clone();
-          own.map = map;
-          own.userData.pixel = true;
-          m.material = own;
-          this.mats.push(own);
-        }
       } else if (isSheet(tex)) sheetUV(m.geometry, tex, (m.userData.path as string) ?? '', place);
       else paintedUV(m.geometry, tex, m.userData.texScale ?? 1, place);
     }

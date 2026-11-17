@@ -991,19 +991,6 @@ for (const [name, url] of Object.entries(SHEET_URL)) {
 export const sheetsReady = Promise.all(sheetLoads).then(() => undefined);
 export const isSheet = (tex: string | undefined) => !!tex && tex.startsWith('sheet:');
 export const sheetTexture = (tex: string) => sheetTex.get(tex.slice(6)) ?? null;
-/** a painted block's own picture on its sheet: the image and each face's rectangle on it */
-export function sheetSource(tex: string, path: string) {
-  const img = sheetTex.get(tex.slice(6))?.image as HTMLImageElement | undefined;
-  const L = LAYOUT[tex.slice(6)];
-  const faces = L?.faces[path];
-  if (!img || !img.naturalWidth || !faces) return null;
-  // (the layout is in the template's pixels; the painted picture may be another size)
-  const kx = img.naturalWidth / L.w;
-  const ky = img.naturalHeight / L.h;
-  const rects: Partial<Record<Side, [number, number, number, number]>> = {};
-  for (const [sd, r] of Object.entries(faces) as [Side, [number, number, number, number]][]) rects[sd] = [r[0] * kx, r[1] * ky, r[2] * kx, r[3] * ky];
-  return { img, rects, key: `${tex}|${path}` };
-}
 
 /** texture coordinates for a block on a painted sheet: each face across its rectangle on the sheet */
 export function sheetUV(geo: THREE.BufferGeometry, tex: string, path: string, place: THREE.Matrix4) {
