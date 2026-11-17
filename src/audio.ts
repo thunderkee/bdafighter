@@ -83,7 +83,11 @@ function burst(dur: number, vol: number, filterType: BiquadFilterType, freq: num
 
 /** intensity 0..1 scales volume for impact sounds */
 /** `quiet`: let it play softer than the usual floor (a far-off sound, heard faintly) */
+/** online versus: while the host's game steps, every sound it plays is noted here to send on */
+export const tap: { fn: ((name: Sfx, intensity: number, quiet: boolean) => void) | null } = { fn: null };
+
 export function play(name: Sfx, intensity = 1, quiet = false) {
+  tap.fn?.(name, intensity, quiet);
   if (!ctx || muted) return;
   const now = ctx.currentTime;
   const gap = THROTTLE[name];

@@ -9557,3 +9557,123 @@ html.land #squad .sq-panel:has(.sq-hero:not(.hidden)) {
   z-index: 60;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 200vmax rgba(10, 8, 20, 0.86);
 }
+
+/* ================= online lobby: the pause card's look, over the home screen ================= */
+#online.screen.device {
+  justify-content: center;
+  padding: var(--ui-gutter);
+  background: rgba(10, 14, 40, 0.62);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  z-index: 40;
+}
+.ol-card {
+  padding-bottom: 12px;
+}
+.ol-lead {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ui-dim);
+}
+.ol-lead b {
+  color: var(--ui-ink, inherit);
+}
+.ol-home,
+.ol-wait {
+  display: grid;
+  gap: 12px;
+}
+#online .key {
+  width: 100%;
+  max-width: none;
+  min-height: 52px;
+  margin: 0;
+  font-size: 17px;
+}
+#online #ol-host {
+  min-height: 60px;
+  font-size: 22px;
+}
+.ol-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ui-dim);
+}
+.ol-or::before,
+.ol-or::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: var(--line);
+  opacity: 0.25;
+}
+.ol-join {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+#online .ol-join .key {
+  width: auto;
+  padding: 0 22px;
+}
+.ol-code {
+  min-width: 0;
+  height: 52px;
+  padding: 0 14px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: #1c1830;
+  font: 400 28px/1 var(--display);
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.ol-code:focus {
+  outline: 3px solid var(--orange, #f0752e);
+  outline-offset: 2px;
+}
+.ol-wait {
+  justify-items: center;
+  text-align: center;
+}
+.ol-wait small {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ui-dim);
+}
+.ol-room {
+  margin: -6px 0 2px;
+  font: 400 64px/1 var(--display);
+  letter-spacing: 0.12em;
+  color: #fff;
+  -webkit-text-stroke: 8px var(--line);
+  paint-order: stroke fill;
+}
+.ol-status {
+  min-height: 1.4em;
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ui-dim);
+}
+#online .key.quit {
+  min-height: 40px;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--ui-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* (online there's no Restart: Options takes the whole row) */
+#paused #restart-btn.hidden + #pause-settings-btn {
+  grid-column: 1 / -1;
+}

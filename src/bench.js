@@ -4,6 +4,8 @@
 //   ?bench=<scene>   run one scene        ?bench=all   run every scene, one page load each
 //   &frames=300      measured frames      &warm=120    frames run first and not counted
 //   &seed=1          Math.random seed
+//   &profile         sample the JS stack while measuring and list the costliest functions
+//                    (needs the page served with the header  Document-Policy: js-profiling)
 //
 // It changes nothing unless ?bench is in the URL. When it is: Math.random is seeded, the game's
 // requestAnimationFrame and performance.now run on a fixed 1/60 s clock, every WebGL draw call is
@@ -266,6 +268,50 @@ function summarise(game, name, scene, frames) {
   return res;
 }
 
+// ---------- profiling (&profile) ----------
+function startProfiler() {
+  try {
+    return new window.Profiler({ sampleInterval: 1, maxBufferSize: 1e6 });
+  } catch {
+    return null;
+  }
+}
+/** the trace as self and total time per function (ms, by sample count × the sampling interval) */
+function summariseProfile(trace) {
+  const { frames, resources, stacks, samples } = trace;
+  if (!samples.length) return { samples: 0 };
+  const dt = (samples[samples.length - 1].timestamp - samples[0].timestamp) / Math.max(1, samples.length - 1);
+  const label = (fi) => {
+    const f = frames[fi];
+    const file = f.resourceId != null ? resources[f.resourceId].split('/').pop().split('?')[0] : '';
+    return `${f.name || '(anonymous)'} ${file}${f.line != null ? ':' + f.line : ''}`;
+  };
+  const self = new Map();
+  const total = new Map();
+  let busy = 0;
+  for (const s of samples) {
+    if (s.stackId == null) continue; // idle
+    busy++;
+    let id = s.stackId;
+    const top = label(stacks[id].frameId);
+    self.set(top, (self.get(top) || 0) + 1);
+    const seen = new Set();
+    while (id != null) {
+      const l = label(stacks[id].frameId);
+      if (!seen.has(l)) {
+        seen.add(l);
+        total.set(l, (total.get(l) || 0) + 1);
+      }
+      id = stacks[id].parentId;
+    }
+  }
+  // per-frame milliseconds: samples × interval ÷ measured frames
+  const toMs = (v) => r2((v * dt) / profileFrames);
+  const top = (m) => [...m].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => ({ fn: k, msPerFrame: toMs(v), samples: v }));
+  return { samples: samples.length, busy, intervalMs: r2(dt), self: top(self), total: top(total) };
+}
+let profileFrames = 1; // (the measured frame count, for per-frame figures)
+
 function overlay(results, note = '') {
   let el = document.getElementById('bench-overlay');
   if (!el) {
@@ -320,8 +366,11 @@ export async function bench(game) {
     overlay([], `${name}: measuring ${n} frames…`);
     const progress = scene.progress || game.progress;
     const p0 = progress?.();
+    profileFrames = n;
+    const profiler = QS.has('profile') ? startProfiler() : null;
     const frames = await step(n, scene.tick ? (i) => scene.tick(i, helpers) : null);
     const res = summarise(game.name, name, scene, frames);
+    if (QS.has('profile')) res.profile = profiler ? summariseProfile(await profiler.stop()) : 'unavailable: serve the page with  Document-Policy: js-profiling';
     // a game that didn't move during the run was paused or stuck: its numbers mean nothing
     if (progress && progress() === p0) {
       res.ok = false;

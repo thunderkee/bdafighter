@@ -5,6 +5,7 @@
 //   PUT  /api/roster           publish a new roster (Authorization: Bearer <STUDIO_KEY>)
 //   GET  /api/roster/versions  earlier published versions (public)
 //   GET  /api/roster/v/<n>     one earlier version (public)
+//   GET  /api/room/<CODE>      online versus: a WebSocket into that room (?role=host|guest)
 
 interface KV {
   get(key: string): Promise<string | null>;
@@ -15,6 +16,82 @@ interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
   ROSTER: KV;
   STUDIO_KEY?: string;
+  ROOMS: { idFromName(name: string): unknown; get(id: unknown): { fetch(req: Request): Promise<Response> } };
+}
+
+// ---------- online versus: one Durable Object per room code, relaying between the two players ----------
+
+/** the Workers runtime's own pieces this file uses (it isn't type-checked against workers-types) */
+interface DOState {
+  acceptWebSocket(ws: WebSocket, tags?: string[]): void;
+  getWebSockets(tag?: string): WebSocket[];
+  getTags(ws: WebSocket): string[];
+}
+declare const WebSocketPair: { new (): { 0: WebSocket; 1: WebSocket } };
+
+/**
+ * A room: the host opens it, one guest joins. Everything one side sends goes to the other as it
+ * is (the host's game is the one that counts; the guest sends its controls, the host the table).
+ * The room tells each side when the other arrives or leaves. Hibernation keeps it free while idle.
+ */
+export class Room {
+  constructor(private state: DOState) {}
+
+  async fetch(req: Request): Promise<Response> {
+    if (req.headers.get('upgrade') !== 'websocket') return new Response('Expected a WebSocket.', { status: 426 });
+    const role = new URL(req.url).searchParams.get('role') === 'host' ? 'host' : 'guest';
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
+    const host = this.state.getWebSockets('host')[0];
+    const guest = this.state.getWebSockets('guest')[0];
+    // (a refusal still opens the socket, so the page can read why, then closes it)
+    const refuse = (reason: string) => {
+      (server as unknown as { accept(): void }).accept();
+      server.send(JSON.stringify({ t: 'error', reason }));
+      server.close(4000, reason);
+      return new Response(null, { status: 101, webSocket: client } as ResponseInit);
+    };
+    if (role === 'host' && host) return refuse('taken');
+    if (role === 'guest' && !host) return refuse('no-room');
+    if (role === 'guest' && guest) return refuse('full');
+    this.state.acceptWebSocket(server, [role]);
+    if (role === 'guest') {
+      host!.send(JSON.stringify({ t: 'peer', on: true }));
+      server.send(JSON.stringify({ t: 'peer', on: true }));
+    } else server.send(JSON.stringify({ t: 'hosting' }));
+    return new Response(null, { status: 101, webSocket: client } as ResponseInit);
+  }
+
+  private other(ws: WebSocket) {
+    const role = this.state.getTags(ws)[0];
+    return this.state.getWebSockets(role === 'host' ? 'guest' : 'host')[0];
+  }
+
+  webSocketMessage(ws: WebSocket, msg: string | ArrayBuffer) {
+    try {
+      this.other(ws)?.send(msg);
+    } catch {
+      // the other side is mid-close: its own close tells the sender
+    }
+  }
+
+  webSocketClose(ws: WebSocket) {
+    try {
+      this.other(ws)?.send(JSON.stringify({ t: 'peer', on: false }));
+    } catch {
+      // nobody left to tell
+    }
+    try {
+      ws.close(1000, 'bye');
+    } catch {
+      // already closed
+    }
+  }
+
+  webSocketError(ws: WebSocket) {
+    this.webSocketClose(ws);
+  }
 }
 
 const KEY = 'roster';
@@ -89,6 +166,8 @@ export default {
       const body = await env.ROSTER.get(`${KEY}:v${m[1]}`);
       return body ? new Response(body, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } }) : json({ error: 'No such version.' }, 404);
     }
+    const room = path.match(/^\/api\/room\/([A-Z0-9]{4,8})$/);
+    if (room) return env.ROOMS.get(env.ROOMS.idFromName(room[1])).fetch(req);
     if (path.startsWith('/api/')) return json({ error: 'Not found.' }, 404);
     return env.ASSETS.fetch(req);
   },

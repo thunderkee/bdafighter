@@ -1913,11 +1913,14 @@ export class ShooterMesh {
     // painted blocks keep their own look)
     if (pixelStyle()) {
       const plain: THREE.Mesh[] = [];
+      const mouth = this.mouthParts(def.palette.eye);
       this.root.traverse((o) => {
         const m = o as THREE.Mesh;
         const mat = m.material as THREE.MeshLambertMaterial;
         if (!m.isMesh || Array.isArray(mat) || !mat || !(mat as THREE.MeshLambertMaterial).isMeshLambertMaterial) return;
         if (mat.userData.tex || mat.transparent || mat.map) return;
+        // (the mouthpiece stays a clean flat colour: panel lines across it read as a scar)
+        if (mouth.has(m)) return;
         plain.push(m);
       });
       for (const m of plain) {
@@ -5345,6 +5348,53 @@ export class ShooterMesh {
         t.position.set(side * (0.125 - k * 0.008), -0.08, -0.42 + k * 0.055);
         head.add(t);
       }
+  }
+
+  /**
+   * The mouthpiece: the small blocks just under the eyes on the front of the face, round the
+   * centre line (a chin block, a mouthguard, a grille). Models don't name their parts or mark the
+   * head, so they're found from the eyes: the glowing blocks in the eye colour highest up.
+   */
+  private mouthParts(eye: number) {
+    const out = new Set<THREE.Mesh>();
+    this.root.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(this.root.matrixWorld).invert();
+    const boxOf = (m: THREE.Mesh) => {
+      m.geometry.computeBoundingBox();
+      return m.geometry.boundingBox!.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
+    };
+    const eyes: THREE.Box3[] = [];
+    const rest: { m: THREE.Mesh; b: THREE.Box3 }[] = [];
+    this.root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || Array.isArray(m.material)) return;
+      const mat = m.material as THREE.MeshBasicMaterial;
+      if (mat.isMeshBasicMaterial && mat.color?.getHex() === eye) eyes.push(boxOf(m));
+      else rest.push({ m, b: boxOf(m) });
+    });
+    if (!eyes.length) return out;
+    // (the head's eyes: the highest glow, not a chest light in the same colour)
+    const top = Math.max(...eyes.map((e) => e.max.y));
+    const face = new THREE.Box3();
+    for (const e of eyes) if (e.max.y > top - 0.14) face.union(e);
+    const ex = (face.min.x + face.max.x) / 2;
+    // (measured in eye-widths, so it fits a fighter of any build)
+    const w = Math.max(0.15, face.max.x - face.min.x);
+    const c = new THREE.Vector3();
+    const sz = new THREE.Vector3();
+    for (const { m, b } of rest) {
+      b.getCenter(c);
+      b.getSize(sz);
+      // (within the head: no lower than the chin, so never the chest)
+      const below = c.y < face.min.y - 0.01 && c.y > face.min.y - Math.min(w * 0.75, 0.3);
+      const middle = Math.abs(c.x - ex) < w * 0.4;
+      // (near the eyes' plane: not a snout reaching out ahead, nor the body behind)
+      const onFace = Math.abs(b.min.z - face.min.z) < w * 0.4 && c.z < face.max.z + w * 0.35;
+      const small = Math.max(sz.x, sz.y) < Math.min(w * 1.05, 0.45);
+      if (below && middle && onFace && small) out.add(m);
+    }
+    // (a crowd of parts under the eyes is a beast's snout and jaw, not a mouthpiece: leave it be)
+    return out.size > 10 ? new Set<THREE.Mesh>() : out;
   }
 
   /** the mouth "barrel" for hero beasts: a dark cavity, a lower jaw with a pink tongue that snaps on recoil */

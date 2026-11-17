@@ -24,6 +24,7 @@ import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
 import { Recorder, ReplayGame } from './replay';
 import * as sfx from './audio';
+import { applyInput, applySnap, cleanCode, InputWriter, Net, newCode, SnapWriter, type Msg } from './net';
 import { SquadRun, type RushStory } from './squadrun';
 import { ActionMode, dungeonStageName, type ActionKind, type StoryFight } from './action';
 import { buzz as haptic } from './haptics';
@@ -149,6 +150,13 @@ export function boot() {
   /** the settings a match plays by: yours, with the arcade stage's layered on top */
   /** local two-player versus on one device: player 2 takes the opponent's robot */
   let duo = false;
+  /** online versus (a room on the Worker): the host runs the match, the guest's controls drive the
+   *  opponent; the guest shows the host's table from its own end. `foe` is the other player's fighter */
+  let online: { net: Net; role: 'host' | 'guest'; foe: string; foeName: string; cfg?: Partial<store.Settings> } | null = null;
+  const snapWriter = new SnapWriter();
+  const inputWriter = new InputWriter();
+  /** the host's match rules the guest plays by (its own controls and display settings stay its own) */
+  const ONLINE_RULES = ['stage', 'arenaWidth', 'roundTime', 'pucks', 'covers', 'pins', 'gates', 'magazine', 'magPer', 'burst'] as const;
   /** story mode: whose story, which chapter (0-based), and the chapter's match settings */
   let story: { hero: string; ch: number; cfg: Partial<store.Settings>; form: number } | null = null;
   /** which form a hero's story has reached by this chapter (it evolves on the way to chapters 3 to 6) */
@@ -170,6 +178,8 @@ export function boot() {
         ? { ...saveData.settings, ...story.cfg }
         : arcade
         ? { ...saveData.settings, ...arcade.cfg }
+        : online
+          ? { ...saveData.settings, ...(online.cfg ?? {}), character: saveData.settings.character, pack: 1, playerPack: 1, items: false }
         : duo
           ? { ...saveData.settings, pack: 1, playerPack: 1, items: false }
           : arenaRules
@@ -255,7 +265,7 @@ export function boot() {
   };
   const packEnemies = () => {
     // player 2 fights on the same footing as player 1: standard stats and the unit's own traits
-    if (duo) {
+    if (duo || online) {
       const id = unitIds()[1];
       return [{ stats: withTraits({ ...computeStats(STARTER_BUILD), capacity: magazine() }, id), maxHealth: MATCH.maxHealth * healthTrait(id) }];
     }
@@ -276,6 +286,7 @@ export function boot() {
   let allyIds: string[] = [];
   /** opponent robot: the chosen one, or on auto the dragon unless the player picked it */
   const enemyCharacter = () => {
+    if (online) return online.foe;
     const st = S();
     if (st.enemyCharacter && st.enemyCharacter !== 'auto') return st.enemyCharacter;
     return st.character === 'dragon-22' ? 'angel-22' : 'dragon-22';
@@ -578,7 +589,7 @@ export function boot() {
   };
 
   // ---------- match flow: intro -> rounds (best of 3) -> replays -> finale ----------
-  type Flow = 'talk' | 'intro' | 'round' | 'replay' | 'finale' | 'special';
+  type Flow = 'talk' | 'intro' | 'round' | 'replay' | 'finale' | 'special' | 'wait';
   let flow: Flow = 'round';
   let flowT = 0;
   let roundNo = 1;
@@ -709,7 +720,14 @@ export function boot() {
       view.cameraMode = cam;
       view.resize();
     }
-    $('enemy-tag').textContent = duo ? 'P2' : 'CPU';
+    $('enemy-tag').textContent = duo || online ? 'P2' : 'CPU';
+    // online: the host tells the guest the match is on (the guest sets up the same table)
+    if (online?.role === 'host') {
+      const cfg: Record<string, unknown> = {};
+      for (const k of ONLINE_RULES) cfg[k] = st[k];
+      online.net.send({ t: 'start', cfg, id: st.character, name: mine(st.character).name });
+      snapWriter.reset();
+    }
     // the Opponent settings tune the other side; your pack-mates play at standard skill
     ais.forEach((a, i) => {
       const foe = slotTeam(i + 1) === 1;
@@ -757,7 +775,7 @@ export function boot() {
       allySize() > 1
         ? `PACK OF ${allySize()} · ${unitIds().slice(4, 3 + allySize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}`
         : `${stageById(st.stage).name.toUpperCase()} · ${HOME[st.stage]?.includes(whoOf(st.character)) ? 'HOME TURF' : 'BEST OF 3'}`;
-    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} · ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : duo ? 'PLAYER 2 · TOP END' : `CPU · ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
+    $('intro-p2-sub').textContent = packSize() > 1 ? `PACK OF ${packSize()} · ${unitIds().slice(2, 1 + packSize()).map((id) => characterById(id).name.toUpperCase()).join(' + ')}` : duo ? 'PLAYER 2 · TOP END' : online ? `ONLINE · ROOM ${online.net.code}` : `CPU · ${brain(aiOverride ?? st.enemyIQ).name.toUpperCase()}`;
     // a boss stage: a red warning card for the challenger
     introEl.classList.toggle('boss', isBoss());
     if (isBoss()) sfx.play('gong');
@@ -814,6 +832,7 @@ export function boot() {
   };
   introEl.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    if (online) return;
     endIntro();
   });
 
@@ -888,9 +907,19 @@ export function boot() {
       } else finale();
       return;
     }
+    // (online the guest holds here until the host starts the next round)
+    if (online?.role === 'guest') {
+      flow = 'wait';
+      flowT = 0;
+      return;
+    }
     roundNo++;
     setupRound();
     startRound();
+    if (online?.role === 'host') {
+      snapWriter.reset();
+      online.net.send({ t: 'next' });
+    }
   };
   replayEl.addEventListener('pointerdown', (e) => {
     e.preventDefault();
@@ -923,6 +952,11 @@ export function boot() {
     $('r-hp').textContent = Math.ceil(player.hpFrac * 100) + '%';
     $('session').textContent = `This session: ${sessionWins} of ${sessionMatches} won`;
     showArcadeResult(w);
+    if (online) {
+      $('again-btn').textContent = 'REMATCH';
+      $('again-btn').classList.toggle('hidden', online.role === 'guest');
+      if (online.role === 'guest') $('result-sub').textContent += ' · the host can call a rematch';
+    } else $('again-btn').classList.remove('hidden');
     saveRun('result');
     awardXp(w);
     if (story) showStoryResult(w);
@@ -956,7 +990,7 @@ export function boot() {
     const tip = $('result-tip');
     tip.classList.toggle('hidden', !(solo && w === 1));
     tip.textContent = `Tip: ${RESULT_TIPS[sessionMatches % RESULT_TIPS.length]}`;
-    $('result-swap').classList.toggle('hidden', !!arcade || !!story || duo);
+    $('result-swap').classList.toggle('hidden', !!arcade || !!story || duo || !!online);
   };
   /** XP for your fighter: more for a win, a little for every round taken (not in 2 players) */
   const awardXp = (w: -1 | 0 | 1) => {
@@ -1724,6 +1758,7 @@ export function boot() {
   };
   /** leave the arcade run: back to the title with your own table */
   const quitArcade = () => {
+    endOnline();
     // (the run stays saved: Continue on the title picks it back up)
     arcade = null;
     story = null;
@@ -1831,7 +1866,9 @@ export function boot() {
     paused = p;
     $('paused').classList.toggle('hidden', !p);
     if (p) {
-      const mode = arcade ? `Boss Ladder stage ${arcade.stage}` : story ? 'League Story' : duo ? 'Couch Clash' : arenaRules ? 'Duel' : 'Classic Duel';
+      // (online there's no restarting: the other player is mid-match too)
+    $('restart-btn').classList.toggle('hidden', !!online);
+    const mode = online ? `Online Clash · room ${online.net.code}` : arcade ? `Boss Ladder stage ${arcade.stage}` : story ? 'League Story' : duo ? 'Couch Clash' : arenaRules ? 'Duel' : 'Classic Duel';
       $('pause-info').textContent = `Round ${roundNo} · ${roundWins[0]}–${roundWins[1]} · ${mode}`;
       askPause(null);
       input.release();
@@ -2568,6 +2605,7 @@ export function boot() {
     versus: '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/>',
     classic: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>',
     squad: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+    online: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
     duo: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     ffa: '<path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/>',
     mega: '<circle cx="6" cy="12" r="3.2"/><circle cx="18" cy="12" r="3.2"/><path d="M9.2 12h5.6"/><path d="M12 3v3M12 18v3M3 6l2 2M21 6l-2 2M3 18l2-2M21 18l-2-2"/>',
@@ -2593,6 +2631,7 @@ export function boot() {
     { id: 'classic', name: 'Classic Duel', sub: 'The original rules: auto-reload, no specials', kind: 'duel', go: press('classic-btn') },
     { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', go: press('squad-btn') },
     { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'duel', go: press('duo-btn') },
+    { id: 'online', name: 'Online Clash', sub: 'Fight a friend on another device with a room code', kind: 'duel', go: () => openLobby() },
     { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', go: arena('ffa') },
     { id: 'mega', name: 'Mega Brawl', sub: 'Twenty fighters, a stage eight times the size, portals to jump across', kind: 'arena', go: arena('mega') },
     { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', go: arena('knockout') },
@@ -2905,6 +2944,182 @@ export function boot() {
     quitArcade();
   };
 
+  // ---------- online versus: the lobby, and the messages between the two players ----------
+  const olEl = $('online');
+  const olStatus = (text: string) => ($('ol-status').textContent = text);
+  const olView = (v: 'home' | 'wait') => {
+    $('ol-home').classList.toggle('hidden', v !== 'home');
+    $('ol-wait').classList.toggle('hidden', v !== 'wait');
+  };
+  const endOnline = () => {
+    if (!online) return;
+    online.net.close();
+    online = null;
+    sfx.tap.fn = null;
+  };
+  const closeLobby = () => olEl.classList.add('hidden');
+  const openLobby = (status = '', code = '') => {
+    sfx.unlock();
+    olView('home');
+    olStatus(status);
+    $<HTMLInputElement>('ol-code').value = code;
+    $('ol-you').textContent = mine(saveData.settings.character).name.toUpperCase();
+    olEl.classList.remove('hidden');
+  };
+  /** the connection dropped, or the other player left */
+  const lostPeer = (why: string) => {
+    if (!online) return;
+    endOnline();
+    if (screen === 'playing' || screen === 'result') {
+      leaveMatch();
+      show('title');
+    }
+    openLobby(why);
+  };
+  const connect = (code: string, role: 'host' | 'guest') => {
+    endOnline();
+    const net = new Net(code, role);
+    online = { net, role, foe: '', foeName: '' };
+    net.onClose = () => {
+      if (online?.net !== net) return;
+      // (a refused join: the room said why just before it closed)
+      const err = net.queue.find((m) => m.t === 'error');
+      if (err) return onNetMsg(err);
+      lostPeer(screen === 'playing' || screen === 'result' ? 'The connection to your opponent was lost.' : 'Couldn’t reach the room. Check your connection and try again.');
+    };
+  };
+  const hostRoom = () => {
+    const code = newCode();
+    connect(code, 'host');
+    olView('wait');
+    $('ol-room').textContent = code;
+    olStatus('Waiting for your friend to join…');
+  };
+  const joinRoom = (raw: string) => {
+    const code = cleanCode(raw);
+    if (code.length < 4) return olStatus('Type the 4-letter room code.');
+    connect(code, 'guest');
+    olStatus(`Joining room ${code}…`);
+  };
+  /** both sides: into the match (the host's rules, each player's own fighter) */
+  const beginOnline = () => {
+    closeLobby();
+    story = null;
+    arcade = null;
+    arenaRules = false;
+    duo = false;
+    selectMode = 'versus';
+    startMatch();
+  };
+  const onNetMsg = (m: Msg) => {
+    if (!online) return;
+    const host = online.role === 'host';
+    if (m.t === 'error') {
+      // (a code already in use: just roll another)
+      if (m.reason === 'taken' && host) return hostRoom();
+      const why = m.reason === 'no-room' ? 'No room with that code. Check it with your friend.' : m.reason === 'full' ? 'That room already has two players.' : 'Couldn’t join that room.';
+      endOnline();
+      return olStatus(why);
+    }
+    if (m.t === 'peer') {
+      if (!m.on) return lostPeer('Your opponent left the match.');
+      if (host) olStatus('Your friend is here. Starting…');
+      // the guest says who it's bringing; the host starts the match when it hears
+      else online.net.send({ t: 'hello', id: saveData.settings.character, name: mine(saveData.settings.character).name });
+      return;
+    }
+    if (m.t === 'hello' && host) {
+      online.foe = characterById(m.id).id;
+      online.foeName = m.name;
+      beginOnline();
+      return;
+    }
+    if (m.t === 'start' && !host) {
+      online.cfg = m.cfg as Partial<store.Settings>;
+      online.foe = characterById(m.id).id;
+      online.foeName = m.name;
+      if (screen === 'playing') leaveMatchQuiet();
+      beginOnline();
+      return;
+    }
+    if (m.t === 'in' && host && screen === 'playing') applyInput(game.shooters[1], m);
+  };
+  /** take this frame's messages: the host's controls from the guest, the guest's table from the host */
+  const pumpNet = () => {
+    const q = online?.net.queue;
+    while (online && q && q.length) {
+      const m = q[0];
+      if (m.t === 's') {
+        if (online.role !== 'guest' || screen !== 'playing') {
+          q.shift();
+          continue;
+        }
+        // (the intro still playing here: the table waits for the round)
+        if (flow === 'intro' || flow === 'talk') break;
+        q.shift();
+        // (the round's already been scored here: anything after is the host's last frames)
+        if (flow !== 'round') continue;
+        const before = game.phase;
+        applySnap(game, m);
+        recorder.record(game);
+        if (before === 'fight' && game.phase === 'ko') recorder.markKo();
+        // a round just ended: score it before anything that comes after
+        if (game.phase === 'over') break;
+        continue;
+      }
+      if (m.t === 'next' && online.role === 'guest') {
+        if (flow === 'replay') endReplay();
+        if (flow === 'round' && screen === 'playing') break;
+        q.shift();
+        if (flow === 'wait') {
+          roundNo++;
+          setupRound();
+          startRound();
+        }
+        continue;
+      }
+      q.shift();
+      onNetMsg(m);
+    }
+  };
+  /** out of a match without leaving the room (the host called a rematch mid-way) */
+  const leaveMatchQuiet = () => {
+    replayEl.classList.add('hidden');
+    introEl.classList.add('hidden');
+    replayGame = null;
+    view.game = game;
+    view.cine = null;
+    paused = false;
+    $('paused').classList.add('hidden');
+  };
+  $('ol-host').addEventListener('click', hostRoom);
+  $('ol-join').addEventListener('click', () => joinRoom($<HTMLInputElement>('ol-code').value));
+  $('ol-code').addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') joinRoom($<HTMLInputElement>('ol-code').value);
+  });
+  $('ol-code').addEventListener('input', () => {
+    const el = $<HTMLInputElement>('ol-code');
+    el.value = cleanCode(el.value).slice(0, 4);
+  });
+  $('ol-cancel').addEventListener('click', () => {
+    endOnline();
+    closeLobby();
+  });
+  $('ol-copy').addEventListener('click', async () => {
+    if (!online) return;
+    const link = `${location.origin}${location.pathname}?room=${online.net.code}`;
+    const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
+    try {
+      if (nav.share) await nav.share({ title: 'Marble Fighter', text: `Fight me in Marble Fighter, room ${online.net.code}`, url: link });
+      else {
+        await navigator.clipboard.writeText(link);
+        olStatus('Invite link copied. Waiting for your friend…');
+      }
+    } catch {
+      // the share sheet was closed
+    }
+  });
+
   // ---------- the tutorial: six steps in a practice match, each done by doing it ----------
   type TutStep = { title: string; text: string; ai?: boolean; check: () => boolean; hard?: boolean };
   const tutEl = $('tut');
@@ -3187,7 +3402,7 @@ export function boot() {
     if (shielding && !wasShielding && S().vibrate) buzz(12);
     wasShielding = shielding;
 
-    if (screen === 'playing' && !paused && flow !== 'round') updateFlow(dt);
+    if (screen === 'playing' && (!paused || !!online) && flow !== 'round') updateFlow(dt);
     // knocked out but the pack fights on: you're spectating from the sky, so put the controls away
     document.body.classList.toggle('spectating', screen === 'playing' && flow === 'round' && player.active && player.out);
     // health tags ride along every frame (and hide outside the fight)
@@ -3195,8 +3410,16 @@ export function boot() {
       updateTags(dt);
       updateLocks();
     }
-    if (screen === 'playing' && !paused && flow === 'round') {
-      if (game.hitstop > 0) {
+    pumpNet();
+    // (online the match runs on through the pause menu: the other player is still playing)
+    if (screen === 'playing' && (!paused || !!online) && flow === 'round') {
+      let stepped = 0;
+      if (online?.role === 'guest') {
+        // the guest: your controls go to the host; the table comes back (pumpNet put it on)
+        if (!paused) input.update(dt);
+        const im = inputWriter.read(player);
+        if (im) online.net.send(im);
+      } else if (game.hitstop > 0) {
         game.hitstop -= dt;
       } else {
         // KO slow-mo, or the Slow-Mo item (the whole match at half speed)
@@ -3219,9 +3442,13 @@ export function boot() {
           duoInput.update(sdt * rate(0));
           pollSpecial();
           // (in local versus player 2 drives the opponent instead of its AI)
-          ais.forEach((a, i) => ((duo && i === 0) || (tut && !tutStepNow().ai) ? null : a.update(sdt * rate(i + 1))));
+          ais.forEach((a, i) => (((duo || online) && i === 0) || (tut && !tutStepNow().ai) ? null : a.update(sdt * rate(i + 1))));
           const before = game.phase;
+          // (online the host notes the sounds its game makes, for the guest to hear too)
+          if (online) sfx.tap.fn = (n, k, q) => snapWriter.sounds.push([n, k, q]);
           game.step(sdt);
+          sfx.tap.fn = null;
+          stepped++;
           // the replay keeps one frame per full game step, as before
           recAcc += sdt;
           if (recAcc >= STEP - 1e-9) {
@@ -3234,6 +3461,8 @@ export function boot() {
         }
         if (steps === 5) acc = 0;
       }
+      // online: the host sends the table after every frame that moved it
+      if (online?.role === 'host' && stepped) online.net.send(snapWriter.write(game));
 
       recorder.addFx(game.fx);
       // fx the HUD cares about; the view consumes the list afterwards
@@ -3363,7 +3592,7 @@ export function boot() {
     // isn't drawn at all, nor while Squad Run is up)
     const covered = screen !== 'playing' || paused || !!squadRun?.active || !!actionMode?.active;
     // (no aim line with two players on one screen)
-    if (!covered) view.render(paused ? 0 : dt, !duo && screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
+    if (!covered) view.render(paused && !online ? 0 : dt, !duo && screen === 'playing' && flow === 'round' && game.phase !== 'ko' && game.phase !== 'over');
     if (screen === 'playing' || screen === 'result') {
       const shown = [view.game.shooters[0], view.game.shooters[focus().slot] ?? view.game.shooters[1]];
       if (shown[1] && faceSlot !== shown[1].slot) {
@@ -3626,5 +3855,17 @@ export function boot() {
     }
   };
 
+  // an invite link: straight into the room
+  {
+    const params = new URLSearchParams(location.search);
+    const code = cleanCode(params.get('room') ?? '');
+    if (code.length >= 4) {
+      // (the code comes off the address, so a reload doesn't rejoin)
+      params.delete('room');
+      history.replaceState(null, '', location.pathname + (params.size ? `?${params}` : ''));
+      openLobby('', code);
+      joinRoom(code);
+    }
+  }
   requestAnimationFrame(frame);
 }
