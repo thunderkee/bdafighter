@@ -6283,7 +6283,9 @@ export class ShooterMesh {
     const f = s.flash > 0 ? (s.team === 0 ? 0.45 : 0.9) : 0;
     const glow = heavy * 0.6;
     this.glowCol.setHex(this.ball);
-    for (const m of this.mats) m.emissive.setRGB(Math.min(1, f + this.glowCol.r * glow), Math.min(1, f + this.glowCol.g * glow), Math.min(1, f + this.glowCol.b * glow));
+    // rage (the duel's last stand): a red shade over the whole surface, breathing
+    const rage = (s as { rage?: boolean }).rage ? 0.2 + Math.sin(time * 6) * 0.08 : 0;
+    for (const m of this.mats) m.emissive.setRGB(Math.min(1, f + this.glowCol.r * glow + rage), Math.min(1, f + this.glowCol.g * glow + rage * 0.08), Math.min(1, f + this.glowCol.b * glow + rage * 0.05));
     const hurt = s.health < 25 ? Math.abs(Math.sin(time * 9)) * 0.04 : 0;
     this.root.position.y = bob + hurt - this.guard * 0.14;
 

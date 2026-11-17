@@ -98,6 +98,8 @@ const STORM_END = 165;
  * against 28 x 28), its walls, bushes, crates and ponds scaled to match, a slower storm, and
  * portals in pairs: step into one and you come out of its twin across the map.
  */
+/** Brawl's hearing: sounds are full within this many tiles of you, and gone past the second */
+const HEAR = { full: 3, gone: 14 };
 const MEGA = { size: 80, fighters: 20, area: 8, stormStart: 75, stormEnd: 300, portals: 6, portalCool: 2.2 };
 /** free-for-all fighters are tougher, so a fight there lasts */
 const FFA_HP = 2.1;
@@ -585,6 +587,8 @@ export class ActionMode {
   /** who your charged shot is going for (marked while you charge) */
   private chargeTarget: Unit | null = null;
   private aimRing!: THREE.Group;
+  /** Brawl: a faint ring on whoever your next shot goes to */
+  private aimMark!: THREE.Group;
   private lockShow = 0;
   /** the camera, eased toward where the view puts it */
   private camPos = new THREE.Vector3();
@@ -729,6 +733,23 @@ export class ActionMode {
     this.lockRing.traverse((o) => (o.renderOrder = 5));
     this.lockRing.visible = false;
     this.scene.add(this.lockRing);
+    // Brawl's aim mark: a thin, faint ring with three short dashes, on whoever your shot is going to
+    this.aimMark = new THREE.Group();
+    const markMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthTest: false, depthWrite: false });
+    const mring = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.6, 40), markMat);
+    mring.rotation.x = -Math.PI / 2;
+    this.aimMark.add(mring);
+    for (let k = 0; k < 3; k++) {
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.16), markMat);
+      dash.rotation.x = -Math.PI / 2;
+      const a = (k * Math.PI * 2) / 3;
+      dash.position.set(Math.sin(a) * 0.72, 0, Math.cos(a) * 0.72);
+      dash.rotation.z = a;
+      this.aimMark.add(dash);
+    }
+    this.aimMark.traverse((o) => (o.renderOrder = 4));
+    this.aimMark.visible = false;
+    this.scene.add(this.aimMark);
     // the charge target: a red crosshair on the floor, its corners closing in as the charge builds
     this.aimRing = new THREE.Group();
     const aimMat = new THREE.MeshBasicMaterial({ color: 0xff4a3a, transparent: true, opacity: 0.95, depthTest: false });
@@ -2181,7 +2202,7 @@ export class ActionMode {
     u.pose.recoil = 1;
     if (bite) u.pose.heavyT = 0;
     u.reveal = 1.2;
-    if (u === this.me || Math.random() < 0.35) sfx.play('fire', u === this.me ? 0.45 : 0.2);
+    if (u === this.me || Math.random() < 0.35) this.sfxAt('fire', u.x, u.z, u === this.me ? 0.45 : 0.2, u === this.me);
     return used;
   }
 
@@ -2209,7 +2230,7 @@ export class ActionMode {
     this.burst(this.mz.x, this.mz.y, this.mz.z, 0xffffff, 6 + n * 4, 2 + n * 0.8);
     this.burst(this.mz.x, this.mz.y, this.mz.z, u.def.ball, 4 + n * 3, 2 + n * 0.6);
     this.ringFx(u.x, u.z, 0xffd23e, 0.4, 1 + n * 0.45, 0.45);
-    sfx.play('super', (0.7 + n * 0.1) * (u === this.me ? 1 : 0.5));
+    this.sfxAt('super', u.x, u.z, (0.7 + n * 0.1) * (u === this.me ? 1 : 0.5), u === this.me);
   }
 
   /** its own special, as in the main game: the same balls, homing, quirks and damage shares */
@@ -2420,7 +2441,7 @@ export class ActionMode {
     if (u === this.me) {
       this.opts.vibrate?.(14);
       sfx.play('hurt', 0.5);
-    } else sfx.play('hit', from === this.me ? 0.6 : 0.3);
+    } else this.sfxAt('hit', u.x, u.z, from === this.me ? 0.6 : 0.3, from === this.me);
     if (u.hp <= 0) this.ko(u, from);
   }
 
@@ -2491,7 +2512,7 @@ export class ActionMode {
     const j = Math.floor(k / this.W);
     const p = this.center(k - j * this.W, j);
     this.drop(p.x, p.z, this.kind === 'ffa' ? 'cube' : this.crateItem());
-    sfx.play('clatter', 0.6);
+    this.sfxAt('clatter', p.x, p.z, 0.6);
     // (in Siege the crates come back)
     if (this.kind === 'siege') this.crateBack.push({ k, t: 20 });
   }
@@ -2760,7 +2781,7 @@ export class ActionMode {
             // (each marble stored sends a ring out round its feet)
             this.ringFx(u.x, u.z, 0xffd23e, 0.3, 0.8 + u.stored * 0.18, 0.4);
             if (human) this.shake = Math.max(this.shake, 0.04 + u.stored * 0.015);
-            sfx.play('tick', (0.6 + u.stored * 0.12) * (human ? 1 : 0.4));
+            this.sfxAt('tick', u.x, u.z, (0.6 + u.stored * 0.12) * (human ? 1 : 0.4), human);
           }
           if (!human && u.stored > 0 && (u.stored >= u.chargeWant || u.ammo < 1)) letGo = true;
         }
@@ -2824,6 +2845,24 @@ export class ActionMode {
     u.pose.stored = u.stored;
   }
 
+  /**
+   * Brawl: a sound out on the field is as loud as it is near you. Full within 3 tiles, fading to
+   * silence at 14, so you hear the fight round you and not the one across the map. Your own
+   * sounds (`mine`) stay full; the other modes play as they always have.
+   */
+  private heard(x: number, z: number, v: number, mine = false) {
+    if (this.kind !== 'ffa' || mine || !this.me) return v;
+    const d = Math.hypot(x - this.me.x, z - this.me.z);
+    const k = d <= HEAR.full ? 1 : d >= HEAR.gone ? 0 : (1 - (d - HEAR.full) / (HEAR.gone - HEAR.full)) ** 2;
+    return v * k;
+  }
+  private sfxAt(name: sfx.Sfx, x: number, z: number, v: number, mine = false) {
+    const w = this.heard(x, z, v, mine);
+    // (too far to hear: not played at all, so it doesn't use up the sound's turn)
+    if (w < 0.03) return;
+    sfx.play(name, w, this.kind === 'ffa' && !mine);
+  }
+
   /** slipped a special's ball with a dash: a white streak, and a word if it's you */
   private evaded(u: Unit) {
     this.burst(u.x, 0.7, u.z, 0xffffff, 14, 6, { float: true });
@@ -2849,7 +2888,7 @@ export class ActionMode {
       this.shake = Math.max(this.shake, 0.25);
       for (const o of this.units) if (o !== u && this.hostile(s.owner, o) && o.evadeT <= 0 && Math.hypot(o.x - u.x, o.z - u.z) < 1.6) this.hurt(o, s.dmg * 0.5, s.owner, true);
     }
-    sfx.play('superhit', 0.7);
+    this.sfxAt('superhit', u.x, u.z, 0.7, s.owner === this.me || u === this.me);
   }
 
   /** a special's ball steering: homing on its target, weaving, splitting */
@@ -2899,7 +2938,7 @@ export class ActionMode {
             for (const u of this.units) if (this.hostile(s.owner, u) && Math.hypot(u.x - s.x, u.z - s.z) < 1.4) this.ballHits(s, u);
             for (const f of this.forts) if (f.team !== s.owner.team && Math.abs(s.x - f.x) < 2.2 && Math.abs(s.z - f.z) < 1.8) this.hurtFort(f, s.dmg, s.owner);
             this.shake = Math.max(this.shake, 0.3);
-            sfx.play('slam', 0.8);
+            this.sfxAt('slam', s.x, s.z, 0.8, s.owner === this.me);
             this.impactFx(s.x, s.z, true);
             dead = true;
           }
@@ -2921,7 +2960,7 @@ export class ActionMode {
           } else if (t === CRATE && key >= 0) {
             const hp = (this.crateHp.get(key) ?? CRATE_HP) - s.dmg;
             this.crateHp.set(key, hp);
-            sfx.play('wall', 0.3);
+            this.sfxAt('wall', s.x, s.z, 0.3, s.owner === this.me);
             if (hp <= 0) this.breakCrate(key);
             dead = true;
           } else if (s.bounce > 0) {
@@ -2938,7 +2977,7 @@ export class ActionMode {
               s.head = Math.atan2(s.vx, -s.vz);
               s.banked = true;
             }
-            sfx.play('wall', 0.25);
+            this.sfxAt('wall', s.x, s.z, 0.25, s.owner === this.me);
           } else dead = true;
           continue;
         }
@@ -3036,7 +3075,7 @@ export class ActionMode {
       const marker = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
       this.world.add(root, marker);
       this.boxes.push({ kind, x: p.x, z: p.z, hp: DROP.hp, life: DROP.landedLife, age: 0, flash: 0, root, marker });
-      sfx.play('whoosh', 0.5);
+      this.sfxAt('whoosh', p.x, p.z, 0.5);
       return;
     }
   }
@@ -3051,10 +3090,10 @@ export class ActionMode {
     const b = this.boxes[k];
     b.hp -= s.big || s.spirit ? 2 : 1;
     b.flash = 1;
-    sfx.play('wall', 0.4);
+    this.sfxAt('wall', b.x, b.z, 0.4, s.owner === this.me);
     if (b.hp > 0) return;
     this.removeBox(k);
-    sfx.play('clatter', 0.7);
+    this.sfxAt('clatter', b.x, b.z, 0.7, s.owner === this.me);
     const u = s.owner;
     // (a fortress's turret breaks it for nobody)
     if (u.alive && this.units.includes(u)) this.gain(u, b.kind);
@@ -3215,11 +3254,11 @@ export class ActionMode {
       const u = w.u;
       w.t += dt;
       const color = TEAM_COLOR[u.team === (this.me?.team ?? 0) ? 0 : 1];
-      const near = !this.me || Math.hypot(u.x - this.me.x, u.z - this.me.z) < 9;
+      const near = !this.me || this.kind === 'ffa' || Math.hypot(u.x - this.me.x, u.z - this.me.z) < 9;
       const big = u.boss ? 1.5 : 1;
       const popAt = [0.05, 0.25, 0.45];
       while (w.pops < popAt.length && w.t >= popAt[w.pops]) {
-        if (near) sfx.play('pop', 0.6 + w.pops * 0.1);
+        if (near) this.sfxAt('pop', u.x, u.z, 0.6 + w.pops * 0.1, u === this.me);
         const ox = (Math.random() - 0.5) * 0.6;
         const oz = (Math.random() - 0.5) * 0.6;
         this.burst(u.x + ox, 0.4 + Math.random() * 0.5, u.z + oz, 0xffd27a, 12, 3 * big);
@@ -3233,8 +3272,8 @@ export class ActionMode {
         if (w.t >= 0.6) {
           w.shattered = true;
           if (near) {
-            sfx.play('explode', u.boss ? 1 : 0.75);
-            setTimeout(() => sfx.play('clatter', 0.6), 500);
+            this.sfxAt('explode', u.x, u.z, u.boss ? 1 : 0.75, u === this.me);
+            setTimeout(() => this.sfxAt('clatter', u.x, u.z, 0.6, u === this.me), 500);
           }
           const centre = new THREE.Vector3(u.x, 0.5, u.z);
           for (const mesh of w.mesh.shatter(this.scene)) {
@@ -3376,7 +3415,7 @@ export class ActionMode {
           angle,
           o: { dmg: u.dmg * DRAGON.damage * u.power, r: 0.15 * DRAGON.radius * 1.4, speed: SHOT_SPEED * DRAGON.speed, left: 10, weave: true, color: new THREE.Color(ITEMS.dragon.color), home: 0 },
         });
-      sfx.play('super', u === this.me ? 0.8 : 0.4);
+      this.sfxAt('super', u.x, u.z, u === this.me ? 0.8 : 0.4, u === this.me);
     } else {
       const tgt = this.nearestFoe(u, 16);
       u.queue.push({
@@ -3384,7 +3423,7 @@ export class ActionMode {
         angle,
         o: { dmg: u.dmg * 2 * MISSILE.hits * u.power, r: 0.32, speed: MISSILE.speed, left: MISSILE.speed * MISSILE.life * 0.6, home: MISSILE.turnRate, tgt, recover: 0.2, color: new THREE.Color(0xdfe6ee) },
       });
-      sfx.play('super', u === this.me ? 0.8 : 0.4);
+      this.sfxAt('super', u.x, u.z, u === this.me ? 0.8 : 0.4, u === this.me);
     }
     u.pose.kickT = 0;
     u.pose.recoil = 1;
@@ -4334,7 +4373,7 @@ export class ActionMode {
     u.evadeT = DASH.time + EVADE.after;
     spendDash(u);
     u.face = Math.atan2(u.dashX, -u.dashZ);
-    sfx.play('whoosh', u === this.me ? 0.7 : 0.35);
+    this.sfxAt('whoosh', u.x, u.z, u === this.me ? 0.7 : 0.35, u === this.me);
     this.burst(u.x - u.dashX * 0.4, 0.15, u.z - u.dashZ * 0.4, 0xdfe6ee, 20, 3.5, { size: 0.07 });
     this.dashFx ??= new DashFx(this.scene);
     this.dashFx.streaks({ x: u.x, z: u.z }, { x: u.dashX, z: u.dashZ }, 0.02, this.dashColor(u), 0.35);
@@ -4606,6 +4645,14 @@ export class ActionMode {
     let t: Unit | null = null;
     if (this.lockShow > 0 && this.lockOn?.alive) t = this.lockOn;
     else if (me?.alive && me.charge >= 1 && !this.over) t = this.lockOf(me);
+    // Brawl: whoever your shot is going to, faintly (unless a bolder ring already marks them)
+    const at = this.kind === 'ffa' && me?.alive && !this.over ? this.shotTarget() : null;
+    this.aimMark.visible = !!at && at !== ct && at !== t;
+    if (at && this.aimMark.visible) {
+      this.aimMark.position.set(at.x, 0.05, at.z);
+      this.aimMark.scale.setScalar((at.boss ? 1.4 : 1) * (1 + Math.sin(this.time * 4) * 0.03));
+      this.aimMark.rotation.y += dt * 0.8;
+    }
     this.lockRing.visible = !!t;
     if (!t) return;
     const r = (t.boss ? 1.4 : 1) * (1 + Math.sin(this.time * 9) * 0.06) * (this.lockShow > 0 ? 1.15 : 1);
@@ -5238,6 +5285,34 @@ export class ActionMode {
       }
     }
     return { u: best, d: bd };
+  }
+
+  /**
+   * who your next shot is going to: while you aim by hand, the enemy nearest the line you're
+   * aiming along; otherwise the one a tap would fire at. Only in shooting range.
+   */
+  private shotTarget(): Unit | null {
+    const me = this.me!;
+    const a = this.aimStick;
+    if (a && Math.hypot(a.x - a.x0, a.y - a.y0) > 30) {
+      const ang = Math.atan2(a.x - a.x0, -(a.y - a.y0)) + (behind(this.view) ? this.camYaw : 0);
+      let best: Unit | null = null;
+      let bs = 0.35;
+      for (const u of this.units) {
+        if (!this.hostile(me, u) || !this.targetable(me, u)) continue;
+        const d = Math.hypot(u.x - me.x, u.z - me.z);
+        if (d > me.range + 1) continue;
+        let off = Math.atan2(u.x - me.x, -(u.z - me.z)) - ang;
+        off = Math.abs(Math.atan2(Math.sin(off), Math.cos(off)));
+        if (off < bs) {
+          bs = off;
+          best = u;
+        }
+      }
+      return best;
+    }
+    const { u, d } = this.nearestEnemy();
+    return u && d <= me.range + 1 ? u : null;
   }
 
   private autoAim(): number {

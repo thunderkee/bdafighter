@@ -3296,6 +3296,11 @@ export function boot() {
           floatText(f.x, f.y, 'CATCH +1', 'catch');
           if (S().vibrate) buzz(10);
         }
+        if (f.type === 'rage') {
+          if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'RAGE!' : 'ALLY RAGE', 'red');
+          else callout('ENEMY RAGE', 'red');
+          if (f.slot === 0 && S().vibrate) buzz([30, 30, 60]);
+        }
         if (f.type === 'evade') {
           if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'EVADE!' : 'ALLY EVADED', 'cyan');
           else callout('EVADED', 'red');

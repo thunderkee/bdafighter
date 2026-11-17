@@ -1,7 +1,7 @@
 // Synthesised sound effects. Nothing plays until unlock() runs inside a
 // user gesture, which is what mobile browsers and web portals require.
 
-type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose' | 'super' | 'superhit' | 'charge' | 'pop' | 'explode' | 'clatter' | 'whoosh' | 'gong' | 'slam' | 'grind' | 'steel';
+export type Sfx = 'fire' | 'clack' | 'wall' | 'bump' | 'hit' | 'hurt' | 'reload' | 'go' | 'tick' | 'win' | 'lose' | 'super' | 'superhit' | 'charge' | 'pop' | 'explode' | 'clatter' | 'whoosh' | 'gong' | 'slam' | 'grind' | 'steel';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -82,13 +82,14 @@ function burst(dur: number, vol: number, filterType: BiquadFilterType, freq: num
 }
 
 /** intensity 0..1 scales volume for impact sounds */
-export function play(name: Sfx, intensity = 1) {
+/** `quiet`: let it play softer than the usual floor (a far-off sound, heard faintly) */
+export function play(name: Sfx, intensity = 1, quiet = false) {
   if (!ctx || muted) return;
   const now = ctx.currentTime;
   const gap = THROTTLE[name];
   if (gap && now - (lastPlayed.get(name) ?? -1) < gap) return;
   lastPlayed.set(name, now);
-  const v = Math.min(1, Math.max(0.15, intensity));
+  const v = Math.min(1, Math.max(quiet ? 0 : 0.15, intensity));
   const jitter = 0.9 + Math.random() * 0.2;
 
   switch (name) {

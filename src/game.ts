@@ -293,6 +293,7 @@ export type Fx =
   | { type: 'heal'; slot: number; amount: number }
   | { type: 'dash'; slot: number; dir: 1 | -1 }
   | { type: 'evade'; x: number; y: number; slot: number }
+  | { type: 'rage'; slot: number }
   | { type: 'gate-pass'; x: number; y: number; gate: GateType; team: Team }
   | { type: 'gate-break'; x: number; y: number; gate: GateType }
   | { type: 'cover-hit'; x: number; y: number; idx: number }
@@ -462,6 +463,13 @@ export class Shooter {
     return this.active && !this.out && this.health > 0;
   }
 
+  /** rage: low on health, it shades red, moves faster and fills its special quicker (see RAGE) */
+  get rage() {
+    return this.alive && this.health <= this.maxHealth * RAGE.at;
+  }
+  /** this round's rage has been announced */
+  raged = false;
+
   /** the shield is actually up (wanted, has energy, not broken) */
   get shieldUp() {
     return this.shielding && this.shield > 0 && this.shieldLock <= 0;
@@ -525,6 +533,7 @@ export class Shooter {
     this.stagger = 0;
     this.item = null;
     this.multiT = this.wiperT = this.lockT = this.invisT = 0;
+    this.raged = false;
     this.lockSlot = -1;
     this.chargeHold = this.stored = this.chargeWant = 0;
     this.pressShot = false;
@@ -579,6 +588,8 @@ export const DASH = { time: 0.15, speed: 17, charges: 3, gap: 0.22, recharge: 1.
  * or in this beat just after it ends. Timed late, just before the hit, it's a clean escape.
  */
 export const EVADE = { after: 0.12 };
+/** rage: at this share of health or less a robot shades red, moves this much faster and fills its special this much quicker */
+export const RAGE = { at: 0.3, speed: 1.1, spirit: 1.5 };
 /** a robot's dashes: how many are ready, the next one charging (0..1) and the beat before another */
 export interface DashCharge {
   dashN: number;
@@ -914,6 +925,8 @@ export class Game {
   }
   private addSpirit(s: Shooter, n: number) {
     if (!this.arenaRules || !s.alive) return;
+    // (in a rage it fills quicker)
+    if (s.rage) n *= RAGE.spirit;
     const was = s.spirit;
     s.spirit = Math.min(ARENA_RULES.spiritMax, s.spirit + n);
     if (was < ARENA_RULES.spiritMax && s.spirit >= ARENA_RULES.spiritMax) this.fx.push({ type: 'spirit-ready', slot: s.slot });
@@ -1916,7 +1929,7 @@ export class Game {
     s.chillT = Math.max(0, s.chillT - dt);
     // (a robot an opponent's Smart Lock is on drags its feet)
     const locked = this.shooters.some((o) => o.team !== s.team && o.alive && o.lockT > 0 && o.lockSlot === s.slot);
-    const speed = s.stats.moveSpeed * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1) * (s.chillT > 0 ? 0.4 : 1) * (locked ? LOCK.moveMul : 1);
+    const speed = s.stats.moveSpeed * (s.rage ? RAGE.speed : 1) * (s.shieldUp ? SHIELD.moveMul : 1) * (s.chargeHold >= CHARGE.hold ? CHARGE.moveMul : 1) * (s.chillT > 0 ? 0.4 : 1) * (locked ? LOCK.moveMul : 1);
     const prevX = s.x;
     // a dash: the way it's moving or steering, else toward the middle of the rail
     const canDash = chargeDash(s, adt);
@@ -2007,6 +2020,11 @@ export class Game {
       s.wiperT = Math.max(0, s.wiperT - dt);
       s.lockT = Math.max(0, s.lockT - dt);
       s.invisT = Math.max(0, s.invisT - dt);
+      if (s.rage && !s.raged) {
+        s.raged = true;
+        this.fx.push({ type: 'rage', slot: s.slot });
+        sfx.play('charge', s.slot === 0 ? 1 : 0.6);
+      }
     }
 
     // dragon salvo launches on its own, a short gap between balls
