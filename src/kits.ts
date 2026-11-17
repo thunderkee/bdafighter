@@ -70,12 +70,12 @@ export const KITS: Record<string, Kit> = {
     shoulder: [P('gun', 'Wing Guns', 'gun', 0x2a2734, 0x3a3c44), P('epaulette', 'Ace Epaulettes', 'epaulette', 0xe8b43a, 0xc8323a), P('rockets', 'Rocket Pods', 'rockets', 0xf4c25b, 0x2a2734)],
     paint: [paint('bluemax', 'Blue Max', 0x2a5ac8, 0xf2ead8, 0xf4c25b, 0x1a2234, 0xffd84a), paint('camo', 'Field Camo', 0x6a7a3a, 0x3a3a24, 0xf2ead8, 0x24261a, 0xff8a3a), paint('checker', 'Checker Ace', 0xf2ead8, 0x1f1c2a, 0xc8323a, 0x2a2734, 0x5af0ff)],
   },
-  // Bastion: the leaf-green mantis
+  // Bastion: the mantis (Deep Jungle green by default; its old olive and rust is a paint)
   bastion: {
     hat: [P('feelers', 'Mantis Feelers', 'feelers', 0xf4c25b, 0x3fae5a), P('sprout', 'Leaf Sprout', 'sprout', 0x8ad83a, 0x3fae5a), P('spikering', 'Thorn Ring', 'spikering', 0xf2ead8, 0x3a5a2a)],
     back: [P('petals', 'Leaf Fan', 'petals', 0x8ad83a, 0x3fae5a), P('swords', 'Scythe Pair', 'swords', 0xdfe6ee, 0x3fae5a), P('spines', 'Thorn Ridge', 'spines', 0x3fae5a, 0xf4c25b)],
     shoulder: [P('leaves', 'Leaf Guards', 'leaves', 0x8ad83a, 0x3fae5a), P('blade', 'Scythe Fins', 'blade', 0xdfe6ee, 0x3fae5a), P('claw', 'Hook Claws', 'claw', 0xf4c25b, 0x3a5a2a)],
-    paint: [paint('orchid', 'Orchid Mantis', 0xf2b8d8, 0xffffff, 0xee5466, 0x5a3a4a, 0x7affb0), paint('autumn', 'Autumn Leaf', 0xe8762a, 0x8a3a14, 0xf4c25b, 0x3a2010, 0x7affb0), paint('jungle', 'Deep Jungle', 0x2a6a3a, 0x14301a, 0xf4c25b, 0x10180e, 0xff5a3a)],
+    paint: [paint('orchid', 'Orchid Mantis', 0xf2b8d8, 0xffffff, 0xee5466, 0x5a3a4a, 0x7affb0), paint('autumn', 'Autumn Leaf', 0xe8762a, 0x8a3a14, 0xf4c25b, 0x3a2010, 0x7affb0), paint('rust', 'Rust Mantis', 0x474239, 0xc26214, 0xf58924, 0x1f1c2a, 0xfb569d)],
   },
   // Nightshade: the hooded wisp
   nightshade: {

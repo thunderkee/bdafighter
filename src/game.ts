@@ -194,6 +194,8 @@ export interface Missile {
   flight?: number;
   /** a ricochet still waiting for its wall bounce */
   bank?: boolean;
+  /** dashed through: it can't land on its target any more */
+  evaded?: boolean;
 }
 
 export interface Gate {
@@ -290,6 +292,7 @@ export type Fx =
   | { type: 'use'; slot: number; item: ItemType }
   | { type: 'heal'; slot: number; amount: number }
   | { type: 'dash'; slot: number; dir: 1 | -1 }
+  | { type: 'evade'; x: number; y: number; slot: number }
   | { type: 'gate-pass'; x: number; y: number; gate: GateType; team: Team }
   | { type: 'gate-break'; x: number; y: number; gate: GateType }
   | { type: 'cover-hit'; x: number; y: number; idx: number }
@@ -322,6 +325,8 @@ export class Shooter {
   dashReq = false;
   dashT = 0;
   dashDir: 1 | -1 = 1;
+  /** seconds a dash still slips special balls (the dash, and a beat after it) */
+  evadeT = 0;
   /** dashes ready (three at most), the next one charging (0..1), and the beat before another */
   dashN: number = DASH.charges;
   dashFill = 0;
@@ -387,6 +392,8 @@ export class Shooter {
   /** Smart Lock: seconds left, and the slot it's locked onto (-1 none) */
   lockT = 0;
   lockSlot = -1;
+  /** Invisibility: seconds left */
+  invisT = 0;
   /** seconds the fire button has been held this press, balls stored in the charge, and whether this press already fired */
   chargeHold = 0;
   stored = 0;
@@ -499,7 +506,7 @@ export class Shooter {
     this.moveTarget = null;
     this.firing = false;
     this.dashReq = false;
-    this.dashT = this.dashFill = this.dashGap = 0;
+    this.dashT = this.dashFill = this.dashGap = this.evadeT = 0;
     this.dashN = DASH.charges;
     this.maxHealth = maxHealth;
     this.health = maxHealth;
@@ -517,7 +524,7 @@ export class Shooter {
     this.superReady = false;
     this.stagger = 0;
     this.item = null;
-    this.multiT = this.wiperT = this.lockT = 0;
+    this.multiT = this.wiperT = this.lockT = this.invisT = 0;
     this.lockSlot = -1;
     this.chargeHold = this.stored = this.chargeWant = 0;
     this.pressShot = false;
@@ -567,6 +574,11 @@ export const ADVANCE = { depth: ARENA.railY / 2, speed: 9 };
  * row (`gap` s apart at the least), then they charge back one at a time, `recharge` s each.
  */
 export const DASH = { time: 0.15, speed: 17, charges: 3, gap: 0.22, recharge: 1.2 };
+/**
+ * evade: a dash slips a special ball (a spirit shot or a steel ball) that would land while it's on
+ * or in this beat just after it ends. Timed late, just before the hit, it's a clean escape.
+ */
+export const EVADE = { after: 0.12 };
 /** a robot's dashes: how many are ready, the next one charging (0..1) and the beat before another */
 export interface DashCharge {
   dashN: number;
@@ -753,6 +765,8 @@ export class Game {
     let best: Shooter | null = null;
     let bd = Infinity;
     for (const e of this.alive(s.team === 0 ? 1 : 0)) {
+      // (an invisible robot can't be locked onto)
+      if (e.invisT > 0) continue;
       const d = Math.hypot(e.x - s.x, e.y - s.y);
       if (d < bd) {
         bd = d;
@@ -1525,7 +1539,8 @@ export class Game {
       m.age += dt;
       m.recover = Math.max(0, m.recover - dt);
       // steer toward the target with a capped turn rate
-      if (m.recover <= 0 && target.alive) {
+      // (an invisible target can't be homed on: the ball flies straight on)
+      if (m.recover <= 0 && target.alive && target.invisT <= 0) {
         const want = Math.atan2(target.y - m.y, target.x - m.x);
         let diff = want - m.heading;
         while (diff > Math.PI) diff -= Math.PI * 2;
@@ -1614,7 +1629,14 @@ export class Game {
         m.heading = -m.heading;
       }
       const reach = SPIRIT.radius * Math.max(0.6, m.size ?? 1) + target.halfWidth * 0.5;
-      if (m.spirit && target.alive && (m.recover <= 0 || m.sk === 'rail') && !high(m) && (m.flight === undefined || m.age > m.flight * 0.7) && Math.hypot(target.x - m.x, target.y - m.y) < reach) {
+      if (m.spirit && !m.evaded && target.alive && (m.recover <= 0 || m.sk === 'rail') && !high(m) && (m.flight === undefined || m.age > m.flight * 0.7) && Math.hypot(target.x - m.x, target.y - m.y) < reach) {
+        // dashed just before it landed: it sails on past
+        if (target.evadeT > 0) {
+          m.evaded = true;
+          this.fx.push({ type: 'evade', x: m.x, y: m.y, slot: target.slot });
+          sfx.play('whoosh', 1);
+          continue;
+        }
         // the spirit shot lands once: through a shield it breaks it and still stings
         // (a rail shot pierces: more of it gets through)
         const power = m.dmg ?? 1;
@@ -1644,6 +1666,13 @@ export class Game {
         continue;
       }
       if (!m.spirit && target.alive && m.recover <= 0 && Math.hypot(target.x - m.x, target.y - m.y) < MISSILE.hitRadius + target.halfWidth * 0.5) {
+        // a steel ball dashed through: it overshoots and has to come round again
+        if (target.evadeT > 0) {
+          m.recover = MISSILE.recover;
+          this.fx.push({ type: 'evade', x: m.x, y: m.y, slot: target.slot });
+          sfx.play('whoosh', 0.8);
+          continue;
+        }
         const amount = MISSILE.damage * (attacker.stats.damage / BASE_STATS.damage);
         m.hits++;
         // bounce back out and come round again
@@ -1895,6 +1924,7 @@ export class Game {
       const steer = s.moveAxis !== 0 ? s.moveAxis : s.moveTarget !== null && Math.abs(s.moveTarget - s.x) > 0.05 ? s.moveTarget - s.x : s.vx !== 0 ? s.vx : -s.x || 1;
       s.dashDir = steer > 0 ? 1 : -1;
       s.dashT = DASH.time;
+      s.evadeT = DASH.time + EVADE.after;
       spendDash(s);
       // (a drag target would pull it straight back)
       if (s.moveTarget !== null) s.moveTarget = s.x + s.dashDir * DASH.time * DASH.speed;
@@ -1902,6 +1932,7 @@ export class Game {
       sfx.play('whoosh', s.slot === 0 ? 0.7 : 0.4);
     }
     s.dashReq = false;
+    s.evadeT = Math.max(0, s.evadeT - adt);
     if (s.dashT > 0) {
       const step = Math.min(s.dashT, adt);
       s.dashT -= step;
@@ -1975,6 +2006,7 @@ export class Game {
       s.multiT = Math.max(0, s.multiT - dt);
       s.wiperT = Math.max(0, s.wiperT - dt);
       s.lockT = Math.max(0, s.lockT - dt);
+      s.invisT = Math.max(0, s.invisT - dt);
     }
 
     // dragon salvo launches on its own, a short gap between balls
@@ -2197,6 +2229,9 @@ export class Game {
         break;
       case 'lock':
         s.lockT = ITEMS.lock.duration;
+        break;
+      case 'invisible':
+        s.invisT = ITEMS.invisible.duration;
         break;
       case 'heal': {
         const before = s.health;

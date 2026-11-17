@@ -12,7 +12,7 @@ import { Stage } from './stage';
 import { HOME, Scars, impactOf, stageLight } from './stagefx';
 import { entrance } from './flair';
 import { bounce } from './shapes';
-import { DROP, GATE, GATES, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
+import { DROP, GATE, GATES, INVISIBLE, ITEMS, MISSILE, SHIELD, SLOWMO, WIPER } from './items';
 
 /** place an object (and return it) */
 const at3 = <T extends THREE.Object3D>(o: T, x: number, y: number, z: number) => {
@@ -814,6 +814,13 @@ export class View {
         case 'spark':
           this.burst(f.x, f.y, 0xfff2b0, Math.round(3 + f.intensity * 6), 4);
           break;
+        case 'evade': {
+          // slipped a special ball: a white streak and a ring where it went past
+          const sp = this.project(f.x, f.y, 0.9);
+          this.burst(f.x, f.y, 0xffffff, 18, 9, { h: 0.9 });
+          this.fx2d?.ring(sp.x, sp.y, [255, 255, 255], false);
+          break;
+        }
         case 'parry': {
           // a perfect block: a bright ring off the shield, sparks, and the shield flaring
           const sp = this.project(f.x, f.y, 0.9);
@@ -1120,7 +1127,14 @@ export class View {
       // frozen by a frost ball: ice glitters off it while it thaws
       if (sm.root.visible && (s.chillT ?? 0) > 0 && Math.random() < 0.5) this.burst(s.x + (Math.random() - 0.5) * 1.4, s.y, Math.random() < 0.5 ? 0x8ae8ff : 0xffffff, 1, 1.2, { h: 0.3 + Math.random() * 1.4, float: true, size: 0.09 });
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
-      if (i >= 4) sm.setGhost(this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38);
+      let ghost = i >= 4 ? (this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38) : 1;
+      // invisible: a faint shimmer to the other side, a see-through ghost to its own (flickering back in its last second)
+      const inv = s.invisT ?? 0;
+      if (inv > 0 && !(inv < 1 && Math.sin(this.time * 30) > 0)) {
+        const own = s.team === 0;
+        ghost = Math.min(ghost, own ? INVISIBLE.ownAlpha : INVISIBLE.foeAlpha + Math.sin(this.time * 9 + i) * INVISIBLE.shimmer);
+      }
+      sm.setGhost(ghost);
     });
     // (your own halo and blades of light would only get between you and the fight)
     this.shooters[0]?.showBackLight(!!this.cine || this.cameraMode === 'far');

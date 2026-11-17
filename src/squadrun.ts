@@ -3,7 +3,7 @@ import { celify } from './cel';
 import { ShooterMesh, characterById, playable, studioEnv, type CharacterDef } from './robot';
 import * as sfx from './audio';
 import { fillPortraits } from './portraits';
-import { ITEMS, type ItemType } from './items';
+import { INVISIBLE, ITEMS, type ItemType } from './items';
 
 /**
  * Squad Run: a gate-runner minigame. Your fighter leads a squad of mini clones up a long
@@ -150,7 +150,7 @@ type Grinder = { z: number; take: number; fill: number; need: number; group: THR
 type Crate = { x: number; z: number; hp: number; kind: ItemType; group: THREE.Group };
 /** the item shots: dragon balls weaving through the horde, a homing steel ball */
 type Special = { kind: 'dragon' | 'steel'; x: number; x0: number; z: number; vx: number; vz: number; t: number; hits: number; hit: Set<object> };
-type Timed = 'multi' | 'slowmo' | 'wiper' | 'lock';
+type Timed = 'multi' | 'slowmo' | 'wiper' | 'lock' | 'invisible';
 /** what each item does in Squad Run */
 const POWER = { multiFan: 4, slow: 0.3, healShare: 0.25, healMin: 5, dragonDamage: 6, dragonBoss: 60, steelDamage: 8, steelBoss: 40, steelHits: 8, wiperHalf: 1.1 };
 const CRATE_HP = 8;
@@ -1091,13 +1091,14 @@ export class SquadRun {
       if (e.hp <= 0) continue;
       e.z += e.speed * dt;
       e.flash = Math.max(0, e.flash - dt);
-      // drift toward the squad a little as they close in (a kamikaze locks on and sprints)
-      e.x += Math.sign(this.cx - e.x) * Math.min(Math.abs(this.cx - e.x), dt * (e.tier === 3 ? 2.6 : 0.4 + d / 900));
+      // drift toward the squad a little as they close in (a kamikaze locks on and sprints); an
+      // invisible squad can't be followed
+      if (!this.timers.invisible) e.x += Math.sign(this.cx - e.x) * Math.min(Math.abs(this.cx - e.x), dt * (e.tier === 3 ? 2.6 : 0.4 + d / 900));
       if (e.tier === 3 && this.z - e.z < 14) e.speed = Math.min(e.speed + dt * 4, 7.5);
       // (the fork's wall holds them on their own side)
       if (this.route !== null && d < FORK_AT + FORK_LEN + 6 && Math.abs(e.z + FORK_AT + FORK_LEN / 2) < FORK_LEN / 2 + 2) e.x = e.x < 0 ? Math.min(e.x, -0.45) : Math.max(e.x, 0.45);
       // tanks and bulldozers fire steel balls at you once they're in range
-      if (e.tier && e.tier < 3 && this.z - e.z < 20 && this.z - e.z > 3 && (e.fireT -= dt) <= 0) {
+      if (e.tier && e.tier < 3 && !this.timers.invisible && this.z - e.z < 20 && this.z - e.z > 3 && (e.fireT -= dt) <= 0) {
         e.fireT = e.tier === 1 ? 4.2 : 4.6;
         const z0 = e.z + (e.tier === 1 ? 0.9 : 1);
         if (e.tier === 1) this.orbAt(e.x, z0, 7.5, 0, false, { steel: true });
@@ -1116,7 +1117,8 @@ export class SquadRun {
       }
       const dx = e.x - this.cx;
       const dz = e.z - (this.z + reach * 0.4);
-      if (Math.hypot(dx, dz) < reach + (TIER[e.tier].r - 0.34) && this.squad > 0) {
+      // (an invisible squad slips straight through the horde)
+      if (!this.timers.invisible && Math.hypot(dx, dz) < reach + (TIER[e.tier].r - 0.34) && this.squad > 0) {
         // it reaches the squad: it's gone, and so are some of yours (a tank costs more, a bulldozer a lot)
         e.hp = 0;
         this.squad = Math.max(0, this.squad - TIER[e.tier].cost);
@@ -1472,7 +1474,8 @@ export class SquadRun {
         this.pop(o.x, 0.6, o.z, 0xff3a4a, 4);
         return false;
       }
-      if (Math.hypot(o.x - this.cx, o.z - (this.z + reach * 0.4)) < reach * 0.8 + r * 0.5) {
+      // (shots pass through an invisible squad)
+      if (!this.timers.invisible && Math.hypot(o.x - this.cx, o.z - (this.z + reach * 0.4)) < reach * 0.8 + r * 0.5) {
         this.squad = Math.max(0, this.squad - cost);
         this.tap(30);
         this.pop(o.x, 0.4, o.z, 0xff3a4a, 6);
@@ -2233,6 +2236,7 @@ export class SquadRun {
       case 'slowmo':
       case 'wiper':
       case 'lock':
+      case 'invisible':
         this.timers[c.kind] = it.duration;
         break;
       case 'heal':
@@ -2391,6 +2395,22 @@ export class SquadRun {
       lp.recoil = Math.max(0, 1 - lp.kickT / 0.12) * 0.6;
       this.leader.root.visible = this.squad > 0;
       this.leader.sync(lp as never, this.time, dt);
+    }
+    // invisible: the whole squad goes see-through (flickering back in its last second)
+    const inv = this.timers.invisible ?? 0;
+    const ghost = inv > 0 && !(inv < 1 && Math.sin(this.time * 30) > 0) ? INVISIBLE.ownAlpha : 1;
+    this.leader?.setGhost(ghost);
+    for (const m of [this.mini.body, this.mini.head, this.mini.eye]) {
+      const mat = m.material as THREE.Material;
+      if (mat.opacity !== ghost) {
+        const tr = ghost < 1;
+        if (mat.transparent !== tr) {
+          mat.transparent = tr;
+          mat.depthWrite = !tr;
+          mat.needsUpdate = true;
+        }
+        mat.opacity = ghost;
+      }
     }
     const n = Math.max(0, Math.min(this.followers.length - 1, this.squad - 1));
     for (let i = 0; i < n; i++) {

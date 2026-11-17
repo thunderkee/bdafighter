@@ -13,7 +13,7 @@ import { BOSSES, MONSTERS, PROPS } from './monsters';
 import { FITS } from './kits';
 import { extrudeData, facetMesh, mirrorX, prismData, sideData, type Cuts } from './facets';
 import { armourTexture, type ArmourTex, type BallTex } from './patterns';
-import { isKit, isPainted, isSheet, paintKit, paintPixel, paintedTexture, paintedUV, pixelStyle, sheetUV } from './decals';
+import { isKit, isPainted, isSheet, paintKit, paintPixel, paintedTexture, paintedUV, pixelStyle, sheetSource, sheetUV } from './decals';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
@@ -544,7 +544,7 @@ const V22: Record<string, { name?: string; crest?: CharacterDef['crest']; darkFa
   // Tyrant King: a hellhound head for the bucket helm, wolf heads on both fists for
   // the T-rex fist, no silver ribcage; black and blood red
   // (on Fang Hound's four-legged body now, as big as it)
-  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, fit: [1.3, 1.3, 1.3], look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xc8323a, glow: 0xff3a1a, palette: { body: 0x24305e, trim: 0xc8323a, accent: 0xe8b43a, joint: 0x1f1c2a, eye: 0xff3a2a } },
+  tyrant: { special: { alternate: true, triple: true, hand: 0.45 }, fit: [1.3, 1.3, 1.3], look: { frame: 'heavy', head: 'hellhound', shoulder: 'spike', gun: 'wolfHeads', back: ['fins'], pose: 'dualAim', dynamic: true, lean: -0.18 }, ball: 0xc8323a, glow: 0xff3a1a, palette: { body: 0x3c4458, trim: 0x8f4a48, accent: 0xb8985a, joint: 0x1f1c24, eye: 0xff5a3a } },
   // Rex Saur: sky blue, a clean back (no stegosaurus plates)
   rex: { special: { bite: 4 }, addons: ['backCannon', 'noBall'], ball: 0x4aa8f0, palette: { body: 0x4aa8f0, trim: 0x24305e, accent: 0xee7b4c, joint: 0x1f1c2a, eye: 0xffd84a } },
   // Fang Hound: a black-and-gold war hound, plated all over, a visor over
@@ -1904,6 +1904,17 @@ export class ShooterMesh {
         own.map = paintKit(m.geometry, tex, def.palette, mat.userData.base as number, place, (m.userData.path as string) ?? '');
         m.material = own;
         this.mats.push(own);
+      } else if (isSheet(tex) && pixelStyle()) {
+        // the pixel style over a painted sheet: each face's patch of the picture, pixelled and shaded
+        const path = (m.userData.path as string) ?? '';
+        const map = paintPixel(m.geometry, mat.userData.base as number, def.palette.eye, place, path, sheetSource(tex, path));
+        if (map) {
+          const own = mat.clone();
+          own.map = map;
+          own.userData.pixel = true;
+          m.material = own;
+          this.mats.push(own);
+        }
       } else if (isSheet(tex)) sheetUV(m.geometry, tex, (m.userData.path as string) ?? '', place);
       else paintedUV(m.geometry, tex, m.userData.texScale ?? 1, place);
     }
@@ -5565,14 +5576,20 @@ export class ShooterMesh {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-        // remember each material's own look the first time it's faded
-        mat.userData.base ??= { opacity: mat.opacity, transparent: mat.transparent, depthWrite: mat.depthWrite };
-        const base = mat.userData.base as { opacity: number; transparent: boolean; depthWrite: boolean };
+        // remember each material's own look the first time it's faded (its own key: a painted
+        // block's userData.base is its colour)
+        mat.userData.ghostBase ??= { opacity: mat.opacity, transparent: mat.transparent, depthWrite: mat.depthWrite };
+        const base = mat.userData.ghostBase as { opacity: number; transparent: boolean; depthWrite: boolean };
         const ghost = alpha < 1;
         mat.opacity = base.opacity * alpha;
-        mat.transparent = ghost || base.transparent;
-        mat.depthWrite = ghost ? false : base.depthWrite;
-        mat.needsUpdate = true;
+        // (only a change of blending needs the material rebuilt; a new opacity doesn't)
+        const tr = ghost || base.transparent;
+        const dw = ghost ? false : base.depthWrite;
+        if (mat.transparent !== tr || mat.depthWrite !== dw) {
+          mat.transparent = tr;
+          mat.depthWrite = dw;
+          mat.needsUpdate = true;
+        }
       }
     });
   }

@@ -74,6 +74,7 @@ const ITEM_ICONS: Record<ItemType, string> = {
   dragon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 22c-5-3 5-5 0-8s5-5 0-8"/><circle cx="12" cy="3" r="2" fill="currentColor"/></svg>',
   missile: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3.5 13.5c5 2 12 2 17 0" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="2"/><circle cx="9" cy="8.5" r="2.2" fill="#fff" fill-opacity=".7"/></svg>',
   lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>',
+  invisible: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="3 3"><path d="M6 20v-9a6 6 0 0 1 12 0v9l-2-2-2 2-2-2-2 2-2-2z"/><circle cx="10" cy="10" r="0.6" fill="currentColor"/><circle cx="14" cy="10" r="0.6" fill="currentColor"/></svg>',
 };
 
 export function boot() {
@@ -2545,6 +2546,7 @@ export function boot() {
     squad: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
     duo: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     ffa: '<path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/>',
+    mega: '<circle cx="6" cy="12" r="3.2"/><circle cx="18" cy="12" r="3.2"/><path d="M9.2 12h5.6"/><path d="M12 3v3M12 18v3M3 6l2 2M21 6l-2 2M3 18l2-2M21 18l-2-2"/>',
     knockout: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
     siege: '<path d="M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z"/><path d="M18 11V4H6v7"/><path d="M15 22v-4a3 3 0 0 0-3-3a3 3 0 0 0-3 3v4"/><path d="M22 11V9"/><path d="M2 11V9"/><path d="M6 4V2"/><path d="M18 4V2"/><path d="M10 4V2"/><path d="M14 4V2"/>',
     zone: '<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>',
@@ -2568,6 +2570,7 @@ export function boot() {
     { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', go: press('squad-btn') },
     { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'duel', go: press('duo-btn') },
     { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', go: arena('ffa') },
+    { id: 'mega', name: 'Mega Brawl', sub: 'Twenty fighters, a stage eight times the size, portals to jump across', kind: 'arena', go: arena('mega') },
     { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', go: arena('knockout') },
     { id: 'siege', name: 'Castle Crash', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', go: arena('siege') },
     { id: 'zone', name: 'King of the Ring', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', go: arena('zone') },
@@ -3293,6 +3296,11 @@ export function boot() {
           floatText(f.x, f.y, 'CATCH +1', 'catch');
           if (S().vibrate) buzz(10);
         }
+        if (f.type === 'evade') {
+          if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'EVADE!' : 'ALLY EVADED', 'cyan');
+          else callout('EVADED', 'red');
+          if (f.slot === 0 && S().vibrate) buzz([10, 20, 10]);
+        }
         if (f.type === 'parry') {
           if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'PARRY!' : 'ALLY PARRY', 'cyan');
           else callout('PARRIED', 'red');
@@ -3541,6 +3549,7 @@ export function boot() {
     if (game.slowT > 0 && game.slowOwner === 0) fx.push(`slowmo:${Math.ceil(game.slowT)}`);
     if (player.wiperT > 0) fx.push(`wiper:${Math.ceil(player.wiperT)}`);
     if (player.lockT > 0) fx.push(`lock:${Math.ceil(player.lockT)}`);
+    if (player.invisT > 0) fx.push(`invisible:${Math.ceil(player.invisT)}`);
     const key = fx.join('|');
     if (key !== lastEffects) {
       lastEffects = key;

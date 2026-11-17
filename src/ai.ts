@@ -37,6 +37,8 @@ export class AIController {
   private shieldT = 0;
   private shieldCheck = 0;
   private reactQueue: { at: number; target: number; dash: boolean }[] = [];
+  /** where an invisible foe was last seen */
+  private lastSeen: number | null = null;
   private t = 0;
   /** seconds until it next considers charging a big shot */
   private chargeCool = rand(3, 6);
@@ -163,7 +165,10 @@ export class AIController {
         else heavy = true;
       }
       const missile = g.missiles.some((mm) => mm.team !== me.team && Math.hypot(mm.x - me.x, mm.y - me.y) < 3.2);
+      // a special ball about to land: a sharp CPU dashes out of it at the last moment
+      const landing = g.missiles.some((mm) => mm.team !== me.team && !mm.evaded && Math.hypot(mm.x - me.x, mm.y - me.y) < 1.5);
       const skill = Math.min(1, 0.35 * this.agility);
+      if (landing && me.dashN >= 1 && me.dashT <= 0 && Math.random() < skill * 0.12) me.dashReq = true;
       if (me.shield > 25 && (heavy || missile) && Math.random() < skill * 2) this.shieldT = 0.5;
       else if (me.shield > 55 && normal >= 3 && Math.random() < skill * 0.6) this.shieldT = 0.35;
     }
@@ -191,6 +196,10 @@ export class AIController {
       case 'wiper':
       case 'lock':
         use = this.holdTime > 0.3;
+        break;
+      case 'invisible':
+        // vanish when it's hurting, or after a short wait
+        use = me.hpFrac < 0.5 || this.holdTime > 2.5;
         break;
       case 'missile':
         use = this.holdTime > 0.3;
@@ -239,6 +248,12 @@ export class AIController {
     const flight = dist / me.stats.muzzleSpeed + (me.stats.special?.windup ?? 0);
     let tx = foe.x + foe.vx * flight * pr.lead;
     const half = ARENA.width / 2 - me.stats.marbleRadius;
+    // an invisible foe: shoot where it was last seen, sweeping round it as if searching
+    if (foe.invisT > 0) {
+      const lost = (this.lastSeen ??= foe.x);
+      return this.angleTo(Math.max(-half, Math.min(half, lost + Math.sin(this.t * 1.7) * 1.6)), foe.y) + this.aimNoise * 2;
+    }
+    this.lastSeen = foe.x;
 
     if (this.aimMode === 'deny') {
       const d = this.game.drops.find((dd) => dd.team === foe.team);

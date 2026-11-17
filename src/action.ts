@@ -5,11 +5,11 @@ import { InkOnly } from './post';
 import { ShooterMesh, characterById, playable, propModel, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
 import { BALANCE_ARENA, BASE_STATS, MAG_ARENA, MAG_ARENA_OF, MARBLES, MARBLE_OF, MATCH, TOSS_TIME, type MarbleType } from './config';
-import { BITE, CHARGE, DASH, HEAD_SWEEP, chargeDash, showDashPips, spendDash, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
+import { BITE, CHARGE, DASH, EVADE, HEAD_SWEEP, chargeDash, showDashPips, spendDash, MOVE_NAMES, SPIRIT, SPIRIT_OF, TWIN, WINDUP, type SpiritKind } from './game';
 import * as sfx from './audio';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
-import { DROP, DRAGON, ITEMS, MISSILE } from './items';
+import { DROP, DRAGON, INVISIBLE, ITEMS, MISSILE } from './items';
 import { portrait } from './portraits';
 import { stageById } from './stage';
 import { Motes, Scars, impactOf, stageLight } from './stagefx';
@@ -30,7 +30,7 @@ import { makeDungeon, rollGear, gearPower, RARITY, PERKS, STARTER, D_ROCK, type 
  * the main game (Arena rules), scaled to Action's health. Standing still mends you.
  */
 
-export type ActionKind = 'gauntlet' | 'ffa' | 'siege' | 'knockout' | 'zone' | 'boss';
+export type ActionKind = 'gauntlet' | 'ffa' | 'mega' | 'siege' | 'knockout' | 'zone' | 'boss';
 /**
  * a League Story chapter played as an Action fight: who's in it (the chapter's foe first), the
  * look, and what happens when it's over (the story carries on, or you try again)
@@ -92,6 +92,12 @@ const MEND = 0.12;
 const CRATE_HP = 2600;
 const STORM_START = 45;
 const STORM_END = 165;
+/**
+ * Mega Brawl: Storm Brawl blown up. Twenty fighters on a stage eight times the size (80 x 80 tiles
+ * against 28 x 28), its walls, bushes, crates and ponds scaled to match, a slower storm, and
+ * portals in pairs: step into one and you come out of its twin across the map.
+ */
+const MEGA = { size: 80, fighters: 20, area: 8, stormStart: 75, stormEnd: 300, portals: 6, portalCool: 2.2 };
 /** free-for-all fighters are tougher, so a fight there lasts */
 const FFA_HP = 2.1;
 const STORM_DPS = 700;
@@ -316,6 +322,8 @@ interface Unit {
   alive: boolean;
   /** seconds it stays seen after firing or being hit, even in a bush */
   reveal: number;
+  /** Invisibility: seconds left (only a faint shimmer shows, and nothing can aim or home at it) */
+  invis: number;
   /** seconds since it was last hurt */
   calm: number;
   /** seconds it has stood still without firing (mending after a moment) */
@@ -331,6 +339,8 @@ interface Unit {
   dashT: number;
   dashX: number;
   dashZ: number;
+  /** a dash slips special balls while it's on and a beat after (see EVADE) */
+  evadeT: number;
   dashN: number;
   dashFill: number;
   dashGap: number;
@@ -413,12 +423,12 @@ interface Shot {
   effect?: 'drain' | 'frost' | 'quake';
 }
 /** what a crate (or a knocked-out fighter) leaves: a power cube, or one of the main game's items */
-type DropKind = 'cube' | 'heal' | 'dragon' | 'steel' | 'special';
+type DropKind = 'cube' | 'heal' | 'dragon' | 'steel' | 'special' | 'invisible';
 type Drop = { x: number; z: number; kind: DropKind; mesh: THREE.Object3D };
-const DROP_NAME: Record<DropKind, string> = { cube: 'POWER UP', heal: 'REPAIR', dragon: 'DRAGON SHOT', steel: 'STEEL BALL', special: 'SPECIAL FULL' };
+const DROP_NAME: Record<DropKind, string> = { cube: 'POWER UP', heal: 'REPAIR', dragon: 'DRAGON SHOT', steel: 'STEEL BALL', special: 'SPECIAL FULL', invisible: 'INVISIBLE' };
 /** a crate's item, by weight (the free-for-all's crates hold power cubes) */
 /** an item crate's colour: the main game's item colours */
-const ITEM_COLOR: Record<Exclude<DropKind, 'cube'>, number> = { heal: ITEMS.heal.color, dragon: ITEMS.dragon.color, steel: ITEMS.missile.color, special: 0xffd23e };
+const ITEM_COLOR: Record<Exclude<DropKind, 'cube'>, number> = { heal: ITEMS.heal.color, dragon: ITEMS.dragon.color, steel: ITEMS.missile.color, special: 0xffd23e, invisible: ITEMS.invisible.color };
 /** the main game's item crates: they drop in from above, take two hits, and the item goes to whoever breaks one */
 interface ItemBox {
   kind: Exclude<DropKind, 'cube'>;
@@ -436,6 +446,7 @@ const CRATE_ITEMS: [DropKind, number][] = [
   ['dragon', 0.25],
   ['steel', 0.25],
   ['special', 0.2],
+  ['invisible', 0.2],
 ];
 type Pop = { el: HTMLElement; x: number; z: number; t: number };
 /** Dungeon Run: a trap at work */
@@ -478,6 +489,12 @@ export class ActionMode {
   private unitId: string;
 
   private kind: ActionKind = 'gauntlet';
+  /** Mega Brawl: played as a Storm Brawl ('ffa') with these differences */
+  private mega = false;
+  /** Mega Brawl's portals, in pairs: each knows its twin */
+  private portals: { x: number; z: number; to: number; color: number; root: THREE.Group }[] = [];
+  /** a fighter can't take a portal again until this runs out (so it doesn't bounce straight back) */
+  private portalCool = new Map<Unit, number>();
   /** a League Story chapter being played (null: Action on its own) */
   private story: StoryFight | null = null;
   private W = 11;
@@ -874,7 +891,9 @@ export class ActionMode {
 
   private begin(kind: ActionKind) {
     sfx.unlock();
-    this.kind = kind;
+    // (Mega Brawl runs as a Storm Brawl, bigger)
+    this.mega = kind === 'mega';
+    this.kind = this.mega ? 'ffa' : kind;
     // (TPS is Dungeon Run's alone: the view button says which view this mode is in)
     this.showView();
     this.room = 1;
@@ -951,6 +970,8 @@ export class ActionMode {
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     this.time = this.kind === 'gauntlet' ? this.time : 0;
     this.buildStage();
+    // (the storm starts at the edge of this stage, whatever its size)
+    this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     (this.el.querySelector('.ac-map') as HTMLElement).classList.toggle('on', this.kind === 'gauntlet');
     this.spawnMe();
     this.checkpoint = { x: this.me!.x, z: this.me!.z };
@@ -963,7 +984,7 @@ export class ActionMode {
     this.over = false;
     const where = themeName(this.theme).toUpperCase();
     const TEAM_NAME: Partial<Record<ActionKind, string>> = { knockout: 'TEAM KNOCKOUT · ROUND 1', zone: 'KING OF THE RING · HOLD IT', boss: 'GIANT SLAYER · TAKE IT DOWN' };
-    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `CASTLE CRASH · ${where}` : this.kind === 'ffa' ? `STORM BRAWL · ${where}` : `STAGE ${this.stage} · ${themeName(this.theme).toUpperCase()}`);
+    this.callout(TEAM_NAME[this.kind] ? `${TEAM_NAME[this.kind]}` : this.kind === 'siege' ? `CASTLE CRASH · ${where}` : this.kind === 'ffa' ? `${this.mega ? 'MEGA BRAWL' : 'STORM BRAWL'} · ${where}` : `STAGE ${this.stage} · ${themeName(this.theme).toUpperCase()}`);
     sfx.play(this.isBossRoom() ? 'gong' : 'go');
     this.updateHud();
   }
@@ -998,6 +1019,9 @@ export class ActionMode {
     for (const o of this.orbs.values()) o.removeFromParent();
     this.orbs.clear();
     for (const w of this.wrecks) this.dropWreck(w);
+    for (const p of this.portals) p.root.removeFromParent();
+    this.portals = [];
+    this.portalCool.clear();
     this.wrecks = [];
     for (const sp of this.sparks) sp.mesh.removeFromParent();
     this.dashFx?.clear();
@@ -1054,8 +1078,10 @@ export class ActionMode {
 
   private buildStage() {
     if (this.kind === 'ffa') {
-      this.W = this.H = 28;
+      this.W = this.H = this.mega ? MEGA.size : 28;
       this.layoutFfa();
+      // (before the tiles are drawn: a portal clears the ground it stands on)
+      if (this.mega) this.placePortals();
     } else if (this.teams) {
       this.W = 15;
       this.H = this.kind === 'boss' ? 21 : 25;
@@ -1189,8 +1215,10 @@ export class ActionMode {
     for (let j = 0; j < H; j++) put(0, j, WALL);
     const rnd = (n: number) => Math.floor(Math.random() * n);
     const free = (i: number, j: number) => i >= 1 && j >= 1 && i < half && j < half && g[this.idx(i, j)] === FLOOR;
+    // (Mega Brawl: everything scaled with the area)
+    const A = this.mega ? MEGA.area : 1;
     // wall runs
-    for (let n = 0; n < 6; n++) {
+    for (let n = 0; n < 6 * A; n++) {
       const len = 2 + rnd(3);
       const across = Math.random() < 0.5;
       const i0 = 2 + rnd(half - 4);
@@ -1202,19 +1230,21 @@ export class ActionMode {
       }
     }
     // bush patches
-    for (let n = 0; n < 4; n++) {
+    for (let n = 0; n < 4 * A; n++) {
       const i0 = 1 + rnd(half - 3);
       const j0 = 1 + rnd(half - 3);
       const w = 2 + rnd(2);
       const h = 2 + rnd(2);
       for (let i = i0; i < i0 + w; i++) for (let j = j0; j < j0 + h; j++) if (free(i, j)) put(i, j, BUSH);
     }
-    // a pond near the middle
-    const pi = half - 4 - rnd(2);
-    const pj = half - 4 - rnd(2);
-    for (const [di, dj] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (free(pi + di, pj + dj)) put(pi + di, pj + dj, WATER);
+    // a pond near the middle (and, on a mega stage, more scattered about)
+    for (let n = 0; n < (this.mega ? 5 : 1); n++) {
+      const pi = n === 0 ? half - 4 - rnd(2) : 3 + rnd(half - 6);
+      const pj = n === 0 ? half - 4 - rnd(2) : 3 + rnd(half - 6);
+      for (const [di, dj] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (free(pi + di, pj + dj)) put(pi + di, pj + dj, WATER);
+    }
     // crates
-    for (let n = 0; n < 3; n++) {
+    for (let n = 0; n < 3 * A; n++) {
       const i = 2 + rnd(half - 3);
       const j = 2 + rnd(half - 3);
       if (free(i, j)) put(i, j, CRATE);
@@ -1477,9 +1507,11 @@ export class ActionMode {
   }
 
   private ffaStarts() {
-    return Array.from({ length: 6 }, (_, k) => {
-      const a = (k / 6) * Math.PI * 2 + Math.PI / 2;
-      return { x: Math.cos(a) * 11, z: Math.sin(a) * 11 };
+    const n = this.mega ? MEGA.fighters : 6;
+    const r = this.mega ? this.W * 0.36 : 11;
+    return Array.from({ length: n }, (_, k) => {
+      const a = (k / n) * Math.PI * 2 + Math.PI / 2;
+      return { x: Math.cos(a) * r, z: Math.sin(a) * r };
     });
   }
 
@@ -1760,6 +1792,7 @@ export class ActionMode {
       marble: mb.type,
       alive: true,
       reveal: 0,
+      invis: 0,
       calm: 9,
       still: 0,
       slowT: 0,
@@ -1768,6 +1801,7 @@ export class ActionMode {
       cubes: 0,
       boss,
       dashT: 0,
+      evadeT: 0,
       dashX: 0,
       dashZ: 0,
       dashN: DASH.charges,
@@ -1927,7 +1961,8 @@ export class ActionMode {
       const starts = this.ffaStarts();
       const given = (this.story?.foes ?? []).map((id) => characterById(id));
       // (the chapter's own fighters aren't drawn again to fill the field)
-      [...given, ...this.pickFoes(5 - given.length, this.story?.foes)].slice(0, 5).forEach((d, k) => {
+      const field = this.mega ? MEGA.fighters - 1 : 5;
+      [...given, ...this.pickFoes(field - given.length, this.story?.foes)].slice(0, field).forEach((d, k) => {
         const u = this.makeUnit(d, starts[k + 1].x, starts[k + 1].z, true, k + 1);
         u.aimError = 0.1 + Math.random() * 0.08;
         u.aimDelay = 0.3 + Math.random() * 0.3;
@@ -1989,6 +2024,8 @@ export class ActionMode {
   }
   /** a sees b: b isn't hiding in a bush (unless a is right next to it or it just gave itself away) */
   private sees(a: Unit, b: Unit) {
+    // (an invisible fighter can only be made out right up close)
+    if (b.invis > 0) return Math.hypot(a.x - b.x, a.z - b.z) < 1.4;
     if (!this.inBush(b) || b.reveal > 0) return true;
     return Math.hypot(a.x - b.x, a.z - b.z) < 2.3;
   }
@@ -1998,6 +2035,7 @@ export class ActionMode {
    * so it flashes into sight, but that's all: it can't be locked on to.)
    */
   private targetable(a: Unit, b: Unit) {
+    if (b.invis > 0) return Math.hypot(a.x - b.x, a.z - b.z) < 1.4;
     if (!this.inBush(b)) return true;
     return Math.hypot(a.x - b.x, a.z - b.z) < 2.3;
   }
@@ -2641,6 +2679,7 @@ export class ActionMode {
     this.moveShots(dt);
     this.pickups();
     if (this.kind === 'ffa') this.tickStorm(dt);
+    if (this.portals.length) this.tickPortals(dt);
     if (this.kind === 'gauntlet') this.tickDungeon(dt);
     this.checkEnd();
     this.updateHud();
@@ -2682,6 +2721,8 @@ export class ActionMode {
     chargeDash(u, dt);
     u.dashLook = Math.max(0, u.dashLook - dt);
     u.reveal = Math.max(0, u.reveal - dt);
+    u.invis = Math.max(0, u.invis - dt);
+    u.evadeT = Math.max(0, u.evadeT - dt);
     u.slowT = Math.max(0, u.slowT - dt);
     u.stunT = Math.max(0, u.stunT - dt);
     u.calm += dt;
@@ -2780,6 +2821,16 @@ export class ActionMode {
     u.pose.stored = u.stored;
   }
 
+  /** slipped a special's ball with a dash: a white streak, and a word if it's you */
+  private evaded(u: Unit) {
+    this.burst(u.x, 0.7, u.z, 0xffffff, 14, 6, { float: true });
+    if (u === this.me) {
+      this.callout('EVADE!');
+      sfx.play('whoosh', 1);
+      this.opts.vibrate?.([10, 20, 10]);
+    } else if (this.me && Math.hypot(u.x - this.me.x, u.z - this.me.z) < 8) this.pop(u.x, u.z, 'EVADED', 'good');
+  }
+
   /** a special's ball lands on someone: its damage, and its quirk */
   private ballHits(s: Shot, u: Unit) {
     this.hurt(u, s.dmg, s.owner, true);
@@ -2793,7 +2844,7 @@ export class ActionMode {
     if (s.effect === 'quake') {
       u.stunT = 1;
       this.shake = Math.max(this.shake, 0.25);
-      for (const o of this.units) if (o !== u && this.hostile(s.owner, o) && Math.hypot(o.x - u.x, o.z - u.z) < 1.6) this.hurt(o, s.dmg * 0.5, s.owner, true);
+      for (const o of this.units) if (o !== u && this.hostile(s.owner, o) && o.evadeT <= 0 && Math.hypot(o.x - u.x, o.z - u.z) < 1.6) this.hurt(o, s.dmg * 0.5, s.owner, true);
     }
     sfx.play('superhit', 0.7);
   }
@@ -2898,6 +2949,12 @@ export class ActionMode {
         for (const u of this.units) {
           if (!this.hostile(s.owner, u) || s.hit.has(u)) continue;
           if ((u.x - s.x) ** 2 + (u.z - s.z) ** 2 < (u.r + s.r) ** 2) {
+            // a special's ball dashed through at the last moment: it sails on past
+            if (s.spirit && u.evadeT > 0) {
+              s.hit.add(u);
+              this.evaded(u);
+              continue;
+            }
             if (s.spirit) this.ballHits(s, u);
             else this.hurt(u, s.dmg, s.owner);
             s.hit.add(u);
@@ -2923,11 +2980,13 @@ export class ActionMode {
       u.power *= 1.08;
     } else if (kind === 'heal') u.hp = Math.min(u.max, u.hp + u.max * 0.25);
     else if (kind === 'special') u.charge = 1;
+    else if (kind === 'invisible') u.invis = ITEMS.invisible.duration;
     else u.item = kind;
     if (u === this.me) {
       sfx.play('charge', 0.6);
       this.pop(u.x, u.z, DROP_NAME[kind], 'good');
       if (kind === 'dragon' || kind === 'steel') this.callout(`${DROP_NAME[kind]} · YOUR NEXT SHOT`);
+      if (kind === 'invisible') this.callout(`INVISIBLE · ${ITEMS.invisible.duration}s`);
     }
   }
 
@@ -3329,11 +3388,92 @@ export class ActionMode {
     return 1;
   }
 
+  // ---------- Mega Brawl's portals ----------
+
+  /**
+   * six pairs across the map, each pair a colour: one end on a ring round the middle, its twin on
+   * the far side, so a portal is a shortcut across the stage. Each sits on clear floor.
+   */
+  private placePortals() {
+    const COLORS = [0x3ef0ff, 0xff4ad8, 0xffd23e, 0x6aff6a, 0xff7a3a, 0x9a7aff];
+    const spot = (x: number, z: number) => {
+      // the nearest floor tile, its neighbours cleared so nobody's walled in
+      let i0 = Math.floor(x + this.W / 2);
+      let j0 = Math.floor(z + this.H / 2);
+      i0 = Math.max(3, Math.min(this.W - 4, i0));
+      j0 = Math.max(3, Math.min(this.H - 4, j0));
+      for (let i = i0 - 1; i <= i0 + 1; i++)
+        for (let j = j0 - 1; j <= j0 + 1; j++) {
+          const k = this.idx(i, j);
+          if (this.grid[k] !== FLOOR && this.grid[k] !== BUSH) {
+            this.grid[k] = FLOOR;
+            this.crateHp.delete(k);
+          }
+        }
+      return this.center(i0, j0);
+    };
+    const n = MEGA.portals;
+    const r1 = this.W * 0.18;
+    const r2 = this.W * 0.4;
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + 0.3;
+      const ends = [spot(Math.cos(a) * r1, Math.sin(a) * r1), spot(Math.cos(a + Math.PI) * r2, Math.sin(a + Math.PI) * r2)];
+      const base = this.portals.length;
+      ends.forEach((e, m) => {
+        const root = new THREE.Group();
+        root.position.set(e.x, 0, e.z);
+        const col = COLORS[k % COLORS.length];
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.08, 10, 36), new THREE.MeshBasicMaterial({ color: col }));
+        ring.position.y = 0.75;
+        const swirl = new THREE.Mesh(new THREE.CircleGeometry(0.56, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+        swirl.position.y = 0.75;
+        ring.add(swirl.clone());
+        const glow = new THREE.Mesh(new THREE.CircleGeometry(0.9, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+        glow.position.y = 0.03;
+        root.add(ring, swirl, glow);
+        this.world.add(root);
+        this.portals.push({ x: e.x, z: e.z, to: base + (1 - m), color: col, root });
+      });
+    }
+  }
+
+  /** whoever steps into a portal comes out of its twin (and can't go straight back through) */
+  private tickPortals(dt: number) {
+    for (const [u, t] of this.portalCool) {
+      if (t - dt <= 0) this.portalCool.delete(u);
+      else this.portalCool.set(u, t - dt);
+    }
+    for (const u of this.units) {
+      if (!u.alive || this.portalCool.has(u)) continue;
+      const p = this.portals.find((q) => (q.x - u.x) ** 2 + (q.z - u.z) ** 2 < 0.55 ** 2);
+      if (!p) continue;
+      const out = this.portals[p.to];
+      // (out a step toward the middle of the map, so it lands clear of the ring)
+      const toward = Math.atan2(-out.z, -out.x);
+      u.x = out.x + Math.cos(toward) * 0.9;
+      u.z = out.z + Math.sin(toward) * 0.9;
+      u.vx = u.vz = 0;
+      this.portalCool.set(u, MEGA.portalCool);
+      this.burstAt(p.x, p.z, p.color);
+      this.burstAt(out.x, out.z, out.color);
+      if (u === this.me) {
+        this.camSnap = true;
+        sfx.play('whoosh');
+        this.callout('PORTAL');
+      } else if (this.me && Math.hypot(this.me.x - out.x, this.me.z - out.z) < 10) sfx.play('whoosh', 0.4);
+    }
+  }
+  /** a puff of the portal's colour */
+  private burstAt(x: number, z: number, color: number) {
+    this.burst(x, 0.8, z, color, 14, 3, { float: true });
+  }
+
   private tickStorm(dt: number) {
     const half = this.W / 2;
-    const t = Math.max(0, Math.min(1, (this.time - STORM_START) / (STORM_END - STORM_START)));
+    const [s0, s1] = this.mega ? [MEGA.stormStart, MEGA.stormEnd] : [STORM_START, STORM_END];
+    const t = Math.max(0, Math.min(1, (this.time - s0) / (s1 - s0)));
     this.storm = half - t * (half - 3);
-    if (this.time > STORM_START && this.time - dt <= STORM_START) this.callout('THE STORM IS CLOSING IN');
+    if (this.time > s0 && this.time - dt <= s0) this.callout('THE STORM IS CLOSING IN');
     for (const u of this.units) {
       if (!u.alive) continue;
       if (Math.abs(u.x) > this.storm || Math.abs(u.z) > this.storm) {
@@ -4139,9 +4279,10 @@ export class ActionMode {
         dx += (s.vz / sp) * side * 1.4 * agility;
         dz += (-s.vx / sp) * side * 1.4 * agility;
         // a close call: sometimes it dashes clear (nimbler fighters more often)
-        if (dist < 2.2 && u.dashLook <= 0) {
+        // (a special's ball: it waits until the last moment, when a dash slips it clean)
+        if ((s.spirit ? dist < 1.6 : dist < 2.2) && u.dashLook <= 0) {
           u.dashLook = 0.5;
-          if (Math.random() < 0.45 * agility) this.startDash(u, (s.vz / sp) * side, (-s.vx / sp) * side);
+          if (Math.random() < (s.spirit ? 0.65 : 0.45) * agility) this.startDash(u, (s.vz / sp) * side, (-s.vx / sp) * side);
         }
         break;
       }
@@ -4187,6 +4328,7 @@ export class ActionMode {
     u.dashX = dx / len;
     u.dashZ = dz / len;
     u.dashT = DASH.time;
+    u.evadeT = DASH.time + EVADE.after;
     spendDash(u);
     u.face = Math.atan2(u.dashX, -u.dashZ);
     sfx.play('whoosh', u === this.me ? 0.7 : 0.35);
@@ -4322,10 +4464,15 @@ export class ActionMode {
     for (const u of this.units) {
       if (!u.alive) continue;
       // (a CPU in a bush is hidden from you, unless you're right next to it or it just gave itself away)
-      const hidden = !!me && u.team !== me.team && me.alive && !this.sees(me, u);
+      // (an invisible fighter: a faint shimmer to its foes, a see-through ghost to its own side,
+      // flickering back in its last second)
+      const foe = !!me && u.team !== me.team;
+      const inv = u.invis > 0 && !(u.invis < 1 && Math.sin(this.time * 30) > 0);
+      const hidden = foe && me!.alive && !inv && !this.sees(me!, u);
       u.wrap.visible = !hidden;
-      u.shadow.visible = !hidden;
-      u.bar.classList.toggle('gone', hidden);
+      u.shadow.visible = !hidden && !(inv && foe);
+      u.bar.classList.toggle('gone', hidden || (inv && foe));
+      u.mesh.setGhost(inv ? (foe ? INVISIBLE.foeAlpha + Math.sin(this.time * 9 + u.x * 3) * INVISIBLE.shimmer : INVISIBLE.ownAlpha) : 1);
       u.wrap.position.set(u.x, 0, u.z);
       // turn smoothly toward where it faces
       const cur = u.wrap.rotation.y;
@@ -4355,6 +4502,13 @@ export class ActionMode {
     }
     // your own bush goes see-through while you're in it
     this.bushMat.opacity = me?.alive && this.inBush(me) ? 0.55 : 1;
+    // portals: the ring turns, the swirl spins the other way, the floor glow breathes
+    for (const p of this.portals) {
+      const [ring, swirl, glow] = p.root.children as THREE.Mesh[];
+      ring.rotation.y += dt * 1.6;
+      swirl.rotation.z -= dt * 3;
+      (glow.material as THREE.MeshBasicMaterial).opacity = 0.45 + Math.sin(this.time * 3 + p.x) * 0.15;
+    }
     // the marbles
     let n = 0;
     for (const s of this.shots) {
@@ -4909,6 +5063,7 @@ export class ActionMode {
       };
       mode('gauntlet', 'Dungeon Run', 'Seven stages deep, a new dungeon each: traps, chests of gear, a key to find and a boss behind the locked door');
       mode('ffa', 'Storm Brawl', 'You and five fighters, one stage, bushes, crates and a closing storm');
+      mode('mega', 'Mega Brawl', 'Twenty fighters on a stage eight times the size, with portals to jump across it');
       mode('siege', 'Castle Crash', 'Three on three: knock down their fortress before they knock down yours');
       mode('knockout', 'Team Knockout', 'Three on three, no respawns: last side standing takes the round, best of three');
       mode('zone', 'King of the Ring', 'Three on three: hold the ring in the middle with none of theirs in it, first to 100%');
@@ -4964,7 +5119,7 @@ export class ActionMode {
       } else h.textContent = kind === 'win' ? (ffa ? 'Victory!' : 'Dungeon cleared!') : ffa ? `#${place} of 6` : 'Knocked out';
       if (!this.teams) text.textContent = ffa ? (kind === 'win' ? `Last one standing, with ${this.kos} KO${this.kos === 1 ? '' : 's'}.` : `${this.kos} KO${this.kos === 1 ? '' : 's'} before you went down.`) : kind === 'win' ? `All ${DSTAGES.length} stages: ${this.room - 1} rooms and ${this.kos} monsters down.` : `You reached stage ${this.stage} (${themeName(this.theme)}) and cleared ${this.room - 1} rooms with ${this.kos} KO${this.kos === 1 ? '' : 's'}.`;
       bestEl.textContent = this.bestLine();
-      button('Play again', () => this.begin(this.kind), 'primary');
+      button('Play again', () => this.begin(this.mega ? 'mega' : this.kind), 'primary');
       button('Modes', () => {
         this.clearStage();
         this.kind = 'gauntlet';

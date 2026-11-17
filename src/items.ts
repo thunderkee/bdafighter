@@ -1,7 +1,7 @@
 // Air-drop items: data only, so new items are a new entry plus a case in
 // Game.useItem().
 
-export type ItemType = 'multi' | 'slowmo' | 'heal' | 'dragon' | 'missile' | 'wiper' | 'lock';
+export type ItemType = 'multi' | 'slowmo' | 'heal' | 'dragon' | 'missile' | 'wiper' | 'lock' | 'invisible';
 
 export interface ItemDef {
   name: string;
@@ -21,6 +21,7 @@ export const ITEMS: Record<ItemType, ItemDef> = {
   missile: { name: 'Homing Steel Ball', short: 'STEEL BALL', color: 0xff7a2a, duration: 0, weight: 0.8 },
   wiper: { name: 'Wiper', short: 'WIPER', color: 0xc8925a, duration: 6, weight: 0.9 },
   lock: { name: 'Smart Lock', short: 'LOCK', color: 0xff3b3b, duration: 7, weight: 0.9 },
+  invisible: { name: 'Invisibility', short: 'INVISIBLE', color: 0xb9c6ff, duration: 7, weight: 0.8 },
 };
 
 export const ITEM_TYPES = Object.keys(ITEMS) as ItemType[];
@@ -43,6 +44,11 @@ export const DROP = {
   hp: 2,
 };
 
+/**
+ * invisibility: for its duration the bearer fades out. Opponents see only a faint shimmer, CPUs
+ * lose track of it (they shoot where it was, searching), and nothing can lock or home onto it
+ */
+export const INVISIBLE = { foeAlpha: 0.07, ownAlpha: 0.32, shimmer: 0.05 };
 /** Smart Lock: the robot it's locked onto moves this much slower */
 export const LOCK = { moveMul: 0.64 };
 /** multi shot: marbles per volley, fan half-angle, damage scale, fire-interval scale */
