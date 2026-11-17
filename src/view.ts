@@ -191,7 +191,6 @@ class RobotFx {
 }
 
 /** a dash's glow: your side cool cyan, the other side hot orange */
-const dashColor = (slot: number) => (slotTeam(slot) === 0 ? 0x6fe0ff : 0xff8a4a);
 
 export class View {
   renderer: THREE.WebGLRenderer;
@@ -972,7 +971,7 @@ export class View {
           this.burst(s.x - f.dir * 0.5, s.y, 0xdfe6ee, 22, 3.5, { h: 0.15, size: 0.08 });
           const root = this.shooters[f.slot].root;
           this.dashFx ??= new DashFx(this.scene);
-          this.dashFx.streaks({ x: root.position.x, z: root.position.z }, { x: f.dir, z: 0 }, 0.05, dashColor(f.slot), 0.45);
+          this.dashFx.streaks({ x: root.position.x, z: root.position.z }, { x: f.dir, z: 0 }, 0.05, this.shooters[f.slot].ball, 0.45);
           break;
         }
       }
@@ -1056,7 +1055,7 @@ export class View {
     this.dashFx ??= new DashFx(this.scene);
     g.shooters.forEach((s, i) => {
       const sm = this.shooters[i];
-      if (s.dashT > 0 && sm && s.alive) this.dashFx!.dashing(i, sm.root, dashColor(i), dt);
+      if (s.dashT > 0 && sm && s.alive) this.dashFx!.dashing(i, sm.root, sm.ball, dt);
       else this.dashFx!.stopped(i);
     });
     this.dashFx.update(dt);
@@ -1128,11 +1127,12 @@ export class View {
       if (sm.root.visible && (s.chillT ?? 0) > 0 && Math.random() < 0.5) this.burst(s.x + (Math.random() - 0.5) * 1.4, s.y, Math.random() < 0.5 ? 0x8ae8ff : 0xffffff, 1, 1.2, { h: 0.3 + Math.random() * 1.4, float: true, size: 0.09 });
       // your pack-mates stand beside the chase camera: see-through so they never wall off the view
       let ghost = i >= 4 ? (this.cine || this.ko || this.cameraMode === 'first' ? 1 : 0.38) : 1;
-      // invisible: a faint shimmer to the other side, a see-through ghost to its own (flickering back in its last second)
+      // invisible: gone entirely to the other side (no body, no shadow), a see-through ghost to its
+      // own (flickering back in its last second)
       const inv = s.invisT ?? 0;
       if (inv > 0 && !(inv < 1 && Math.sin(this.time * 30) > 0)) {
-        const own = s.team === 0;
-        ghost = Math.min(ghost, own ? INVISIBLE.ownAlpha : INVISIBLE.foeAlpha + Math.sin(this.time * 9 + i) * INVISIBLE.shimmer);
+        if (s.team === 0) ghost = Math.min(ghost, INVISIBLE.ownAlpha);
+        else sm.root.visible = false;
       }
       sm.setGhost(ghost);
     });

@@ -4986,9 +4986,9 @@ export class ActionMode {
     this.dashFx?.dashing(u, u.wrap, this.dashColor(u), dt);
   }
 
-  /** your side's dashes glow cyan, the other side's orange */
+  /** a dash glows in the fighter's own marble colour */
   private dashColor(u: Unit) {
-    return u.team === this.me?.team ? 0x6fe0ff : 0xff8a4a;
+    return u.mesh.ball;
   }
 
   /** the next tile on the shortest walk to (tx, tz), round walls, crates and water */
@@ -5101,11 +5101,11 @@ export class ActionMode {
     for (const u of this.units) {
       if (!u.alive) continue;
       // (a CPU in a bush is hidden from you, unless you're right next to it or it just gave itself away)
-      // (an invisible fighter: a faint shimmer to its foes, a see-through ghost to its own side,
+      // (an invisible fighter: gone entirely to its foes, a see-through ghost to its own side,
       // flickering back in its last second)
       const foe = !!me && u.team !== me.team;
       const inv = u.invis > 0 && !(u.invis < 1 && Math.sin(this.time * 30) > 0);
-      const hidden = foe && me!.alive && !inv && !this.sees(me!, u);
+      const hidden = foe && ((inv && me!.alive) || (me!.alive && !inv && !this.sees(me!, u)));
       u.wrap.visible = !hidden;
       u.shadow.visible = !hidden && !(inv && foe);
       u.bar.classList.toggle('gone', hidden || (inv && foe));
