@@ -1153,10 +1153,11 @@ export function boot() {
   /** played out on the table (the camera on the speaker) rather than over a backdrop */
   let dlgStaged = false;
   /** an arena's picture behind a screen (the menu, the story's talk), cropped to the way the device is held */
-  const setArena = (el: HTMLElement, id: string) => {
+  const setArena = (el: HTMLElement, id: string, eye = false) => {
     try {
       const wide = innerWidth > innerHeight;
-      el.style.setProperty('--arena', `url(${hero.stageShot(id, wide ? 720 : 405, wide ? 405 : 720)})`);
+      // (the title's backdrop is seen from the fighter's eye height, so the fighter stands in it)
+      el.style.setProperty('--arena', `url(${hero.stageShot(id, wide ? 720 : 405, wide ? 405 : 720, eye)})`);
       el.classList.add('has-arena');
     } catch {
       // no WebGL to spare: the plain background stays
@@ -2521,7 +2522,7 @@ export function boot() {
     const place = `${S().stage}:${innerWidth > innerHeight}`;
     if (menuArena !== place) {
       menuArena = place;
-      setTimeout(() => setArena($('title'), S().stage), 80);
+      setTimeout(() => setArena($('title'), S().stage, true), 80);
     }
     if (heroId !== key) {
       heroId = key;

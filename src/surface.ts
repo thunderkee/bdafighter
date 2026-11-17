@@ -166,6 +166,9 @@ function kindOf(m: THREE.Material & { color?: THREE.Color; flatShading?: boolean
 
 /** adds the triplanar detail to a material's shader (its colour, lighting and maps stay as they are) */
 function surface(mat: THREE.Material, kind: SurfaceKind, soft: boolean) {
+  // (once only: a material shared by several props isn't wrapped twice)
+  if (mat.userData.surfaced) return;
+  mat.userData.surfaced = true;
   const k = KIND[kind];
   const uniforms = { uTriMap: { value: detail(kind) }, uTriScale: { value: k.scale }, uTriGain: { value: soft ? k.gain * 0.5 : k.gain } };
   const prev = mat.onBeforeCompile;
@@ -201,7 +204,10 @@ function surface(mat: THREE.Material, kind: SurfaceKind, soft: boolean) {
       );
   };
   // (one program for every material of this make: the detail differs only by uniforms)
-  mat.customProgramCacheKey = () => `surface|${prev ? prev.toString().length : 0}`;
+  const src = prev ? prev.toString() : '';
+  let h = 0;
+  for (let i = 0; i < src.length; i++) h = (Math.imul(h, 31) + src.charCodeAt(i)) | 0;
+  mat.customProgramCacheKey = () => `surface|${h}`;
   mat.needsUpdate = true;
 }
 
@@ -226,7 +232,8 @@ export function texturize(root: THREE.Object3D) {
       done.add(mat);
       const m = mat as THREE.MeshLambertMaterial & { shininess?: number };
       if (!(m.isMeshLambertMaterial || (m as unknown as THREE.MeshPhongMaterial).isMeshPhongMaterial || (m as unknown as THREE.MeshStandardMaterial).isMeshStandardMaterial)) continue;
-      if (m.transparent || m.blending !== THREE.NormalBlending || m.userData.noSurface) continue;
+      // (see-through things keep their look; a solid one that's only blended to fade, like a wall, is marked to take it)
+      if ((m.transparent && !m.userData.surface) || m.blending !== THREE.NormalBlending || m.userData.noSurface) continue;
       // (a painted floor or sign keeps its picture: the grit goes over it, softly)
       surface(m, kindOf(m), !!m.map);
     }

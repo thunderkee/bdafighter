@@ -336,26 +336,65 @@ const snowTex = () =>
     }
   });
 
-/** a portal's vortex: arms of light spiralling in, fading out at the rim */
+/**
+ * a portal's vortex: arms of light spiralling in, their colour running teal at the rim through
+ * violet to magenta at the heart, with specks like stars caught in it (transparent between)
+ */
 const portalSpiral = () =>
   coverCanvas(
-    'spiral',
-    (g, n) => {
+    'spiral2',
+    (g, n, r) => {
       g.clearRect(0, 0, n, n);
       const c = n / 2;
-      for (let arm = 0; arm < 4; arm++)
-        for (let t = 0; t < 1; t += 0.004) {
-          const a = arm * (Math.PI / 2) + t * Math.PI * 3.2;
-          const r = t * c * 0.98;
-          g.fillStyle = `rgba(255,255,255,${(1 - t) * 0.5 + 0.2})`;
+      const hue = (t: number) => {
+        // rim (t 1) teal, middle violet, heart (t 0) magenta
+        const stops = [
+          [255, 79, 216],
+          [176, 90, 255],
+          [79, 245, 255],
+        ];
+        const x = t * 2;
+        const a = stops[Math.min(1, Math.floor(x))];
+        const b = stops[Math.min(2, Math.floor(x) + 1)];
+        const f = x - Math.floor(x);
+        return a.map((v, i) => Math.round(v + (b[i] - v) * f));
+      };
+      for (let arm = 0; arm < 5; arm++)
+        for (let t = 0.02; t < 1; t += 0.003) {
+          const a = arm * ((Math.PI * 2) / 5) + t * Math.PI * 3.6;
+          const rad = t * c * 0.98;
+          const [R, G, B] = hue(t);
+          g.fillStyle = `rgba(${R},${G},${B},${0.55 * (1 - t * 0.6)})`;
           g.beginPath();
-          g.arc(c + Math.cos(a) * r, c + Math.sin(a) * r, 1.5 + t * 6, 0, Math.PI * 2);
+          g.arc(c + Math.cos(a) * rad, c + Math.sin(a) * rad, 1 + t * 5, 0, Math.PI * 2);
           g.fill();
         }
+      for (let k = 0; k < 40; k++) {
+        const a = r() * Math.PI * 2;
+        const rad = r() * c * 0.9;
+        g.fillStyle = `rgba(255,255,255,${0.4 + r() * 0.6})`;
+        g.fillRect(c + Math.cos(a) * rad, c + Math.sin(a) * rad, 1.5, 1.5);
+      }
       const gr = g.createRadialGradient(c, c, 0, c, c, c);
-      gr.addColorStop(0, 'rgba(255,255,255,0.9)');
-      gr.addColorStop(0.25, 'rgba(255,255,255,0.15)');
-      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      gr.addColorStop(0, 'rgba(255,200,255,0.55)');
+      gr.addColorStop(0.18, 'rgba(176,90,255,0.15)');
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, n, n);
+    },
+    false,
+  );
+/** a portal's abyss: near black at the heart, deep indigo and violet out to the wall */
+const portalAbyss = () =>
+  coverCanvas(
+    'abyss',
+    (g, n) => {
+      const c = n / 2;
+      const gr = g.createRadialGradient(c, c, 0, c, c, c);
+      gr.addColorStop(0, '#030008');
+      gr.addColorStop(0.45, '#10052a');
+      gr.addColorStop(0.8, '#2a0a4a');
+      gr.addColorStop(1, '#0a2a3a');
       g.fillStyle = gr;
       g.fillRect(0, 0, n, n);
     },
@@ -820,6 +859,8 @@ export class ActionMode {
   private localView: ActionView = 'mid';
   /** Dungeon Run's TPS view is on (kept here, not in the camera setting the other modes share) */
   private tps = false;
+  /** Dungeon Run's own view: near unless you change it there (the other modes share the Settings one) */
+  private dView: ActionView = 'near';
   private skyFor: Theme | null = null;
   private lift = 0;
   private vw = 1;
@@ -1464,6 +1505,8 @@ export class ActionMode {
   private seeThrough<M extends THREE.Material>(mat: M): M {
     // (drawn after the solid things so what's behind shows through; everywhere else it's fully opaque)
     mat.transparent = true;
+    // (still a solid surface: it takes the stage's stone and metal like everything else)
+    mat.userData.surface = true;
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, this.fadeU);
       sh.vertexShader = sh.vertexShader
@@ -1981,12 +2024,31 @@ export class ActionMode {
       this.bushMat.flatShading = true;
       this.bushMat.needsUpdate = true;
       this.coverMats.push({ m: this.bushMat, o: this.bushMat.opacity });
-      const bushGeo = new THREE.IcosahedronGeometry(0.64, 1);
-      bushGeo.translate(0, 0.5, 0);
-      inst(bushGeo, this.bushMat, BUSH, (o, i, j) => {
-        turn(o, i, j);
-        o.scale.set(1, vary(i, j), 1);
-      });
+      if (this.kind === 'gauntlet') {
+        const bushGeo = new THREE.IcosahedronGeometry(0.64, 1);
+        bushGeo.translate(0, 0.5, 0);
+        inst(bushGeo, this.bushMat, BUSH, (o, i, j) => {
+          turn(o, i, j);
+          o.scale.set(1, vary(i, j), 1);
+        });
+      } else {
+        // the arenas: a tall, full bush, twice a fighter's cover, filling its tile to the edges (a tall
+        // clump in the middle and three lower ones round its foot, so nothing shows between them)
+        const tall = new THREE.IcosahedronGeometry(0.6, 1);
+        tall.scale(1, 1.9, 1);
+        tall.translate(0, 1.12, 0);
+        inst(tall, this.bushMat, BUSH, (o, i, j) => {
+          turn(o, i, j);
+          o.scale.set(1, 0.92 + ((i + j) % 3) * 0.06, 1);
+        });
+        const foot = new THREE.IcosahedronGeometry(0.42, 1);
+        foot.scale(1, 1.25, 1);
+        for (const [x, z] of [[-0.3, -0.26], [0.32, -0.18], [0.02, 0.34]] as const) {
+          const g = foot.clone();
+          g.translate(x, 0.5, z);
+          inst(g, this.bushMat, BUSH, turn);
+        }
+      }
     }
   }
 
@@ -2954,6 +3016,7 @@ export class ActionMode {
     }
     mesh.position.set(x, 0.35, z);
     this.world.add(mesh);
+    texturize(mesh);
     this.drops.push({ x, z, kind, mesh });
   }
 
@@ -3529,6 +3592,7 @@ export class ActionMode {
       root.rotation.y = Math.random() * 0.8 - 0.4;
       const marker = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
       this.world.add(root, marker);
+      texturize(root);
       this.boxes.push({ kind, x: p.x, z: p.z, hp: DROP.hp, life: DROP.landedLife, age: 0, flash: 0, root, marker });
       this.sfxAt('whoosh', p.x, p.z, 0.5);
       return;
@@ -3921,29 +3985,32 @@ export class ActionMode {
         const root = new THREE.Group();
         root.position.set(e.x, 0, e.z);
         const col = COLORS[k % COLORS.length];
-        // a portal pad, read from above: a stone ring flat on the floor round a turning vortex, four
-        // short obelisks with glowing gems standing round it (the stage's stone surface goes on
-        // the stone with everything else)
-        const stone = new THREE.MeshStandardMaterial({ color: 0x7a7480, roughness: 0.85, metalness: 0.15, flatShading: true });
-        const frame = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.12, 6, 28).rotateX(-Math.PI / 2), stone);
-        frame.position.y = 0.08;
+        // a well: a round wall of stone with a lip (the stage's stone surface goes on it), and down
+        // in it a dark abyss with arms of light spiralling in, teal through violet to magenta; the
+        // pair's own colour glows round the rim and in the swirl
+        const stone = new THREE.MeshStandardMaterial({ color: 0x8a8490, roughness: 0.9, metalness: 0.05, flatShading: true });
+        const frame = new THREE.Group();
+        const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.98, 1.04, 0.46, 18, 1, true), stone);
+        outer.position.y = 0.23;
+        const innerWall = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.46, 18, 1, true), new THREE.MeshStandardMaterial({ color: 0x4a4650, roughness: 0.95, side: THREE.BackSide, flatShading: true }));
+        innerWall.position.y = 0.23;
+        const lip = new THREE.Mesh(new THREE.RingGeometry(0.76, 1.02, 18).rotateX(-Math.PI / 2), stone);
+        lip.position.y = 0.46;
+        const glowRing = new THREE.Mesh(new THREE.RingGeometry(0.76, 0.82, 36).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85 }));
+        glowRing.position.y = 0.465;
+        frame.add(outer, innerWall, lip, glowRing);
         const plinth = new THREE.Group();
-        const gem = new THREE.MeshBasicMaterial({ color: col });
-        for (let g = 0; g < 4; g++) {
-          const a = (g / 4) * Math.PI * 2 + Math.PI / 4;
-          const ob = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.55, 4), stone);
-          ob.position.set(Math.cos(a) * 1.02, 0.27, Math.sin(a) * 1.02);
-          const st = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), gem);
-          st.position.set(Math.cos(a) * 1.02, 0.66, Math.sin(a) * 1.02);
-          plinth.add(ob, st);
-        }
-        // the vortex: a painted spiral turning, a lighter one turning the other way inside it
-        const vortex = new THREE.Mesh(new THREE.CircleGeometry(0.7, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, map: portalSpiral(), transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
-        vortex.position.y = 0.06;
-        const inner = new THREE.Mesh(new THREE.CircleGeometry(0.46, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, map: portalSpiral(), transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
-        inner.position.y = 0.07;
-        // a ring of runes on the floor round it
-        const sigil = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, map: portalSigil(), transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+        // the abyss: dark, deepest in the middle
+        const abyss = new THREE.Mesh(new THREE.CircleGeometry(0.78, 36).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: portalAbyss() }));
+        abyss.position.y = 0.2;
+        plinth.add(abyss);
+        // the spiral over it, turning; a second, tinted the pair's colour, turning the other way
+        const vortex = new THREE.Mesh(new THREE.CircleGeometry(0.76, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: portalSpiral(), transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+        vortex.position.y = 0.24;
+        const inner = new THREE.Mesh(new THREE.CircleGeometry(0.6, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, map: portalSpiral(), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+        inner.position.y = 0.26;
+        // a faint ring of runes on the floor round it
+        const sigil = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 2.7).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, map: portalSigil(), transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
         sigil.position.y = 0.03;
         root.add(frame, plinth, vortex, inner, sigil);
         this.world.add(root);
@@ -4313,6 +4380,7 @@ export class ActionMode {
       // (facing the room)
       m.rotation.y = (at[0] < (r.i0 + r.i1) / 2 ? 1 : -1) * (at[1] < (r.j0 + r.j1) / 2 ? 0.5 : 2.6);
       this.world.add(m);
+      texturize(m);
     }
   }
 
@@ -4320,6 +4388,7 @@ export class ActionMode {
     const root = propModel('chest');
     root.position.set(x, 0, z);
     this.world.add(root);
+    texturize(root);
     this.chests.push({ x, z, open: false, root, lid: root.getObjectByName('lid') ?? root, gear, t: 0 });
   }
 
@@ -4336,6 +4405,7 @@ export class ActionMode {
     root.add(gem, beam, ring);
     root.position.set(x, 0, z);
     this.world.add(root);
+    texturize(root);
     const l: Loot = { x, z, gear, root, gem, away: true };
     this.loot.push(l);
     return l;
@@ -4349,6 +4419,7 @@ export class ActionMode {
       root.position.set(p.x, 0, p.z);
       this.world.add(root);
       this.keyItem = { x: p.x, z: p.z, root };
+      texturize(root);
       this.ringFx(p.x, p.z, 0xffc83e, 0.3, 1.6, 0.6);
     } else if (Math.random() < 0.5) {
       this.makeChest(p.x, p.z, rollGear(0, r.depth));
@@ -5063,8 +5134,8 @@ export class ActionMode {
       p.vortex.rotation.y -= dt * 2.4;
       p.inner.rotation.y += dt * 3.6;
       p.sigil.rotation.y += dt * 0.4;
-      (p.sigil.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(this.time * 3 + p.x) * 0.15;
-      if (me && Math.abs(p.x - me.x) < 12 && Math.abs(p.z - me.z) < 12 && Math.random() < dt * 6) this.burst(p.x + (Math.random() - 0.5) * 0.8, 0.3, p.z + (Math.random() - 0.5) * 0.8, p.color, 1, 1.2, { float: true, size: 0.06 });
+      (p.sigil.material as THREE.MeshBasicMaterial).opacity = 0.32 + Math.sin(this.time * 3 + p.x) * 0.1;
+      if (me && Math.abs(p.x - me.x) < 12 && Math.abs(p.z - me.z) < 12 && Math.random() < dt * 6) this.burst(p.x + (Math.random() - 0.5) * 0.9, 0.5, p.z + (Math.random() - 0.5) * 0.9, Math.random() < 0.5 ? p.color : [0x4ff5ff, 0xb05aff, 0xff4fd8][Math.floor(Math.random() * 3)], 1, 1, { float: true, size: 0.05 });
     }
     // the marbles
     let n = 0;
@@ -5371,6 +5442,7 @@ export class ActionMode {
 
   private get view(): Cam {
     if (this.tps) return 'tps';
+    if (this.kind === 'gauntlet') return this.dView;
     return this.opts.camera?.() ?? this.localView;
   }
   private cycleView() {
@@ -5379,7 +5451,8 @@ export class ActionMode {
     this.tps = now === 'first';
     if (!this.tps) {
       const next = VIEWS[(VIEWS.indexOf(now as ActionView) + 1) % VIEWS.length];
-      if (this.opts.setCamera) this.opts.setCamera(next);
+      if (this.kind === 'gauntlet') this.dView = next;
+      else if (this.opts.setCamera) this.opts.setCamera(next);
       else this.localView = next;
     }
     // (no cut: the camera glides from the old view to the new one; TPS picks up behind you)
@@ -5822,9 +5895,13 @@ export class ActionMode {
     }, 320);
   }
 
+  /** a room cleared: an upgrade of its own, picked at random (no stop to choose), named as it lands */
   private offerUpgrades() {
     if (this.over) return;
-    this.showPanel('upgrade');
+    const up = UPGRADES[Math.floor(Math.random() * UPGRADES.length)];
+    this.callout(`${up.name.toUpperCase()} · ${up.text}`);
+    this.pop(this.me!.x, this.me!.z, up.name, 'good');
+    this.takeUpgrade(up.id);
   }
 
   private takeUpgrade(id: UpgradeId) {
