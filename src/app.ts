@@ -16,7 +16,8 @@ import { DUNGEON_SCRIPTS } from './storydungeon';
 import { TalkFace } from './talkface';
 import { Barks } from './barks';
 import { FIGHT_BARKS } from './storybarks';
-import { Preview } from './preview';
+import { Preview, StageBackdrop } from './preview';
+import { logoCanvas } from './logo3d';
 import { profileOf, storyOf } from './profiles';
 import { STAGES, stageById } from './stage';
 import { ITEMS, SHIELD, SLOWMO, type ItemType } from './items';
@@ -2505,8 +2506,23 @@ export function boot() {
     car.addEventListener('pointercancel', () => (sx = null));
   }
   // ---------- home: your fighter (the last one played) as the hero, the modes as cards ----------
+  // the logo, in 3D: block letters in the fighters' own pixel armour (rendered once, kept as a picture)
+  try {
+    const logo = document.querySelector<HTMLElement>('.home-logo');
+    if (logo) {
+      const img = new Image();
+      img.src = logoCanvas(560, 300).toDataURL('image/png');
+      img.alt = 'Marble Fighter';
+      img.className = 'logo3d';
+      logo.replaceChildren(img);
+    }
+  } catch {
+    // no WebGL to spare: the flat logo stays
+  }
   const hero = new Preview($('title-hero'));
   hero.hero = true;
+  // the arena behind your fighter, live: it turns with your fighter when you drag it round
+  const backdrop = new StageBackdrop($('title'), () => hero.turn, () => hero.lens);
   let heroId = '';
   let menuArena = '';
   /** the hero runs only while the home screen is up */
@@ -2514,6 +2530,7 @@ export function boot() {
     if ($('title').classList.contains('hidden')) {
       if (heroId) hero.release();
       heroId = '';
+      backdrop.hide();
       return;
     }
     const id = saveData.settings.character;
@@ -2522,8 +2539,10 @@ export function boot() {
     const place = `${S().stage}:${innerWidth > innerHeight}`;
     if (menuArena !== place) {
       menuArena = place;
-      setTimeout(() => setArena($('title'), S().stage, true), 80);
+      // (the live arena replaces the still picture)
+      $('title').classList.remove('has-arena');
     }
+    backdrop.show(S().stage);
     if (heroId !== key) {
       heroId = key;
       hero.showUnit(id, mine(id));

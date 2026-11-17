@@ -90,7 +90,7 @@ const ACTION_SPEED = [0.75, 0.9, 1, 1.3, 1.6];
 const CPU_SPECIAL_FILL = 18;
 /** standing still (not firing, not hit for a moment) mends this share of health a second */
 const MEND = 0.12;
-const CRATE_HP = 2600;
+const CRATE_HP = 1500; // (about 40% of a fighter: a few volleys break one)
 const STORM_START = 45;
 const STORM_END = 165;
 /**
@@ -199,6 +199,8 @@ interface Theme {
  * a fighter could crouch in (it hides you just the same)
  */
 type Cover = 'bush' | 'vent' | 'holo' | 'crystal' | 'planter' | 'drift' | 'rubble';
+/** what Castle Crash's fortresses are built as, by stage (a stone keep anywhere else) */
+const FORT_STYLE: Record<string, 'stone' | 'sand' | 'ice' | 'obsidian' | 'tech'> = { beach: 'sand', snow: 'ice', lava: 'obsidian', cyber: 'tech', space: 'tech', city: 'tech' };
 /** small painted textures for the covers (made once each) */
 const coverTex = new Map<string, THREE.CanvasTexture>();
 function coverCanvas(key: string, draw: (g: CanvasRenderingContext2D, n: number, r: () => number) => void, wrap = true) {
@@ -1256,7 +1258,7 @@ export class ActionMode {
     (this.el.querySelector('.ac-map') as HTMLElement).classList.toggle('on', this.kind === 'gauntlet');
     // Dungeon Run: which level you're on, under the map
     this.hud.level.classList.toggle('on', this.kind === 'gauntlet');
-    this.hud.level.textContent = this.kind === 'gauntlet' ? `B${this.stage} · ${themeName(this.theme)}` : '';
+    this.hud.level.textContent = this.kind === 'gauntlet' ? `${this.stage}F · ${themeName(this.theme)}` : '';
     this.spawnMe();
     this.checkpoint = { x: this.me!.x, z: this.me!.z };
     if (keep && this.kind === 'gauntlet' && this.room > 1) {
@@ -1370,8 +1372,10 @@ export class ActionMode {
       // (before the tiles are drawn: a portal clears the ground it stands on)
       if (this.mega) this.placePortals();
     } else if (this.teams) {
-      this.W = 15;
-      this.H = this.kind === 'boss' ? 21 : 25;
+      // (Team Knockout's field is half as big again: three a side need room to flank)
+      const big = this.kind === 'knockout';
+      this.W = big ? 23 : 15;
+      this.H = this.kind === 'boss' ? 21 : big ? 37 : 25;
       this.layoutSiege();
     } else {
       this.theme = this.dstage().theme;
@@ -1396,52 +1400,9 @@ export class ActionMode {
     this.grid = dg.grid as typeof this.grid;
     for (let k = 0; k < this.grid.length; k++) if (this.grid[k] === CRATE) this.crateHp.set(k, CRATE_HP);
     for (const k of dg.lock) this.grid[k] = GATE;
-    this.raiseFloors(dg);
     this.seen = new Uint8Array(this.W * this.H);
     this.activeRoom = null;
     this.hasKey = false;
-  }
-  /**
-   * the raised floors: about half the fight rooms big enough for one get a dais in the middle
-   * (two tiles in from its walls), with two-wide stairs up the middle of two sides, now and then
-   * a third. Crates on it are cleared away.
-   */
-  private raiseFloors(dg: Dungeon) {
-    const { W, H } = this;
-    const elev = (this.elev = new Float32Array(W * H));
-    const ramp = (this.ramp = new Int8Array(W * H).fill(-1));
-    for (const r of dg.rooms) {
-      if (r.kind !== 'fight' || r.i1 - r.i0 < 6 || r.j1 - r.j0 < 6 || Math.random() < 0.45) continue;
-      const a0 = r.i0 + 2;
-      const a1 = r.i1 - 2;
-      const b0 = r.j0 + 2;
-      const b1 = r.j1 - 2;
-      for (let j = b0; j <= b1; j++)
-        for (let i = a0; i <= a1; i++) {
-          const k = this.idx(i, j);
-          if (this.grid[k] === CRATE) {
-            this.grid[k] = FLOOR;
-            this.crateHp.delete(k);
-          }
-          if (this.grid[k] === FLOOR) elev[k] = PLAT;
-        }
-      // stairs: the middle of the near and far sides, sometimes one more across
-      const ci = (a0 + a1) >> 1;
-      const cj = (b0 + b1) >> 1;
-      const put = (i: number, j: number, dir: number) => {
-        const k = this.idx(i, j);
-        if (this.grid[k] !== FLOOR || elev[k]) return;
-        ramp[k] = dir;
-      };
-      for (const i of [ci, ci + 1]) {
-        put(i, b0 - 1, 2);
-        put(i, b1 + 1, 3);
-      }
-      if (Math.random() < 0.5) {
-        const west = Math.random() < 0.5;
-        for (const j of [cj, cj + 1]) put(west ? a0 - 1 : a1 + 1, j, west ? 0 : 1);
-      }
-    }
   }
   /** how high the floor is here (a stair's slope included) */
   private heightAt(x: number, z: number) {
@@ -1679,20 +1640,26 @@ export class ActionMode {
     for (let j = 0; j < H; j++) put(0, j, WALL);
     const rnd = (n: number) => Math.floor(Math.random() * n);
     const mid = (W - 1) / 2;
+    // (the field's rows and its cover scale with a bigger stage: f is 1 on the standard 25, 1.5 on 37)
+    const f = (H - 1) / 24;
+    const fj = (j: number) => Math.round(j * f);
+    const area = Math.round(f * f * 10) / 10;
     // walls guarding each fortress's flanks, cover out in the field, bushes down the sides
     put(mid - 4, 4, WALL);
     put(mid - 4, 5, WALL);
-    for (let n = 0; n < 3; n++) {
+    for (let n = 0; n < Math.round(3 * area); n++) {
       const i = 1 + rnd(mid - 1);
-      const j = 7 + rnd(4);
+      const j = fj(7) + rnd(fj(4));
       put(i, j, WALL);
       if (Math.random() < 0.5) put(i + 1, j, WALL);
       else put(i, j + 1, WALL);
     }
-    for (let i = 1; i <= 2; i++) for (let j = 8; j <= 11; j++) if (g[this.idx(i, j)] === FLOOR) put(i, j, BUSH);
-    for (let n = 0; n < 2; n++) {
+    for (let i = 1; i <= 2; i++) for (let j = fj(8); j <= fj(11); j++) if (g[this.idx(i, j)] === FLOOR) put(i, j, BUSH);
+    // (a bigger field gets a second strip of bushes further in)
+    if (f > 1) for (let j = fj(6); j <= fj(8); j++) if (g[this.idx(mid - 3, j)] === FLOOR) put(mid - 3, j, BUSH);
+    for (let n = 0; n < Math.round(2 * area); n++) {
       const i = 2 + rnd(mid - 2);
-      const j = 6 + rnd(5);
+      const j = fj(6) + rnd(fj(5));
       if (g[this.idx(i, j)] === FLOOR) put(i, j, CRATE);
     }
     // the middle row: a bush on each side of a crate pair, open lanes either side
@@ -1744,48 +1711,138 @@ export class ActionMode {
   private giant: Unit | null = null;
   private giantPhase = 0;
 
-  /** a fortress: a stone keep in its side's colours, with a turret on top that turns to shoot */
+  /**
+   * a fortress, built for the stage it stands on: a stone keep, a sandcastle on the beach, an ice
+   * citadel in the snow, an obsidian keep veined with lava, a tech bunker on the neon stages. The
+   * same footprint and height every time (three tiles by two), in its side's colours, with a turret
+   * on top that turns to shoot. Every solid part takes the stage's real surface (stone, sand, metal).
+   */
   private makeFort(team: number, z: number, tiles: number[]) {
     const color = TEAM_COLOR[team];
+    const th = this.theme;
+    const style = FORT_STYLE[th.id] ?? 'stone';
     const root = new THREE.Group();
-    const stone = new THREE.MeshStandardMaterial({ color: 0xd8d0c0, roughness: 0.85 });
-    const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
-    const dark = new THREE.MeshStandardMaterial({ color: 0x3a3448, roughness: 0.8 });
-    const keep = new THREE.Mesh(new THREE.BoxGeometry(2.9, 1.3, 1.9), stone);
-    keep.position.y = 0.65;
-    root.add(keep);
-    const band = new THREE.Mesh(new THREE.BoxGeometry(3, 0.22, 2), paint);
-    band.position.y = 1.2;
-    root.add(band);
-    // battlements, and a tower at each corner with a pennant
-    for (let k = -1; k <= 1; k += 2)
-      for (let m = -1; m <= 1; m += 2) {
-        const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 1.8, 10), stone);
-        tower.position.set(k * 1.3, 0.9, m * 0.82);
-        root.add(tower);
-        const cap = new THREE.Mesh(new THREE.ConeGeometry(0.46, 0.55, 10), paint);
-        cap.position.set(k * 1.3, 2.07, m * 0.82);
-        root.add(cap);
-      }
-    for (let k = -2; k <= 2; k++) {
-      const merlon = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.26, 0.28), stone);
-      merlon.position.set(k * 0.5, 1.43, team ? -0.86 : 0.86);
-      root.add(merlon);
+    const front = team ? 1 : -1; // (the side facing the field)
+    const std = (c: number, o: Partial<THREE.MeshStandardMaterialParameters> = {}, kind?: string) => {
+      const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, ...o });
+      if (kind) m.userData.surfaceKind = kind;
+      return m;
+    };
+    const glow = (c: number) => new THREE.MeshBasicMaterial({ color: c });
+    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, zz: number) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, zz);
+      root.add(m);
+      return m;
+    };
+    // the walls' material: the stage's own wall colour, lightened into building stone, or the style's
+    const wallC = new THREE.Color(th.wall);
+    const stoneC = new THREE.Color(0xd8d0c0).lerp(wallC, 0.35).getHex();
+    const look = {
+      stone: { wall: std(stoneC, { flatShading: true }, 'stone'), dark: std(0x3a3448, {}, 'stone') },
+      sand: { wall: std(0xe9cf98, { roughness: 1 }, 'sand'), dark: std(0x9a7a4e, { roughness: 1 }, 'sand') },
+      ice: { wall: std(0xcfeefa, { roughness: 0.25, metalness: 0.05 }, 'concrete'), dark: std(0x6aa6c8, { roughness: 0.3 }, 'concrete') },
+      obsidian: { wall: std(0x2c2428, { flatShading: true, roughness: 0.7 }, 'stone'), dark: std(0x151014, { flatShading: true }, 'stone') },
+      tech: { wall: std(0x6d7689, { roughness: 0.45, metalness: 0.55 }, 'metal'), dark: std(0x262a36, { roughness: 0.5, metalness: 0.4 }, 'metal') },
+    }[style];
+    const wall = look.wall;
+    const dark = look.dark;
+    const paint = std(color, { roughness: 0.6 });
+    // (the glow: lava, the neon stages' own edge light, or the side's colour on ice)
+    const accent = style === 'obsidian' ? glow(0xff5a1a) : style === 'tech' ? glow(th.wallGlow ?? color) : style === 'ice' ? glow(new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.45).getHex()) : null;
+    const corners: [number, number][] = [
+      [-1.3, -0.82],
+      [1.3, -0.82],
+      [-1.3, 0.82],
+      [1.3, 0.82],
+    ];
+
+    // the keep itself, on a plinth
+    add(new THREE.BoxGeometry(3.1, 0.22, 2.1), dark, 0, 0.11, 0);
+    if (style === 'tech') {
+      // a bunker: a sloped armoured block, a glowing strip round it
+      const body = new THREE.CylinderGeometry(1, 1.25, 1.25, 4, 1);
+      body.rotateY(Math.PI / 4);
+      body.scale(1.55 / 1.25, 1, 1.05 / 1.25);
+      add(body, wall, 0, 0.84, 0);
+      add(new THREE.BoxGeometry(2.62, 0.08, 1.72), accent!, 0, 1.2, 0);
+      add(new THREE.BoxGeometry(2.9, 0.2, 1.9), paint, 0, 0.32, 0);
+    } else {
+      add(new THREE.BoxGeometry(2.9, 1.2, 1.9), wall, 0, 0.82, 0);
+      add(new THREE.BoxGeometry(3, 0.2, 2), paint, 0, 1.25, 0);
     }
-    const gate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.1), dark);
-    gate.position.set(0, 0.4, team ? 0.96 : -0.96);
-    root.add(gate);
+    // the corners: four towers, each in the stage's way
+    for (const [x, zz] of corners) {
+      if (style === 'stone') {
+        add(new THREE.CylinderGeometry(0.38, 0.44, 1.8, 10), wall, x, 1.0, zz);
+        add(new THREE.CylinderGeometry(0.45, 0.45, 0.14, 10), dark, x, 1.95, zz);
+        add(new THREE.ConeGeometry(0.48, 0.6, 10), paint, x, 2.3, zz);
+      } else if (style === 'sand') {
+        // two bucket-moulded tiers, a little crown of crenels, a paper flag on a stick
+        add(new THREE.CylinderGeometry(0.36, 0.46, 1.0, 12), wall, x, 0.72, zz);
+        add(new THREE.CylinderGeometry(0.28, 0.36, 0.7, 12), wall, x, 1.57, zz);
+        for (let k = 0; k < 4; k++) {
+          const a = (k / 4) * Math.PI * 2;
+          add(new THREE.BoxGeometry(0.12, 0.14, 0.12), wall, x + Math.cos(a) * 0.22, 1.99, zz + Math.sin(a) * 0.22);
+        }
+        add(new THREE.CylinderGeometry(0.015, 0.015, 0.6, 4), dark, x, 2.2, zz);
+        add(new THREE.BoxGeometry(0.26, 0.16, 0.01), paint, x + 0.13, 2.4, zz);
+      } else if (style === 'ice') {
+        // a faceted pillar and a tall spire, a ring of light at its foot
+        add(new THREE.CylinderGeometry(0.34, 0.42, 1.7, 6), wall, x, 0.95, zz);
+        add(new THREE.ConeGeometry(0.4, 1.1, 6), wall, x, 2.35, zz);
+        add(new THREE.TorusGeometry(0.37, 0.04, 6, 12).rotateX(Math.PI / 2), accent!, x, 1.8, zz);
+      } else if (style === 'obsidian') {
+        // a jagged basalt column, crowned with spikes tipped in the side's colour
+        add(new THREE.CylinderGeometry(0.36, 0.48, 1.8, 7), wall, x, 1.0, zz);
+        for (let k = 0; k < 3; k++) {
+          const a = (k / 3) * Math.PI * 2 + 0.3;
+          const sp = add(new THREE.ConeGeometry(0.12, 0.55, 5), k === 0 ? paint : dark, x + Math.cos(a) * 0.2, 2.15, zz + Math.sin(a) * 0.2);
+          sp.rotation.set(Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3);
+        }
+        add(new THREE.CylinderGeometry(0.37, 0.37, 0.07, 7), accent!, x, 1.2, zz);
+      } else {
+        // a square pylon with neon edges and an antenna
+        add(new THREE.BoxGeometry(0.62, 1.7, 0.62), wall, x, 0.95, zz);
+        for (const [ex, ez] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(new THREE.BoxGeometry(0.05, 1.6, 0.05), accent!, x + ex * 0.32, 0.95, zz + ez * 0.32);
+        add(new THREE.BoxGeometry(0.7, 0.12, 0.7), paint, x, 1.86, zz);
+        add(new THREE.CylinderGeometry(0.02, 0.03, 0.7, 4), dark, x, 2.27, zz);
+        add(new THREE.SphereGeometry(0.06, 8, 6), accent!, x, 2.64, zz);
+      }
+    }
+    // the front: battlements (or a vent row on a bunker), lava seams on obsidian, arrow slits and the gate
+    if (style === 'tech') {
+      for (let k = -2; k <= 2; k++) add(new THREE.BoxGeometry(0.34, 0.06, 0.04), accent!, k * 0.42, 0.9, front * 0.97);
+    } else {
+      for (let k = -2; k <= 2; k++) add(new THREE.BoxGeometry(0.28, 0.26, 0.28), wall, k * 0.5, 1.48, front * 0.86);
+      for (let k = -2; k <= 2; k++) add(new THREE.BoxGeometry(0.28, 0.26, 0.28), wall, k * 0.5, 1.48, -front * 0.86);
+      for (const x of [-0.8, 0.8]) add(new THREE.BoxGeometry(0.1, 0.34, 0.04), dark, x, 0.95, front * 0.96);
+    }
+    if (style === 'obsidian')
+      for (const [x, y, w] of [[-0.9, 0.62, 0.7], [0.5, 0.78, 0.9], [-0.2, 1.0, 0.5]] as [number, number, number][])
+        add(new THREE.BoxGeometry(w, 0.04, 0.02), accent!, x, y, front * 0.96);
+    add(new THREE.BoxGeometry(0.7, 0.8, 0.1), style === 'tech' ? accent! : dark, 0, 0.62, front * 0.96);
+    if (style === 'stone' || style === 'sand') {
+      // (an arch over the gate)
+      add(new THREE.TorusGeometry(0.35, 0.07, 6, 10, Math.PI), paint, 0, 1.02, front * 0.98);
+    }
     // the turret: a drum and a barrel, turning as one
     const turret = new THREE.Group();
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.5, 14), paint);
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.5, style === 'ice' ? 6 : 14), style === 'tech' ? wall : paint);
     turret.add(drum);
+    if (accent) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.53, 0.035, 6, 16).rotateX(Math.PI / 2), accent);
+      ring.position.y = 0.12;
+      turret.add(ring);
+    }
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.9, 10), dark);
     barrel.rotation.x = Math.PI / 2;
     barrel.position.set(0, 0.05, -0.55);
     turret.add(barrel);
-    turret.position.y = 1.55;
+    turret.position.y = 1.6;
     turret.rotation.y = team ? Math.PI : 0;
     root.add(turret);
+    texturize(root);
     root.position.set(0, 0, z);
     this.world.add(root);
     const bar = document.createElement('div');
@@ -1893,52 +1950,6 @@ export class ActionMode {
     });
   }
 
-  /**
-   * Dungeon Run's raised floors: the dais as stone blocks, each stair as three steps climbing
-   * toward it (the stage's stone surface goes on both with everything else)
-   */
-  private drawRaised(th: Theme) {
-    const elev = this.elev!;
-    const ramp = this.ramp!;
-    const { W, H } = this;
-    const tone = new THREE.Color(th.floor[0]).lerp(new THREE.Color(0xffffff), 0.12);
-    const stone = new THREE.MeshStandardMaterial({ color: tone, roughness: 0.9 });
-    const tiles: number[] = [];
-    for (let k = 0; k < W * H; k++) if (elev[k] > 0 && ramp[k] < 0) tiles.push(k);
-    if (tiles.length) {
-      const block = new THREE.BoxGeometry(1, PLAT, 1).translate(0, PLAT / 2, 0);
-      const m = new THREE.InstancedMesh(block, stone, tiles.length);
-      tiles.forEach((k, n) => {
-        const p = this.center(k % W, Math.floor(k / W));
-        this.dummy.position.set(p.x, 0, p.z);
-        this.dummy.rotation.set(0, 0, 0);
-        this.dummy.scale.set(1, 1, 1);
-        this.dummy.updateMatrix();
-        m.setMatrixAt(n, this.dummy.matrix);
-      });
-      this.world.add(m);
-    }
-    // the stairs: three steps rising toward the dais (built facing +x, turned to each stair's way)
-    const steps = new THREE.Group();
-    const parts: THREE.BufferGeometry[] = [];
-    for (let s = 0; s < 3; s++) {
-      const hgt = (PLAT * (s + 1)) / 3;
-      parts.push(new THREE.BoxGeometry(1 / 3, hgt, 1).translate(-1 / 3 + s / 3, hgt / 2, 0));
-    }
-    const stepMat = new THREE.MeshStandardMaterial({ color: tone.clone().multiplyScalar(0.92), roughness: 0.9 });
-    const turn = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
-    for (let k = 0; k < W * H; k++) {
-      if (ramp[k] < 0) continue;
-      const p = this.center(k % W, Math.floor(k / W));
-      const g = new THREE.Group();
-      for (const geo of parts) g.add(new THREE.Mesh(geo, stepMat));
-      g.position.set(p.x, 0, p.z);
-      g.rotation.y = turn[ramp[k]];
-      steps.add(g);
-    }
-    this.world.add(steps);
-  }
-
   /** the hiding tiles, drawn as this stage's own cover (see Cover), every part textured */
   private drawCover(th: Theme, inst: (geo: THREE.BufferGeometry, mat: THREE.Material, t: number, place: (o: THREE.Object3D, i: number, j: number) => void) => void) {
     this.coverMats = [];
@@ -1952,63 +1963,66 @@ export class ActionMode {
     const kind = this.kind === 'gauntlet' ? 'bush' : (th.cover ?? 'bush');
     if (kind === 'vent') {
       // basalt mounds, hot inside: the cracks glow orange
-      const rock = new THREE.DodecahedronGeometry(0.58, 0);
-      rock.scale(1, 0.7, 1);
-      rock.translate(0, 0.32, 0);
+      // (tall as a bush: a basalt spire, cover to hide behind)
+      const rock = new THREE.DodecahedronGeometry(0.6, 0);
+      rock.scale(1, 2.1, 1);
+      rock.translate(0, 1.15, 0);
       inst(rock, mat(new THREE.MeshStandardMaterial({ color: 0x5a4a44, map: basaltTex(), emissive: 0xff5a1a, emissiveMap: crackTex(), emissiveIntensity: 1.4, roughness: 0.95, flatShading: true })), BUSH, (o, i, j) => {
         turn(o, i, j);
         o.scale.setScalar(vary(i, j));
       });
-      const pebble = new THREE.DodecahedronGeometry(0.24, 0);
-      pebble.translate(0.32, 0.12, 0.26);
+      const pebble = new THREE.DodecahedronGeometry(0.34, 0);
+      pebble.scale(1, 1.2, 1);
+      pebble.translate(0.3, 0.32, 0.24);
       inst(pebble, mat(new THREE.MeshStandardMaterial({ color: 0x4a3c38, map: basaltTex(), emissive: 0xff5a1a, emissiveMap: crackTex(), emissiveIntensity: 0.9, flatShading: true })), BUSH, turn);
     } else if (kind === 'holo') {
       // a hologram field: an emitter on the floor and a see-through block of scanlines over it
-      const base = new THREE.BoxGeometry(0.92, 0.08, 0.92);
+      const base = new THREE.BoxGeometry(0.98, 0.08, 0.98);
       base.translate(0, 0.04, 0);
       inst(base, mat(new THREE.MeshStandardMaterial({ color: 0x1a1426, map: concreteTex(), emissive: th.bush, emissiveIntensity: 0.25, roughness: 0.4, metalness: 0.6 })), BUSH, () => {});
-      const field = new THREE.BoxGeometry(0.86, 0.95, 0.86);
-      field.translate(0, 0.56, 0);
+      const field = new THREE.BoxGeometry(0.94, 2.2, 0.94);
+      field.translate(0, 1.18, 0);
       inst(field, mat(new THREE.MeshBasicMaterial({ color: th.bush, map: scanTex(), opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })), BUSH, (o, i, j) => o.scale.set(1, vary(i, j), 1));
     } else if (kind === 'crystal') {
       // a cluster of glowing crystals: a tall one and a short one leaning off it
-      const tall = new THREE.OctahedronGeometry(0.34, 0);
-      tall.scale(1, 2.2, 1);
-      tall.translate(0, 0.72, 0);
+      const tall = new THREE.OctahedronGeometry(0.4, 0);
+      tall.scale(1, 2.9, 1);
+      tall.translate(0, 1.16, 0);
       const cmat = mat(new THREE.MeshStandardMaterial({ color: th.bush, map: facetTex(), emissive: th.bush, emissiveIntensity: 0.45, opacity: 0.88, roughness: 0.15, metalness: 0.2, flatShading: true }));
       inst(tall, cmat, BUSH, (o, i, j) => {
         turn(o, i, j);
         o.scale.setScalar(vary(i, j));
       });
-      const short = new THREE.OctahedronGeometry(0.24, 0);
-      short.scale(1, 1.8, 1);
-      short.rotateZ(0.5);
-      short.translate(0.3, 0.36, 0.12);
+      const short = new THREE.OctahedronGeometry(0.3, 0);
+      short.scale(1, 2.4, 1);
+      short.rotateZ(0.4);
+      short.translate(0.3, 0.7, 0.14);
       inst(short, cmat, BUSH, turn);
     } else if (kind === 'planter') {
       // a concrete planter, a clipped hedge in it
-      const box = new THREE.BoxGeometry(0.92, 0.42, 0.92);
+      const box = new THREE.BoxGeometry(0.98, 0.42, 0.98);
       box.translate(0, 0.21, 0);
       inst(box, mat(new THREE.MeshStandardMaterial({ color: 0xc8c8c4, map: concreteTex(), roughness: 0.9 })), BUSH, () => {});
-      const hedge = new THREE.BoxGeometry(0.82, 0.5, 0.82, 2, 2, 2);
-      hedge.translate(0, 0.66, 0);
+      const hedge = new THREE.BoxGeometry(0.86, 1.8, 0.86, 2, 4, 2);
+      hedge.translate(0, 1.32, 0);
       inst(hedge, mat(new THREE.MeshStandardMaterial({ color: th.bush, map: leafTex(), roughness: 0.95 })), BUSH, (o, i, j) => o.scale.set(1, vary(i, j), 1));
     } else if (kind === 'drift') {
       // a snow drift, a frosted shrub poking out of it
-      const drift = new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-      drift.scale(1, 0.7, 1);
+      const drift = new THREE.SphereGeometry(0.62, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+      drift.scale(1, 1.3, 1);
       inst(drift, mat(new THREE.MeshStandardMaterial({ color: 0xffffff, map: snowTex(), roughness: 1 })), BUSH, (o, i, j) => {
         turn(o, i, j);
         o.scale.setScalar(vary(i, j));
       });
-      const shrub = new THREE.IcosahedronGeometry(0.38, 1);
-      shrub.translate(0.12, 0.5, -0.08);
+      const shrub = new THREE.IcosahedronGeometry(0.46, 1);
+      shrub.scale(1, 2.1, 1);
+      shrub.translate(0.06, 1.3, -0.04);
       inst(shrub, mat(new THREE.MeshStandardMaterial({ color: th.bush, map: leafTex(), roughness: 0.95, flatShading: true })), BUSH, turn);
     } else if (kind === 'rubble') {
       // fallen stones heaped up
       const block = new THREE.BoxGeometry(0.5, 0.36, 0.42);
       const smat = mat(new THREE.MeshStandardMaterial({ color: 0xffffff, map: stoneTex(), roughness: 0.95, flatShading: true }));
-      for (const [x, y, z, ry] of [[-0.18, 0.18, -0.12, 0.3], [0.2, 0.18, 0.14, -0.4], [0.02, 0.5, 0, 0.9]] as const) {
+      for (const [x, y, z, ry] of [[-0.2, 0.18, -0.14, 0.3], [0.22, 0.18, 0.16, -0.4], [-0.16, 0.18, 0.22, 1.2], [0.02, 0.54, 0, 0.9], [0.14, 0.9, -0.06, -0.2], [-0.08, 1.26, 0.06, 0.5], [0.04, 1.62, -0.02, 1.3], [0, 1.98, 0.02, 0.2]] as const) {
         const b = block.clone();
         b.rotateY(ry);
         b.translate(x, y, z);
@@ -2180,7 +2194,6 @@ export class ActionMode {
       if (this.stripMesh) this.stripMesh.position.y = this.wallCur;
     }
     this.drawCover(th, inst);
-    if (this.elev) this.drawRaised(th);
     const waterGeo = new THREE.PlaneGeometry(1, 1);
     waterGeo.rotateX(-Math.PI / 2);
     waterGeo.translate(0, 0.015, 0);
@@ -5236,8 +5249,8 @@ export class ActionMode {
     let t: Unit | null = null;
     if (this.lockShow > 0 && this.lockOn?.alive) t = this.lockOn;
     else if (me?.alive && me.charge >= 1 && !this.over) t = this.lockOf(me);
-    // Brawl: whoever your shot is going to, faintly (unless a bolder ring already marks them)
-    const at = this.kind === 'ffa' && me?.alive && !this.over ? this.shotTarget() : null;
+    // Brawl and Dungeon Run: whoever your shot is going to, faintly (unless a bolder ring already marks them)
+    const at = (this.kind === 'ffa' || this.kind === 'gauntlet') && me?.alive && !this.over ? this.shotTarget() : null;
     this.aimMark.visible = !!at && at !== ct && at !== t;
     if (at && this.aimMark.visible) {
       this.aimMark.position.set(at.x, 0.05, at.z);
@@ -5716,7 +5729,7 @@ export class ActionMode {
     } else if (kind === 'stage') {
       const next = DSTAGES[this.stage];
       h.textContent = `Stage ${this.stage} cleared`;
-      text.textContent = `Down the stairs: ${themeName(next.theme)}, stage ${this.stage + 1} of ${DSTAGES.length}. Your gear, upgrades and lives come with you, and you get some health back.`;
+      text.textContent = `Up the stairs: ${themeName(next.theme)}, floor ${this.stage + 1} of ${DSTAGES.length}. Your gear, upgrades and lives come with you, and you get some health back.`;
       button('Descend · FIRE', () => this.descend(), 'primary');
     } else if (kind === 'loot') {
       const l = this.lootOpen!;
@@ -5791,8 +5804,8 @@ export class ActionMode {
 
   /** Dungeon Run: down to the next stage, a new dungeon (you keep your gear, upgrades, lives and most of your health) */
   /**
-   * the boss is down: a stairway opens in the middle of its room, going down to the next level.
-   * Walk onto it to go down (your gear, upgrades and lives come with you, and some health back)
+   * the boss is down: a stairway rises in the middle of its room, up to the next floor. Walk up
+   * it to climb (your gear, upgrades and lives come with you, and some health back)
    */
   private openStairs(r: DRoom) {
     // (the floor tile nearest the room's middle)
@@ -5813,24 +5826,32 @@ export class ActionMode {
     const lamp = this.dstage().lamp;
     const root = new THREE.Group();
     root.position.set(p.x, 0, p.z);
-    // the opening: dark, its steps going down into it, a glowing rim round it
-    const pit = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x050407 }));
-    pit.position.y = 0.012;
-    root.add(pit);
-    for (let s = 0; s < 4; s++) {
-      const w = 1.4 - s * 0.28;
-      const step = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.26).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x6a6058).multiplyScalar(1 - s * 0.22) }));
-      step.position.set(0, 0.014, -0.55 + s * 0.3);
-      step.scale.x = w / 1.4;
+    // a flight of stone steps rising to a landing, and on it a doorway glowing with the next floor's light
+    const stone = new THREE.MeshStandardMaterial({ color: new THREE.Color(this.theme.wall).lerp(new THREE.Color(0xffffff), 0.25), roughness: 0.9 });
+    const STEPS = 6;
+    for (let s = 0; s < STEPS; s++) {
+      const hgt = 0.16 * (s + 1);
+      const step = new THREE.Mesh(new THREE.BoxGeometry(1.3, hgt, 0.26), stone);
+      step.position.set(0, hgt / 2, 0.65 - s * 0.26);
       root.add(step);
     }
-    const rimMat = new THREE.MeshBasicMaterial({ color: lamp });
-    for (const [x, z, w, d] of [[0, -0.78, 1.66, 0.08], [0, 0.78, 1.66, 0.08], [-0.78, 0, 0.08, 1.66], [0.78, 0, 0.08, 1.66]] as const) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, d), rimMat);
-      bar.position.set(x, 0.03, z);
-      root.add(bar);
+    const top = 0.16 * STEPS;
+    const landing = new THREE.Mesh(new THREE.BoxGeometry(1.5, top, 0.6), stone);
+    landing.position.set(0, top / 2, 0.65 - STEPS * 0.26 - 0.17);
+    root.add(landing);
+    const doorZ = landing.position.z - 0.25;
+    for (const x of [-0.62, 0.62]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.5, 0.22), stone);
+      post.position.set(x, top + 0.75, doorZ);
+      root.add(post);
     }
-    // a sign over it: the level below
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.2, 0.24), stone);
+    lintel.position.set(0, top + 1.55, doorZ);
+    root.add(lintel);
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.06, 1.42), new THREE.MeshBasicMaterial({ color: lamp, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+    glow.position.set(0, top + 0.73, doorZ);
+    root.add(glow);
+    // a sign over it: the floor above
     const c = document.createElement('canvas');
     c.width = 128;
     c.height = 64;
@@ -5839,23 +5860,23 @@ export class ActionMode {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillStyle = '#' + new THREE.Color(lamp).getHexString();
-    g.fillText(`▼ B${this.stage + 1}`, 64, 34);
+    g.fillText(`▲ ${this.stage + 1}F`, 64, 34);
     const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
     sign.scale.set(1.2, 0.6, 1);
-    sign.position.y = 1.5;
+    sign.position.y = 2.9;
     sign.name = 'sign';
     root.add(sign);
     this.world.add(root);
     this.stairsDown = { x: p.x, z: p.z, root };
-    this.callout(`STAIRS DOWN · LEVEL B${this.stage + 1}`);
+    this.callout(`STAIRS UP · FLOOR ${this.stage + 1}`);
     sfx.play('gong', 0.7);
   }
-  /** standing on the stairs down: down you go */
+  /** on the stairs up: up you go */
   private tickStairs() {
     const st = this.stairsDown;
     if (!st || !this.me?.alive || this.fading) return;
     const sign = st.root.getObjectByName('sign');
-    if (sign) sign.position.y = 1.5 + Math.sin(this.time * 3) * 0.08;
+    if (sign) sign.position.y = 2.9 + Math.sin(this.time * 3) * 0.08;
     if (Math.abs(this.me.x - st.x) < 0.6 && Math.abs(this.me.z - st.z) < 0.6) this.descend();
   }
 

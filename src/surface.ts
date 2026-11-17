@@ -151,6 +151,8 @@ function detail(kind: SurfaceKind) {
 
 /** which surface a material reads as, from what it is and its colour */
 function kindOf(m: THREE.Material & { color?: THREE.Color; flatShading?: boolean; shininess?: number; map?: THREE.Texture | null }): SurfaceKind {
+  // (a material can name its own: a dirt verge that its colour would read as wood)
+  if (m.userData.surfaceKind) return m.userData.surfaceKind as SurfaceKind;
   if (m.map) return 'concrete';
   if (m.flatShading) return 'stone';
   if ((m.shininess ?? 0) >= 60) return 'metal';

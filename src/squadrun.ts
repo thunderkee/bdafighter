@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { celify } from './cel';
+import { InkOnly } from './post';
+import { texturize } from './surface';
 import { ShooterMesh, characterById, playable, studioEnv, type CharacterDef } from './robot';
 import * as sfx from './audio';
 import { fillPortraits } from './portraits';
@@ -17,7 +19,7 @@ import { INVISIBLE, ITEMS, type ItemType } from './items';
  * waits at the end. Clones fire small, weak marbles; your fighter and its allies fire big ones.
  */
 
-const GATE_RUSH_HELP = 'Steer your squad through the gates: blue grows it, red shrinks it, and shooting a + or − gate fills its bar to raise its number (÷ stays as it is). Beat the rivals on the road, pick your route at the fork, shoot frozen fighters free to join you, and take down the boss at the end.';
+const GATE_RUSH_HELP = 'Steer your squad up the road. Shoot the ice off frozen soldiers to free them into your squad, bring down snipers by shooting out their buildings, and keep the horde off. Fill your gauge and hit SPECIAL for your fighter\'s own move. Beat the rivals, pick your route at the fork, and take down the boss at the end.';
 const LANE = 4.2; // half the lane's width
 const SPEED = 6; // how fast the squad advances
 const BOSS_AT = 1000; // distance to the boss
@@ -28,12 +30,17 @@ const FORK_AT = 440;
 const FORK_LEN = 44;
 /** where frozen fighters stand along the road */
 const FROZEN_AT = [170, 560, 660, 860];
+/** frozen soldiers: a pack's ice takes this much, plus this much a soldier, to melt */
+const ICE = { base: 2.5, per: 1.2 };
+/** snipers on buildings by the road: health (and a little more the further on), its shot, and when it fires */
+const SNIPER = { hp: 40, hpPer: 0.06, height: 3, every: 2.2, speed: 12, hit: 3, near: 4, far: 28, first: 110, gap: [120, 60] as [number, number] };
+/** your special: the gauge fills in this long by itself, and this much a kill */
+const PSPECIAL = { fillTime: 45, perKill: 0.0035 };
 /** a clone's marble is weak; your fighter's and its allies' are big */
 const MINI_DMG = 0.85;
 const HERO_DMG = 4;
 const HERO_EVERY = 0.2;
-/** a gate's bar: the first +1 takes this much, each after it a little more */
-const GATE_FILL = 5;
+/** a gate's bar: each +1 after the first takes a little more */
 const GATE_FILL_UP = 2;
 /** thawing a frozen fighter (in damage), and how many allies can walk with you */
 const THAW = 26;
@@ -53,7 +60,7 @@ const SHOT_RANGE = 20;
 const MAX_SHOTS = 420;
 const MAX_ENEMIES = 260;
 const MAX_SQUAD = 250;
-const VISIBLE = 48; // mini clones drawn (the rest of a big squad is counted, not drawn)
+const VISIBLE = 100; // mini clones drawn (the rest of a big squad is counted, not drawn)
 /** the boss is huge: armour to break first (shots do half damage through it), then health;
  *  it takes a squad of about 60 to win the race against its volleys */
 const BOSS_HP = 1700;
@@ -149,7 +156,9 @@ type Grinder = { z: number; take: number; fill: number; need: number; group: THR
 /** an item crate on the lane: shoot it open, or run straight through it */
 type Crate = { x: number; z: number; hp: number; kind: ItemType; group: THREE.Group };
 /** the item shots: dragon balls weaving through the horde, a homing steel ball */
-type Special = { kind: 'dragon' | 'steel'; x: number; x0: number; z: number; vx: number; vz: number; t: number; hits: number; hit: Set<object> };
+type IcePack = { x: number; z: number; n: number; got: number; need: number; group: THREE.Group; ice: THREE.Mesh };
+type Sniper = { x: number; z: number; hp: number; max: number; fireT: number; group: THREE.Group; tower: THREE.Mesh; man: THREE.Group; fall: number; flash: number };
+type Special = { kind: 'dragon' | 'steel' | 'mega'; x: number; x0: number; z: number; vx: number; vz: number; t: number; hits: number; hit: Set<object> };
 type Timed = 'multi' | 'slowmo' | 'wiper' | 'lock' | 'invisible';
 /** what each item does in Squad Run */
 const POWER = { multiFan: 4, slow: 0.3, healShare: 0.25, healMin: 5, dragonDamage: 6, dragonBoss: 60, steelDamage: 8, steelBoss: 40, steelHits: 8, wiperHalf: 1.1 };
@@ -351,6 +360,8 @@ export class SquadRun {
   private el: HTMLElement;
   private canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
+  /** the cel ink outlines, as the Action modes draw them */
+  private ink!: InkOnly;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
   private hud: Record<string, HTMLElement> = {};
@@ -374,6 +385,14 @@ export class SquadRun {
   private over = false;
   private boss: { def: CharacterDef; spT: number; mesh: ShooterMesh; pose: ReturnType<typeof pose>; x: number; z: number; hp: number; armour: number; t: number; fireT: number; volley: number; next: number; windup: number; swaps: boolean } | null = null;
   private crates: Crate[] = [];
+  /** frozen soldiers to melt, snipers on buildings, and when the next sniper comes */
+  private packs: IcePack[] = [];
+  private snipers: Sniper[] = [];
+  private sniperAt = 0;
+  /** your special's gauge (0 to 1), the kills it last counted, and the banner's timer */
+  private spCharge = 0;
+  private lastKills = 0;
+  private bannerT = 0;
   private specials: Special[] = [];
   private timers: Partial<Record<Timed, number>> = {};
   private crateAt = 0;
@@ -461,6 +480,7 @@ export class SquadRun {
         <div class="sq-road"><i></i><b class="mk" style="left:${(RIVAL_AT[0] / BOSS_AT) * 100}%"></b><b class="mk fork" style="left:${(FORK_AT / BOSS_AT) * 100}%"></b><b class="mk" style="left:${(RIVAL_AT[1] / BOSS_AT) * 100}%"></b><em>BOSS</em></div>
         <div class="sq-boss hidden"><span></span><i class="sq-armour"><b></b></i><i class="sq-hp"><b></b></i></div>
         <div class="sq-powers"></div>
+        <button class="sq-special key" aria-label="Special">SPECIAL</button>
         <p class="sq-callout"></p>
         <p class="sq-hint">DRAG TO STEER</p>
       </div>
@@ -475,14 +495,21 @@ export class SquadRun {
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
     this.sfxEl = this.el.querySelector('.sq-sfx')!;
-    for (const k of ['count', 'score', 'road', 'boss', 'hint', 'panel', 'powers', 'callout']) this.hud[k] = this.el.querySelector(`.sq-${k}`)!;
+    for (const k of ['count', 'score', 'road', 'boss', 'hint', 'panel', 'powers', 'callout', 'special']) this.hud[k] = this.el.querySelector(`.sq-${k}`)!;
+    this.hud.special.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.playerSpecial();
+    });
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.applySaver();
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 0.95;
+    // (lit and inked as the Action modes are, so a fighter looks the same in every mode)
     this.scene.environment = studioEnv(this.renderer);
+    this.scene.environmentIntensity = 0.4;
+    this.ink = new InkOnly(this.renderer, this.scene, this.camera);
     this.buildWorld();
 
     this.el.querySelector('.sq-quit')!.addEventListener('click', () => this.exit());
@@ -541,9 +568,9 @@ export class SquadRun {
     const s = this.scene;
     s.background = new THREE.Color(0x2a2236);
     s.fog = new THREE.Fog(0x2a2236, 26, 60);
-    s.add(new THREE.HemisphereLight(0xfff2e0, 0x3a2a40, 1.3));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-    sun.position.set(-4, 10, 6);
+    s.add(new THREE.HemisphereLight(0xeef4ff, 0x4a5a3a, 1.5));
+    const sun = new THREE.DirectionalLight(0xffffff, 2);
+    sun.position.set(-6, 14, 5);
     s.add(sun);
 
     // the road: asphalt with a dashed centre line and kerbs, scrolling as the squad runs (each
@@ -567,6 +594,11 @@ export class SquadRun {
     this.posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.18, 0.9, 0.18), new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.8 }), 40);
     this.applyTheme('start');
     s.add(this.posts);
+    // real surfaces on the road, its verges (dirt, whatever the theme tints them) and the fence posts
+    (verge.material as THREE.Material).userData.surfaceKind = 'sand';
+    (this.posts.material as THREE.Material).userData.surfaceKind = 'metal';
+    texturize(this.ground);
+    texturize(this.posts);
 
     const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, n: number) => {
       const m = new THREE.InstancedMesh(geo, mat, n);
@@ -657,6 +689,13 @@ export class SquadRun {
     this.grindersMet = 0;
     for (const c of this.crates) this.scene.remove(c.group);
     this.crates = [];
+    for (const pk of this.packs) this.scene.remove(pk.group);
+    this.packs = [];
+    for (const sn of this.snipers) this.scene.remove(sn.group);
+    this.snipers = [];
+    this.sniperAt = SNIPER.first;
+    this.spCharge = 0;
+    this.lastKills = 0;
     this.specials = [];
     this.booms = [];
     this.cine = null;
@@ -706,8 +745,9 @@ export class SquadRun {
     this.squad = 8;
     this.kills = 0;
     this.fireAcc = 0;
-    this.waveAt = 14;
-    this.gateAt = 20;
+    this.waveAt = 24;
+    // (the first pack of frozen soldiers is in view from the start: the squad needs them early)
+    this.gateAt = 2;
     this.time = 0;
     this.over = true;
     this.followers = [];
@@ -825,6 +865,8 @@ export class SquadRun {
     if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Space', 'Enter'].includes(e.code)) e.preventDefault();
     this.keys.add(e.code);
     if (this.over && !this.hud.panel.classList.contains('hidden') && (e.code === 'Enter' || e.code === 'Space')) this.begin();
+    // F (or Space, mid-run) fires your special
+    else if ((e.code === 'KeyF' || e.code === 'Space') && !e.repeat && !this.over) this.playerSpecial();
   };
   private keyup = (e: KeyboardEvent) => {
     this.keys.delete(e.code);
@@ -891,13 +933,14 @@ export class SquadRun {
     }
     if (d < BOSS_AT - 30 && !rivalUp) {
       if (d + 34 > this.gateAt) {
-        // (never right on a grinder: one would hide the other)
-        // (nor in the last stretch before the boss: you stop short of it to fight, and a gate you
-        // never reach would soak every shot)
-        if (!GRINDER_AT.some((gd) => Math.abs(gd - (d + 34)) < 8) && d + 34 < BOSS_AT - 40) this.spawnGate(this.z - 34);
-        // (closer while the squad builds up, sparser later on; never quite even, and now and then a
-        // second gate right behind the first)
-        this.gateAt += d > 250 && Math.random() < 0.14 ? 16 : (d < 200 ? 44 : 70) + (Math.random() * 20 - 10);
+        // a pack of frozen soldiers (no gates any more: the squad grows by melting them free)
+        // (never right on a grinder, nor in the last stretch before the boss)
+        if (!GRINDER_AT.some((gd) => Math.abs(gd - (d + 34)) < 8) && d + 34 < BOSS_AT - 40) this.spawnPack(this.z - 34, d);
+        this.gateAt += (d < 200 ? 24 : 30) + (Math.random() * 12 - 6);
+      }
+      if (d + 34 > this.sniperAt && d + 34 < BOSS_AT - 50) {
+        if (!GRINDER_AT.some((gd) => Math.abs(gd - (d + 34)) < 10)) this.spawnSniper(this.z - 34);
+        this.sniperAt += SNIPER.gap[0] + Math.random() * SNIPER.gap[1];
       }
       if (d + 34 > this.waveAt) {
         this.spawnWave(this.z - 34, d);
@@ -925,6 +968,9 @@ export class SquadRun {
     if (this.rival) this.fightRival(dt);
     this.moveOrbs(dt);
     this.passFrozen();
+    this.passPacks();
+    this.fightSnipers(dt);
+    this.chargeUp(dt);
     this.passGrinders(dt);
     for (const p of this.pops) p.t += dt;
     for (const b of this.booms) b.t += dt;
@@ -995,6 +1041,22 @@ export class SquadRun {
           break;
         }
       }
+      if (hit) continue;
+      // a pack of frozen soldiers: the shot melts its ice
+      for (const pk of this.packs)
+        if (Math.abs(pk.z - s.z) < 0.6 && Math.abs(pk.x - s.x) < 0.75) {
+          this.meltPack(pk, s.dmg);
+          hit = true;
+          break;
+        }
+      if (hit) continue;
+      // a sniper's building takes the shot
+      for (const sn of this.snipers)
+        if (sn.fall === 0 && Math.abs(sn.z - s.z) < 0.75 && Math.abs(sn.x - s.x) < 0.8) {
+          this.hitSniper(sn, s.dmg);
+          hit = true;
+          break;
+        }
       if (hit) continue;
       // a gate soaks up shots into its bar; a full bar raises its number, and the next takes more
       for (const gt of this.gates) {
@@ -1167,96 +1229,6 @@ export class SquadRun {
 
   // ---------- gates ----------
 
-  private spawnGate(z: number) {
-    const d = this.dist();
-    // (fewer gates, and fewer plain + ones: a × often, otherwise a + big enough to matter)
-    const good = (): Op => {
-      // (no × gates: the good side is always a +)
-      return { kind: '+', n: 6 + Math.floor(Math.random() * (8 + d / 30)) };
-    };
-    // the other side takes away: mostly a −, further on often a ÷, only now and then a small +
-    const bad = (): Op => {
-      const r = Math.random();
-      if (d > 120 && r < 0.32) return { kind: '/', n: 2 + (d > 600 && Math.random() < 0.4 ? 1 : 0) };
-      return { kind: '-', n: 4 + Math.floor(Math.random() * (5 + d / 50)) };
-    };
-    const shuffle = <T,>(a: T[]) => a.sort(() => Math.random() - 0.5);
-    // the layout: so the road keeps changing
-    const r = Math.random();
-    const layout: GateLayout =
-      d > 200 && r < 0.1 ? 'mystery' : d > 150 && r < 0.22 ? 'slider' : d > 100 && r < 0.36 ? 'triple' : d > 40 && r < 0.6 ? 'single' : 'pair';
-    const L = LANE;
-    let spans: [number, number][];
-    let ops: Op[];
-    const hidden: boolean[] = [];
-    let slide: Gate['slide'] = null;
-    if (layout === 'single') {
-      // one half only: the other half is open road
-      const side = Math.random() < 0.5 ? 0 : 1;
-      spans = [side === 0 ? [-L, 0] : [0, L]];
-      ops = [Math.random() < 0.5 ? good() : bad()];
-    } else if (layout === 'triple') {
-      // three narrow panels: one good, one bad, one either way (a × now and then)
-      spans = [[-L, -L / 3], [-L / 3, L / 3], [L / 3, L]];
-      ops = shuffle([good(), bad(), Math.random() < 0.5 ? good() : bad()]);
-    } else if (layout === 'slider') {
-      // a narrow panel sliding across the road: usually a bonus to catch, sometimes one to dodge
-      const w = 2.4;
-      slide = { w, speed: 1.1 + Math.random() * 0.8, t: Math.random() * Math.PI * 2 };
-      spans = [[-w / 2, w / 2]];
-      ops = [Math.random() < 0.7 ? good() : bad()];
-    } else {
-      spans = [[-L, 0], [0, L]];
-      ops = Math.random() < 0.5 ? [good(), bad()] : [bad(), good()];
-      // now and then both are bad: shoot one up before you reach it
-      if (d > 100 && Math.random() < 0.25) ops[Math.random() < 0.5 ? 0 : 1] = { kind: '-', n: 4 + Math.floor(d / 60) };
-      // a mystery: one panel says "?" until you're nearly through it
-      if (layout === 'mystery') hidden[Math.random() < 0.5 ? 0 : 1] = true;
-    }
-    const group = new THREE.Group();
-    group.position.z = z;
-    const canvases: HTMLCanvasElement[] = [];
-    const panels = spans.map(([a, b]) => {
-      const c = document.createElement('canvas');
-      c.width = 256;
-      c.height = 128;
-      canvases.push(c);
-      const tex = new THREE.CanvasTexture(c);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(b - a - 0.15, 1.5), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
-      m.position.set((a + b) / 2, 0.95, 0);
-      group.add(m);
-      return m;
-    });
-    const postMat = new THREE.MeshStandardMaterial({ color: 0x2a2a34, roughness: 0.5 });
-    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffc23d });
-    const post = (x: number, parent: THREE.Object3D) => {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.9, 0.22), postMat);
-      p.position.set(x, slide ? 0 : 0.95, 0);
-      parent.add(p);
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.2), lampMat);
-      lamp.position.set(x, slide ? 1 : 1.95, 0);
-      parent.add(lamp);
-    };
-    if (slide) {
-      // (its posts ride along with it)
-      post(-slide.w / 2, panels[0]);
-      post(slide.w / 2, panels[0]);
-    } else {
-      const xs = new Set<number>();
-      for (const [a, b] of spans) {
-        xs.add(Math.round(a * 100) / 100);
-        xs.add(Math.round(b * 100) / 100);
-      }
-      for (const x of xs) post(x, group);
-    }
-    this.scene.add(group);
-    const gt: Gate = { z, layout, ops, spans, panels, canvases, fill: ops.map(() => 0), need: ops.map((o) => GATE_FILL * barScale(o)), hidden, slide, group, done: false };
-    ops.forEach((_, k) => this.paint(gt, k));
-    this.gates.push(gt);
-  }
-
-  /** which panel of a gate an x is under (-1: open road) */
   private spanAt(gt: Gate, x: number) {
     return gt.spans.findIndex(([a, b]) => x >= a && x < b);
   }
@@ -1386,6 +1358,218 @@ export class SquadRun {
       if (!keep) this.scene.remove(gt.group);
       return keep;
     });
+  }
+
+  // ---------- frozen soldiers: shoot the ice off a pack and they join you ----------
+
+  /** a pack of frozen soldiers on the road: its size grows as the run goes on (2 to 14) */
+  private spawnPack(z: number, d: number) {
+    // (packs are how the squad grows: 5-8 early, then bigger the further you get, up to 20)
+    const n = d < 120 ? 5 + Math.floor(Math.random() * 4) : Math.min(20, 6 + Math.floor(Math.random() * (4 + d / 80)));
+    const x = (Math.random() * 2 - 1) * (LANE - 1);
+    const def = characterById(this.unitId);
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    // the soldiers inside: little figures in your squad's colours, packed in rows
+    const body = new THREE.MeshLambertMaterial({ color: def.palette.body });
+    const head = new THREE.MeshLambertMaterial({ color: def.palette.trim });
+    const shown = Math.min(n, 9);
+    for (let k = 0; k < shown; k++) {
+      const cx = ((k % 3) - 1) * 0.36;
+      const cz = (Math.floor(k / 3) - 1) * 0.3;
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.18), body);
+      b.position.set(cx, 0.2, cz);
+      const h = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.16), head);
+      h.position.set(cx, 0.44, cz);
+      group.add(b, h);
+    }
+    // the ice over them
+    const ice = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.85, 1.05), new THREE.MeshStandardMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.62, roughness: 0.08, metalness: 0.1, emissive: 0x3a7aa8, emissiveIntensity: 0.3 }));
+    ice.position.y = 0.43;
+    group.add(ice);
+    // the count over it
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 64;
+    const g = c.getContext('2d')!;
+    g.font = '900 44px sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineWidth = 8;
+    g.strokeStyle = '#0a2a44';
+    g.strokeText(`+${n}`, 64, 34);
+    g.fillStyle = '#9ae8ff';
+    g.fillText(`+${n}`, 64, 34);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+    label.scale.set(1.1, 0.55, 1);
+    label.position.y = 1.35;
+    group.add(label);
+    this.scene.add(group);
+    this.packs.push({ x, z, n, got: 0, need: ICE.base + n * ICE.per, group, ice });
+  }
+
+  /** a hit on a pack's ice: it clouds and shrinks, and breaks once enough has landed */
+  private meltPack(pk: IcePack, dmg: number) {
+    pk.got += dmg;
+    const k = Math.min(1, pk.got / pk.need);
+    (pk.ice.material as THREE.MeshStandardMaterial).opacity = 0.62 - k * 0.42;
+    pk.ice.scale.set(1 - k * 0.12, 1 - k * 0.25, 1 - k * 0.12);
+    if (Math.random() < 0.25) this.pop(pk.x, 0.7, pk.z, 0xbfe8ff, 1);
+    if (pk.got < pk.need) return;
+    this.packs = this.packs.filter((o) => o !== pk);
+    this.scene.remove(pk.group);
+    const was = this.squad;
+    this.squad = Math.min(MAX_SQUAD, this.squad + pk.n);
+    this.pop(pk.x, 0.7, pk.z, 0xbfe8ff, 18);
+    this.say(`+${this.squad - was} JOIN THE SQUAD`, 0x7ae8ff);
+    sfx.play('charge');
+    this.tap([15, 25, 15]);
+  }
+
+  /** a pack you drive past still frozen stays behind */
+  private passPacks() {
+    this.packs = this.packs.filter((pk) => {
+      if (pk.z < this.z + 1.5) return true;
+      this.scene.remove(pk.group);
+      return false;
+    });
+  }
+
+  // ---------- snipers: one on a building by the road, shooting your squad until it comes down ----------
+
+  private spawnSniper(z: number) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const x = side * (LANE - 0.65);
+    const d = this.dist();
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    // the building: concrete, rows of windows (a few lit), a parapet round its roof
+    const wc = document.createElement('canvas');
+    wc.width = 64;
+    wc.height = 128;
+    const wg = wc.getContext('2d')!;
+    wg.fillStyle = '#8a8f98';
+    wg.fillRect(0, 0, 64, 128);
+    for (let row = 0; row < 7; row++)
+      for (let col = 0; col < 3; col++) {
+        wg.fillStyle = Math.random() < 0.18 ? '#ffd27a' : '#2a3040';
+        wg.fillRect(8 + col * 18, 8 + row * 17, 12, 11);
+      }
+    const wtex = new THREE.CanvasTexture(wc);
+    wtex.colorSpace = THREE.SRGBColorSpace;
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(1.3, SNIPER.height, 1.3), new THREE.MeshLambertMaterial({ map: wtex }));
+    tower.position.y = SNIPER.height / 2;
+    const parapet = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.16, 1.42), new THREE.MeshLambertMaterial({ color: 0x6a6f78 }));
+    parapet.position.y = SNIPER.height / 2 + 0.06;
+    tower.add(parapet);
+    // the sniper on the roof, its rifle trained on the road
+    const man = new THREE.Group();
+    man.position.set(-side * 0.2, SNIPER.height, 0.1);
+    const coat = new THREE.MeshLambertMaterial({ color: 0x3a2a2a });
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.26), coat);
+    torso.position.y = 0.21;
+    const headM = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.22), new THREE.MeshLambertMaterial({ color: 0xc8323a }));
+    headM.position.y = 0.53;
+    const rifle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), new THREE.MeshLambertMaterial({ color: 0x1a1a20 }));
+    rifle.rotation.x = Math.PI / 2;
+    rifle.position.set(0, 0.36, 0.42);
+    const scope = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.2), new THREE.MeshBasicMaterial({ color: 0xff3a3a }));
+    scope.position.set(0, 0.42, 0.3);
+    man.add(torso, headM, rifle, scope);
+    group.add(tower, man);
+    texturize(group);
+    this.scene.add(group);
+    const hp = SNIPER.hp + d * SNIPER.hpPer;
+    this.snipers.push({ x, z, hp, max: hp, fireT: 1.2, group, tower, man, fall: 0, flash: 0 });
+    this.say('SNIPER AHEAD · SHOOT ITS BUILDING DOWN', 0xff6a5a);
+  }
+
+  /** a sniper in range keeps firing at your squad; its building takes your shots */
+  private fightSnipers(dt: number) {
+    for (const sn of this.snipers) {
+      sn.flash = Math.max(0, sn.flash - dt);
+      if (sn.fall > 0) {
+        sn.fall += dt;
+        continue;
+      }
+      const ahead = this.z - sn.z;
+      // (it turns to follow the squad)
+      sn.man.rotation.y = Math.atan2(this.cx - sn.x, this.z - sn.z);
+      if (ahead < SNIPER.near || ahead > SNIPER.far || this.timers.invisible) continue;
+      if ((sn.fireT -= dt) > 0) continue;
+      sn.fireT = SNIPER.every;
+      const top = new THREE.Vector3(sn.x, 0, sn.z + 0.4);
+      this.orbAt(top.x, top.z, SNIPER.speed, (Math.random() - 0.5) * 0.4, false, { steel: true, hit: SNIPER.hit, color: 0xffd23e });
+      this.pop(sn.x, SNIPER.height + 0.4, sn.z + 0.3, 0xffe08a, 4);
+      sfx.play('steel', 0.7);
+    }
+    // a fallen building settles and goes; one left far behind goes too
+    this.snipers = this.snipers.filter((sn) => {
+      const keep = sn.fall < 1 && sn.z < this.z + 4;
+      if (!keep) this.scene.remove(sn.group);
+      return keep;
+    });
+  }
+
+  private hitSniper(sn: Sniper, dmg: number) {
+    sn.hp -= dmg;
+    sn.flash = 0.08;
+    if (Math.random() < 0.2) this.pop(sn.x, 1 + Math.random() * 2, sn.z + 0.65, 0xb8b8b8, 1);
+    if (sn.hp > 0) return;
+    sn.fall = 0.001;
+    this.kills += 20;
+    this.pop(sn.x, 1.5, sn.z, 0xb8b0a0, 26);
+    this.say('SNIPER DOWN', 0xffd23e);
+    sfx.play('explode');
+    sfx.play('clatter', 0.8);
+    this.tap([40, 30, 60]);
+  }
+
+  // ---------- your special: the gauge fills with kills (and slowly by itself) ----------
+
+  private chargeUp(dt: number) {
+    const gained = this.kills - this.lastKills;
+    this.lastKills = this.kills;
+    this.spCharge = Math.min(1, this.spCharge + dt / PSPECIAL.fillTime + gained * PSPECIAL.perKill);
+    const b = this.hud.special;
+    b.style.setProperty('--k', String(this.spCharge));
+    b.classList.toggle('ready', this.spCharge >= 1);
+  }
+
+  /** your fighter's own move, sent down the road: what it is depends on its kind of shot */
+  private playerSpecial() {
+    if (this.over || this.cine || this.spCharge < 1 || this.squad <= 0) return;
+    this.spCharge = 0;
+    const def = characterById(this.unitId);
+    const name = this.specialName(def);
+    const x0 = this.cx;
+    const z0 = this.z - 0.8;
+    const ball = (x: number, z = z0) => this.specials.push({ kind: 'dragon', x, x0: x, z, vx: 0, vz: -13, t: 0, hits: 0, hit: new Set() });
+    const homer = (x: number, z = z0) => this.specials.push({ kind: 'steel', x, x0: x, z, vx: 0, vz: -12, t: 0, hits: POWER.steelHits, hit: new Set() });
+    if (name === 'CRUSHER' || name === 'MEGA ORB') this.specials.push({ kind: 'mega', x: x0, x0, z: z0, vx: 0, vz: -10, t: 0, hits: 0, hit: new Set() });
+    else if (name === 'SPREAD SHOT') for (const dx of [-1.8, -0.9, 0, 0.9, 1.8]) ball(THREE.MathUtils.clamp(x0 + dx, -LANE + 0.4, LANE - 0.4));
+    else if (name === 'SERPENT WAVE') for (const dx of [-1.2, 0, 1.2]) ball(THREE.MathUtils.clamp(x0 + dx, -LANE + 0.4, LANE - 0.4));
+    else if (name === 'GATLING') for (let k = 0; k < 8; k++) homer(x0 + (Math.random() - 0.5) * 1.2, z0 + k * 0.6);
+    else for (const dx of [-1, -0.35, 0.35, 1]) homer(x0 + dx);
+    // the banner: your face, and the move's name slashing across (the run doesn't stop)
+    this.sfxEl.querySelector('.sfx-face')!.innerHTML = `<i data-portrait="${def.id}" data-crop="bust"></i>`;
+    fillPortraits(this.sfxEl);
+    this.sfxEl.querySelector('span')!.textContent = `YOU // ${def.name.toUpperCase()}`;
+    this.sfxEl.querySelector('b')!.textContent = `${name}!`;
+    this.sfxEl.classList.add('mine');
+    this.sfxEl.classList.remove('hidden', 'go');
+    void this.sfxEl.offsetWidth;
+    this.sfxEl.classList.add('go');
+    clearTimeout(this.bannerT);
+    this.bannerT = window.setTimeout(() => {
+      if (this.cine) return;
+      this.sfxEl.classList.add('hidden');
+      this.sfxEl.classList.remove('go', 'mine');
+    }, 1700);
+    this.pop(x0, 1, z0, def.ball, 20);
+    sfx.play('super');
+    sfx.play('whoosh', 0.8);
+    this.tap([30, 30, 60]);
   }
 
   // ---------- the boss ----------
@@ -1836,6 +2020,7 @@ export class SquadRun {
       sign.position.set((i === 0 ? -1 : 1) * (LANE / 2), 2.3, zf);
       g.add(sign);
     });
+    texturize(g);
     this.scene.add(g);
     this.fork = g;
   }
@@ -1975,6 +2160,7 @@ export class SquadRun {
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 2.1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
     panel.position.set(0, 3.45, 0);
     group.add(panel);
+    texturize(group);
     this.scene.add(group);
     const gr: Grinder = { z, take: GRINDER_TAKE, fill: 0, need: GRINDER_FILL, group, saws, canvas, panel, done: false };
     this.paintGrinder(gr);
@@ -2207,6 +2393,7 @@ export class SquadRun {
     const tag = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.35), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
     tag.position.y = 1.35;
     group.add(tag);
+    texturize(group);
     this.scene.add(group);
     this.crates.push({ x, z, hp: CRATE_HP, kind, group });
   }
@@ -2257,7 +2444,29 @@ export class SquadRun {
   private moveSpecials(dt: number) {
     for (const p of this.specials) {
       p.t += dt;
-      if (p.kind === 'dragon') {
+      if (p.kind === 'mega') {
+        // your mega orb: rolls straight up the road, flattening all in its way
+        p.z += p.vz * dt;
+        for (const e of this.enemies) if (e.hp > 0 && Math.abs(e.z - p.z) < 1.1 && Math.abs(e.x - p.x) < 1.4) this.damage(e, 99);
+        for (const pk of [...this.packs]) if (Math.abs(pk.z - p.z) < 1.1 && Math.abs(pk.x - p.x) < 1.5) this.meltPack(pk, 999);
+        for (const sn of this.snipers)
+          if (sn.fall === 0 && !p.hit.has(sn) && Math.abs(sn.z - p.z) < 1.2 && Math.abs(sn.x - p.x) < 1.8) {
+            p.hit.add(sn);
+            this.hitSniper(sn, sn.max * 0.7);
+          }
+        const r = this.rival;
+        if (r && r.hp > 0 && !p.hit.has(r) && Math.abs(r.z - p.z) < 1.5) {
+          p.hit.add(r);
+          r.guard = Math.max(0, r.guard - 12);
+          r.shield = 0;
+          r.hp -= r.max * 0.25;
+          if (r.hp <= 0) this.rivalDown();
+        }
+        if (this.boss && this.boss.hp > 0 && !p.hit.has(this.boss) && Math.abs(this.boss.z - p.z) < 1.8 && Math.abs(this.boss.x - p.x) < 2.2) {
+          p.hit.add(this.boss);
+          this.hurtBoss(POWER.dragonBoss * 3);
+        }
+      } else if (p.kind === 'dragon') {
         // three heavy balls weaving side to side, ploughing through everything once
         p.z += p.vz * dt;
         p.x = THREE.MathUtils.clamp(p.x0 + Math.sin(p.t * 7) * 0.9, -LANE, LANE);
@@ -2308,7 +2517,7 @@ export class SquadRun {
         }
       }
     }
-    this.specials = this.specials.filter((p) => (p.kind === 'dragon' ? p.t < 2.4 : p.hits > 0 && p.t < 12));
+    this.specials = this.specials.filter((p) => (p.kind === 'mega' ? p.t < 2.6 : p.kind === 'dragon' ? p.t < 2.4 : p.hits > 0 && p.t < 12));
   }
 
   private damage(e: Enemy, n: number) {
@@ -2587,10 +2796,25 @@ export class SquadRun {
     let di = 0;
     let si = 0;
     for (const p of this.specials) {
-      d.position.set(p.x, p.kind === 'dragon' ? 0.5 : 0.4, p.z);
+      d.position.set(p.x, p.kind === 'mega' ? 1 : p.kind === 'dragon' ? 0.5 : 0.4, p.z);
+      d.rotation.set(0, 0, 0);
+      d.scale.setScalar(p.kind === 'mega' ? 2.8 : 1);
       d.updateMatrix();
-      if (p.kind === 'dragon') this.dragonMesh.setMatrixAt(di++, d.matrix);
-      else this.steelMesh.setMatrixAt(si++, d.matrix);
+      if (p.kind === 'steel') this.steelMesh.setMatrixAt(si++, d.matrix);
+      else this.dragonMesh.setMatrixAt(di++, d.matrix);
+    }
+    d.scale.setScalar(1);
+    // a sniper's building: it flashes when hit; a fallen one sinks into a cloud of dust, its sniper tumbling off
+    for (const sn of this.snipers) {
+      (sn.tower.material as THREE.MeshLambertMaterial).emissive.setRGB(sn.flash > 0 ? 0.35 : 0, sn.flash > 0 ? 0.3 : 0, sn.flash > 0 ? 0.25 : 0);
+      if (sn.fall > 0) {
+        const k = Math.min(1, sn.fall);
+        sn.tower.scale.y = Math.max(0.04, 1 - k);
+        sn.tower.position.y = (SNIPER.height / 2) * sn.tower.scale.y;
+        sn.man.position.y = SNIPER.height * sn.tower.scale.y + Math.sin(k * Math.PI) * 0.6;
+        sn.man.rotation.z = k * 2.4;
+        if (Math.random() < 0.5) this.pop(sn.x + (Math.random() - 0.5) * 1.2, 0.3 + Math.random(), sn.z + (Math.random() - 0.5) * 1.2, 0xb8b0a0, 1);
+      }
     }
     this.dragonMesh.count = di;
     this.steelMesh.count = si;
@@ -2710,7 +2934,7 @@ export class SquadRun {
       this.camLook.lerp(new THREE.Vector3(this.cx * 0.2, 0, this.z - 9), Math.min(1, ease * 1.5) || 1);
       cam.lookAt(this.camLook);
     }
-    celify(this.scene);
-    this.renderer.render(this.scene, cam);
+    celify(this.scene, true);
+    this.ink.render();
   }
 }

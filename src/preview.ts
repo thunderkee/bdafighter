@@ -20,6 +20,9 @@ export class Preview {
   /** the tallest roster unit (Bastion) and the widest reach (Nightshade), round the plinth's axis */
   static FRAME_H = 2.5;
   static FRAME_R = 1.65;
+  /** the menu hero's shared framing (the roster's tallest stand about this high) */
+  static HERO_H = 2.5;
+  static HERO_R = 1.3;
   /** told the colour at the top of an arena's view (once it's drawn), for the screen round it */
   onSky: ((css: string) => void) | null = null;
   private skyIn = 0;
@@ -207,9 +210,10 @@ export class Preview {
     this.unit.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(this.unit.root);
     const reach = Math.hypot(Math.max(-box.min.x, box.max.x), Math.max(-box.min.z, box.max.z)) * 0.7;
-    // (the hero fills its frame instead)
-    this.frameH = this.hero ? Math.max(1.2, box.max.y) : Math.max(Preview.FRAME_H, box.max.y);
-    this.frameR = this.hero ? Math.max(0.8, reach * 0.8) : Math.max(Preview.FRAME_R, reach);
+    // (the menu's hero too: one framing for every fighter, so each shows at its true size against
+    // the others and against the arena it stands in; only an unusually big one widens it)
+    this.frameH = this.hero ? Math.max(Preview.HERO_H, box.max.y) : Math.max(Preview.FRAME_H, box.max.y);
+    this.frameR = this.hero ? Math.max(Preview.HERO_R, reach * 0.8) : Math.max(Preview.FRAME_R, reach);
     this.camera.fov = 30;
     this.fitCamera();
     this.start();
@@ -479,6 +483,15 @@ export class Preview {
   private tripleN = 0;
   /** drag to turn the unit by hand: the extra turn, and how long the auto swing waits after a drag */
   private spin = 0;
+  /** how far it's been turned by hand (the title's arena turns with it) */
+  get turn() {
+    return this.spin;
+  }
+  /** its camera and where its picture sits on the page (so the title's arena can be seen through the same lens) */
+  get lens() {
+    if (!this.renderer || this.mode !== 'unit') return null;
+    return { camera: this.camera, rect: this.renderer.domElement.getBoundingClientRect() };
+  }
   /** how far the last press dragged, in pixels */
   private dragged = 0;
   /** the last press turned the unit (so it wasn't a tap) */
@@ -534,5 +547,141 @@ export class Preview {
       this.scene.add(mesh);
       this.balls.push({ mesh, v: fwd.clone().multiplyScalar(7), age: 0 });
     }
+  }
+}
+
+/**
+ * the arena behind the title, live: seen from a fighter's eye height along the table, through the
+ * same lens as the fighter's own camera (so the fighter stands in it), and turning about the
+ * fighter's spot as far as the fighter has been turned by hand. Runs only while shown.
+ */
+export class StageBackdrop {
+  private renderer: THREE.WebGLRenderer | null = null;
+  private scene = new THREE.Scene();
+  private camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+  private pivot = new THREE.Group();
+  private stage: Stage | null = null;
+  private id = '';
+  private raf = 0;
+  private last = 0;
+  private t = 0;
+  /** a soft contact shadow on the floor under the fighter */
+  private shadow: THREE.Mesh;
+  constructor(
+    private host: HTMLElement,
+    private turn: () => number,
+    /** the fighter's own camera and its box on the page: the arena is drawn through it, so the fighter stands on the floor */
+    private lens: () => { camera: THREE.PerspectiveCamera; rect: DOMRect } | null = () => null,
+  ) {
+    this.scene.add(this.pivot);
+    // (a radial fade: darkest under the feet, gone by the edge)
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d')!;
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(0,0,0,0.78)');
+    gr.addColorStop(0.5, 'rgba(0,0,0,0.45)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 128, 128);
+    this.shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, fog: false }));
+    this.shadow.position.y = 0.03;
+    this.shadow.scale.set(1.9, 1, 1.5);
+    this.shadow.renderOrder = 2;
+  }
+  show(id: string) {
+    if (!this.renderer) {
+      const r = new THREE.WebGLRenderer({ antialias: true });
+      // (behind a translucent menu: a light pixel load is plenty)
+      r.setPixelRatio(1);
+      r.toneMapping = THREE.NeutralToneMapping;
+      r.toneMappingExposure = 0.92;
+      this.scene.environment = studioEnv(r);
+      this.scene.environmentIntensity = 0.6;
+      r.domElement.className = 'title-stage';
+      this.host.prepend(r.domElement);
+      this.renderer = r;
+    }
+    if (id !== this.id) {
+      this.id = id;
+      if (this.stage) {
+        this.pivot.remove(this.stage.group);
+        this.stage.dispose();
+      }
+      for (const o of [...this.scene.children]) if (o !== this.pivot && o !== this.shadow) this.scene.remove(o);
+      this.scene.add(this.shadow);
+      const st = (this.stage = new Stage(id));
+      const d = st.def;
+      // (the fighter's spot on the table, a little way from the middle, is the turning point)
+      st.group.position.set(0, 0, -2);
+      this.pivot.add(st.group);
+      this.scene.background = new THREE.Color(d.sky);
+      this.scene.fog = new THREE.Fog(d.fog[0], d.fog[1], d.fog[2]);
+      this.scene.add(new THREE.HemisphereLight(d.hemi[0], d.hemi[1], d.hemi[2]));
+      const sun = new THREE.DirectionalLight(d.sun[0], d.sun[1]);
+      sun.position.set(6, 18, -9);
+      this.scene.add(sun);
+      celify(this.scene);
+    }
+    this.renderer.domElement.style.display = '';
+    if (!this.raf) {
+      this.last = performance.now();
+      const loop = (now: number) => {
+        this.raf = requestAnimationFrame(loop);
+        if (now - this.last < 1000 / 30 - 4) return;
+        const dt = Math.min(0.05, (now - this.last) / 1000);
+        this.last = now;
+        this.frame(dt);
+      };
+      this.raf = requestAnimationFrame(loop);
+    }
+  }
+  hide() {
+    cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    if (this.renderer) this.renderer.domElement.style.display = 'none';
+  }
+  private frame(dt: number) {
+    const r = this.renderer!;
+    const w = this.host.clientWidth;
+    const h = this.host.clientHeight;
+    if (!w || !h) return;
+    const size = r.getSize(new THREE.Vector2());
+    if (size.x !== w || size.y !== h) {
+      r.setSize(w, h, false);
+      this.camera.aspect = w / h;
+      this.camera.updateProjectionMatrix();
+    }
+    this.t += dt;
+    // (the camera faces the fighter's front, so the table runs away behind it; the drag turns it all)
+    this.pivot.rotation.y = Math.PI + this.turn();
+    const L = this.lens();
+    const hr = this.host.getBoundingClientRect();
+    if (L && L.rect.height > 0) {
+      // the fighter's own camera, its picture widened out to the whole screen: the same pose, the
+      // same focal length, centred where the fighter's box sits, so the floor meets its feet
+      const c = L.camera;
+      this.camera.position.copy(c.position);
+      this.camera.quaternion.copy(c.quaternion);
+      const f = L.rect.height / 2 / (Math.tan(THREE.MathUtils.degToRad(c.fov / 2)) / (c.zoom || 1));
+      const cx = L.rect.left + L.rect.width / 2 - hr.left;
+      const cy = L.rect.top + L.rect.height / 2 - hr.top;
+      const hw = Math.max(cx, w - cx);
+      const hh = Math.max(cy, h - cy);
+      this.camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(hh / f));
+      this.camera.zoom = 1;
+      this.camera.aspect = hw / hh;
+      this.camera.setViewOffset(hw * 2, hh * 2, hw - cx, hh - cy, w, h);
+      this.camera.updateProjectionMatrix();
+    } else {
+      this.camera.clearViewOffset();
+      this.camera.fov = 30;
+      this.camera.aspect = w / h;
+      this.camera.position.set(0, 1.45, -4.6);
+      this.camera.lookAt(0, 0.9, 0);
+      this.camera.updateProjectionMatrix();
+    }
+    this.stage?.update(dt, this.t);
+    r.render(this.scene, this.camera);
   }
 }
