@@ -3,6 +3,7 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ARENA } from './config';
 import { TOON, paintToonFloor, toonBoard, toonRails, toonScenery } from './toonstage';
 import { maxHalf, shapeOf, type Shape } from './shapes';
+import { texturize } from './surface';
 
 // Themed stages. Each one is data (colours, lighting) plus a scenery builder,
 // an ambient particle style, moving props, and a matching puck model.
@@ -262,6 +263,8 @@ export class Stage {
       this.fitWidth(sized);
       this.buildParticles();
     }
+    // every element its real surface: stone, metal, wood, moss, sand, concrete
+    texturize(this.group);
   }
 
   /**

@@ -10,6 +10,7 @@ import * as sfx from './audio';
 import { skinned } from './cosmetics';
 import { kitOf } from './kits';
 import { DROP, DRAGON, INVISIBLE, ITEMS, MISSILE } from './items';
+import { texturize } from './surface';
 import { portrait } from './portraits';
 import { stageById } from './stage';
 import { Motes, Scars, impactOf, stageLight } from './stagefx';
@@ -1710,6 +1711,8 @@ export class ActionMode {
         this.stormMesh.push(m);
       }
     }
+    // the stage's real surfaces: floor, walls, crates, bushes, water's edge
+    texturize(this.world);
   }
 
   // ---------- fighters ----------

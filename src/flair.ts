@@ -98,8 +98,6 @@ const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
 const ball = (r: number) => new THREE.SphereGeometry(r, 12, 10);
 const WHITE = 0xfff8ec;
 
-/** how much bigger each head should sit (people fall for faces) */
-const HEAD: Record<string, number> = { bastion: 1.28, monoceros: 1.16, pioneer: 1.16, rex: 1.1, liger: 1.1, violet: 1.14, trueleo: 1.14, angel: 1.08 };
 
 /** what gives each fighter its face and its one memorable thing, in model space */
 const FACE: Record<string, (f: FaceKit) => void> = {
@@ -315,7 +313,7 @@ export class Flair {
     mats: THREE.Material[],
     private isEye: (m: THREE.Mesh) => boolean,
     /** the Unit Lab: add the finish, but don't move, rehang or resize any block of the design */
-    private still = false,
+    still = false,
   ) {
     const key = id.replace(/-\d+$/, '');
     root.updateMatrixWorld(true);
@@ -365,9 +363,9 @@ export class Flair {
       const head = eyes.find((e) => e.parent !== turret)?.parent ?? byRole('head')[0] ?? byRole('tilt')[0] ?? turret;
       holder = head;
       label = 'Face detail';
-      look({ add, sway, c: def.palette, eyes, head, byRole, turret, use: (o) => (holder = o), enlarge: (o, k) => !this.still && o.scale.multiplyScalar(k) });
+      // (an evolved form keeps the standard form's size: nothing on it is scaled up, only added to)
+      look({ add, sway, c: def.palette, eyes, head, byRole, turret, use: (o) => (holder = o), enlarge: () => {} });
       holder = turret;
-      if (HEAD[key] && head !== turret && !still) head.scale.multiplyScalar(HEAD[key]);
     }
     this.grow(def);
     if (baked) {

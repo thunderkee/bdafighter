@@ -1753,9 +1753,9 @@ export class ShooterMesh {
   private buildBlueprint(bp: Block, def: CharacterDef, ball: number) {
     const cache = new Map<string, THREE.Material>();
     const material = (m: Block['mat']) => {
-      // (a block once mapped onto a hand-painted sheet is a plain block now: everyone shares one
-      // armour style, the pixel one)
-      const spec = m?.tex && isSheet(m.tex) ? { ...m, tex: undefined } : (m ?? { kind: 'lambert', color: 'body' });
+      // (a block once mapped onto a hand-painted sheet or kit panelling is a plain block now:
+      // everyone shares one armour style, the pixel one)
+      const spec = m?.tex && (isSheet(m.tex) || isKit(m.tex)) ? { ...m, tex: undefined } : (m ?? { kind: 'lambert', color: 'body' });
       const color = resolveColor(spec.color, def, ball);
       const key = `${spec.kind}|${color}|${spec.double ? 1 : 0}|${spec.opacity ?? 1}|${spec.additive ? 1 : 0}|${spec.tex ?? ''}`;
       let mat = cache.get(key);
@@ -1879,7 +1879,7 @@ export class ShooterMesh {
       o.rotation.set(b.r[0], b.r[1], b.r[2]);
       o.scale.fromArray(b.s);
       o.userData.path = path;
-      if (b.mat?.tex && !isSheet(b.mat.tex) && b.shape !== 'group') {
+      if (b.mat?.tex && !isSheet(b.mat.tex) && !isKit(b.mat.tex) && b.shape !== 'group') {
         // (a painted block is mapped once the model stands whole, so its front is the fighter's front)
         if (isPainted(b.mat.tex)) painted.push(o as THREE.Mesh);
         else projectPatternUV((o as THREE.Mesh).geometry, b.mat.texScale ?? 1);
