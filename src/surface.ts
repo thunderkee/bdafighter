@@ -13,7 +13,7 @@ import * as THREE from 'three';
  * sphere or a long rail, and sits at the same real size on a pebble and on a wall.
  *
  * Cost: one pass over the stage when it's built, a few 256 px textures for the whole game, and three
- * texture reads per pixel of a textured surface. Off entirely in Battery saver.
+ * texture reads per pixel of a textured surface (cheap enough to stay on in Battery saver too).
  */
 export type SurfaceKind = 'concrete' | 'stone' | 'metal' | 'wood' | 'moss' | 'sand';
 
@@ -28,7 +28,7 @@ const KIND: Record<SurfaceKind, { scale: number; gain: number }> = {
 };
 
 let enabled = true;
-/** the stages built from now on get their surfaces (or don't, in Battery saver) */
+/** the stages built from now on get their surfaces (on by default, Battery saver included) */
 export const setSurfaces = (on: boolean) => {
   enabled = on;
 };

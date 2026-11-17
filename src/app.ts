@@ -1,7 +1,6 @@
 import { AI_PROFILES, ARENA, BALANCE, BALANCE_ARENA, MAG_ARENA, MAG_ARENA_OF, MAG_OF, MARBLE_OF, MARBLES, MATCH, setArenaWidth, type ShooterStats } from './config';
 import { traitMul } from './roster';
 import { setPixelStyle } from './decals';
-import { setSurfaces } from './surface';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, MOVE_NAMES, SPIRIT_MOVES, SPIRIT_OF, STEP, chargeLevel, showDashPips, slotTeam, type Shooter } from './game';
 import { View } from './view';
@@ -82,7 +81,6 @@ export function boot() {
   let saveData = store.load();
   // (the armour style is set before any fighter is built)
   setPixelStyle(saveData.settings.pixelTex !== false);
-  setSurfaces(!saveData.settings.batterySaver);
   {
     // the 2.1 set is the roster now: old 1.0 / 2.0 picks move to their 2.1s
     const st = saveData.settings;
@@ -2044,7 +2042,6 @@ export function boot() {
     input.settings = { ...st };
     // outside a match the table updates now; mid-match it waits for the next one
     setPixelStyle(st.pixelTex !== false);
-    setSurfaces(!st.batterySaver);
     if (screen !== 'playing') {
       game.puckCount = st.pucks;
       game.placePucks();
