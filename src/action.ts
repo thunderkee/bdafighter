@@ -98,9 +98,14 @@ const STORM_END = 165;
  * against 28 x 28), its walls, bushes, crates and ponds scaled to match, a slower storm, and
  * portals in pairs: step into one and you come out of its twin across the map.
  */
+/**
+ * Dungeon Run's raised floors: a stone dais in some fight rooms, this high, reached only by its
+ * stairs (two-wide ramps of steps on two or more sides). Its edges stop a fighter, not a marble.
+ */
+const PLAT = 0.45;
 /** Brawl's hearing: sounds are full within this many tiles of you, and gone past the second */
 const HEAR = { full: 3, gone: 14 };
-const MEGA = { size: 80, fighters: 20, area: 8, stormStart: 75, stormEnd: 300, portals: 6, portalCool: 2.2 };
+const MEGA = { size: 80, fighters: 20, area: 8, stormStart: 75, stormEnd: 300, portals: 6, portalCool: 2.2, cpuPortalRest: 8 };
 /** free-for-all fighters are tougher, so a fight there lasts */
 const FFA_HP = 2.1;
 const STORM_DPS = 700;
@@ -181,23 +186,226 @@ interface Theme {
   wallGlow?: number;
   bush: number;
   bushGlow?: boolean;
+  /** what the hiding tiles are on this stage (bushes unless the place calls for something else) */
+  cover?: Cover;
   water: number;
   /** lava, neon pools: they glow */
   waterGlow?: boolean;
   apron: number;
   sky: number;
 }
+/**
+ * the hiding tiles, by stage: bushes where things grow; elsewhere what that place would have that
+ * a fighter could crouch in (it hides you just the same)
+ */
+type Cover = 'bush' | 'vent' | 'holo' | 'crystal' | 'planter' | 'drift' | 'rubble';
+/** small painted textures for the covers (made once each) */
+const coverTex = new Map<string, THREE.CanvasTexture>();
+function coverCanvas(key: string, draw: (g: CanvasRenderingContext2D, n: number, r: () => number) => void, wrap = true) {
+  let t = coverTex.get(key);
+  if (t) return t;
+  const n = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const g = c.getContext('2d')!;
+  let seed = key.length * 131 + 7;
+  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  draw(g, n, r);
+  t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (wrap) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  coverTex.set(key, t);
+  return t;
+}
+/** leaves: clumps of light and dark round leaves over a mid tone (multiplied by the bush's colour) */
+const leafTex = () =>
+  coverCanvas('leaf', (g, n, r) => {
+    g.fillStyle = '#9a9a9a';
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 420; k++) {
+      const v = 90 + Math.floor(r() * 150);
+      g.fillStyle = `rgb(${v},${v},${v})`;
+      g.beginPath();
+      g.ellipse(r() * n, r() * n, 3 + r() * 5, 2 + r() * 3, r() * Math.PI, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+/** basalt: dark rock grain, and (as its glow) the orange cracks of the heat inside */
+const basaltTex = () =>
+  coverCanvas('basalt', (g, n, r) => {
+    g.fillStyle = '#3a2e2a';
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 900; k++) {
+      const v = 30 + Math.floor(r() * 50);
+      g.fillStyle = `rgb(${v + 8},${v},${v - 4})`;
+      g.fillRect(r() * n, r() * n, 2, 2);
+    }
+  });
+const crackTex = () =>
+  coverCanvas('crack', (g, n, r) => {
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, n, n);
+    g.strokeStyle = '#ffffff';
+    g.lineCap = 'round';
+    for (let k = 0; k < 7; k++) {
+      let x = r() * n;
+      let y = r() * n;
+      g.lineWidth = 1 + r() * 2;
+      g.beginPath();
+      g.moveTo(x, y);
+      for (let s = 0; s < 6; s++) {
+        x += (r() - 0.5) * 30;
+        y += (r() - 0.3) * 24;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  });
+/** a hologram: scanlines and a frame, bright at the edges */
+const scanTex = () =>
+  coverCanvas('scan', (g, n) => {
+    g.clearRect(0, 0, n, n);
+    for (let y = 0; y < n; y += 4) {
+      g.fillStyle = `rgba(255,255,255,${y % 16 === 0 ? 0.55 : 0.22})`;
+      g.fillRect(0, y, n, 2);
+    }
+    g.strokeStyle = 'rgba(255,255,255,0.95)';
+    g.lineWidth = 6;
+    g.strokeRect(3, 3, n - 6, n - 6);
+    g.fillStyle = 'rgba(255,255,255,0.8)';
+    for (const [x, y] of [[10, 10], [n - 22, 10], [10, n - 22], [n - 22, n - 22]]) g.fillRect(x, y, 12, 12);
+  });
+/** crystal facets: bands of light across it */
+const facetTex = () =>
+  coverCanvas('facet', (g, n, r) => {
+    const gr = g.createLinearGradient(0, 0, n, n);
+    gr.addColorStop(0, '#ffffff');
+    gr.addColorStop(0.5, '#9a9a9a');
+    gr.addColorStop(1, '#e6e6e6');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 6; k++) {
+      g.fillStyle = `rgba(255,255,255,${0.1 + r() * 0.25})`;
+      g.beginPath();
+      g.moveTo(r() * n, 0);
+      g.lineTo(r() * n, n);
+      g.lineTo(r() * n, n);
+      g.fill();
+    }
+  });
+/** concrete: grit and a seam */
+const concreteTex = () =>
+  coverCanvas('concrete', (g, n, r) => {
+    g.fillStyle = '#b8b8b4';
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 1400; k++) {
+      const v = 140 + Math.floor(r() * 80);
+      g.fillStyle = `rgba(${v},${v},${v - 4},0.6)`;
+      g.fillRect(r() * n, r() * n, 1 + r() * 2, 1 + r() * 2);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.fillRect(0, n / 2, n, 2);
+  });
+/** stone blocks: rough courses with dark seams */
+const stoneTex = () =>
+  coverCanvas('stone', (g, n, r) => {
+    g.fillStyle = '#8a8680';
+    g.fillRect(0, 0, n, n);
+    for (let row = 0; row < 4; row++)
+      for (let col = 0; col < 3; col++) {
+        const v = 110 + Math.floor(r() * 70);
+        g.fillStyle = `rgb(${v},${v - 4},${v - 10})`;
+        g.fillRect(col * 44 + (row % 2) * 20 + 2, row * 32 + 2, 40, 28);
+      }
+    for (let k = 0; k < 600; k++) {
+      g.fillStyle = `rgba(0,0,0,${r() * 0.2})`;
+      g.fillRect(r() * n, r() * n, 2, 2);
+    }
+  });
+/** snow: soft white with blue-grey hollows */
+const snowTex = () =>
+  coverCanvas('snow', (g, n, r) => {
+    g.fillStyle = '#f2f6fb';
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 160; k++) {
+      g.fillStyle = `rgba(150,180,215,${r() * 0.18})`;
+      g.beginPath();
+      g.arc(r() * n, r() * n, 4 + r() * 10, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+
+/** a portal's vortex: arms of light spiralling in, fading out at the rim */
+const portalSpiral = () =>
+  coverCanvas(
+    'spiral',
+    (g, n) => {
+      g.clearRect(0, 0, n, n);
+      const c = n / 2;
+      for (let arm = 0; arm < 4; arm++)
+        for (let t = 0; t < 1; t += 0.004) {
+          const a = arm * (Math.PI / 2) + t * Math.PI * 3.2;
+          const r = t * c * 0.98;
+          g.fillStyle = `rgba(255,255,255,${(1 - t) * 0.5 + 0.2})`;
+          g.beginPath();
+          g.arc(c + Math.cos(a) * r, c + Math.sin(a) * r, 1.5 + t * 6, 0, Math.PI * 2);
+          g.fill();
+        }
+      const gr = g.createRadialGradient(c, c, 0, c, c, c);
+      gr.addColorStop(0, 'rgba(255,255,255,0.9)');
+      gr.addColorStop(0.25, 'rgba(255,255,255,0.15)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, n, n);
+    },
+    false,
+  );
+/** a portal's floor sigil: two rings with runes between them */
+const portalSigil = () =>
+  coverCanvas(
+    'sigil',
+    (g, n, r) => {
+      g.clearRect(0, 0, n, n);
+      const c = n / 2;
+      g.strokeStyle = 'rgba(255,255,255,0.9)';
+      g.lineWidth = 2;
+      for (const rad of [c * 0.92, c * 0.7]) {
+        g.beginPath();
+        g.arc(c, c, rad, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.lineWidth = 1.6;
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2;
+        const x = c + Math.cos(a) * c * 0.81;
+        const y = c + Math.sin(a) * c * 0.81;
+        g.save();
+        g.translate(x, y);
+        g.rotate(a + Math.PI / 2);
+        g.beginPath();
+        const s = 4;
+        g.moveTo(-s, -s);
+        g.lineTo(r() < 0.5 ? s : 0, r() < 0.5 ? s : -s);
+        g.lineTo(s, r() < 0.5 ? -s : s);
+        g.stroke();
+        g.restore();
+      }
+    },
+    false,
+  );
+
 const THEMES: Theme[] = [
   { id: 'meadow', name: 'Green Meadow', floor: ['#7fc25a', '#76b852'], line: 'rgba(0,0,0,0.06)', wall: 0xc8a46a, bush: 0x3fae4a, water: 0x3ac8ef, apron: 0x3a6a8a, sky: 0x8fcff0 },
-  { id: 'dungeon', name: 'Stone Keep', floor: ['#8a93b8', '#828bb0'], line: 'rgba(0,0,0,0.06)', wall: 0x5a4a8a, bush: 0x3fae4a, water: 0x3ac8ef, apron: 0x2a2440, sky: 0x4a4070 },
+  { id: 'dungeon', name: 'Stone Keep', floor: ['#8a93b8', '#828bb0'], line: 'rgba(0,0,0,0.06)', wall: 0x5a4a8a, bush: 0x8a86a0, cover: 'rubble', water: 0x3ac8ef, apron: 0x2a2440, sky: 0x4a4070 },
   { id: 'beach', stage: 'beach', floor: ['#f3e7c6', '#eadbb4'], line: 'rgba(160,120,60,0.12)', wall: 0x9b7a55, bush: 0x4fbf6a, water: 0x2fc6d6, apron: 0x2fc6d6, sky: 0x5fbcf5 },
-  { id: 'snow', stage: 'snow', floor: ['#e6f0f9', '#d9e6f2'], line: 'rgba(127,182,232,0.35)', wall: 0xa9d4f0, bush: 0x2f6a5a, water: 0x8fd0f2, apron: 0xf4f9fd, sky: 0xbfd6ea },
-  { id: 'lava', stage: 'lava', floor: ['#5a4640', '#514039'], line: 'rgba(255,122,42,0.3)', wall: 0x2e2220, wallGlow: 0xff5a1a, bush: 0xb04a2a, water: 0xff5a1a, waterGlow: true, apron: 0xff4a10, sky: 0x1a0605 },
+  { id: 'snow', stage: 'snow', floor: ['#e6f0f9', '#d9e6f2'], line: 'rgba(127,182,232,0.35)', wall: 0xa9d4f0, bush: 0x2f6a5a, cover: 'drift', water: 0x8fd0f2, apron: 0xf4f9fd, sky: 0xbfd6ea },
+  { id: 'lava', stage: 'lava', floor: ['#5a4640', '#514039'], line: 'rgba(255,122,42,0.3)', wall: 0x2e2220, wallGlow: 0xff5a1a, bush: 0x3a2a26, cover: 'vent', water: 0xff5a1a, waterGlow: true, apron: 0xff4a10, sky: 0x1a0605 },
   { id: 'forest', stage: 'forest', floor: ['#557a48', '#4d7141'], line: 'rgba(200,232,176,0.12)', wall: 0x6a5236, bush: 0x2f7a3a, water: 0x3a7a8a, apron: 0x1d2a19, sky: 0x26352f },
   { id: 'river', stage: 'river', floor: ['#b0805a', '#a47652'], line: 'rgba(255,224,176,0.25)', wall: 0x5a3e26, bush: 0x5a8a3a, water: 0x3a5a9a, apron: 0x2a4a7a, sky: 0xe98a5a },
-  { id: 'cyber', stage: 'cyber', floor: ['#3a2a52', '#33244a'], line: 'rgba(255,43,214,0.45)', wall: 0x2a1e3a, wallGlow: 0x2bf0ff, bush: 0xff2bd6, bushGlow: true, water: 0x2bf0ff, waterGlow: true, apron: 0x0a0610, sky: 0x07030f },
-  { id: 'space', stage: 'space', floor: ['#34405e', '#2e3955'], line: 'rgba(47,216,255,0.4)', wall: 0x4a5674, wallGlow: 0x3ef0ff, bush: 0x3ef0ff, bushGlow: true, water: 0x0b1226, apron: 0x060912, sky: 0x03040c },
-  { id: 'city', stage: 'city', floor: ['#5a5c66', '#53555f'], line: 'rgba(255,207,62,0.3)', wall: 0x8a8f98, wallGlow: 0xff3e8e, bush: 0x4a8a4a, water: 0x3a5a7a, apron: 0x16171d, sky: 0x0f1326 },
+  { id: 'cyber', stage: 'cyber', floor: ['#3a2a52', '#33244a'], line: 'rgba(255,43,214,0.45)', wall: 0x2a1e3a, wallGlow: 0x2bf0ff, bush: 0xff2bd6, bushGlow: true, cover: 'holo', water: 0x2bf0ff, waterGlow: true, apron: 0x0a0610, sky: 0x07030f },
+  { id: 'space', stage: 'space', floor: ['#34405e', '#2e3955'], line: 'rgba(47,216,255,0.4)', wall: 0x4a5674, wallGlow: 0x3ef0ff, bush: 0x3ef0ff, bushGlow: true, cover: 'crystal', water: 0x0b1226, apron: 0x060912, sky: 0x03040c },
+  { id: 'city', stage: 'city', floor: ['#5a5c66', '#53555f'], line: 'rgba(255,207,62,0.3)', wall: 0x8a8f98, wallGlow: 0xff3e8e, bush: 0x4a8a4a, cover: 'planter', water: 0x3a5a7a, apron: 0x16171d, sky: 0x0f1326 },
   { id: 'soccer', stage: 'soccer', floor: ['#3fa04a', '#379142'], line: 'rgba(255,255,255,0.35)', wall: 0xe8e8ee, bush: 0x2f7a36, water: 0x3ac8ef, apron: 0x2f7a36, sky: 0x8cc8ff },
 ];
 /** Dungeon Run's look: warm stone, brick walls, darkness all round */
@@ -404,6 +612,8 @@ interface Shot {
   bounce: number;
   pierce: number;
   hit: Set<Unit>;
+  /** Dungeon Run: how high above the floor it flies (it keeps the height it was fired from) */
+  lift?: number;
   color: THREE.Color;
   big: boolean;
   // a special's ball
@@ -495,7 +705,7 @@ export class ActionMode {
   /** Mega Brawl: played as a Storm Brawl ('ffa') with these differences */
   private mega = false;
   /** Mega Brawl's portals, in pairs: each knows its twin */
-  private portals: { x: number; z: number; to: number; color: number; root: THREE.Group }[] = [];
+  private portals: { x: number; z: number; to: number; color: number; root: THREE.Group; vortex: THREE.Mesh; inner: THREE.Mesh; sigil: THREE.Mesh }[] = [];
   /** a fighter can't take a portal again until this runs out (so it doesn't bounce straight back) */
   private portalCool = new Map<Unit, number>();
   /** a League Story chapter being played (null: Action on its own) */
@@ -548,6 +758,11 @@ export class ActionMode {
   private ups: Partial<Record<UpgradeId, number>> = {};
   // Dungeon Run: the map, the room you're fighting in, what you've seen, your launcher, the key
   private dg: Dungeon | null = null;
+  /** Dungeon Run's raised floors: each tile's height, and its stairs' direction (-1 none; 0 rises to +x, 1 to -x, 2 to +z, 3 to -z) */
+  private elev: Float32Array | null = null;
+  private ramp: Int8Array | null = null;
+  /** the stairs down, once a stage's boss is beaten */
+  private stairsDown: { x: number; z: number; root: THREE.Group } | null = null;
   private activeRoom: DRoom | null = null;
   private seen = new Uint8Array(0);
   private seenT = 0;
@@ -575,6 +790,8 @@ export class ActionMode {
   private storm = 0;
   private stormMesh: THREE.Mesh[] = [];
   private bushMat = new THREE.MeshStandardMaterial({ color: 0x3fae4a, roughness: 0.9, transparent: true });
+  /** every material of this stage's cover, and each one's own opacity (they fade when you're in one) */
+  private coverMats: { m: THREE.Material; o: number }[] = [];
   /** this stage's look, and the Gauntlet run's order of them */
   private theme: Theme = THEMES[0];
   private themeOrder: Theme[] = [];
@@ -641,6 +858,7 @@ export class ActionMode {
       <div class="ac-speed"></div>
       <div class="ac-bars"></div>
       <canvas class="ac-map" aria-hidden="true"></canvas>
+      <p class="ac-level" aria-live="polite"></p>
       <div class="ac-hud">
         <div class="ac-top">
           <div class="ac-left"><button class="ac-quit key round" aria-label="Back">✕</button></div>
@@ -683,7 +901,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['say', 'swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'dash', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['level', 'say', 'swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'dash', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -995,6 +1213,9 @@ export class ActionMode {
     // (the storm starts at the edge of this stage, whatever its size)
     this.storm = this.kind === 'ffa' ? this.W / 2 : 99;
     (this.el.querySelector('.ac-map') as HTMLElement).classList.toggle('on', this.kind === 'gauntlet');
+    // Dungeon Run: which level you're on, under the map
+    this.hud.level.classList.toggle('on', this.kind === 'gauntlet');
+    this.hud.level.textContent = this.kind === 'gauntlet' ? `B${this.stage} · ${themeName(this.theme)}` : '';
     this.spawnMe();
     this.checkpoint = { x: this.me!.x, z: this.me!.z };
     if (keep && this.kind === 'gauntlet' && this.room > 1) {
@@ -1043,6 +1264,7 @@ export class ActionMode {
     for (const w of this.wrecks) this.dropWreck(w);
     for (const p of this.portals) p.root.removeFromParent();
     this.portals = [];
+    this.stairsDown = null;
     this.portalCool.clear();
     this.wrecks = [];
     for (const sp of this.sparks) sp.mesh.removeFromParent();
@@ -1099,6 +1321,8 @@ export class ActionMode {
   private blocksShot = (t: number) => t === WALL || t === CRATE || t === GATE || t === FORT || t === ROCK;
 
   private buildStage() {
+    // (raised floors are Dungeon Run's alone; the stairs down appear once its boss falls)
+    this.elev = this.ramp = null;
     if (this.kind === 'ffa') {
       this.W = this.H = this.mega ? MEGA.size : 28;
       this.layoutFfa();
@@ -1131,10 +1355,99 @@ export class ActionMode {
     this.grid = dg.grid as typeof this.grid;
     for (let k = 0; k < this.grid.length; k++) if (this.grid[k] === CRATE) this.crateHp.set(k, CRATE_HP);
     for (const k of dg.lock) this.grid[k] = GATE;
+    this.raiseFloors(dg);
     this.seen = new Uint8Array(this.W * this.H);
     this.activeRoom = null;
     this.hasKey = false;
   }
+  /**
+   * the raised floors: about half the fight rooms big enough for one get a dais in the middle
+   * (two tiles in from its walls), with two-wide stairs up the middle of two sides, now and then
+   * a third. Crates on it are cleared away.
+   */
+  private raiseFloors(dg: Dungeon) {
+    const { W, H } = this;
+    const elev = (this.elev = new Float32Array(W * H));
+    const ramp = (this.ramp = new Int8Array(W * H).fill(-1));
+    for (const r of dg.rooms) {
+      if (r.kind !== 'fight' || r.i1 - r.i0 < 6 || r.j1 - r.j0 < 6 || Math.random() < 0.45) continue;
+      const a0 = r.i0 + 2;
+      const a1 = r.i1 - 2;
+      const b0 = r.j0 + 2;
+      const b1 = r.j1 - 2;
+      for (let j = b0; j <= b1; j++)
+        for (let i = a0; i <= a1; i++) {
+          const k = this.idx(i, j);
+          if (this.grid[k] === CRATE) {
+            this.grid[k] = FLOOR;
+            this.crateHp.delete(k);
+          }
+          if (this.grid[k] === FLOOR) elev[k] = PLAT;
+        }
+      // stairs: the middle of the near and far sides, sometimes one more across
+      const ci = (a0 + a1) >> 1;
+      const cj = (b0 + b1) >> 1;
+      const put = (i: number, j: number, dir: number) => {
+        const k = this.idx(i, j);
+        if (this.grid[k] !== FLOOR || elev[k]) return;
+        ramp[k] = dir;
+      };
+      for (const i of [ci, ci + 1]) {
+        put(i, b0 - 1, 2);
+        put(i, b1 + 1, 3);
+      }
+      if (Math.random() < 0.5) {
+        const west = Math.random() < 0.5;
+        for (const j of [cj, cj + 1]) put(west ? a0 - 1 : a1 + 1, j, west ? 0 : 1);
+      }
+    }
+  }
+  /** how high the floor is here (a stair's slope included) */
+  private heightAt(x: number, z: number) {
+    if (!this.elev || !this.ramp) return 0;
+    const k = this.tileOf(x, z);
+    if (k < 0) return 0;
+    const r = this.ramp[k];
+    if (r < 0) return this.elev[k];
+    const i = k % this.W;
+    const j = (k - i) / this.W;
+    const lx = Math.max(0, Math.min(1, x - (i - this.W / 2)));
+    const lz = Math.max(0, Math.min(1, z - (j - this.H / 2)));
+    const f = r === 0 ? lx : r === 1 ? 1 - lx : r === 2 ? lz : 1 - lz;
+    return PLAT * f;
+  }
+  /** a tile's height at its edge facing (di, dj): NaN along a stair's side (only another stair beside it meets it there) */
+  private edgeH(k: number, di: number, dj: number) {
+    const r = this.ramp![k];
+    if (r < 0) return this.elev![k];
+    const alongX = r < 2;
+    if ((alongX && dj !== 0) || (!alongX && di !== 0)) return NaN;
+    const high = (r === 0 && di > 0) || (r === 1 && di < 0) || (r === 2 && dj > 0) || (r === 3 && dj < 0);
+    return high ? PLAT : 0;
+  }
+  /** can a fighter step from tile k to its neighbour nk (di, dj away)? (floors meet stairs only at the stairs' ends) */
+  private stepOK(k: number, nk: number, di: number, dj: number) {
+    if (!this.elev) return true;
+    const a = this.edgeH(k, di, dj);
+    const b = this.edgeH(nk, -di, -dj);
+    if (Number.isNaN(a) || Number.isNaN(b)) return Number.isNaN(a) && Number.isNaN(b) && this.ramp![k] === this.ramp![nk];
+    return Math.abs(a - b) < 0.05;
+  }
+  /** a straight walk from one point to another without stepping off or onto a raised floor except by its stairs */
+  private walkLine(x0: number, z0: number, x1: number, z1: number) {
+    if (!this.clearLine(x0, z0, x1, z1)) return false;
+    if (!this.elev) return true;
+    const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.2);
+    let h = this.heightAt(x0, z0);
+    for (let k = 1; k <= n; k++) {
+      const t = k / n;
+      const nh = this.heightAt(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t);
+      if (Math.abs(nh - h) > 0.15) return false;
+      h = nh;
+    }
+    return true;
+  }
+
   /** how tall the walls stand (the dungeon's are higher) */
   private wallH() {
     // (the dungeon's walls rise in the views from behind you, TPS and the cockpit, so its corridors close in
@@ -1537,6 +1850,146 @@ export class ActionMode {
     });
   }
 
+  /**
+   * Dungeon Run's raised floors: the dais as stone blocks, each stair as three steps climbing
+   * toward it (the stage's stone surface goes on both with everything else)
+   */
+  private drawRaised(th: Theme) {
+    const elev = this.elev!;
+    const ramp = this.ramp!;
+    const { W, H } = this;
+    const tone = new THREE.Color(th.floor[0]).lerp(new THREE.Color(0xffffff), 0.12);
+    const stone = new THREE.MeshStandardMaterial({ color: tone, roughness: 0.9 });
+    const tiles: number[] = [];
+    for (let k = 0; k < W * H; k++) if (elev[k] > 0 && ramp[k] < 0) tiles.push(k);
+    if (tiles.length) {
+      const block = new THREE.BoxGeometry(1, PLAT, 1).translate(0, PLAT / 2, 0);
+      const m = new THREE.InstancedMesh(block, stone, tiles.length);
+      tiles.forEach((k, n) => {
+        const p = this.center(k % W, Math.floor(k / W));
+        this.dummy.position.set(p.x, 0, p.z);
+        this.dummy.rotation.set(0, 0, 0);
+        this.dummy.scale.set(1, 1, 1);
+        this.dummy.updateMatrix();
+        m.setMatrixAt(n, this.dummy.matrix);
+      });
+      this.world.add(m);
+    }
+    // the stairs: three steps rising toward the dais (built facing +x, turned to each stair's way)
+    const steps = new THREE.Group();
+    const parts: THREE.BufferGeometry[] = [];
+    for (let s = 0; s < 3; s++) {
+      const hgt = (PLAT * (s + 1)) / 3;
+      parts.push(new THREE.BoxGeometry(1 / 3, hgt, 1).translate(-1 / 3 + s / 3, hgt / 2, 0));
+    }
+    const stepMat = new THREE.MeshStandardMaterial({ color: tone.clone().multiplyScalar(0.92), roughness: 0.9 });
+    const turn = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
+    for (let k = 0; k < W * H; k++) {
+      if (ramp[k] < 0) continue;
+      const p = this.center(k % W, Math.floor(k / W));
+      const g = new THREE.Group();
+      for (const geo of parts) g.add(new THREE.Mesh(geo, stepMat));
+      g.position.set(p.x, 0, p.z);
+      g.rotation.y = turn[ramp[k]];
+      steps.add(g);
+    }
+    this.world.add(steps);
+  }
+
+  /** the hiding tiles, drawn as this stage's own cover (see Cover), every part textured */
+  private drawCover(th: Theme, inst: (geo: THREE.BufferGeometry, mat: THREE.Material, t: number, place: (o: THREE.Object3D, i: number, j: number) => void) => void) {
+    this.coverMats = [];
+    const mat = <M extends THREE.Material>(m: M) => {
+      m.transparent = true;
+      this.coverMats.push({ m, o: m.opacity });
+      return m;
+    };
+    const turn = (o: THREE.Object3D, i: number, j: number) => (o.rotation.y = ((i * 7 + j * 13) % 6) * 1.05);
+    const vary = (i: number, j: number) => 0.85 + ((i + j) % 3) * 0.08;
+    const kind = this.kind === 'gauntlet' ? 'bush' : (th.cover ?? 'bush');
+    if (kind === 'vent') {
+      // basalt mounds, hot inside: the cracks glow orange
+      const rock = new THREE.DodecahedronGeometry(0.58, 0);
+      rock.scale(1, 0.7, 1);
+      rock.translate(0, 0.32, 0);
+      inst(rock, mat(new THREE.MeshStandardMaterial({ color: 0x5a4a44, map: basaltTex(), emissive: 0xff5a1a, emissiveMap: crackTex(), emissiveIntensity: 1.4, roughness: 0.95, flatShading: true })), BUSH, (o, i, j) => {
+        turn(o, i, j);
+        o.scale.setScalar(vary(i, j));
+      });
+      const pebble = new THREE.DodecahedronGeometry(0.24, 0);
+      pebble.translate(0.32, 0.12, 0.26);
+      inst(pebble, mat(new THREE.MeshStandardMaterial({ color: 0x4a3c38, map: basaltTex(), emissive: 0xff5a1a, emissiveMap: crackTex(), emissiveIntensity: 0.9, flatShading: true })), BUSH, turn);
+    } else if (kind === 'holo') {
+      // a hologram field: an emitter on the floor and a see-through block of scanlines over it
+      const base = new THREE.BoxGeometry(0.92, 0.08, 0.92);
+      base.translate(0, 0.04, 0);
+      inst(base, mat(new THREE.MeshStandardMaterial({ color: 0x1a1426, map: concreteTex(), emissive: th.bush, emissiveIntensity: 0.25, roughness: 0.4, metalness: 0.6 })), BUSH, () => {});
+      const field = new THREE.BoxGeometry(0.86, 0.95, 0.86);
+      field.translate(0, 0.56, 0);
+      inst(field, mat(new THREE.MeshBasicMaterial({ color: th.bush, map: scanTex(), opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })), BUSH, (o, i, j) => o.scale.set(1, vary(i, j), 1));
+    } else if (kind === 'crystal') {
+      // a cluster of glowing crystals: a tall one and a short one leaning off it
+      const tall = new THREE.OctahedronGeometry(0.34, 0);
+      tall.scale(1, 2.2, 1);
+      tall.translate(0, 0.72, 0);
+      const cmat = mat(new THREE.MeshStandardMaterial({ color: th.bush, map: facetTex(), emissive: th.bush, emissiveIntensity: 0.45, opacity: 0.88, roughness: 0.15, metalness: 0.2, flatShading: true }));
+      inst(tall, cmat, BUSH, (o, i, j) => {
+        turn(o, i, j);
+        o.scale.setScalar(vary(i, j));
+      });
+      const short = new THREE.OctahedronGeometry(0.24, 0);
+      short.scale(1, 1.8, 1);
+      short.rotateZ(0.5);
+      short.translate(0.3, 0.36, 0.12);
+      inst(short, cmat, BUSH, turn);
+    } else if (kind === 'planter') {
+      // a concrete planter, a clipped hedge in it
+      const box = new THREE.BoxGeometry(0.92, 0.42, 0.92);
+      box.translate(0, 0.21, 0);
+      inst(box, mat(new THREE.MeshStandardMaterial({ color: 0xc8c8c4, map: concreteTex(), roughness: 0.9 })), BUSH, () => {});
+      const hedge = new THREE.BoxGeometry(0.82, 0.5, 0.82, 2, 2, 2);
+      hedge.translate(0, 0.66, 0);
+      inst(hedge, mat(new THREE.MeshStandardMaterial({ color: th.bush, map: leafTex(), roughness: 0.95 })), BUSH, (o, i, j) => o.scale.set(1, vary(i, j), 1));
+    } else if (kind === 'drift') {
+      // a snow drift, a frosted shrub poking out of it
+      const drift = new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+      drift.scale(1, 0.7, 1);
+      inst(drift, mat(new THREE.MeshStandardMaterial({ color: 0xffffff, map: snowTex(), roughness: 1 })), BUSH, (o, i, j) => {
+        turn(o, i, j);
+        o.scale.setScalar(vary(i, j));
+      });
+      const shrub = new THREE.IcosahedronGeometry(0.38, 1);
+      shrub.translate(0.12, 0.5, -0.08);
+      inst(shrub, mat(new THREE.MeshStandardMaterial({ color: th.bush, map: leafTex(), roughness: 0.95, flatShading: true })), BUSH, turn);
+    } else if (kind === 'rubble') {
+      // fallen stones heaped up
+      const block = new THREE.BoxGeometry(0.5, 0.36, 0.42);
+      const smat = mat(new THREE.MeshStandardMaterial({ color: 0xffffff, map: stoneTex(), roughness: 0.95, flatShading: true }));
+      for (const [x, y, z, ry] of [[-0.18, 0.18, -0.12, 0.3], [0.2, 0.18, 0.14, -0.4], [0.02, 0.5, 0, 0.9]] as const) {
+        const b = block.clone();
+        b.rotateY(ry);
+        b.translate(x, y, z);
+        inst(b, smat, BUSH, turn);
+      }
+    } else {
+      // a bush: a round clump, its leaves textured
+      this.bushMat.color.setHex(th.bush);
+      this.bushMat.emissive.setHex(th.bushGlow ? th.bush : 0x000000);
+      this.bushMat.emissiveIntensity = th.bushGlow ? 0.35 : 0;
+      this.bushMat.opacity = th.bushGlow ? 0.85 : 1;
+      this.bushMat.map = leafTex();
+      this.bushMat.flatShading = true;
+      this.bushMat.needsUpdate = true;
+      this.coverMats.push({ m: this.bushMat, o: this.bushMat.opacity });
+      const bushGeo = new THREE.IcosahedronGeometry(0.64, 1);
+      bushGeo.translate(0, 0.5, 0);
+      inst(bushGeo, this.bushMat, BUSH, (o, i, j) => {
+        turn(o, i, j);
+        o.scale.set(1, vary(i, j), 1);
+      });
+    }
+  }
+
   private drawStage() {
     const { W, H } = this;
     const th = this.theme;
@@ -1664,16 +2117,8 @@ export class ActionMode {
       this.stripMesh = inst(stripGeo, this.seeThrough(new THREE.MeshBasicMaterial({ color: th.wallGlow })), WALL, () => {}) ?? null;
       if (this.stripMesh) this.stripMesh.position.y = this.wallCur;
     }
-    this.bushMat.color.setHex(th.bush);
-    this.bushMat.emissive.setHex(th.bushGlow ? th.bush : 0x000000);
-    this.bushMat.emissiveIntensity = th.bushGlow ? 0.35 : 0;
-    this.bushMat.opacity = th.bushGlow ? 0.85 : 1;
-    const bushGeo = new THREE.IcosahedronGeometry(0.64, 0);
-    bushGeo.translate(0, 0.5, 0);
-    inst(bushGeo, this.bushMat, BUSH, (o, i, j) => {
-      o.rotation.y = (i * 7 + j * 13) % 6;
-      o.scale.set(1, 0.85 + ((i + j) % 3) * 0.08, 1);
-    });
+    this.drawCover(th, inst);
+    if (this.elev) this.drawRaised(th);
     const waterGeo = new THREE.PlaneGeometry(1, 1);
     waterGeo.rotateX(-Math.PI / 2);
     waterGeo.translate(0, 0.015, 0);
@@ -2072,17 +2517,24 @@ export class ActionMode {
     }
     return true;
   }
-  private blocked(x: number, z: number, r: number) {
+  private blocked(x: number, z: number, r: number, from?: number) {
     for (let i = Math.floor(x - r + this.W / 2); i <= Math.floor(x + r + this.W / 2); i++)
       for (let j = Math.floor(z - r + this.H / 2); j <= Math.floor(z + r + this.H / 2); j++) {
         const t = i < 0 || j < 0 || i >= this.W || j >= this.H ? WALL : this.grid[this.idx(i, j)];
-        if (!this.blocksMove(t)) continue;
+        // (a raised floor: a tile too far above or below where it's standing is a wall to it)
+        const step = from !== undefined && !!this.elev && !this.blocksMove(t);
+        if (!this.blocksMove(t) && !step) continue;
         // circle against the tile's square
         const cx = i - this.W / 2;
         const cz = j - this.H / 2;
         const nx = Math.max(cx, Math.min(x, cx + 1));
         const nz = Math.max(cz, Math.min(z, cz + 1));
-        if ((x - nx) ** 2 + (z - nz) ** 2 < r * r) return true;
+        if ((x - nx) ** 2 + (z - nz) ** 2 >= r * r) continue;
+        if (!step) return true;
+        // (the floor's height where the body touches it: a stair's slope at that point)
+        const hx = Math.min(Math.max(nx, cx + 0.001), cx + 0.999);
+        const hz = Math.min(Math.max(nz, cz + 0.001), cz + 0.999);
+        if (Math.abs(this.heightAt(hx, hz) - from!) > 0.22) return true;
       }
     return false;
   }
@@ -2094,22 +2546,24 @@ export class ActionMode {
   private moveR = (u: Unit) => (u.giant ? 0.85 : Math.min(u.r, 0.34));
   private walk(u: Unit, dx: number, dz: number) {
     const r = this.moveR(u);
-    const movedX = !this.blocked(u.x + dx, u.z, r);
+    // (on a raised floor, measured against the height it stands at)
+    const h = this.elev ? this.heightAt(u.x, u.z) : undefined;
+    const movedX = !this.blocked(u.x + dx, u.z, r, h);
     if (movedX) u.x += dx;
-    const movedZ = !this.blocked(u.x, u.z + dz, r);
+    const movedZ = !this.blocked(u.x, u.z + dz, r, h);
     if (movedZ) u.z += dz;
     const lane = (v: number, half: number) => Math.floor(v + half) + 0.5 - half;
     if (!movedX && Math.abs(dx) > 1e-4) {
       const lz = lane(u.z, this.H / 2);
       const off = lz - u.z;
       const step = Math.sign(off) * Math.min(Math.abs(off), Math.abs(dx) + Math.abs(dz) * 0.5);
-      if (step && !this.blocked(u.x + dx, lz, r) && !this.blocked(u.x, u.z + step, r)) u.z += step;
+      if (step && !this.blocked(u.x + dx, lz, r, h) && !this.blocked(u.x, u.z + step, r, h)) u.z += step;
     }
     if (!movedZ && Math.abs(dz) > 1e-4) {
       const lx = lane(u.x, this.W / 2);
       const off = lx - u.x;
       const step = Math.sign(off) * Math.min(Math.abs(off), Math.abs(dz) + Math.abs(dx) * 0.5);
-      if (step && !this.blocked(lx, u.z + dz, r) && !this.blocked(u.x + step, u.z, r)) u.x += step;
+      if (step && !this.blocked(lx, u.z + dz, r, h) && !this.blocked(u.x + step, u.z, r, h)) u.x += step;
     }
   }
 
@@ -2704,6 +3158,7 @@ export class ActionMode {
     this.pickups();
     if (this.kind === 'ffa') this.tickStorm(dt);
     if (this.portals.length) this.tickPortals(dt);
+    if (this.stairsDown) this.tickStairs();
     if (this.kind === 'gauntlet') this.tickDungeon(dt);
     this.checkEnd();
     this.updateHud();
@@ -3442,12 +3897,13 @@ export class ActionMode {
       // the nearest floor tile, its neighbours cleared so nobody's walled in
       let i0 = Math.floor(x + this.W / 2);
       let j0 = Math.floor(z + this.H / 2);
-      i0 = Math.max(3, Math.min(this.W - 4, i0));
-      j0 = Math.max(3, Math.min(this.H - 4, j0));
-      for (let i = i0 - 1; i <= i0 + 1; i++)
-        for (let j = j0 - 1; j <= j0 + 1; j++) {
+      i0 = Math.max(4, Math.min(this.W - 5, i0));
+      j0 = Math.max(4, Math.min(this.H - 5, j0));
+      // (two tiles round, so the pad and its obelisks stand on open floor)
+      for (let i = i0 - 2; i <= i0 + 2; i++)
+        for (let j = j0 - 2; j <= j0 + 2; j++) {
           const k = this.idx(i, j);
-          if (this.grid[k] !== FLOOR && this.grid[k] !== BUSH) {
+          if (this.grid[k] !== FLOOR) {
             this.grid[k] = FLOOR;
             this.crateHp.delete(k);
           }
@@ -3465,18 +3921,69 @@ export class ActionMode {
         const root = new THREE.Group();
         root.position.set(e.x, 0, e.z);
         const col = COLORS[k % COLORS.length];
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.08, 10, 36), new THREE.MeshBasicMaterial({ color: col }));
-        ring.position.y = 0.75;
-        const swirl = new THREE.Mesh(new THREE.CircleGeometry(0.56, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
-        swirl.position.y = 0.75;
-        ring.add(swirl.clone());
-        const glow = new THREE.Mesh(new THREE.CircleGeometry(0.9, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
-        glow.position.y = 0.03;
-        root.add(ring, swirl, glow);
+        // a portal pad, read from above: a stone ring flat on the floor round a turning vortex, four
+        // short obelisks with glowing gems standing round it (the stage's stone surface goes on
+        // the stone with everything else)
+        const stone = new THREE.MeshStandardMaterial({ color: 0x7a7480, roughness: 0.85, metalness: 0.15, flatShading: true });
+        const frame = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.12, 6, 28).rotateX(-Math.PI / 2), stone);
+        frame.position.y = 0.08;
+        const plinth = new THREE.Group();
+        const gem = new THREE.MeshBasicMaterial({ color: col });
+        for (let g = 0; g < 4; g++) {
+          const a = (g / 4) * Math.PI * 2 + Math.PI / 4;
+          const ob = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.55, 4), stone);
+          ob.position.set(Math.cos(a) * 1.02, 0.27, Math.sin(a) * 1.02);
+          const st = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), gem);
+          st.position.set(Math.cos(a) * 1.02, 0.66, Math.sin(a) * 1.02);
+          plinth.add(ob, st);
+        }
+        // the vortex: a painted spiral turning, a lighter one turning the other way inside it
+        const vortex = new THREE.Mesh(new THREE.CircleGeometry(0.7, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, map: portalSpiral(), transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+        vortex.position.y = 0.06;
+        const inner = new THREE.Mesh(new THREE.CircleGeometry(0.46, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, map: portalSpiral(), transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+        inner.position.y = 0.07;
+        // a ring of runes on the floor round it
+        const sigil = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, map: portalSigil(), transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+        sigil.position.y = 0.03;
+        root.add(frame, plinth, vortex, inner, sigil);
         this.world.add(root);
-        this.portals.push({ x: e.x, z: e.z, to: base + (1 - m), color: col, root });
+        this.portals.push({ x: e.x, z: e.z, to: base + (1 - m), color: col, root, vortex, inner, sigil });
       });
     }
+  }
+
+  /**
+   * a CPU with nobody in sight: a portal worth taking, if one near it comes out much closer to the
+   * nearest fighter it could go after (or, now and then, any portal close by, just to roam)
+   */
+  private portalGoal(u: Unit) {
+    if (this.portalCool.has(u)) return null;
+    let foe: Unit | null = null;
+    let fd = Infinity;
+    for (const o of this.units) {
+      if (!this.hostile(u, o)) continue;
+      const d = Math.hypot(o.x - u.x, o.z - u.z);
+      if (d < fd) {
+        fd = d;
+        foe = o;
+      }
+    }
+    let best: (typeof this.portals)[number] | null = null;
+    let gain = 4;
+    for (const p of this.portals) {
+      const walk = Math.hypot(p.x - u.x, p.z - u.z);
+      if (walk > 16) continue;
+      const out = this.portals[p.to];
+      // (the storm may have swallowed the far end)
+      if (Math.abs(out.x) > this.storm - 2 || Math.abs(out.z) > this.storm - 2) continue;
+      const g = foe ? fd - (walk + Math.hypot(foe.x - out.x, foe.z - out.z)) : 0;
+      if (g > gain) {
+        gain = g;
+        best = p;
+      }
+    }
+    if (!best && Math.random() < 0.15) best = this.portals.find((p) => Math.hypot(p.x - u.x, p.z - u.z) < 9) ?? null;
+    return best ? { x: best.x, z: best.z } : null;
   }
 
   /** whoever steps into a portal comes out of its twin (and can't go straight back through) */
@@ -3495,7 +4002,9 @@ export class ActionMode {
       u.x = out.x + Math.cos(toward) * 0.9;
       u.z = out.z + Math.sin(toward) * 0.9;
       u.vx = u.vz = 0;
-      this.portalCool.set(u, MEGA.portalCool);
+      // (a CPU forgets where it was headed, and rests a while before it takes another)
+      this.portalCool.set(u, u.cpu ? MEGA.cpuPortalRest : MEGA.portalCool);
+      if (u.cpu) u.goal = null;
       this.burstAt(p.x, p.z, p.color);
       this.burstAt(out.x, out.z, out.color);
       if (u === this.me) {
@@ -3649,7 +4158,7 @@ export class ActionMode {
       if (r.kind === 'boss') {
         this.callout('BOSS DOWN');
         if (this.stage >= DSTAGES.length || this.story) setTimeout(() => this.finish(true, 1), 1000);
-        else setTimeout(() => !this.over && this.showPanel('stage'), 1000);
+        else setTimeout(() => !this.over && this.openStairs(r), 900);
         return;
       }
       this.callout(r.kind === 'key' ? 'ROOM CLEAR · TAKE THE KEY' : 'ROOM CLEAR · CHECKPOINT');
@@ -4209,10 +4718,12 @@ export class ActionMode {
       if (!best && this.kind === 'gauntlet' && this.me?.alive) u.goal = { x: this.me.x, z: this.me.z };
       else if (this.kind === 'siege') u.goal = this.siegeGoal(u, best);
       else if (this.teams) u.goal = this.teamGoal(u, best);
-      else if (!best && (!u.goal || Math.hypot(u.goal.x - u.x, u.goal.z - u.z) < 0.8 || Math.random() < 0.02)) u.goal = this.wanderGoal(u);
+      else if (!best && this.portals.length && (u.goal = this.portalGoal(u) ?? u.goal) && this.portals.some((p) => p.x === u.goal!.x && p.z === u.goal!.z)) {
+        // (Mega Brawl: on its way through a portal, a shortcut toward the fight)
+      } else if (!best && (!u.goal || Math.hypot(u.goal.x - u.x, u.goal.z - u.z) < 0.8 || Math.random() < 0.02)) u.goal = this.wanderGoal(u);
       // where it's headed, if a wall is in the way: the way round
       const to = best ?? u.goal;
-      u.step = to && !this.clearLine(u.x, u.z, to.x, to.z) ? this.route(u, to.x, to.z) : null;
+      u.step = to && !this.walkLine(u.x, u.z, to.x, to.z) ? this.route(u, to.x, to.z) : null;
     }
     let dx = 0;
     let dz = 0;
@@ -4235,8 +4746,8 @@ export class ActionMode {
       const d = Math.hypot(ox, oz) || 1;
       const los = this.clearLine(u.x, u.z, tgt.x, tgt.z);
       const want = low ? range * 1.2 : range * (u.marble === 'heavy' ? 0.55 : 0.68);
-      if (!los && u.step) {
-        // round the wall toward it
+      if ((!los || (this.elev && !this.walkLine(u.x, u.z, tgt.x, tgt.z))) && u.step) {
+        // round the wall toward it (or round to the stairs)
         const sx = u.step.x - u.x;
         const sz = u.step.z - u.z;
         const sd = Math.hypot(sx, sz) || 1;
@@ -4414,7 +4925,7 @@ export class ActionMode {
         const nj = j + dj;
         if (ni < 0 || nj < 0 || ni >= W || nj >= H) continue;
         const nk = nj * W + ni;
-        if (prev[nk] >= 0 || (nk !== t && this.blocksMove(this.grid[nk]))) continue;
+        if (prev[nk] >= 0 || (nk !== t && this.blocksMove(this.grid[nk])) || !this.stepOK(k, nk, di, dj)) continue;
         prev[nk] = k;
         q.push(nk);
       }
@@ -4515,14 +5026,15 @@ export class ActionMode {
       u.shadow.visible = !hidden && !(inv && foe);
       u.bar.classList.toggle('gone', hidden || (inv && foe));
       u.mesh.setGhost(inv ? (foe ? INVISIBLE.foeAlpha + Math.sin(this.time * 9 + u.x * 3) * INVISIBLE.shimmer : INVISIBLE.ownAlpha) : 1);
-      u.wrap.position.set(u.x, 0, u.z);
+      const fy = this.elev ? this.heightAt(u.x, u.z) : 0;
+      u.wrap.position.set(u.x, fy, u.z);
       // turn smoothly toward where it faces
       const cur = u.wrap.rotation.y;
       const want = -u.face;
       let d = want - cur;
       d = Math.atan2(Math.sin(d), Math.cos(d));
       u.wrap.rotation.y = cur + d * Math.min(1, dt * 14);
-      u.shadow.position.set(u.x, 0.02, u.z);
+      u.shadow.position.set(u.x, fy + 0.02, u.z);
       const p = u.pose;
       // the main game's gait, from how it walks against the way it faces: ahead (or back) is a
       // march (the pose's y going up), across is the side-step shuffle (the pose's x speed)
@@ -4543,20 +5055,28 @@ export class ActionMode {
       u.mesh.root.position.z += p.y;
     }
     // your own bush goes see-through while you're in it
-    this.bushMat.opacity = me?.alive && this.inBush(me) ? 0.55 : 1;
-    // portals: the ring turns, the swirl spins the other way, the floor glow breathes
+    // (standing in cover, it goes see-through so you can see yourself)
+    const inCover = !!me?.alive && this.inBush(me);
+    for (const c of this.coverMats) c.m.opacity = c.o * (inCover ? 0.55 : 1);
+    // portals: the vortex turns, its heart the other way, the runes slowly round, sparks rising off it
     for (const p of this.portals) {
-      const [ring, swirl, glow] = p.root.children as THREE.Mesh[];
-      ring.rotation.y += dt * 1.6;
-      swirl.rotation.z -= dt * 3;
-      (glow.material as THREE.MeshBasicMaterial).opacity = 0.45 + Math.sin(this.time * 3 + p.x) * 0.15;
+      p.vortex.rotation.y -= dt * 2.4;
+      p.inner.rotation.y += dt * 3.6;
+      p.sigil.rotation.y += dt * 0.4;
+      (p.sigil.material as THREE.MeshBasicMaterial).opacity = 0.55 + Math.sin(this.time * 3 + p.x) * 0.15;
+      if (me && Math.abs(p.x - me.x) < 12 && Math.abs(p.z - me.z) < 12 && Math.random() < dt * 6) this.burst(p.x + (Math.random() - 0.5) * 0.8, 0.3, p.z + (Math.random() - 0.5) * 0.8, p.color, 1, 1.2, { float: true, size: 0.06 });
     }
     // the marbles
     let n = 0;
     for (const s of this.shots) {
       if (n >= 300) break;
       // (a diving ball arcs high and comes down on its spot)
-      const y = s.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - s.left / s.dive))) * 3.2 : 0.55;
+      // (on a dungeon with raised floors, a marble keeps the height it was fired from, easing to the floor under it)
+      if (this.elev) {
+        const under = this.heightAt(s.x, s.z);
+        s.lift = s.lift === undefined ? Math.max(under, this.heightAt(s.owner.x, s.owner.z)) : s.lift + (Math.max(under, s.lift - 0.4) - s.lift) * Math.min(1, dt * 3);
+      }
+      const y = (s.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - s.left / s.dive))) * 3.2 : 0.55) + (s.lift ?? 0);
       this.dummy.position.set(s.x, y, s.z);
       this.dummy.scale.setScalar(s.r);
       this.dummy.rotation.set(0, 0, 0);
@@ -4572,7 +5092,7 @@ export class ActionMode {
       if (!s.spirit || h >= 60) continue;
       // (a trail of sparks behind it)
       if (Math.random() < 0.7) this.burst(s.x, 0.55, s.z, s.color.getHex(), 1, 0.3, { trail: true, size: s.r * 0.5 });
-      const y = s.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - s.left / s.dive))) * 3.2 : 0.55;
+      const y = (s.dive !== undefined ? 0.55 + Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - s.left / s.dive))) * 3.2 : 0.55) + (s.lift ?? 0);
       this.dummy.position.set(s.x, y, s.z);
       this.dummy.scale.setScalar(s.r * (2.1 + Math.sin(this.time * 20 + h) * 0.2));
       this.dummy.updateMatrix();
@@ -4692,7 +5212,7 @@ export class ActionMode {
     const h = this.canvas.clientHeight;
     for (const u of this.units) {
       if (!u.alive) continue;
-      this.v.set(u.x, (u.giant ? 3.4 : u.boss ? 2.4 : 1.75) - (behind(this.view) ? 0.35 : 0), u.z).project(this.camera);
+      this.v.set(u.x, (u.giant ? 3.4 : u.boss ? 2.4 : 1.75) - (behind(this.view) ? 0.35 : 0) + (this.elev ? this.heightAt(u.x, u.z) : 0), u.z).project(this.camera);
       u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
       (u.bar.querySelector('b') as HTMLElement).style.width = `${(u.hp / u.max) * 100}%`;
       // (health is a share everywhere: the bars, the hits, the top of the duel)
@@ -5197,9 +5717,79 @@ export class ActionMode {
   }
 
   /** Dungeon Run: down to the next stage, a new dungeon (you keep your gear, upgrades, lives and most of your health) */
+  /**
+   * the boss is down: a stairway opens in the middle of its room, going down to the next level.
+   * Walk onto it to go down (your gear, upgrades and lives come with you, and some health back)
+   */
+  private openStairs(r: DRoom) {
+    // (the floor tile nearest the room's middle)
+    const ci = (r.i0 + r.i1) >> 1;
+    const cj = (r.j0 + r.j1) >> 1;
+    let best = { i: ci, j: cj };
+    let bd = Infinity;
+    for (let j = r.j0 + 1; j < r.j1; j++)
+      for (let i = r.i0 + 1; i < r.i1; i++) {
+        if (this.grid[this.idx(i, j)] !== FLOOR) continue;
+        const d = (i - ci) ** 2 + (j - cj) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = { i, j };
+        }
+      }
+    const p = this.center(best.i, best.j);
+    const lamp = this.dstage().lamp;
+    const root = new THREE.Group();
+    root.position.set(p.x, 0, p.z);
+    // the opening: dark, its steps going down into it, a glowing rim round it
+    const pit = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x050407 }));
+    pit.position.y = 0.012;
+    root.add(pit);
+    for (let s = 0; s < 4; s++) {
+      const w = 1.4 - s * 0.28;
+      const step = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.26).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x6a6058).multiplyScalar(1 - s * 0.22) }));
+      step.position.set(0, 0.014, -0.55 + s * 0.3);
+      step.scale.x = w / 1.4;
+      root.add(step);
+    }
+    const rimMat = new THREE.MeshBasicMaterial({ color: lamp });
+    for (const [x, z, w, d] of [[0, -0.78, 1.66, 0.08], [0, 0.78, 1.66, 0.08], [-0.78, 0, 0.08, 1.66], [0.78, 0, 0.08, 1.66]] as const) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, d), rimMat);
+      bar.position.set(x, 0.03, z);
+      root.add(bar);
+    }
+    // a sign over it: the level below
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 64;
+    const g = c.getContext('2d')!;
+    g.font = '900 40px sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#' + new THREE.Color(lamp).getHexString();
+    g.fillText(`▼ B${this.stage + 1}`, 64, 34);
+    const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+    sign.scale.set(1.2, 0.6, 1);
+    sign.position.y = 1.5;
+    sign.name = 'sign';
+    root.add(sign);
+    this.world.add(root);
+    this.stairsDown = { x: p.x, z: p.z, root };
+    this.callout(`STAIRS DOWN · LEVEL B${this.stage + 1}`);
+    sfx.play('gong', 0.7);
+  }
+  /** standing on the stairs down: down you go */
+  private tickStairs() {
+    const st = this.stairsDown;
+    if (!st || !this.me?.alive || this.fading) return;
+    const sign = st.root.getObjectByName('sign');
+    if (sign) sign.position.y = 1.5 + Math.sin(this.time * 3) * 0.08;
+    if (Math.abs(this.me.x - st.x) < 0.6 && Math.abs(this.me.z - st.z) < 0.6) this.descend();
+  }
+
   private descend() {
     this.showPanel(null);
     this.fadeThrough(() => {
+      this.stairsDown = null;
       this.stage++;
       this.stageRooms = this.room - 1;
       this.startStage();
@@ -5289,7 +5879,8 @@ export class ActionMode {
 
   /**
    * who your next shot is going to: while you aim by hand, the enemy nearest the line you're
-   * aiming along; otherwise the one a tap would fire at. Only in shooting range.
+   * aiming along; otherwise the one a tap would fire at. Only one in shooting range with nothing
+   * (a wall, a crate) in the way.
    */
   private shotTarget(): Unit | null {
     const me = this.me!;
@@ -5301,7 +5892,7 @@ export class ActionMode {
       for (const u of this.units) {
         if (!this.hostile(me, u) || !this.targetable(me, u)) continue;
         const d = Math.hypot(u.x - me.x, u.z - me.z);
-        if (d > me.range + 1) continue;
+        if (d > me.range || !this.clearLine(me.x, me.z, u.x, u.z)) continue;
         let off = Math.atan2(u.x - me.x, -(u.z - me.z)) - ang;
         off = Math.abs(Math.atan2(Math.sin(off), Math.cos(off)));
         if (off < bs) {
@@ -5311,8 +5902,8 @@ export class ActionMode {
       }
       return best;
     }
-    const { u, d } = this.nearestEnemy();
-    return u && d <= me.range + 1 ? u : null;
+    const { u } = this.nearestEnemy();
+    return u && Math.hypot(u.x - me.x, u.z - me.z) <= me.range && this.clearLine(me.x, me.z, u.x, u.z) ? u : null;
   }
 
   private autoAim(): number {

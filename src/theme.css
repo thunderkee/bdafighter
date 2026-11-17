@@ -9341,3 +9341,33 @@ html.land #action .ac-say {
   opacity: 0;
   transition: opacity 0.2s;
 }
+
+/* Dungeon Run: the level you're on, under the map */
+#action .ac-level {
+  display: none;
+  position: absolute;
+  top: calc(max(8px, env(safe-area-inset-top)) + 44px + 104px);
+  right: 12px;
+  width: 84px;
+  margin: 0;
+  padding: 3px 0;
+  border-radius: 8px;
+  background: rgba(8, 6, 12, 0.62);
+  border: 1px solid rgba(255, 220, 160, 0.22);
+  color: #ffe3b0;
+  font: 800 10px/1.2 var(--font-ui, system-ui, sans-serif);
+  letter-spacing: 0.04em;
+  text-align: center;
+  pointer-events: none;
+}
+#action .ac-level.on {
+  display: block;
+}
+#action.talking > .ac-level {
+  display: none;
+}
+html.land #action .ac-level {
+  top: calc(max(8px, env(safe-area-inset-top)) + 40px + 98px);
+  right: calc(12px + var(--sar, 0px));
+  width: 80px;
+}
