@@ -1065,7 +1065,39 @@ export const pixelStyle = () => pixelOn;
  * - an accent light in a front face's corner (mirrored on the body's left side, so pairs match)
  * A painted face (over a picture) takes only the light and the bevel.
  */
-function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = false, mirror = false, accent = '#3ff0d0', sym = false, dist: Uint8Array | null = null) {
+/**
+ * A face that isn't its whole rectangle (a wedge, a trapezoid): whether a point (in texels) is on
+ * it, and how far it is in from its nearest edge, with that edge's inward direction.
+ */
+interface FaceShape {
+  inside(x: number, y: number): boolean;
+  near(x: number, y: number): { d: number; nx: number; ny: number };
+  /** the same, measured on the fine grid (see FINE), for drawing the lines */
+  field: { on: Uint8Array; dist: Float32Array; nxs: Float32Array; nys: Float32Array; W2: number; H2: number };
+}
+/** sub-texels a texel on a block with a slanted face (its lines are drawn at this grain) */
+const FINE = 4;
+
+/** a CSS colour as [r, g, b, a] (0-255, alpha 0-1) */
+const rgbaCache = new Map<string, [number, number, number, number]>();
+let rgbaCtx: CanvasRenderingContext2D | null = null;
+function rgbaOf(col: string): [number, number, number, number] {
+  let v = rgbaCache.get(col);
+  if (v) return v;
+  rgbaCtx ??= document.createElement('canvas').getContext('2d')!;
+  rgbaCtx.fillStyle = '#000';
+  rgbaCtx.fillStyle = col;
+  const f = rgbaCtx.fillStyle as string;
+  if (f.startsWith('#')) v = [parseInt(f.slice(1, 3), 16), parseInt(f.slice(3, 5), 16), parseInt(f.slice(5, 7), 16), 1];
+  else {
+    const n = f.match(/[\d.]+/g)!.map(Number);
+    v = [n[0], n[1], n[2], n[3] ?? 1];
+  }
+  rgbaCache.set(col, v);
+  return v;
+}
+
+function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = false, mirror = false, accent = '#3ff0d0', sym = false, shape: FaceShape | null = null, ss = 1, ox = 0) {
   const b = hex(base);
   const L = lum(base);
   // (a dark part needs a lift to show its shape; a light one needs less). Over a painted picture
@@ -1084,7 +1116,36 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
    */
   const D = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return 0;
-    return dist ? dist[y * w + x] : Math.min(x + 1, y + 1, w - x, h - y);
+    if (!shape) return Math.min(x + 1, y + 1, w - x, h - y);
+    const cx = x + 0.5;
+    const cy = y + 0.5;
+    return shape.inside(cx, cy) ? Math.floor(shape.near(cx, cy).d + 0.5) + 1 : 0;
+  };
+  /**
+   * A slanted face's lines are drawn on the finer grid (ss sub-texels a texel), from each point's
+   * true distance to the face's edges, so they run straight along a slant instead of stepping.
+   * `paint` picks a colour from that distance and the nearest edge's inward direction (or none).
+   */
+  const fine = (paint: (d: number, nx: number, ny: number) => string | null) => {
+    if (!shape) return;
+    const { on, dist, nxs, nys, W2, H2 } = shape.field;
+    void ss;
+    const img = g.getImageData(ox, 0, W2, H2);
+    const px = img.data;
+    for (let j = 0; j < H2; j++)
+      for (let i = 0; i < W2; i++) {
+        const f = j * W2 + i;
+        if (!on[f]) continue;
+        const col = paint(dist[f], nxs[f], nys[f]);
+        if (!col) continue;
+        const [r, gg, bb, a] = rgbaOf(col);
+        const k = (j * W2 + i) * 4;
+        px[k] = px[k] * (1 - a) + r * a;
+        px[k + 1] = px[k + 1] * (1 - a) + gg * a;
+        px[k + 2] = px[k + 2] * (1 - a) + bb * a;
+        px[k + 3] = 255;
+      }
+    g.putImageData(img, ox, 0);
   };
   /** a mark: drawn only where it's this far inside the face, so nothing is cut off by a slanted edge */
   const mark = (x: number, y: number, ww: number, hh: number, col: string, minD = 2) => {
@@ -1120,6 +1181,10 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
       bottom: down(side === 'top' ? 0.18 : 0.34),
       right: down(side === 'top' ? 0.12 : 0.24),
     };
+    if (shape) {
+      // (along the face's own edges: lit where the outside is up or left, shaded down or right)
+      return fine((d, nx, ny) => (d >= 1 ? null : ny < -0.5 ? cols.bottom : nx < -0.5 ? cols.right : ny > 0.5 ? cols.top : cols.left));
+    }
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
         if (D(x, y) !== 1) continue;
@@ -1160,6 +1225,16 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
   const inset = (m: number) => {
     const dark = down(0.36);
     const lit = up(0.18);
+    if (shape) {
+      // the dark line m texels in all round; its lit edge below or right of it (inside it along a
+      // top or left edge, outside it along a bottom or right one)
+      return fine((d, nx, ny) => {
+        if (d >= m && d < m + 1) return dark;
+        const topLeft = ny > 0.5 || nx > 0.5;
+        if (topLeft ? d >= m + 1 && d < m + 2 : d >= m - 1 && d < m && d >= 1) return lit;
+        return null;
+      });
+    }
     const ring = (x: number, y: number) => D(x, y) === m + 1;
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
@@ -1315,90 +1390,146 @@ export function paintPixel(
     if (sd === 'top') return [1 - span(qx, bb.min.x, bb.max.x), span(qz, bb.min.z, bb.max.z)];
     return [1 - span(qx, bb.min.x, bb.max.x), 1 - span(qz, bb.min.z, bb.max.z)];
   };
-  // each face's real shape in its rectangle: its triangles filled in texels, then every texel's
-  // distance in from that outline (so a wedge's lines run along its slant, not the rectangle's)
-  const dists: Partial<Record<Side, Uint8Array>> = {};
+  // each face's real shape in its rectangle (in texels): its triangles, and its outline (the
+  // triangle edges no other triangle shares). A face that fills its rectangle needs none of it
+  const shapes: Partial<Record<Side, FaceShape>> = {};
+  const outlines: string[] = [];
   {
-    const masks: Partial<Record<Side, Uint8Array>> = {};
-    for (const sd of Object.keys(rects) as Side[]) masks[sd] = new Uint8Array(rects[sd]!.w * rects[sd]!.h);
+    const tris: Partial<Record<Side, number[][]>> = {};
     const index = geo.index;
-    const tris = index ? index.count / 3 : pos.count / 3;
+    const n = index ? index.count / 3 : pos.count / 3;
     const vi = (t: number, k: number) => (index ? index.getX(t * 3 + k) : t * 3 + k);
-    for (let t = 0; t < tris; t++) {
+    for (let t = 0; t < n; t++) {
       const ids = [vi(t, 0), vi(t, 1), vi(t, 2)];
       const sd = sideOf(ids[0]);
       const r = rects[sd]!;
-      const mk = masks[sd]!;
-      const P = ids.map((i) => {
+      const P = ids.flatMap((i) => {
         const [u, v] = faceUV(i, sd);
         return [u * r.w, (1 - v) * r.h];
       });
-      const [ax, ay] = P[0];
-      const [bx, by] = P[1];
-      const [cx2, cy2] = P[2];
-      const area = (bx - ax) * (cy2 - ay) - (by - ay) * (cx2 - ax);
-      const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx2)));
-      const x1 = Math.min(r.w - 1, Math.ceil(Math.max(ax, bx, cx2)));
-      const y0 = Math.max(0, Math.floor(Math.min(ay, by, cy2)));
-      const y1 = Math.min(r.h - 1, Math.ceil(Math.max(ay, by, cy2)));
-      if (Math.abs(area) < 1e-9) continue;
-      for (let yy = y0; yy <= y1; yy++)
-        for (let xx = x0; xx <= x1; xx++) {
-          // (a texel counts when its centre is in the triangle, with a little give at the edges)
-          const px = xx + 0.5;
-          const py = yy + 0.5;
-          // (each edge's signed distance in texels; a third of a texel's give)
-          const sg = Math.sign(area);
-          const w0 = (((bx - px) * (cy2 - py) - (by - py) * (cx2 - px)) * sg) / (Math.hypot(cx2 - bx, cy2 - by) || 1);
-          const w1 = (((cx2 - px) * (ay - py) - (cy2 - py) * (ax - px)) * sg) / (Math.hypot(ax - cx2, ay - cy2) || 1);
-          const w2 = (((ax - px) * (by - py) - (ay - py) * (bx - px)) * sg) / (Math.hypot(bx - ax, by - ay) || 1);
-          if (w0 >= -0.35 && w1 >= -0.35 && w2 >= -0.35) mk[yy * r.w + xx] = 1;
-        }
+      const area = (P[2] - P[0]) * (P[5] - P[1]) - (P[3] - P[1]) * (P[4] - P[0]);
+      if (Math.abs(area) > 1e-6) (tris[sd] ??= []).push(P);
     }
     for (const sd of Object.keys(rects) as Side[]) {
+      const T = tris[sd];
       const { w, h } = rects[sd]!;
-      const mk = masks[sd]!;
-      // (a face too thin to cover any texel's centre: the whole rectangle, as before)
-      if (!mk.some((v) => v)) mk.fill(1);
-      // chessboard distance in from the outline (outside the rectangle counts as outside)
-      const d = new Uint8Array(w * h);
-      const BIG = 255;
-      for (let i = 0; i < w * h; i++) d[i] = mk[i] ? BIG : 0;
-      const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : d[y * w + x]);
-      for (let y = 0; y < h; y++)
-        for (let x = 0; x < w; x++) {
-          const i = y * w + x;
-          if (!d[i]) continue;
-          d[i] = Math.min(d[i], at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + 1, at(x + 1, y - 1) + 1);
+      if (!T?.length) continue;
+      const q = (v: number) => Math.round(v * 100) / 100;
+      const count = new Map<string, { e: number[]; n: number }>();
+      for (const P of T)
+        for (let k = 0; k < 3; k++) {
+          const a = [q(P[k * 2]), q(P[k * 2 + 1])];
+          const b = [q(P[((k + 1) % 3) * 2]), q(P[((k + 1) % 3) * 2 + 1])];
+          const key = a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]) ? `${a}|${b}` : `${b}|${a}`;
+          const c = count.get(key);
+          if (c) c.n++;
+          else count.set(key, { e: [a[0], a[1], b[0], b[1]], n: 1 });
         }
-      for (let y = h - 1; y >= 0; y--)
-        for (let x = w - 1; x >= 0; x--) {
-          const i = y * w + x;
-          if (!d[i]) continue;
-          d[i] = Math.min(d[i], at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + 1, at(x - 1, y + 1) + 1);
+      const edges = [...count.values()].filter((c) => c.n === 1).map((c) => c.e);
+      // (an outline lying along the rectangle's own sides: the face is the whole rectangle)
+      const onRect = (x: number, y: number) => Math.abs(x) < 0.05 || Math.abs(y) < 0.05 || Math.abs(x - w) < 0.05 || Math.abs(y - h) < 0.05;
+      const onSide = (e: number[]) => (Math.abs(e[0] - e[2]) < 0.05 && (Math.abs(e[0]) < 0.05 || Math.abs(e[0] - w) < 0.05)) || (Math.abs(e[1] - e[3]) < 0.05 && (Math.abs(e[1]) < 0.05 || Math.abs(e[1] - h) < 0.05));
+      if (edges.every((e) => onSide(e) && onRect(e[0], e[1]) && onRect(e[2], e[3]))) continue;
+      // (too small to show a slant, or a rounded part's many-sided outline: left as a rectangle)
+      if (Math.min(w, h) < 4 || edges.length > 10) continue;
+      // the face measured once on the fine grid (FINE sub-texels a texel): which points are on it,
+      // and each one's distance in from the nearest edge with that edge's inward direction
+      const measure = () => {
+      const F = FINE;
+      const W2 = w * F;
+      const H2 = h * F;
+      const on = new Uint8Array(W2 * H2);
+      for (const P of T) {
+        const x0 = Math.max(0, Math.floor(Math.min(P[0], P[2], P[4]) * F));
+        const x1 = Math.min(W2 - 1, Math.ceil(Math.max(P[0], P[2], P[4]) * F));
+        const y0 = Math.max(0, Math.floor(Math.min(P[1], P[3], P[5]) * F));
+        const y1 = Math.min(H2 - 1, Math.ceil(Math.max(P[1], P[3], P[5]) * F));
+        for (let j = y0; j <= y1; j++)
+          for (let i = x0; i <= x1; i++) {
+            if (on[j * W2 + i]) continue;
+            const x = (i + 0.5) / F;
+            const y = (j + 0.5) / F;
+            const s0 = (P[2] - P[0]) * (y - P[1]) - (P[3] - P[1]) * (x - P[0]);
+            const s1 = (P[4] - P[2]) * (y - P[3]) - (P[5] - P[3]) * (x - P[2]);
+            const s2 = (P[0] - P[4]) * (y - P[5]) - (P[1] - P[5]) * (x - P[4]);
+            if ((s0 >= -1e-6 && s1 >= -1e-6 && s2 >= -1e-6) || (s0 <= 1e-6 && s1 <= 1e-6 && s2 <= 1e-6)) on[j * W2 + i] = 1;
+          }
+      }
+      const dist = new Float32Array(W2 * H2);
+      const nxs = new Float32Array(W2 * H2);
+      const nys = new Float32Array(W2 * H2);
+      const E = edges.map(([ax, ay, bx, by]) => {
+        const dx = bx - ax;
+        const dy = by - ay;
+        const L2 = dx * dx + dy * dy || 1;
+        const L = Math.sqrt(L2);
+        return { ax, ay, dx, dy, L2, ux: -dy / L, uy: dx / L };
+      });
+      for (let j = 0; j < H2; j++)
+        for (let i = 0; i < W2; i++) {
+          const k = j * W2 + i;
+          if (!on[k]) continue;
+          const x = (i + 0.5) / F;
+          const y = (j + 0.5) / F;
+          let best = Infinity;
+          let bx = 0;
+          let by = 0;
+          for (const e of E) {
+            const t = Math.max(0, Math.min(1, ((x - e.ax) * e.dx + (y - e.ay) * e.dy) / e.L2));
+            const ddx = x - (e.ax + t * e.dx);
+            const ddy = y - (e.ay + t * e.dy);
+            const d2 = ddx * ddx + ddy * ddy;
+            if (d2 < best) {
+              best = d2;
+              // (the edge's normal, turned toward the point: inward)
+              const sgn = e.ux * (x - e.ax) + e.uy * (y - e.ay) < 0 ? -1 : 1;
+              bx = e.ux * sgn;
+              by = e.uy * sgn;
+            }
+          }
+          dist[k] = Math.sqrt(best);
+          nxs[k] = bx;
+          nys[k] = by;
         }
-      dists[sd] = d;
+      return { on, dist, nxs, nys, W2, H2 };
+      };
+      // (measured only if this block's texture has to be painted: a cached one never needs it)
+      let fld: ReturnType<typeof measure> | null = null;
+      const field = () => (fld ??= measure());
+      const at = (x: number, y: number) => {
+        const f = field();
+        return Math.min(f.H2 - 1, Math.max(0, Math.floor(y * FINE))) * f.W2 + Math.min(f.W2 - 1, Math.max(0, Math.floor(x * FINE)));
+      };
+      shapes[sd] = {
+        inside: (x, y) => x >= 0 && y >= 0 && x < w && y < h && !!field().on[at(x, y)],
+        near: (x, y) => {
+          const k = at(x, y);
+          const f = field();
+          return { d: f.dist[k], nx: f.nxs[k], ny: f.nys[k] };
+        },
+        get field() {
+          return field();
+        },
+      };
+      outlines.push(`${sd}:${edges.map((e) => e.join(',')).join(';')}`);
     }
   }
-  // (the shape is part of what a texture looks like: two blocks share one only when they match)
-  const shapeKey = (Object.keys(dists) as Side[]).map((sd) => {
-    const d = dists[sd]!;
-    let hv = 0;
-    for (let i = 0; i < d.length; i++) hv = (hv * 31 + (d[i] === 1 ? 1 : d[i] ? 2 : 0) + i) | 0;
-    return hv.toString(36);
-  }).join(',');
+  // (a block with a slanted face gets a finer texture, so its lines can run straight)
+  const SS = outlines.length ? FINE : 1;
+  const shapeKey = outlines.join('/');
   const key = `${base}|${eye}|${mirror ? 1 : 0}${centred ? 'c' : ''}|${sheet?.key ?? ''}|${JSON.stringify(rects)}|${shapeKey}`;
   let t = pixelCache.get(key);
   if (!t) {
     const c = document.createElement('canvas');
-    c.width = W;
-    c.height = H;
-    const g = c.getContext('2d')!;
+    c.width = W * SS;
+    c.height = H * SS;
+    const g = c.getContext('2d', { willReadFrequently: SS > 1 })!;
     g.fillStyle = hex(base);
-    g.fillRect(0, 0, W, H);
+    g.fillRect(0, 0, W * SS, H * SS);
     for (const sd of Object.keys(rects) as Side[]) {
       const r = rects[sd]!;
       g.save();
+      g.scale(SS, SS);
       g.translate(r.x, 0);
       // a painted face: its own patch of the picture, shrunk to the texels (then shaded over)
       const pic = sheet?.rects[sd];
@@ -1410,7 +1541,7 @@ export function paintPixel(
       // (a side face's marks start from its front edge on either side; the others follow the body)
       const flip = sd === 'xpos' ? true : sd === 'xneg' ? false : mirror;
       const sym = centred && sd !== 'xpos' && sd !== 'xneg';
-      pixelFace(g, r.w, r.h, base, sd, !!pic, flip, hex(eye), sym, dists[sd] ?? null);
+      pixelFace(g, r.w, r.h, base, sd, !!pic, flip, hex(eye), sym, shapes[sd] ?? null, SS, r.x * SS);
       g.restore();
     }
     t = new THREE.CanvasTexture(c);
