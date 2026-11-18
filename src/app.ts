@@ -2112,6 +2112,7 @@ export function boot() {
     view.showAimLine = st.aimLine;
     view.fxOn = st.effects;
     view.setQuality(st.realism, !!st.batterySaver);
+    Preview.saver = !!st.batterySaver;
     CEL.on = st.cel !== false;
     $('fps').classList.toggle('hidden', !st.showFps);
     // (local versus keeps its overhead view for the whole match)

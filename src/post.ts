@@ -175,6 +175,7 @@ export class InkOnly {
   private composer: EffectComposer;
   private w = 0;
   private h = 0;
+  private pr = 0;
   constructor(
     private renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
@@ -188,9 +189,11 @@ export class InkOnly {
   }
   render() {
     const s = this.renderer.getSize(new THREE.Vector2());
-    if (s.x !== this.w || s.y !== this.h) {
+    const pr = this.renderer.getPixelRatio();
+    if (s.x !== this.w || s.y !== this.h || pr !== this.pr) {
       this.w = s.x;
       this.h = s.y;
+      this.pr = pr;
       this.composer.setPixelRatio(this.renderer.getPixelRatio());
       this.composer.setSize(s.x, s.y);
     }

@@ -1051,6 +1051,22 @@ export function sheetUV(geo: THREE.BufferGeometry, tex: string, path: string, pl
 /** texels per world unit: chunky on purpose */
 const TPU = 52;
 const pixelCache = new Map<string, THREE.Texture>();
+
+/**
+ * Work put off until the page is idle: the slanted faces' fine lines. A few at a time, a short
+ * break between, so building fighters (opening the roster, flipping through it) never stalls.
+ */
+const queue: (() => void)[] = [];
+let pumping = 0;
+function later(job: () => void) {
+  queue.push(job);
+  pumping ||= window.setTimeout(pump, 250);
+}
+function pump() {
+  const t0 = performance.now();
+  while (queue.length && performance.now() - t0 < 6) queue.shift()!();
+  pumping = queue.length ? window.setTimeout(pump, 40) : 0;
+}
 /** the pixel style is on for models built from now on */
 let pixelOn = false;
 export const setPixelStyle = (on: boolean) => {
@@ -1072,7 +1088,7 @@ export const pixelStyle = () => pixelOn;
 interface FaceShape {
   inside(x: number, y: number): boolean;
   near(x: number, y: number): { d: number; nx: number; ny: number };
-  /** the same, measured on the fine grid (see FINE), for drawing the lines */
+  /** the same, measured on the fine grid (see FINE), for drawing the lines (only near the edges) */
   field: { on: Uint8Array; dist: Float32Array; nxs: Float32Array; nys: Float32Array; W2: number; H2: number };
 }
 /** sub-texels a texel on a block with a slanted face (its lines are drawn at this grain) */
@@ -1129,7 +1145,6 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
   const fine = (paint: (d: number, nx: number, ny: number) => string | null) => {
     if (!shape) return;
     const { on, dist, nxs, nys, W2, H2 } = shape.field;
-    void ss;
     const img = g.getImageData(ox, 0, W2, H2);
     const px = img.data;
     for (let j = 0; j < H2; j++)
@@ -1181,7 +1196,7 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
       bottom: down(side === 'top' ? 0.18 : 0.34),
       right: down(side === 'top' ? 0.12 : 0.24),
     };
-    if (shape) {
+    if (shape && ss > 1) {
       // (along the face's own edges: lit where the outside is up or left, shaded down or right)
       return fine((d, nx, ny) => (d >= 1 ? null : ny < -0.5 ? cols.bottom : nx < -0.5 ? cols.right : ny > 0.5 ? cols.top : cols.left));
     }
@@ -1225,7 +1240,7 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
   const inset = (m: number) => {
     const dark = down(0.36);
     const lit = up(0.18);
-    if (shape) {
+    if (shape && ss > 1) {
       // the dark line m texels in all round; its lit edge below or right of it (inside it along a
       // top or left edge, outside it along a bottom or right one)
       return fine((d, nx, ny) => {
@@ -1329,6 +1344,27 @@ function pixelFace(g: G, w: number, h: number, base: number, side: Side, over = 
  * `pixel`: hand-pixels every face of the block at its real size (chunky texels, nearest filtering)
  * and sets the block's texture coordinates. Returns its texture (the block's colour is baked in).
  */
+/**
+ * A block met before (the same shape, placed the same, in the same colours: every rebuild of a
+ * fighter) skips straight to its texture and texture coordinates, by a quick hash of its vertices.
+ */
+const blockCache = new Map<string, { t: THREE.Texture; uv: Float32Array }>();
+function hashOf(...arrays: ArrayLike<number>[]) {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  for (const a of arrays) {
+    const words = a instanceof Float32Array || a instanceof Uint32Array ? new Uint32Array(a.buffer, a.byteOffset, a.length) : null;
+    const n = a.length;
+    for (let i = 0; i < n; i++) {
+      const v = words ? words[i] : Math.round((a[i] as number) * 1e6) | 0;
+      h1 = Math.imul(h1 ^ v, 0x01000193);
+      h2 = Math.imul(h2 ^ v, 0x5bd1e995) ^ (h2 >>> 15);
+    }
+    h1 = Math.imul(h1 ^ n, 0x01000193);
+  }
+  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
+}
+
 export function paintPixel(
   geo: THREE.BufferGeometry,
   base: number,
@@ -1340,6 +1376,16 @@ export function paintPixel(
   const src = geo.attributes.position;
   const srcN = geo.attributes.normal;
   if (!src || !srcN) return null;
+  const idx = geo.index?.array;
+  const quick =
+    src.array instanceof Float32Array && srcN.array instanceof Float32Array
+      ? `${base}|${eye}|${sheet?.key ?? ''}|${hashOf(src.array, srcN.array, idx ? Uint32Array.from(idx) : [], place.elements)}`
+      : null;
+  const known = quick ? blockCache.get(quick) : undefined;
+  if (known) {
+    geo.setAttribute('uv', new THREE.BufferAttribute(known.uv, 2));
+    return known.t;
+  }
   const m = place.clone().setPosition(0, 0, 0);
   const pos = src.clone().applyMatrix4(m);
   // where the block sits across the body: on the centre line its faces are symmetrical; on the
@@ -1432,124 +1478,140 @@ export function paintPixel(
       if (edges.every((e) => onSide(e) && onRect(e[0], e[1]) && onRect(e[2], e[3]))) continue;
       // (too small to show a slant, or a rounded part's many-sided outline: left as a rectangle)
       if (Math.min(w, h) < 4 || edges.length > 10) continue;
-      // the face measured once on the fine grid (FINE sub-texels a texel): which points are on it,
-      // and each one's distance in from the nearest edge with that edge's inward direction
-      const measure = () => {
-      const F = FINE;
-      const W2 = w * F;
-      const H2 = h * F;
-      const on = new Uint8Array(W2 * H2);
-      for (const P of T) {
-        const x0 = Math.max(0, Math.floor(Math.min(P[0], P[2], P[4]) * F));
-        const x1 = Math.min(W2 - 1, Math.ceil(Math.max(P[0], P[2], P[4]) * F));
-        const y0 = Math.max(0, Math.floor(Math.min(P[1], P[3], P[5]) * F));
-        const y1 = Math.min(H2 - 1, Math.ceil(Math.max(P[1], P[3], P[5]) * F));
-        for (let j = y0; j <= y1; j++)
-          for (let i = x0; i <= x1; i++) {
-            if (on[j * W2 + i]) continue;
-            const x = (i + 0.5) / F;
+      // the face measured on a grid (F points a texel): which points are on it, and each one's
+      // distance in from the nearest edge with that edge's inward direction. Only distances up to
+      // `cap` matter (the bevel and the inset plate's line are the deepest anything looks), so each
+      // edge only measures the band of points near it, and the rest are just "deep inside"
+      const cap = Math.max(3, Math.round(Math.min(w, h) * 0.2)) + 2;
+      const measure = (F: number) => {
+        const W2 = w * F;
+        const H2 = h * F;
+        const on = new Uint8Array(W2 * H2);
+        for (const P of T) {
+          const x0 = Math.max(0, Math.floor(Math.min(P[0], P[2], P[4]) * F));
+          const x1 = Math.min(W2 - 1, Math.ceil(Math.max(P[0], P[2], P[4]) * F));
+          const y0 = Math.max(0, Math.floor(Math.min(P[1], P[3], P[5]) * F));
+          const y1 = Math.min(H2 - 1, Math.ceil(Math.max(P[1], P[3], P[5]) * F));
+          for (let j = y0; j <= y1; j++)
+            for (let i = x0; i <= x1; i++) {
+              if (on[j * W2 + i]) continue;
+              const x = (i + 0.5) / F;
+              const y = (j + 0.5) / F;
+              const s0 = (P[2] - P[0]) * (y - P[1]) - (P[3] - P[1]) * (x - P[0]);
+              const s1 = (P[4] - P[2]) * (y - P[3]) - (P[5] - P[3]) * (x - P[2]);
+              const s2 = (P[0] - P[4]) * (y - P[5]) - (P[1] - P[5]) * (x - P[4]);
+              if ((s0 >= -1e-6 && s1 >= -1e-6 && s2 >= -1e-6) || (s0 <= 1e-6 && s1 <= 1e-6 && s2 <= 1e-6)) on[j * W2 + i] = 1;
+            }
+        }
+        const far = cap + 1;
+        const d2s = new Float32Array(W2 * H2).fill(far * far);
+        const nxs = new Float32Array(W2 * H2);
+        const nys = new Float32Array(W2 * H2);
+        for (const [ax, ay, bx, by] of edges) {
+          const dx = bx - ax;
+          const dy = by - ay;
+          const L2 = dx * dx + dy * dy || 1;
+          const L = Math.sqrt(L2);
+          const ux = -dy / L;
+          const uy = dx / L;
+          const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - cap) * F));
+          const i1 = Math.min(W2 - 1, Math.ceil((Math.max(ax, bx) + cap) * F));
+          const j0 = Math.max(0, Math.floor((Math.min(ay, by) - cap) * F));
+          const j1 = Math.min(H2 - 1, Math.ceil((Math.max(ay, by) + cap) * F));
+          for (let j = j0; j <= j1; j++) {
             const y = (j + 0.5) / F;
-            const s0 = (P[2] - P[0]) * (y - P[1]) - (P[3] - P[1]) * (x - P[0]);
-            const s1 = (P[4] - P[2]) * (y - P[3]) - (P[5] - P[3]) * (x - P[2]);
-            const s2 = (P[0] - P[4]) * (y - P[5]) - (P[1] - P[5]) * (x - P[4]);
-            if ((s0 >= -1e-6 && s1 >= -1e-6 && s2 >= -1e-6) || (s0 <= 1e-6 && s1 <= 1e-6 && s2 <= 1e-6)) on[j * W2 + i] = 1;
-          }
-      }
-      const dist = new Float32Array(W2 * H2);
-      const nxs = new Float32Array(W2 * H2);
-      const nys = new Float32Array(W2 * H2);
-      const E = edges.map(([ax, ay, bx, by]) => {
-        const dx = bx - ax;
-        const dy = by - ay;
-        const L2 = dx * dx + dy * dy || 1;
-        const L = Math.sqrt(L2);
-        return { ax, ay, dx, dy, L2, ux: -dy / L, uy: dx / L };
-      });
-      for (let j = 0; j < H2; j++)
-        for (let i = 0; i < W2; i++) {
-          const k = j * W2 + i;
-          if (!on[k]) continue;
-          const x = (i + 0.5) / F;
-          const y = (j + 0.5) / F;
-          let best = Infinity;
-          let bx = 0;
-          let by = 0;
-          for (const e of E) {
-            const t = Math.max(0, Math.min(1, ((x - e.ax) * e.dx + (y - e.ay) * e.dy) / e.L2));
-            const ddx = x - (e.ax + t * e.dx);
-            const ddy = y - (e.ay + t * e.dy);
-            const d2 = ddx * ddx + ddy * ddy;
-            if (d2 < best) {
-              best = d2;
-              // (the edge's normal, turned toward the point: inward)
-              const sgn = e.ux * (x - e.ax) + e.uy * (y - e.ay) < 0 ? -1 : 1;
-              bx = e.ux * sgn;
-              by = e.uy * sgn;
+            for (let i = i0; i <= i1; i++) {
+              const k = j * W2 + i;
+              if (!on[k]) continue;
+              const x = (i + 0.5) / F;
+              const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L2));
+              const ddx = x - (ax + t * dx);
+              const ddy = y - (ay + t * dy);
+              const d2 = ddx * ddx + ddy * ddy;
+              if (d2 < d2s[k]) {
+                d2s[k] = d2;
+                // (the edge's normal, turned toward the point: inward)
+                const sgn = ux * (x - ax) + uy * (y - ay) < 0 ? -1 : 1;
+                nxs[k] = ux * sgn;
+                nys[k] = uy * sgn;
+              }
             }
           }
-          dist[k] = Math.sqrt(best);
-          nxs[k] = bx;
-          nys[k] = by;
         }
-      return { on, dist, nxs, nys, W2, H2 };
+        const dist = d2s.map(Math.sqrt);
+        return { on, dist, nxs, nys, W2, H2 };
       };
-      // (measured only if this block's texture has to be painted: a cached one never needs it)
+      // (measured only if this block's texture has to be painted: a cached one never needs it.
+      // The marks are placed on the texel grid; the fine grid is only for the lines, painted later)
+      let coarse: ReturnType<typeof measure> | null = null;
       let fld: ReturnType<typeof measure> | null = null;
-      const field = () => (fld ??= measure());
       const at = (x: number, y: number) => {
-        const f = field();
-        return Math.min(f.H2 - 1, Math.max(0, Math.floor(y * FINE))) * f.W2 + Math.min(f.W2 - 1, Math.max(0, Math.floor(x * FINE)));
+        const f = (coarse ??= measure(1));
+        return Math.min(f.H2 - 1, Math.max(0, Math.floor(y))) * f.W2 + Math.min(f.W2 - 1, Math.max(0, Math.floor(x)));
       };
       shapes[sd] = {
-        inside: (x, y) => x >= 0 && y >= 0 && x < w && y < h && !!field().on[at(x, y)],
+        inside: (x, y) => {
+          if (x < 0 || y < 0 || x >= w || y >= h) return false;
+          const k = at(x, y);
+          return !!coarse!.on[k];
+        },
         near: (x, y) => {
           const k = at(x, y);
-          const f = field();
-          return { d: f.dist[k], nx: f.nxs[k], ny: f.nys[k] };
+          return { d: coarse!.dist[k], nx: coarse!.nxs[k], ny: coarse!.nys[k] };
         },
         get field() {
-          return field();
+          return (fld ??= measure(FINE));
         },
       };
       outlines.push(`${sd}:${edges.map((e) => e.join(',')).join(';')}`);
     }
   }
   // (a block with a slanted face gets a finer texture, so its lines can run straight)
-  const SS = outlines.length ? FINE : 1;
   const shapeKey = outlines.join('/');
   const key = `${base}|${eye}|${mirror ? 1 : 0}${centred ? 'c' : ''}|${sheet?.key ?? ''}|${JSON.stringify(rects)}|${shapeKey}`;
   let t = pixelCache.get(key);
   if (!t) {
-    const c = document.createElement('canvas');
-    c.width = W * SS;
-    c.height = H * SS;
-    const g = c.getContext('2d', { willReadFrequently: SS > 1 })!;
-    g.fillStyle = hex(base);
-    g.fillRect(0, 0, W * SS, H * SS);
-    for (const sd of Object.keys(rects) as Side[]) {
-      const r = rects[sd]!;
-      g.save();
-      g.scale(SS, SS);
-      g.translate(r.x, 0);
-      // a painted face: its own patch of the picture, shrunk to the texels (then shaded over)
-      const pic = sheet?.rects[sd];
-      if (pic) {
-        g.imageSmoothingEnabled = true;
-        g.imageSmoothingQuality = 'high';
-        g.drawImage(sheet!.img, pic[0], pic[1], pic[2], pic[3], 0, 0, r.w, r.h);
+    const draw = (SS: number) => {
+      const c = document.createElement('canvas');
+      c.width = W * SS;
+      c.height = H * SS;
+      const g = c.getContext('2d', { willReadFrequently: SS > 1 })!;
+      g.fillStyle = hex(base);
+      g.fillRect(0, 0, W * SS, H * SS);
+      for (const sd of Object.keys(rects) as Side[]) {
+        const r = rects[sd]!;
+        g.save();
+        g.scale(SS, SS);
+        g.translate(r.x, 0);
+        // a painted face: its own patch of the picture, shrunk to the texels (then shaded over)
+        const pic = sheet?.rects[sd];
+        if (pic) {
+          g.imageSmoothingEnabled = true;
+          g.imageSmoothingQuality = 'high';
+          g.drawImage(sheet!.img, pic[0], pic[1], pic[2], pic[3], 0, 0, r.w, r.h);
+        }
+        // (a side face's marks start from its front edge on either side; the others follow the body)
+        const flip = sd === 'xpos' ? true : sd === 'xneg' ? false : mirror;
+        const sym = centred && sd !== 'xpos' && sd !== 'xneg';
+        pixelFace(g, r.w, r.h, base, sd, !!pic, flip, hex(eye), sym, shapes[sd] ?? null, SS, r.x * SS);
+        g.restore();
       }
-      // (a side face's marks start from its front edge on either side; the others follow the body)
-      const flip = sd === 'xpos' ? true : sd === 'xneg' ? false : mirror;
-      const sym = centred && sd !== 'xpos' && sd !== 'xneg';
-      pixelFace(g, r.w, r.h, base, sd, !!pic, flip, hex(eye), sym, shapes[sd] ?? null, SS, r.x * SS);
-      g.restore();
-    }
-    t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.magFilter = THREE.NearestFilter;
-    t.minFilter = THREE.NearestFilter;
-    t.generateMipmaps = false;
-    pixelCache.set(key, t);
+      return c;
+    };
+    // painted on the texel grid straight away (quick: a fighter appears without a stall); a block
+    // with a slanted face is painted again on the fine grid a moment later, in the background
+    const tex = new THREE.CanvasTexture(draw(1));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    if (outlines.length)
+      later(() => {
+        tex.image = draw(FINE);
+        tex.needsUpdate = true;
+      });
+    pixelCache.set(key, tex);
+    t = tex;
   }
   // texture coordinates: each face across its own rectangle, kept a hair inside it
   const uv = new Float32Array(pos.count * 2);
@@ -1563,5 +1625,6 @@ export function paintPixel(
     uv.set([(r.x + uu * r.w) / W, 1 - (r.h - vv * r.h) / H], i * 2);
   }
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (quick) blockCache.set(quick, { t, uv });
   return t;
 }

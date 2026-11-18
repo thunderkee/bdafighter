@@ -30,6 +30,14 @@ export class Preview {
   cel = false;
   /** the title screen's hero: no plinth, framed big, an attack pose (punches, no marble), always cel shaded */
   hero = false;
+  /** the battery saver: drawn at 1x */
+  static saver = false;
+  /** how sharp to draw: a phone's screen is dense enough at 1.5x (1x on the battery saver) */
+  private static density() {
+    const dpr = window.devicePixelRatio || 1;
+    if (Preview.saver) return 1;
+    return Math.min(matchMedia('(pointer: coarse)').matches ? 1.5 : 2, dpr);
+  }
   /** drag to turn the unit (off where a swipe flips to the next one instead) */
   turnable = true;
   private scene = new THREE.Scene();
@@ -147,7 +155,7 @@ export class Preview {
     // see-through, so the unit's name can sit behind it on the screen
     const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.setClearColor(0x000000, 0);
-    r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    r.setPixelRatio(Preview.density());
     r.toneMapping = THREE.NeutralToneMapping;
     r.toneMappingExposure = 0.92;
     r.shadowMap.enabled = true;
@@ -371,6 +379,10 @@ export class Preview {
     const h = this.host.clientHeight;
     if (!w || !h) return;
     const size = r.getSize(new THREE.Vector2());
+    const dens = Preview.density();
+    if (r.getPixelRatio() !== dens) r.setPixelRatio(dens);
+    // (a fighter on show has nothing under it to catch a shadow: only an arena needs the shadow pass)
+    r.shadowMap.autoUpdate = this.mode === 'stage';
     if (size.x !== w || size.y !== h) {
       r.setSize(w, h, false);
       r.domElement.style.width = '100%';
