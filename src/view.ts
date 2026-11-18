@@ -689,6 +689,17 @@ export class View {
     return (r * this.host.clientHeight) / (2 * Math.tan((this.camera.fov * Math.PI) / 360) * dist);
   }
 
+  /**
+   * the motion tiers, so the big moments stand out: a *micro* beat (every shot, hit and block)
+   * stays local, no screen shake at all; a *moment* (a super, an item, a parry, a break) gives a
+   * light jolt; an *event* (a special landing, a clash, a KO) shakes properly. `weight` scales
+   * within the tier (yours fuller than theirs)
+   */
+  jolt(tier: 'micro' | 'moment' | 'event', weight = 1) {
+    const base = tier === 'micro' ? 0 : tier === 'moment' ? 0.3 : 1;
+    if (base) this.shake(base * weight);
+  }
+
   shake(amount: number) {
     // (the system's reduced-motion setting: a nudge at most, never a hard shake)
     this.trauma = Math.min(reducedMotion() ? 0.2 : 1, this.trauma + amount);
@@ -738,7 +749,7 @@ export class View {
             fx.life = life;
             fx.size = size * Math.sqrt(k);
           }
-          this.shake(1.6 * k);
+          this.jolt('event', 1.6 * k);
           this.fx2d?.ring(sp.x, sp.y, hex(col), k > 0.5);
           if (k > 0.3) this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
           if (k > 0.5) this.fx2d?.flash(f.sk === 'frost' ? [200, 240, 255] : f.sk === 'drain' ? [200, 255, 215] : [255, 236, 170], 0.5 * Math.min(1, k));
@@ -750,7 +761,7 @@ export class View {
           this.burst(f.x, f.y, f.team === 0 ? 0xffd84a : 0xff5a5a, 24, 6, { h: 0.8 });
           const sp = this.project(f.x, f.y, 0.8);
           this.fx2d?.ring(sp.x, sp.y, hex(0xffffff));
-          this.shake(0.3);
+          this.jolt('moment');
           break;
         }
         case 'spirit-clash': {
@@ -758,7 +769,7 @@ export class View {
           // (both, when they cancel)
           this.burst(f.x, f.y, 0xffffff, 80, 14, { h: 0.8 });
           this.burst(f.x, f.y, 0xffd84a, 50, 10, { h: 0.8 });
-          this.shake(f.team === undefined ? 1.3 : 1.8);
+          this.jolt('event', f.team === undefined ? 1.3 : 1.8);
           const sp = this.project(f.x, f.y, 0.6);
           this.fx2d?.flash([255, 255, 255], 0.55);
           this.fx2d?.ring(sp.x, sp.y, hex(0xffffff), true);
@@ -787,28 +798,28 @@ export class View {
             this.burst(f.x, f.y, color, 50, 12);
             this.burst(f.x, f.y, 0xffe066, 30, 9);
             this.burst(f.x, f.y, 0xffffff, 20, 7);
-            this.shake(0.95);
+            // (a moment: a jolt, but no full-screen flash; those are kept for the events)
+            this.jolt('moment', 1.2);
             this.fx2d?.ring(sp.x, sp.y, hex(0xffe066), true);
             this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
-            this.fx2d?.flash(f.team === 0 ? [255, 90, 80] : [255, 245, 200], 0.3);
           } else if (f.power === 'missile') {
             this.burst(f.x, f.y, ITEMS.missile.color, 26, 8, { h: 0.9 });
             this.burst(f.x, f.y, 0xffffff, 10, 5, { h: 0.9 });
-            this.shake(f.team === 0 ? 0.6 : 0.4);
+            this.jolt('moment', f.team === 0 ? 1 : 0.7);
             this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.missile.color), true);
             this.fx2d?.star(sp.x, sp.y, [255, 255, 255]);
           } else if (f.power === 'dragon' || f.power === 'x5') {
             const c = f.power === 'x5' ? GATES.x5.color : ITEMS.dragon.color;
             this.burst(f.x, f.y, c, 30, 9);
             this.burst(f.x, f.y, 0xffe066, 14, 6);
-            this.shake(0.6);
+            this.jolt('moment');
             this.fx2d?.ring(sp.x, sp.y, hex(c), true);
             this.fx2d?.star(sp.x, sp.y, hex(0xffe066));
           } else {
             this.burst(f.x, f.y, color, 14, 6);
             this.burst(f.x, f.y, 0xffffff, 6, 4);
-            // both sides shake: harder when you're the one hit
-            this.shake(f.team === 0 ? 0.45 : 0.3);
+            // (an ordinary hit is a micro beat: the burst and the ring where it lands, no shake)
+            this.jolt('micro');
             this.fx2d?.ring(sp.x, sp.y, hex(f.team === 0 ? 0xff5a4f : 0xfff2b0));
             this.fx2d?.star(sp.x, sp.y, [255, 255, 255]);
           }
@@ -832,17 +843,17 @@ export class View {
           this.fx2d?.ring(sp.x, sp.y, [106, 240, 255], true);
           this.fx2d?.star(sp.x, sp.y, [255, 255, 255], true);
           this.shieldFlash[f.slot] = 1.5;
-          this.shake(f.slot === 0 ? 0.35 : 0.25);
+          this.jolt('moment', f.slot === 0 ? 1 : 0.6);
           break;
         }
         case 'muzzle':
-          if (f.slot === 0) this.shake(0.015);
+          this.jolt('micro');
           // the opening volley of a multi-shot run is a special move too
           this.shotFlash(f.slot, g.shooters[f.slot].heavyT < 0.02);
           break;
         case 'super-fire': {
           const s = g.shooters[f.slot];
-          this.shake(f.slot === 0 ? 0.35 : 0.15);
+          this.jolt('moment', f.slot === 0 ? 1 : 0.5);
           this.shotFlash(f.slot, true);
           const sp = this.project(s.x, s.y, 1);
           this.fx2d?.ring(sp.x, sp.y, hex(0xffe066));
@@ -867,7 +878,7 @@ export class View {
         }
         case 'missile-launch': {
           const s = g.shooters[f.slot];
-          this.shake(f.slot === 0 ? 0.25 : 0.1);
+          this.jolt('moment', f.slot === 0 ? 0.8 : 0.3);
           // a robot launching a missile (gate conversions start mid-table)
           if (s.heavyT < 0.05) this.shotFlash(f.slot, true);
           const sp = this.project(s.x, s.y, 1);
@@ -880,7 +891,7 @@ export class View {
           this.burst(f.x, f.y, 0xffffff, 10, 5, { h: 0.9 });
           this.fx2d?.ring(sp.x, sp.y, hex(ITEMS.missile.color), true);
           this.fx2d?.star(sp.x, sp.y, [255, 255, 255]);
-          this.shake(0.25);
+          this.jolt('moment', 0.8);
           break;
         }
         case 'drop-destroyed': {
@@ -892,7 +903,7 @@ export class View {
           this.burst(f.x, f.y, 0x8a90a8, 14, 5, { h });
           this.fx2d?.ring(sp.x, sp.y, hex(c), true);
           this.fx2d?.star(sp.x, sp.y, hex(c));
-          this.shake(0.2);
+          this.jolt('moment', 0.7);
           break;
         }
         case 'block': {
@@ -901,7 +912,7 @@ export class View {
           const sp = this.project(f.x, f.y, 0.8);
           this.fx2d?.ring(sp.x, sp.y, hex(c), f.heavy);
           this.burst(f.x, f.y, c, f.heavy ? 18 : 6, 4, { h: 0.8 });
-          this.shake(f.slot === 0 ? (f.heavy ? 0.3 : 0.08) : 0.05);
+          this.jolt(f.slot === 0 && f.heavy ? 'moment' : 'micro');
           break;
         }
         case 'shield-break': {
@@ -912,7 +923,7 @@ export class View {
           this.burst(s.x, s.y + s.forward * 0.9, 0xffffff, 16, 6, { h: 1 });
           this.fx2d?.ring(sp.x, sp.y, hex(c), true);
           this.fx2d?.star(sp.x, sp.y, hex(c), true);
-          this.shake(f.slot === 0 ? 0.55 : 0.2);
+          this.jolt('moment', f.slot === 0 ? 1.3 : 0.6);
           break;
         }
         case 'eliminated':
@@ -939,7 +950,7 @@ export class View {
           this.burst(f.x, f.y, 0xd8dde8, 30, 7, { h: 0.4 });
           this.burst(f.x, f.y, 0xffd27a, 12, 5, { h: 0.4 });
           this.fx2d?.ring(sp.x, sp.y, [220, 225, 235], true);
-          this.shake(0.2);
+          this.jolt('moment', 0.7);
           break;
         }
         case 'clack': {
@@ -953,7 +964,7 @@ export class View {
           this.fx2d?.ring(sp.x, sp.y, hex(c));
           this.fx2d?.star(sp.x, sp.y, hex(c));
           this.burst(f.x, f.y, c, 14, 5, { h: 0.6 });
-          this.shake(0.12);
+          this.jolt('micro');
           break;
         }
         case 'gate-break': {

@@ -1534,7 +1534,7 @@ export class ActionMode {
       case 'ko': {
         const u = at(0);
         if (at(1) === this.me && u !== this.me) this.kos++;
-        if (u === this.me) this.callout(this.kind === 'ffa' ? `KNOCKED OUT · #${n[2]} · WATCHING` : 'KNOCKED OUT · YOUR SIDE FIGHTS ON', 1);
+        if (u === this.me) this.callout(this.kind === 'ffa' ? `KNOCKED OUT · #${n[2]} · WATCHING` : 'KNOCKED OUT · YOUR SIDE FIGHTS ON', 1, 3);
         return;
       }
       case 'gain': {
@@ -1549,7 +1549,7 @@ export class ActionMode {
       }
       case 'round': {
         const w = this.flipZ && (n[0] === 0 || n[0] === 1) ? 1 - n[0] : n[0];
-        this.callout(w === 0 ? `ROUND ${n[1]} TO YOUR SIDE` : w === 1 ? `ROUND ${n[1]} TO THEIRS` : `ROUND ${n[1]} · A DRAW`, w === 1 ? 1 : 0);
+        this.callout(w === 0 ? `ROUND ${n[1]} TO YOUR SIDE` : w === 1 ? `ROUND ${n[1]} TO THEIRS` : `ROUND ${n[1]} · A DRAW`, w === 1 ? 1 : 0, 3);
         return;
       }
       case 'kend':
@@ -1591,7 +1591,7 @@ export class ActionMode {
     this.over = true;
     this.shots = [];
     const place = places[this.net.me] ?? 1;
-    this.callout(place === 1 ? 'LAST ONE STANDING!' : `#${place} · THE BRAWL IS OVER`, place === 1 ? 0 : 1);
+    this.callout(place === 1 ? 'LAST ONE STANDING!' : `#${place} · THE BRAWL IS OVER`, place === 1 ? 0 : 1, 3);
     setTimeout(() => {
       if (!this.running) return;
       sfx.play(place === 1 ? 'win' : 'lose');
@@ -2409,7 +2409,7 @@ export class ActionMode {
     if (from.alive) from.charge = Math.min(1, from.charge + 0.04);
     sfx.play('wall', from === this.me ? 0.45 : 0.2);
     if (f.hp <= 0) {
-      this.shake = 0.6;
+      this.jolt('event');
       sfx.play('explode', 1);
       f.root.scale.set(1, 0.35, 1);
       f.turret.visible = false;
@@ -3294,7 +3294,7 @@ export class ActionMode {
     u.pose.recoil = 1;
     u.reveal = 1.2;
     u.idle = 0;
-    if (u === this.me) this.shake = Math.max(this.shake, 0.12 + n * 0.05);
+    if (u === this.me) this.jolt('moment', 0.4 + n * 0.17);
     // the blast: a burst at the muzzle and a ring along the ground, both as big as the charge
     this.burst(this.mz.x, this.mz.y, this.mz.z, 0xffffff, 6 + n * 4, 2 + n * 0.8);
     this.burst(this.mz.x, this.mz.y, this.mz.z, u.def.ball, 4 + n * 3, 2 + n * 0.6);
@@ -3395,7 +3395,7 @@ export class ActionMode {
     for (const q of u.queue) q.t += u.spLen;
     u.reveal = 2;
     if (u === this.me) {
-      this.shake = 0.45;
+      this.jolt('event', 0.75);
       this.opts.vibrate?.([20, 30, 40]);
       // the moment: a flash, a beat of slow motion, the move's name big across the screen
       this.flash();
@@ -3422,7 +3422,7 @@ export class ActionMode {
     sfx.play('super');
     const name = MOVE_NAMES[baseOf(u.def)] ?? 'SPECIAL';
     if (u === this.me) this.superCallout(name);
-    else this.callout(`${u.def.name.toUpperCase()} · ${name}`, 1);
+    else this.callout(`${u.def.name.toUpperCase()} · ${name}`, 1, 1);
   }
 
   /** who a special locks on to: the nearest enemy in sight (one in a clear line first) */
@@ -3539,7 +3539,7 @@ export class ActionMode {
     if (this.net && this.kind === 'ffa' && this.unitNid.has(u)) {
       place = this.units.filter((x) => x.alive).length + 1;
       this.places.set(this.unitNid.get(u)!, place);
-      if (u === this.me) this.callout(`KNOCKED OUT · #${place} · WATCHING`, 1);
+      if (u === this.me) this.callout(`KNOCKED OUT · #${place} · WATCHING`, 1, 3);
     }
     this.ev('ko', this.units.indexOf(u), from ? this.units.indexOf(from) : -1, place);
     if (this.teams) {
@@ -3547,7 +3547,7 @@ export class ActionMode {
       const back = this.kind === 'siege' || this.kind === 'zone' || (this.kind === 'boss' && u.team === 0);
       if (back) {
         u.back = RESPAWN;
-      } else if (u === this.me) this.callout('KNOCKED OUT · YOUR SIDE FIGHTS ON', 1);
+      } else if (u === this.me) this.callout('KNOCKED OUT · YOUR SIDE FIGHTS ON', 1, 3);
       if (u === this.giant) this.finishSiege(1);
       this.updateHud();
       return;
@@ -3559,7 +3559,7 @@ export class ActionMode {
     // Dungeon Run: a life gone, and back at the checkpoint (the last one ends the run)
     if (u === this.me && this.kind === 'gauntlet' && this.lives > 1) {
       this.lives--;
-      this.callout(`DOWN · ${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`, 1);
+      this.callout(`DOWN · ${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`, 1, 3);
       // (a countdown first: RESPAWN IN 3, 2, 1)
       this.meBack = 3;
       this.updateHud();
@@ -3685,6 +3685,15 @@ export class ActionMode {
 
   /** the hit-stop still to run */
   private stopT = 0;
+  /**
+   * the motion tiers, as in the duel: a *micro* beat (a shot, a hit, a marble stored) stays where
+   * it happens, no screen shake; a *moment* (a charged volley, a special landing near you, a
+   * trap) is a light jolt; an *event* (your special, a knockout, a fortress falling) shakes
+   */
+  private jolt(tier: 'micro' | 'moment' | 'event', weight = 1) {
+    const base = tier === 'micro' ? 0 : tier === 'moment' ? 0.3 : 0.6;
+    if (base) this.shake = Math.max(this.shake, base * weight);
+  }
   /** the marks of this fight, and what hangs in the air */
   private scars = new Scars(80);
   private motes: Motes | null = null;
@@ -3913,7 +3922,7 @@ export class ActionMode {
             u.idle = 0;
             // (each marble stored sends a ring out round its feet)
             this.ringFx(u.x, u.z, 0xffd23e, 0.3, 0.8 + u.stored * 0.18, 0.4);
-            if (u === this.me) this.shake = Math.max(this.shake, 0.04 + u.stored * 0.015);
+            // (each marble stored: a micro beat, the ring alone)
             this.sfxAt('tick', u.x, u.z, (0.6 + u.stored * 0.12) * (u === this.me ? 1 : 0.4), u === this.me);
           }
           if (!human && u.stored > 0 && (u.stored >= u.chargeWant || u.ammo < 1)) letGo = true;
@@ -4013,12 +4022,12 @@ export class ActionMode {
     this.burst(u.x, 0.6, u.z, 0xffffff, 14, 5);
     this.burst(u.x, 0.6, u.z, s.color.getHex(), 12, 4);
     this.ringFx(u.x, u.z, s.color.getHex(), 0.2, 1.8, 0.4);
-    if (this.me && Math.hypot(u.x - this.me.x, u.z - this.me.z) < 8) this.shake = Math.max(this.shake, 0.25);
+    if (this.me && Math.hypot(u.x - this.me.x, u.z - this.me.z) < 8) this.jolt('moment', 0.85);
     if (s.effect === 'drain' && s.owner.alive) s.owner.hp = Math.min(s.owner.max, s.owner.hp + s.dmg * 0.75);
     if (s.effect === 'frost') u.slowT = 3;
     if (s.effect === 'quake') {
       u.stunT = 1;
-      this.shake = Math.max(this.shake, 0.25);
+      this.jolt('moment', 0.85);
       for (const o of this.units) if (o !== u && this.hostile(s.owner, o) && o.evadeT <= 0 && Math.hypot(o.x - u.x, o.z - u.z) < 1.6) this.hurt(o, s.dmg * 0.5, s.owner, true);
     }
     this.sfxAt('superhit', u.x, u.z, 0.7, s.owner === this.me || u === this.me);
@@ -4070,7 +4079,7 @@ export class ActionMode {
           if (s.left <= 0) {
             for (const u of this.units) if (this.hostile(s.owner, u) && Math.hypot(u.x - s.x, u.z - s.z) < 1.4) this.ballHits(s, u);
             for (const f of this.forts) if (f.team !== s.owner.team && Math.abs(s.x - f.x) < 2.2 && Math.abs(s.z - f.z) < 1.8) this.hurtFort(f, s.dmg, s.owner);
-            this.shake = Math.max(this.shake, 0.3);
+            this.jolt('moment');
             this.sfxAt('slam', s.x, s.z, 0.8, s.owner === this.me);
             this.impactFx(s.x, s.z, true);
             dead = true;
@@ -4406,7 +4415,7 @@ export class ActionMode {
         const oz = (Math.random() - 0.5) * 0.6;
         this.burst(u.x + ox, 0.4 + Math.random() * 0.5, u.z + oz, 0xffd27a, 12, 3 * big);
         this.burst(u.x + ox, 0.6, u.z + oz, color, 6, 2.5 * big);
-        if (u === this.me) this.shake = Math.max(this.shake, 0.2);
+        // (a hit taken is a micro beat: the sparks, the flash on the fighter and the number, no shake)
         w.pops++;
       }
       // (shaking as it goes)
@@ -4433,7 +4442,7 @@ export class ActionMode {
           this.burst(u.x, 0.5, u.z, 0xffffff, 22, 6 * big);
           this.burst(u.x, 0.5, u.z, 0xff8a2a, 26, 5 * big);
           this.burst(u.x, 0.6, u.z, color, 14, 4.5 * big);
-          if (near) this.shake = Math.max(this.shake, u === this.me || u.boss ? 0.7 : 0.35);
+          if (near) this.jolt('event', u === this.me || u.boss ? 1.15 : 0.6);
         }
       }
       // tumbling pieces with gravity, floor bounces and smoke; after a while they sink away
@@ -4701,7 +4710,7 @@ export class ActionMode {
       if (u === this.me) {
         this.camSnap = true;
         sfx.play('whoosh');
-        this.callout('PORTAL');
+        this.callout('PORTAL', 0, 1);
       } else if (this.me && Math.hypot(this.me.x - out.x, this.me.z - out.z) < 10) sfx.play('whoosh', 0.4);
     }
   }
@@ -4753,7 +4762,7 @@ export class ActionMode {
     const [s0, s1] = this.mega ? [MEGA.stormStart, MEGA.stormEnd] : [STORM_START, STORM_END];
     const t = Math.max(0, Math.min(1, (this.time - s0) / (s1 - s0)));
     this.storm = half - t * (half - 3);
-    if (this.time > s0 && this.time - dt <= s0) this.callout('THE STORM IS CLOSING IN');
+    if (this.time > s0 && this.time - dt <= s0) this.callout('THE STORM IS CLOSING IN', 0, 3);
     for (const u of this.units) {
       if (!u.alive) continue;
       if (Math.abs(u.x) > this.storm || Math.abs(u.z) > this.storm) {
@@ -4797,11 +4806,11 @@ export class ActionMode {
     g.power *= 1.25;
     g.fireInt /= 1.25;
     g.speed *= 1.15;
-    this.shake = Math.max(this.shake, 0.5);
+    this.jolt('event', 0.85);
     this.ringFx(g.x, g.z, 0xff3a3a, 0.5, 6, 0.7);
     this.pillarFx(g.x, g.z, 0xff3a3a, 1.4);
     sfx.play('gong');
-    this.callout(phase === 1 ? 'THE BOSS IS ENRAGED!' : 'THE BOSS GOES BERSERK!', 1);
+    this.callout(phase === 1 ? 'THE BOSS IS ENRAGED!' : 'THE BOSS GOES BERSERK!', 1, 3);
     this.pickFoes(2).forEach((d, k) => {
       const u = this.makeUnit(d, g.x + (k ? 1.6 : -1.6), g.z + 1, true, 1, { hp: 0.6, dmg: 0.8 });
       u.aimError = 0.14;
@@ -4855,7 +4864,7 @@ export class ActionMode {
         this.finishSiege(this.kWins[0] >= 2 ? 1 : -1);
         return;
       }
-      this.callout(winner === 0 ? `ROUND ${this.kRound} TO YOUR SIDE` : winner === 1 ? `ROUND ${this.kRound} TO THEIRS` : `ROUND ${this.kRound} · A DRAW`, winner === 1 ? 1 : 0);
+      this.callout(winner === 0 ? `ROUND ${this.kRound} TO YOUR SIDE` : winner === 1 ? `ROUND ${this.kRound} TO THEIRS` : `ROUND ${this.kRound} · A DRAW`, winner === 1 ? 1 : 0, 3);
       this.kBreak = 1.8;
       setTimeout(() => this.nextRound(), 1800);
       return;
@@ -4899,7 +4908,7 @@ export class ActionMode {
       this.room++;
       sfx.play('win', 0.6);
       if (r.kind === 'boss') {
-        this.callout('BOSS DOWN');
+        this.callout('BOSS DOWN', 0, 3);
         if (this.stage >= DSTAGES.length || this.story) setTimeout(() => this.finish(true, 1), 1000);
         else setTimeout(() => !this.over && this.openStairs(r), 900);
         return;
@@ -5318,7 +5327,7 @@ export class ActionMode {
     u.pose.flash = 1;
     if (push) this.walk(u, push.x, push.z);
     if (u === this.me) {
-      this.shake = Math.max(this.shake, 0.25);
+      this.jolt('moment', 0.85);
       this.opts.vibrate?.(30);
     }
   }
@@ -6127,7 +6136,12 @@ export class ActionMode {
     sfx.play('tick', 0.8);
   }
   private calloutTimer = 0;
-  private callout(text: string, tone = 0) {
+  /** one callout at a time: a lesser one (another fighter's special) never knocks a bigger one (a knockout, a round won) off before it's read (pri: 1 information, 2 normal, 3 a turning point) */
+  private callPri = { at: 0, pri: 0 };
+  private callout(text: string, tone = 0, pri = 2) {
+    const now = performance.now();
+    if (now - this.callPri.at < 1200 && pri < this.callPri.pri) return;
+    this.callPri = { at: now, pri };
     const el = this.hud.callout;
     el.textContent = text;
     el.classList.toggle('foe', tone === 1);
@@ -6334,7 +6348,7 @@ export class ActionMode {
       boss: ['THE BOSS IS DOWN!', 'TIME · THE BOSS STANDS'],
     };
     const say = SAY[this.kind] ?? SAY.siege;
-    this.callout(result > 0 ? say[0] : result < 0 ? say[1] : 'TIME · A DRAW', result < 0 ? 1 : 0);
+    this.callout(result > 0 ? say[0] : result < 0 ? say[1] : 'TIME · A DRAW', result < 0 ? 1 : 0, 3);
     this.over = true;
     this.shots = [];
   }

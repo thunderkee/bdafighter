@@ -528,7 +528,15 @@ export function boot() {
     setTimeout(() => el.remove(), 900);
   };
   /** a short callout under the clock (FIRST HIT, COMBO, LAST STAND, PARRY...) */
-  const callout = (text: string, tone: 'gold' | 'red' | 'cyan' = 'gold') => {
+  /**
+   * one callout at a time, in its own band: a lesser one doesn't knock a bigger one off before it's
+   * been read (pri: 1 information, 2 your own move, 3 a highlight)
+   */
+  let lastCall = { at: 0, pri: 0 };
+  const callout = (text: string, tone: 'gold' | 'red' | 'cyan' = 'gold', pri = 2) => {
+    const now = performance.now();
+    if (now - lastCall.at < 900 && pri < lastCall.pri) return;
+    lastCall = { at: now, pri };
     calloutEl.textContent = text;
     calloutEl.className = tone;
     void calloutEl.offsetWidth;
@@ -1896,7 +1904,7 @@ export function boot() {
         strikeT = STRIKE.time;
         game.releaseSpecial();
         sfx.play('super');
-        view.shake(0.7);
+        view.jolt('event', 0.7);
         if (S().vibrate) buzz(90);
       }
       return;
@@ -1914,7 +1922,7 @@ export function boot() {
           if (k === 1) cards[0].classList.add('out');
           if (k === 2) cards[0].classList.replace('out', 'vs');
           sfx.play(k === 2 ? 'slam' : 'whoosh');
-          if (k === 2) view.shake(0.4);
+          if (k === 2) view.jolt('moment', 1.3);
         }
       });
       if (flowT > (arrival ? 3.5 : 4.8)) endIntro();
@@ -3603,7 +3611,7 @@ export function boot() {
             sfxEl.classList.add('hidden');
             game.releaseSpecial();
             sfx.play('super');
-            view.shake(0.4);
+            view.jolt('moment');
           }
         }
         if (strikeT > 0) {
@@ -3653,7 +3661,7 @@ export function boot() {
         if (f.type === 'box-broken') {
           showToast(f.team === 0 ? 'YOUR AMMO BOX IS BROKEN!' : 'ENEMY AMMO BOX BROKEN!', f.team === 0 ? 0xff3e5e : 0xffc23d);
           sfx.play('slam');
-          view.shake(0.3);
+          view.jolt('moment');
         }
         if (f.type === 'grab' && f.slot === 0) {
           sfx.play('reload');
@@ -3663,7 +3671,7 @@ export function boot() {
         if (f.type === 'spirit-clash' && f.team !== undefined && f.at && !duo) {
           const pct = Math.max(1, Math.round((f.left ?? 0) * 100));
           floatText(f.at[0], f.at[1] + 0.8, `${pct}% LEFT`, f.team === 0 ? 'clash' : 'clash foe');
-          callout(f.team === 0 ? 'OVERPOWERED!' : 'OVERPOWERED BY THEM!', f.team === 0 ? 'gold' : 'red');
+          callout(f.team === 0 ? 'OVERPOWERED!' : 'OVERPOWERED BY THEM!', f.team === 0 ? 'gold' : 'red', 3);
           if (S().vibrate) buzz([30, 40, 50]);
         } else if (f.type === 'spirit-clash' && !duo) callout('CLASH! EVEN', 'cyan');
         if (f.type === 'spirit-ready' && f.slot === 0) {
@@ -3684,14 +3692,14 @@ export function boot() {
           if (banks > 0 && f.team === 1) {
             if (banks === 1) floatText(f.x, f.y + 0.6, 'BANK', 'bank');
             else {
-              callout(banks >= 3 ? 'IMPOSSIBLE SHOT!' : 'TRICK SHOT!', 'gold');
+              callout(banks >= 3 ? 'IMPOSSIBLE SHOT!' : 'TRICK SHOT!', 'gold', 3);
               sfx.play('super', 0.5);
               if (S().vibrate) buzz([20, 30, 30]);
             }
           }
           if (!roundFeel.firstHit) {
             roundFeel.firstHit = true;
-            callout('FIRST HIT', f.team === 0 ? 'red' : 'gold');
+            callout('FIRST HIT', f.team === 0 ? 'red' : 'gold', 1);
           }
           if (f.team === 1) {
             roundFeel.combo = game.time - roundFeel.lastHit < COMBO_GAP ? roundFeel.combo + 1 : 1;
@@ -3702,7 +3710,7 @@ export function boot() {
               void comboEl.offsetWidth;
               comboEl.classList.add('on', 'bump');
             }
-            if (roundFeel.combo === 5 || roundFeel.combo === 10) callout(roundFeel.combo === 10 ? 'UNSTOPPABLE!' : 'COMBO!', 'gold');
+            if (roundFeel.combo === 5 || roundFeel.combo === 10) callout(roundFeel.combo === 10 ? 'UNSTOPPABLE!' : 'COMBO!', 'gold', 3);
           } else {
             // taking a hit breaks your string
             roundFeel.combo = 0;
@@ -3732,18 +3740,19 @@ export function boot() {
           if (S().vibrate) buzz(10);
         }
         if (f.type === 'rage') {
-          if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'RAGE!' : 'ALLY RAGE', 'red');
-          else callout('ENEMY RAGE', 'red');
+          // (an ally's own beats are theirs: no callout for them, only for you and the threats to you)
+          if (f.slot === 0) callout('RAGE!', 'red');
+          else if (slotTeam(f.slot) === 1) callout('ENEMY RAGE', 'red');
           if (f.slot === 0 && S().vibrate) buzz([30, 30, 60]);
         }
         if (f.type === 'evade') {
-          if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'EVADE!' : 'ALLY EVADED', 'cyan');
-          else callout('EVADED', 'red');
+          if (f.slot === 0) callout('EVADE!', 'cyan');
+          else if (slotTeam(f.slot) === 1) callout('EVADED', 'red', 1);
           if (f.slot === 0 && S().vibrate) buzz([10, 20, 10]);
         }
         if (f.type === 'parry') {
-          if (slotTeam(f.slot) === 0) callout(f.slot === 0 ? 'PARRY!' : 'ALLY PARRY', 'cyan');
-          else callout('PARRIED', 'red');
+          if (f.slot === 0) callout('PARRY!', 'cyan');
+          else if (slotTeam(f.slot) === 1) callout('PARRIED', 'red', 1);
           if (f.slot === 0 && S().vibrate) buzz([15, 25, 40]);
         }
         if (f.type === 'pickup') {
@@ -3922,7 +3931,7 @@ export function boot() {
       for (const t of [0, 1] as const) roundFeel.low[t] = Math.min(roundFeel.low[t], game.teamFrac(t));
       if (!roundFeel.lastStand && game.teamFrac(0) < 0.2 && game.teamFrac(0) > 0) {
         roundFeel.lastStand = true;
-        callout('LAST STAND', 'red');
+        callout('LAST STAND', 'red', 3);
       }
     }
     clock.textContent = Number.isFinite(game.clock) ? Math.ceil(game.clock).toString() : '∞';
