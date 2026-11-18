@@ -25,7 +25,8 @@
   --lcd-ink: #a9e6a2;
   --lcd-dim: #557d57;
   --cyan: var(--orange);
-  --player: var(--orange);
+  /* you are blue, they are coral: cool against warm, apart at a glance and for colour-blind eyes */
+  --player: #3a9bff;
   --enemy: var(--coral);
   --good: #7fd67a;
   --display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
@@ -56,17 +57,10 @@ body {
   position: relative;
   min-width: 0;
   padding: 13px 22px;
-  border: 1px solid var(--case-edge);
-  border-radius: 12px;
-  background: linear-gradient(180deg, var(--case-hi), var(--case));
-  color: var(--ink);
   font: 700 14px var(--display);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  text-decoration: none;
   cursor: pointer;
-  clip-path: none;
-  box-shadow: var(--key-shadow);
   transition:
     transform 0.06s,
     box-shadow 0.06s;
@@ -79,8 +73,6 @@ body {
 }
 .key.orange {
   border-color: var(--orange-lo);
-  background: linear-gradient(180deg, #f6946a, var(--orange));
-  color: var(--ink);
   box-shadow: 0 1px 0 #ffc2a6 inset, 0 -2px 0 #d9653a inset, 0 3px 0 #a9471f, 0 5px 8px rgba(60, 24, 8, 0.3);
 }
 .key.orange:active {
@@ -114,61 +106,36 @@ body {
   gap: 14px;
   padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
   color: var(--ink);
-  background:
-    radial-gradient(120% 70% at 50% 0%, var(--case-hi), var(--case) 60%, var(--case-lo));
-}
-.screen.device {
-  box-shadow: inset 0 0 0 1px var(--case-edge), inset 0 2px 0 #fff, inset 0 -4px 12px rgba(80, 64, 40, 0.12);
 }
 #loading {
-  background: var(--char);
-  color: var(--lcd-ink);
-  font-family: var(--body);
+  /* (the menus' cobalt ground and chunky outlined type, from the first frame) */
+  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.06) 0 4px, transparent 5px) 0 0 / 24px 24px, linear-gradient(rgb(58, 108, 240), rgb(31, 69, 192));
+  color: #fff;
+}
+#loading .sys-line {
+  color: #fff;
+  font: 400 18px var(--display);
+  letter-spacing: 0.06em;
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
 }
 .sys-line {
-  font: 700 11px var(--body);
-  letter-spacing: 0.16em;
-  color: var(--muted);
   opacity: 1;
 }
-.screen-title,
-.step-head h2 {
-  margin: 0;
-  font: 700 26px var(--display);
-  letter-spacing: -0.01em;
-  text-transform: lowercase;
-  color: var(--ink);
-}
-.result-title {
-  font: 700 52px var(--display);
-  letter-spacing: -0.03em;
-  color: var(--ink);
-}
 .result-title.win {
-  color: var(--ink);
   text-shadow: none;
 }
 .result-title.lose {
-  color: var(--coral);
   text-shadow: none;
-}
-.record {
-  font: 400 12px var(--body);
-  color: var(--muted);
 }
 
 /* ---------- LCD readouts ---------- */
 .lcd {
-  width: min(380px, 100%);
   padding: 12px 14px;
-  border-radius: 12px;
   background:
     repeating-linear-gradient(0deg, #0f170f 0 1px, var(--lcd) 1px 3px);
-  border: 6px solid var(--char-2);
   outline: 1px solid var(--case-deep);
-  box-shadow: inset 0 0 18px #050805;
   color: var(--lcd-ink);
-  font-family: var(--body);
   text-align: left;
 }
 .lcd-row {
@@ -194,10 +161,6 @@ body {
 }
 
 /* ================= title: the main menu ================= */
-#title {
-  justify-content: space-between;
-  gap: 12px;
-}
 .dev-top {
   width: min(380px, 100%);
   display: flex;
@@ -275,22 +238,10 @@ body {
   color: var(--muted);
 }
 #play-btn {
-  border-color: var(--orange-lo);
   background: linear-gradient(180deg, #f6946a, var(--orange));
-  box-shadow: 0 1px 0 #ffc2a6 inset, 0 -2px 0 #d9653a inset, 0 3px 0 #a9471f, 0 5px 8px rgba(60, 24, 8, 0.3);
-}
-#play-btn em,
-#play-btn small {
-  color: #5a2a14;
 }
 #arcade-btn {
-  border-color: #b98a2a;
   background: linear-gradient(180deg, #f8d27e, var(--amber));
-  box-shadow: 0 1px 0 #fff0c8 inset, 0 -2px 0 #d9a440 inset, 0 3px 0 #a8791e, 0 5px 8px rgba(60, 40, 8, 0.3);
-}
-#arcade-btn em,
-#arcade-btn small {
-  color: #6a4a10;
 }
 .dev-foot {
   width: min(380px, 100%);
@@ -311,9 +262,6 @@ body {
   color: var(--muted);
   text-align: left;
 }
-#mute-btn {
-  position: static;
-}
 
 /* ================= select: steps, preview bay, roster ================= */
 #select,
@@ -325,11 +273,9 @@ body {
   width: min(420px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 10px;
   text-align: left;
 }
 .steps {
-  display: flex;
   gap: 6px;
   margin: 0;
   padding: 4px;
@@ -344,7 +290,6 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 4px;
   border-radius: 99px;
   font: 700 10px var(--body);
   letter-spacing: 0.06em;
@@ -358,7 +303,6 @@ body {
   place-items: center;
   border-radius: 50%;
   font-style: normal;
-  font-size: 9px;
   background: var(--case);
   color: var(--ink-2);
 }
@@ -404,7 +348,6 @@ body {
 }
 /* the unit screen turns by drag: horizontal drags turn it, vertical ones still scroll */
 #preview {
-  touch-action: pan-y;
   cursor: grab;
 }
 #preview.turning {
@@ -441,14 +384,8 @@ body {
   text-transform: lowercase;
 }
 .meters {
-  flex: 1;
-  display: flex;
   flex-direction: column;
   justify-content: space-around;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--case-hi);
-  border: 1px solid var(--case-edge);
 }
 .meter {
   display: flex;
@@ -475,11 +412,6 @@ body {
 .meter b.lit {
   background: linear-gradient(180deg, #f6946a, var(--orange));
   box-shadow: 0 1px 0 #ffc2a6 inset;
-}
-.pv-note {
-  margin: 0;
-  font: 400 11px var(--body);
-  color: var(--muted);
 }
 .ver-tabs {
   width: min(420px, 100%);
@@ -524,12 +456,6 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
-  padding: 6px 6px 8px;
-  border: 1px solid var(--case-edge);
-  border-radius: 12px;
-  background: linear-gradient(180deg, var(--case-hi), var(--case));
-  box-shadow: var(--key-shadow);
   color: var(--ink-2);
   font: 700 9px var(--body);
   text-transform: uppercase;
@@ -545,7 +471,6 @@ body {
   width: 100%;
   aspect-ratio: 120 / 136;
   height: auto;
-  border-radius: 8px;
   background: var(--char-2);
   box-shadow: inset 0 2px 4px #000;
   object-fit: contain;
@@ -565,9 +490,7 @@ body {
   text-align: center;
 }
 .tile.on {
-  border-color: var(--orange-lo);
   color: var(--ink);
-  background: linear-gradient(180deg, #ffd9c6, #f8b393);
 }
 .tile.on img.portrait,
 .tile.on i {
@@ -589,11 +512,8 @@ body {
   }
 }
 .dev-actions {
-  width: min(420px, 100%);
   display: grid;
   grid-template-columns: 1fr 1.6fr;
-  gap: 10px;
-  flex: none;
 }
 
 /* ================= rules + options: dashboard cards ================= */
@@ -604,18 +524,13 @@ body {
   width: min(420px, 100%);
 }
 .panels.rules section {
-  display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
 }
 .panels.rules .setting {
   grid-column: span 1;
 }
 .panels.rules .setting:has(.seg button:nth-child(4)) {
   grid-column: span 2;
-}
-.panels.rules .setting > span {
-  display: none;
 }
 .setting,
 .panel,
@@ -625,85 +540,11 @@ body {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.setting {
-  padding: 12px 12px 12px;
-  border: 1px solid var(--case-edge);
-  border-radius: 16px;
-  background: var(--case-hi);
-  box-shadow: 0 1px 0 #fff inset;
-}
-.setting:nth-child(4n + 2) {
-  background: var(--case-lo);
-}
-.set-head b {
-  font: 700 13px var(--display);
-  letter-spacing: -0.01em;
-  text-transform: lowercase;
-  color: var(--ink);
-}
-.set-head em {
-  font: 400 10px var(--body);
-  color: var(--muted);
-}
-.setting > span {
-  font: 400 11px var(--body);
-  line-height: 1.45;
-  color: var(--ink-2);
-}
 .seg {
   gap: 3px;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--case-deep);
-  box-shadow: inset 0 2px 3px rgba(30, 24, 16, 0.35);
 }
 .seg button {
   padding: 8px 2px;
-  border: 0;
-  border-radius: 7px;
-  background: linear-gradient(180deg, var(--case-hi), var(--case));
-  color: var(--ink-2);
-  font: 700 11px var(--body);
-  letter-spacing: 0;
-  box-shadow: 0 1px 0 #fff inset, 0 2px 0 #7f776a;
-}
-.seg button.on {
-  background: linear-gradient(180deg, #f6946a, var(--orange));
-  color: var(--ink);
-  box-shadow: 0 1px 0 #ffc2a6 inset, 0 1px 0 #a9471f;
-  transform: translateY(1px);
-}
-.seg.level button.lit {
-  background: linear-gradient(180deg, #f8d27e, var(--amber));
-  color: var(--ink);
-  border: 0;
-}
-.seg.level button.on {
-  background: linear-gradient(180deg, #f6946a, var(--orange));
-  color: var(--ink);
-}
-.tabs {
-  gap: 4px;
-  padding: 4px;
-  border-radius: 14px;
-  background: var(--case-lo);
-  box-shadow: var(--recess);
-}
-.tabs button {
-  padding: 9px 0;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--muted);
-  font: 700 10px var(--body);
-  letter-spacing: 0;
-  text-transform: lowercase;
-  clip-path: none;
-}
-.tabs button.on {
-  background: var(--char);
-  color: var(--case-hi);
-  border: 0;
 }
 .lab-link {
   border: 1px solid var(--case-edge);
@@ -714,31 +555,13 @@ body {
 }
 .lab-link small {
   color: var(--case-lo);
-  font-family: var(--body);
-}
-#settings-done {
-  width: min(420px, 100%);
 }
 
 /* ================= result / pause ================= */
-#result .key,
-#paused .key {
-  width: min(300px, 100%);
-}
-.stats {
-  width: min(300px, 100%);
-  gap: 0;
-}
 .stats div {
-  padding: 6px 2px;
   font: 700 18px var(--body);
 }
-.stats span {
-  font: 700 10px var(--body);
-  color: var(--lcd-dim);
-}
 .arcade-next {
-  width: min(300px, 100%);
   margin: 0;
 }
 .arcade-next b {
@@ -761,19 +584,10 @@ body {
 }
 
 /* ================= HUD: opaque hardware over the arena ================= */
-.vs-bar {
-  gap: 8px;
-}
 .side {
-  gap: 5px;
-  padding: 7px;
-  border-radius: 14px;
-  background: var(--case);
   border: 1px solid var(--case-edge);
-  box-shadow: 0 1px 0 #fff inset, 0 3px 0 var(--case-deep), 0 6px 12px rgba(0, 0, 0, 0.35);
 }
 .unit-name {
-  font: 700 10px var(--display);
   letter-spacing: 0;
   color: var(--ink);
   text-shadow: none;
@@ -790,10 +604,8 @@ body {
 }
 .portrait,
 .side.enemy .portrait {
-  border-radius: 9px;
   clip-path: none;
   background: var(--char-2);
-  padding: 2px;
 }
 .portrait canvas {
   border-radius: 7px;
@@ -810,25 +622,16 @@ body {
 }
 .hp,
 .hp.enemy {
-  height: 14px;
-  border-radius: 5px;
   transform: none;
   outline: 0;
-  background: var(--char);
-  box-shadow: inset 0 2px 3px #000;
   overflow: hidden;
-}
-.hp .fill,
-.hp .chip {
-  -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
-  mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
 }
 .hp .chip {
   background: var(--case-hi);
   opacity: 1;
 }
 .hp.player .fill {
-  background: linear-gradient(180deg, #f8a47c, var(--orange));
+  background: linear-gradient(180deg, #9ad2ff, var(--player));
 }
 .hp.enemy .fill {
   background: linear-gradient(180deg, #f6828f, var(--coral));
@@ -854,19 +657,12 @@ body {
 }
 .sp,
 .sp.enemy {
-  height: 5px;
-  margin-top: 0;
-  border-radius: 3px;
   transform: none;
-  background: var(--case-deep);
-  overflow: hidden;
 }
 .sp .fill {
-  background: var(--char-3);
   box-shadow: none;
 }
 .sp.enemy .fill {
-  background: var(--char-3);
   box-shadow: none;
 }
 .super-pips i {
@@ -890,53 +686,27 @@ body {
   }
 }
 .rounds i {
-  border-radius: 50%;
   transform: none;
   border: 0;
-  background: var(--case-lo);
-  box-shadow: var(--recess);
 }
 .rounds i.won {
   background: radial-gradient(circle at 35% 30%, #ffe2a0, var(--amber) 70%);
   box-shadow: none;
 }
 #clock-wrap {
-  width: 58px;
-  height: 44px;
   margin-top: 0;
-  border-radius: 12px;
   clip-path: none;
-  background: var(--char-2);
-  box-shadow: 0 3px 0 #0d0c0a, 0 6px 12px rgba(0, 0, 0, 0.35);
 }
 #clock-wrap::before {
-  inset: 4px;
-  border-radius: 8px;
-  clip-path: none;
   background: repeating-linear-gradient(0deg, #0f170f 0 1px, var(--lcd) 1px 3px);
-}
-#clock {
-  font: 700 22px var(--body);
-  color: var(--lcd-ink);
-  text-shadow: none;
 }
 #clock.low {
   color: var(--amber);
   text-shadow: none;
 }
-.hud-btns {
-  top: calc(max(8px, env(safe-area-inset-top)) + 52px);
-}
 .icon-btn {
   width: 36px;
-  height: 30px;
-  border: 1px solid var(--case-edge);
-  border-radius: 9px;
   clip-path: none;
-  background: linear-gradient(180deg, var(--case-hi), var(--case));
-  color: var(--ink);
-  font: 700 12px var(--body);
-  box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--case-deep), 0 4px 6px rgba(0, 0, 0, 0.35);
 }
 .icon-btn:active {
   transform: translateY(2px);
@@ -944,12 +714,7 @@ body {
 }
 .icon-btn.view {
   width: auto;
-  padding: 0 9px;
-  font-size: 9px;
   letter-spacing: 0.06em;
-  background: linear-gradient(180deg, #f6946a, var(--orange));
-  border-color: var(--orange-lo);
-  box-shadow: 0 1px 0 #ffc2a6 inset, 0 2px 0 #a9471f, 0 4px 6px rgba(0, 0, 0, 0.35);
 }
 .ammo-strip {
   padding: 6px 10px;
@@ -1002,7 +767,6 @@ body {
   border: 3px solid var(--case);
   outline: 1px solid var(--case-edge);
   background: var(--char-2);
-  box-shadow: inset 0 0 6px #000, 0 4px 8px rgba(0, 0, 0, 0.35);
 }
 .mag-tube i.empty {
   opacity: 1;
@@ -1021,25 +785,18 @@ body {
 .mag-label {
   padding: 1px 4px;
   border-radius: 3px;
-  background: var(--case);
-  color: var(--ink-2);
-  font: 700 7px var(--body);
 }
 
 /* item slot: a square key with an LCD window */
 .item-slot {
-  border-radius: 18px;
   clip-path: none;
-  background: linear-gradient(180deg, var(--case-hi), var(--case));
   border: 1px solid var(--case-edge);
   color: var(--ink);
-  box-shadow: 0 1px 0 #fff inset, 0 4px 0 var(--case-deep), 0 8px 12px rgba(0, 0, 0, 0.35);
   --item: var(--orange);
 }
 .item-slot::before {
   inset: 8px 8px 26px;
   border-radius: 10px;
-  clip-path: none;
   background: var(--lcd);
 }
 .item-slot.empty {
@@ -1056,14 +813,12 @@ body {
 .item-icon {
   width: 26px;
   height: 26px;
-  margin-top: 4px;
   color: var(--item);
 }
 .item-slot.full .item-icon {
   color: var(--lcd-ink);
 }
 .item-name {
-  margin-top: 8px;
   font: 700 8px var(--body);
 }
 .item-key {
@@ -1088,15 +843,8 @@ body {
 
 /* the pad: chunky keys like a handheld; fire is the big round red knob */
 .pad-btn {
-  width: 72px;
-  height: 64px;
-  border: 1px solid var(--case-edge);
-  border-radius: 16px;
   clip-path: none;
-  background: linear-gradient(180deg, var(--case-hi), var(--case));
   color: var(--ink);
-  font: 700 22px var(--display);
-  box-shadow: 0 1px 0 #fff inset, 0 -3px 0 var(--case-lo) inset, 0 5px 0 var(--case-deep), 0 9px 14px rgba(0, 0, 0, 0.4);
 }
 .pad-btn::before {
   display: none;
@@ -1107,15 +855,7 @@ body {
   box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--case-deep), 0 3px 5px rgba(0, 0, 0, 0.4);
 }
 .pad-btn.fire {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  border-color: #a8332f;
-  background: radial-gradient(circle at 40% 30%, #ff8a6a, #ef4f3a 55%, #cf3a2a);
-  color: #3a0d08;
-  font: 700 14px var(--body);
   letter-spacing: 0.08em;
-  box-shadow: 0 2px 0 #ffb4a0 inset, 0 -4px 0 #b8352a inset, 0 6px 0 #8a2418, 0 10px 16px rgba(0, 0, 0, 0.45);
 }
 .pad-btn.fire.held {
   box-shadow: 0 2px 0 #ffb4a0 inset, 0 2px 0 #8a2418, 0 4px 6px rgba(0, 0, 0, 0.45);
@@ -1137,19 +877,10 @@ body.pressing .pad-btn.fire.held {
   font: 700 7px var(--body);
   opacity: 1;
 }
-.pad-fire.triple .mini {
-  width: 70px;
-  height: 64px;
-  border-radius: 18px;
-  font-size: 15px;
-}
 .pad-slider .track {
-  height: 46px;
   border-radius: 14px;
   clip-path: none;
   border: 1px solid var(--case-edge);
-  background: var(--char-2);
-  box-shadow: inset 0 3px 5px #000, 0 2px 0 var(--case-deep);
 }
 .pad-slider .ticks {
   background: repeating-linear-gradient(90deg, var(--char-3) 0 2px, transparent 2px 12%);
@@ -1157,8 +888,6 @@ body.pressing .pad-btn.fire.held {
 .pad-slider .thumb {
   border-radius: 10px;
   clip-path: none;
-  background: linear-gradient(180deg, var(--case-hi), var(--case));
-  box-shadow: 0 1px 0 #fff inset, 0 3px 0 var(--case-deep);
 }
 .pad-slider .target {
   background: var(--orange);
@@ -1166,22 +895,11 @@ body.pressing .pad-btn.fire.held {
 #hints .hint {
   font: 700 10px var(--body);
   letter-spacing: 0.04em;
-  color: var(--ink);
-  border: 1px solid var(--case-edge);
-  border-radius: 14px;
-  background: var(--case);
-  box-shadow: 0 3px 0 var(--case-deep), 0 6px 10px rgba(0, 0, 0, 0.35);
 }
 
 /* banner: heavy type with a solid printed shadow, no glow */
 #banner {
   font: 700 58px var(--display);
-  letter-spacing: -0.03em;
-  text-transform: lowercase;
-  color: var(--case-hi);
-  text-shadow:
-    0 3px 0 var(--char),
-    0 6px 0 rgba(0, 0, 0, 0.35);
 }
 #banner .sub {
   font: 700 14px var(--body);
@@ -1196,37 +914,8 @@ body.pressing .pad-btn.fire.held {
   margin: 0 12px;
   border-radius: 18px;
 }
-.intro-card.p1 {
-  background: var(--case);
-  border: 0;
-  border-left: 8px solid var(--orange);
-  color: var(--ink);
-  box-shadow: 0 4px 0 var(--case-deep), 0 10px 18px rgba(0, 0, 0, 0.4);
-}
-.intro-card.p2 {
-  background: var(--char);
-  border: 0;
-  border-right: 8px solid var(--coral);
-  color: var(--case-hi);
-  box-shadow: 0 4px 0 #000, 0 10px 18px rgba(0, 0, 0, 0.4);
-}
 .intro-card b {
-  font: 700 32px var(--display);
-  letter-spacing: -0.03em;
-  text-transform: lowercase;
   text-shadow: none;
-}
-.ic-tag {
-  font: 700 10px var(--body);
-  color: var(--orange-lo);
-}
-.p2 .ic-tag {
-  color: var(--coral);
-}
-.ic-sub {
-  font: 400 11px var(--body);
-  letter-spacing: 0.02em;
-  color: var(--muted);
 }
 #intro.boss .p2 b {
   color: var(--coral);
@@ -1234,12 +923,7 @@ body.pressing .pad-btn.fire.held {
 }
 .intro-vs {
   font: 700 96px var(--display);
-  font-style: normal;
   letter-spacing: -0.05em;
-  color: var(--amber);
-  text-shadow:
-    0 5px 0 var(--char),
-    0 10px 0 rgba(0, 0, 0, 0.3);
 }
 .intro-skip,
 #replay .intro-skip {
@@ -1261,7 +945,7 @@ body.pressing .pad-btn.fire.held {
   background: var(--case);
   border: 1px solid var(--case-edge);
   color: var(--ink);
-  font: 700 9px var(--body);
+  font: 700 11px var(--body);
   text-shadow: none;
   box-shadow: 0 2px 0 var(--case-deep);
 }
@@ -1282,7 +966,7 @@ body.pressing .pad-btn.fire.held {
   background: var(--char-3);
 }
 .unit-tag.you {
-  --team: var(--orange);
+  --team: var(--player);
 }
 .lock-mark i {
   filter: none;
@@ -1303,13 +987,6 @@ body.pressing .pad-btn.fire.held {
 .panels.rules .set-head em {
   display: none;
 }
-.hud-btns {
-  top: calc(max(8px, env(safe-area-inset-top)) + 86px);
-}
-.item-slot {
-  justify-content: flex-start;
-  padding-top: 18px;
-}
 .item-slot .item-name {
   margin-top: 16px;
 }
@@ -1322,19 +999,14 @@ body.pressing .pad-btn.fire.held {
   overflow: hidden;
 }
 .hud-face {
-  display: block;
   width: 100%;
   height: 100%;
   border-radius: 7px;
   background: #24211d;
   object-fit: cover;
   object-position: 50% 0%;
-  transform: scale(1.35);
   transform-origin: 50% 2%;
   transition: filter 0.1s;
-}
-.side.enemy .hud-face {
-  transform: scale(-1.35, 1.35);
 }
 .hud-face.hit {
   filter: brightness(1.9) saturate(0.4);
@@ -1345,12 +1017,7 @@ body.pressing .pad-btn.fire.held {
 
 /* unit profile under the preview bay */
 .profile {
-  width: min(420px, 100%);
   flex: none;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--case-hi);
-  border: 1px solid var(--case-edge);
   text-align: left;
 }
 .pf-head {
@@ -1371,9 +1038,7 @@ body.pressing .pad-btn.fire.held {
   text-align: right;
 }
 .profile p {
-  margin: 5px 0 7px;
   font: 400 11px/1.4 var(--body);
-  color: var(--ink-2);
 }
 .pf-tags {
   display: flex;
@@ -1383,7 +1048,6 @@ body.pressing .pad-btn.fire.held {
 .pf-tags em {
   padding: 3px 7px;
   border-radius: 99px;
-  background: var(--case-lo);
   font: 700 9px var(--body);
   font-style: normal;
   color: var(--ink-2);
@@ -1398,7 +1062,6 @@ body.pressing .pad-btn.fire.held {
 
 /* menu screens scroll on short phones instead of cutting off */
 .screen {
-  overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
@@ -1408,18 +1071,11 @@ body.pressing .pad-btn.fire.held {
 .screen > * {
   flex-shrink: 0;
 }
-#title {
-  justify-content: space-between;
-}
 #select .pick-grid,
 #setup .panels,
 #settings .panels {
   flex: 1 0 auto;
-  min-height: 0;
   overflow: visible;
-}
-#settings .panels {
-  flex: 1 0 auto;
 }
 #settings .panels section {
   padding-bottom: 4px;
@@ -1431,16 +1087,7 @@ body.pressing .pad-btn.fire.held {
   bottom: calc(-1 * max(18px, env(safe-area-inset-bottom)));
   z-index: 2;
   width: calc(100% + 32px);
-  max-width: none;
   margin: 0 -16px -18px;
-  padding: 10px max(16px, calc((100% - 420px) / 2)) max(18px, env(safe-area-inset-bottom));
-  background: var(--case);
-  border-top: 1px solid var(--case-edge);
-}
-#settings-done {
-  position: sticky;
-  bottom: 4px;
-  z-index: 2;
 }
 
 /* ================= micro-interactions ================= */
@@ -1573,9 +1220,6 @@ body.pressing .pad-btn.fire.held {
 .tile img.portrait {
   transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.4);
 }
-.tile.on img.portrait {
-  transform: translateY(-2px) scale(1.04);
-}
 .key.tap,
 .tile.tap,
 .seg button.tap {
@@ -1641,37 +1285,20 @@ body.pressing .pad-btn.fire.held {
     transform: translateY(2px);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0s !important;
-    transition-duration: 0.01ms !important;
-  }
-}
 
 /* the black screens: LCD panels, the clock, ammo and FPS readouts */
 .lcd,
 .lcd *,
 #clock,
 .ammo-count,
-#fps,
-#loading,
-#loading * {
+#fps {
   font-family: var(--body);
 }
 
 /* phones: a compact unit card, so the roster grid gets the room */
 @media (max-width: 480px), (max-height: 760px) {
-  #select {
-    gap: 8px;
-  }
   .step-head {
     gap: 6px;
-  }
-  .step-head h2 {
-    font-size: 20px;
   }
   .steps li {
     padding: 5px 2px;
@@ -1699,10 +1326,6 @@ body.pressing .pad-btn.fire.held {
   .plate b {
     font-size: 15px;
   }
-  .meters {
-    padding: 6px 9px;
-    border-radius: 11px;
-  }
   .meter span {
     font-size: 9px;
   }
@@ -1711,7 +1334,6 @@ body.pressing .pad-btn.fire.held {
     height: 10px;
   }
   .profile {
-    padding: 7px 10px;
     border-radius: 11px;
   }
   .pf-head b {
@@ -1721,20 +1343,15 @@ body.pressing .pad-btn.fire.held {
     font-size: 9px;
   }
   .profile p {
-    margin: 3px 0 5px;
     font-size: 10px;
     line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    overflow: hidden;
   }
   .pf-tags {
     gap: 4px;
   }
   .pf-tags em {
     padding: 2px 6px;
-    font-size: 8px;
   }
   .ver-tabs button {
     padding: 7px 0;
@@ -1744,15 +1361,11 @@ body.pressing .pad-btn.fire.held {
     gap: 7px;
   }
   .tile {
-    padding: 4px 4px 6px;
     font-size: 8px;
   }
 }
 /* very small phones: just the role and tags, no bio */
 @media (max-width: 360px), (max-height: 640px) {
-  .profile p {
-    display: none;
-  }
   .bay {
     height: clamp(116px, 18dvh, 150px);
   }
@@ -1764,20 +1377,12 @@ body.pressing .pad-btn.fire.held {
    meter. Bottom: no ammo strip (the MAG tube shows the marbles); the right
    thumb gets one group: view, special weapon (only once picked up), shield, fire */
 .vs-bar {
-  gap: 6px;
-  padding: 7px;
-  border-radius: 16px;
-  background: var(--case);
   border: 1px solid var(--case-edge);
-  box-shadow: 0 1px 0 #fff inset, 0 3px 0 var(--case-deep), 0 6px 12px rgba(0, 0, 0, 0.35);
-  align-items: center;
 }
 .vs-bar .side {
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: none;
-  box-shadow: none;
 }
 .vs-bar .meta {
   gap: 4px;
@@ -1785,48 +1390,19 @@ body.pressing .pad-btn.fire.held {
 .vs-bar .super-meter {
   display: none;
 }
-.rounds i {
-  width: 9px;
-  height: 9px;
-}
-/* face to face: the player's head shot looks right, toward the opponent; the opponent's looks left */
-.hud-face {
-  transform: scale(-1.35, 1.35);
-}
-.side.enemy .hud-face {
-  transform: scale(1.35);
-}
-/* the gear lives in the pause menu (OPTIONS) now */
-.hud-btns {
-  top: calc(max(8px, env(safe-area-inset-top)) + 72px);
-}
 .ammo-strip {
-  display: none;
-}
-/* the special weapon shows only once it's been picked up */
-.item-slot.empty {
   display: none;
 }
 
 /* the right-thumb group: one panel holding view + item, shield and fire */
 .pad-right {
-  pointer-events: auto;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 22px;
-  background: rgba(20, 18, 15, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 .pad-top {
-  display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-}
-.pad-top:empty {
-  display: none;
 }
 .pad-top .icon-btn.view {
   height: 34px;
@@ -1869,28 +1445,13 @@ body.buttons .pad-top .item-slot .item-key {
   background: var(--coral);
   color: var(--ink);
 }
-.meta-row {
-  gap: 5px;
-}
 
 /* both thumbs get a solid dark tray, recessed into a cream bezel like the slider track */
 .pad-dir,
 .pad-right {
   pointer-events: auto;
-  padding: 10px;
-  border-radius: 24px;
-  background: var(--char-2);
   border: 1px solid #0d0c0a;
-  box-shadow:
-    inset 0 3px 6px #000,
-    0 0 0 3px var(--case),
-    0 0 0 4px var(--case-edge),
-    0 7px 14px rgba(0, 0, 0, 0.45);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-.pad-dir {
-  gap: 10px;
 }
 body.slider .pad-dir {
   padding: 6px;
@@ -1902,17 +1463,8 @@ body.slider .pad-slider {
 /* the right thumb: a gamepad face cluster. FIRE sits under the thumb, SHIELD beside it,
    the special weapon above SHIELD (only once picked up) and the view switch above FIRE */
 .pad-right {
-  display: grid;
-  grid-template-columns: 72px 96px;
-  grid-template-areas:
-    'item view'
-    'shield fire';
   align-items: end;
   justify-items: center;
-  gap: 10px;
-}
-.pad-right .pad-top {
-  display: contents;
 }
 .pad-right #view-btn {
   grid-area: view;
@@ -1926,11 +1478,8 @@ body.slider .pad-slider {
   grid-area: item;
 }
 body.buttons .pad-right .item-slot {
-  position: relative;
   right: auto;
   bottom: auto;
-  width: 72px;
-  height: 64px;
 }
 .pad-right .pad-btn.shield {
   grid-area: shield;
@@ -1941,79 +1490,31 @@ body.buttons .pad-right .item-slot {
 .pad-right .pad-fire {
   grid-area: fire;
 }
-.pad-right .pad-fire.single .fire {
-  width: 96px;
-  height: 96px;
-}
 /* three fire buttons: front on top, left and right under it, still in the fire spot */
 .pad-right .pad-fire.triple {
   gap: 6px;
 }
 .pad-right .pad-fire.triple .mini {
-  width: 45px;
-  height: 45px;
   border-radius: 14px;
-  font-size: 13px;
 }
 .pad-right .pad-fire.triple .mini small {
   display: none;
 }
-
-/* fit both trays side by side on a narrow phone */
-body.buttons #pad {
-  padding-left: 10px;
-  padding-right: 10px;
-}
-.pad-dir .pad-btn {
-  width: 66px;
-  height: 60px;
-}
-.pad-right {
-  grid-template-columns: 64px 88px;
-  gap: 9px;
-}
 .pad-right #view-btn {
   width: 88px;
-}
-body.buttons .pad-right .item-slot {
-  width: 64px;
-  height: 60px;
 }
 .pad-right .pad-btn.shield {
   width: 64px;
   height: 64px;
 }
-.pad-right .pad-fire.single .fire {
-  width: 88px;
-  height: 88px;
-}
-.pad-right .pad-fire.triple .mini {
-  width: 41px;
-  height: 41px;
-}
 @media (max-width: 360px) {
-  .pad-dir .pad-btn {
-    width: 58px;
-  }
-  .pad-right {
-    grid-template-columns: 58px 80px;
-  }
   .pad-right #view-btn {
     width: 80px;
-  }
-  .pad-right .pad-btn.shield,
-  body.buttons .pad-right .item-slot {
-    width: 58px;
-  }
-  .pad-right .pad-fire.single .fire {
-    width: 80px;
-    height: 80px;
   }
 }
 
 /* the action group as one vertical column: view, special weapon, shield, then FIRE at the thumb */
 .pad-right {
-  grid-template-columns: 88px;
   grid-template-areas:
     'view'
     'item'
@@ -2021,65 +1522,32 @@ body.buttons .pad-right .item-slot {
     'fire';
   justify-items: center;
   align-items: center;
-  gap: 8px;
 }
 .pad-right #view-btn {
   width: 88px;
   height: 28px;
-}
-body.buttons .pad-right .item-slot {
-  width: 88px;
-  height: 56px;
-  padding-top: 6px;
-}
-body.buttons .pad-right .item-slot::before {
-  inset: 5px 10px 18px;
 }
 .pad-right .pad-btn.shield {
   width: 88px;
   height: 52px;
   border-radius: 16px;
 }
-.pad-right .pad-fire.single .fire {
-  width: 88px;
-  height: 88px;
-}
-@media (max-width: 360px) {
-  .pad-right {
-    grid-template-columns: 80px;
-  }
-  .pad-right #view-btn,
-  .pad-right .pad-btn.shield,
-  body.buttons .pad-right .item-slot {
-    width: 80px;
-  }
-}
 
 /* two groups inside the action tray: the view switch on top, then a gap, then the fighting
    keys (special weapon, shield, fire) in their own inner well */
 .pad-right {
-  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
 }
 .pad-right .pad-top {
-  display: flex;
   justify-content: center;
   width: 100%;
-  padding-bottom: 12px;
   border-bottom: 1px solid #0d0c0a;
   box-shadow: 0 1px 0 #3a3631;
 }
 .pad-actions {
-  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 18px;
-  background: var(--char);
-  box-shadow: inset 0 2px 4px #000;
 }
 /* the special weapon is a cream key, not orange, even once it's loaded */
 .item-slot.full {
@@ -2089,25 +1557,6 @@ body.buttons .pad-right .item-slot::before {
 }
 .item-slot.full .item-name {
   color: var(--ink);
-}
-body.buttons .pad-right .item-slot {
-  height: 62px;
-  padding-top: 5px;
-}
-body.buttons .pad-right .item-slot::before {
-  inset: 5px 10px 21px;
-}
-body.buttons .pad-right .item-slot .item-icon {
-  width: 22px;
-  height: 22px;
-  margin-top: 4px;
-}
-body.buttons .pad-right .item-slot .item-name {
-  margin-top: 10px;
-  font-size: 8px;
-}
-body.buttons .pad-right .item-slot .item-key {
-  display: none;
 }
 
 /* one extrusion for every key on the pad, the shield's: a 1px top highlight, a solid 5px
@@ -2159,8 +1608,6 @@ body.buttons .pad-right .item-slot .item-key {
 #pad .pad-btn.fire {
   --ledge: #8a2418;
   --hi: #ffb4a0;
-  background: linear-gradient(180deg, #f6705a, #e2462f);
-  border: 1px solid #a8332f;
 }
 body.pressing #pad .pad-btn.fire.held {
   transform: translateY(3px) scale(calc(1.04 + var(--charge, 0) * 0.3));
@@ -2220,21 +1667,15 @@ body.pressing #pad .pad-btn.fire.held {
 }
 /* the arena step's width switch sits where the roster tabs are */
 .arena-width {
-  width: min(420px, 100%);
-  display: flex;
   align-items: center;
   gap: 10px;
 }
 .arena-width > b {
   flex: none;
   font: 700 13px var(--body);
-  color: var(--ink);
 }
 .arena-width .seg {
   flex: 1;
-}
-.arena-width.hidden {
-  display: none;
 }
 .crt-name.flash b {
   animation: flash 0.5s steps(2);
@@ -2245,27 +1686,14 @@ body.pressing #pad .pad-btn.fire.held {
 }
 .info-tabs {
   display: flex;
-  gap: 3px;
-  padding: 3px;
-  border-radius: 11px;
-  background: var(--case-lo);
   box-shadow: var(--recess);
 }
 .info-tabs button {
   flex: 1;
-  padding: 6px 0;
   border: 0;
-  border-radius: 8px;
   background: transparent;
-  color: var(--muted);
-  font: 700 11px var(--body);
-  text-transform: lowercase;
   cursor: pointer;
   transition: background 0.18s, color 0.18s;
-}
-.info-tabs button.on {
-  background: var(--char);
-  color: var(--case-hi);
 }
 .bay-info .meters,
 .bay-info .profile {
@@ -2319,7 +1747,6 @@ body.pressing #pad .pad-btn.fire.held {
     border-radius: 13px;
   }
   .pad-right {
-    gap: 9px;
     grid-template-columns: 70px;
   }
   .pad-right .pad-top {
@@ -2335,17 +1762,12 @@ body.pressing #pad .pad-btn.fire.held {
     height: 24px;
     font-size: 9px;
   }
-  body.buttons .pad-right .item-slot {
-    width: 70px;
-    height: 50px;
-  }
   body.buttons .pad-right .item-slot::before {
     inset: 4px 8px 16px;
   }
   body.buttons .pad-right .item-slot .item-icon {
     width: 18px;
     height: 18px;
-    margin-top: 2px;
   }
   body.buttons .pad-right .item-slot .item-name {
     margin-top: 6px;
@@ -2359,15 +1781,9 @@ body.pressing #pad .pad-btn.fire.held {
   .pad-right .pad-btn.shield small {
     font-size: 6px;
   }
-  .pad-right .pad-fire.single .fire {
-    width: 70px;
-    height: 70px;
-    font-size: 12px;
-  }
   .pad-right .pad-fire.triple .mini {
     width: 33px;
     height: 33px;
-    font-size: 11px;
   }
   .pad-slider {
     width: min(44vw, 190px);
@@ -2381,7 +1797,6 @@ body.pressing #pad .pad-btn.fire.held {
 .charge-meter {
   position: absolute;
   left: 50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 150px);
   transform: translateX(-50%) translateY(6px);
   display: flex;
   flex-direction: column;
@@ -2411,7 +1826,6 @@ body.pressing #pad .pad-btn.fire.held {
 }
 .charge-segs i {
   position: relative;
-  width: 26px;
   height: 10px;
   border-radius: 3px;
   background: #2a2724;
@@ -2589,7 +2003,6 @@ body.duo #duo-hints {
   display: block;
   position: absolute;
   inset: 0;
-  pointer-events: none;
   transition: opacity 0.6s;
 }
 body.duo #duo-hints.fade {
@@ -2600,10 +2013,6 @@ body.duo #duo-hints.fade {
   left: 50%;
   width: min(86%, 360px);
   padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--char);
-  box-shadow: 0 0 0 1px #000;
-  color: var(--case-hi);
   font: 700 10px var(--body);
   letter-spacing: 0.06em;
   line-height: 1.5;
@@ -2634,17 +2043,12 @@ body.duo .charge-meter {
   overflow: hidden;
   background: #2a2236;
   touch-action: none;
-  user-select: none;
-}
-#squad.hidden {
-  display: none;
 }
 #squad canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  display: block;
 }
 #squad .sq-hud {
   position: absolute;
@@ -2701,7 +2105,6 @@ body.duo .charge-meter {
 #squad .sq-road i {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 0;
   border-radius: 4px;
   background: var(--amber);
 }
@@ -2732,7 +2135,6 @@ body.duo .charge-meter {
   background: linear-gradient(90deg, #5ad8e0 50%, #ff6a8a 50%);
 }
 #squad .sq-boss {
-  display: grid;
   gap: 4px;
   margin-top: 10px;
   color: #fff;
@@ -2754,9 +2156,6 @@ body.duo .charge-meter {
   background: var(--coral);
   transition: width 0.1s linear;
 }
-#squad .sq-boss.hidden {
-  display: none;
-}
 #squad .sq-hint {
   margin-top: auto;
   text-align: center;
@@ -2774,7 +2173,6 @@ body.duo .charge-meter {
   left: 16px;
   right: 16px;
   top: 50%;
-  transform: translateY(-50%);
   max-width: 420px;
   margin: 0 auto;
   padding: 22px 20px;
@@ -2850,7 +2248,6 @@ body.duo .charge-meter {
   text-transform: uppercase;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
   opacity: 0;
-  transform: scale(0.8);
   transition: opacity 0.2s, transform 0.2s;
 }
 #squad .sq-callout.on {
@@ -2867,7 +2264,6 @@ body.duo #duo-hp {
   display: block;
   position: absolute;
   inset: 0;
-  pointer-events: none;
 }
 body.duo .vs-bar,
 body.duo #magazine,
@@ -2968,7 +2364,6 @@ body.duo .hud-btns {
 #duo-hp .duo-pause {
   right: 0;
   border-radius: 52px 0 0 52px;
-  padding-left: 6px;
   pointer-events: auto;
   cursor: pointer;
   font: 400 15px var(--display);
@@ -2976,7 +2371,6 @@ body.duo .hud-btns {
 }
 /* (the word runs up the line, like the score) */
 #duo-hp .duo-pause span {
-  display: block;
   transform: rotate(-90deg);
   white-space: nowrap;
 }
@@ -2989,7 +2383,6 @@ body.duo .hud-btns {
   position: absolute;
   inset: 0;
   z-index: 55;
-  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
@@ -2998,9 +2391,6 @@ body.duo .hud-btns {
   color: #f2e6d0;
   cursor: pointer;
   animation: tower-in 0.35s ease-out;
-}
-#tower.hidden {
-  display: none;
 }
 @keyframes tower-in {
   from { opacity: 0; }
@@ -3182,7 +2572,6 @@ body.duo .hud-btns {
   display: none;
 }
 #settings .more-settings {
-  margin-top: 6px;
   width: 100%;
 }
 
@@ -3202,9 +2591,6 @@ body.duo .hud-btns {
   color: var(--ink);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
-}
-#tut.hidden {
-  display: none;
 }
 #tut.pop {
   animation: tut-pop 0.3s ease-out;
@@ -3257,24 +2643,9 @@ body.duo .hud-btns {
   background: linear-gradient(180deg, var(--orange), var(--orange-lo));
   color: #fff;
 }
-#tut .tut-next.hidden {
-  display: none;
-}
 #tut.done {
   top: 50%;
   transform: translateY(-50%);
-}
-.tut-offer {
-  display: grid;
-  gap: 6px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 2px solid var(--orange);
-  background: var(--case-hi);
-  box-shadow: var(--key-shadow);
-}
-.tut-offer.hidden {
-  display: none;
 }
 .tut-offer b {
   font: 700 16px var(--display);
@@ -3284,12 +2655,8 @@ body.duo .hud-btns {
   color: var(--ink-2);
 }
 .tut-offer div {
-  display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
-}
-.tut-offer .key {
-  padding: 10px 12px;
 }
 /* the first-visit offer: one compact row, so the menu still fits on a short screen */
 .tut-offer {
@@ -3308,9 +2675,6 @@ body.duo .hud-btns {
 .tut-offer .key {
   padding: 8px 10px;
   font-size: 11px;
-}
-#title {
-  overflow-y: auto;
 }
 #dmg-layer .dmg.catch {
   font-size: 16px;
@@ -3343,23 +2707,10 @@ body.duo .hud-btns {
   display: none;
 }
 #settings .install-row .key {
-  margin-top: 6px;
   width: 100%;
 }
 
 /* ================= select: the carousel (after the Sonic Advance select) ================= */
-#select .step-head h2 {
-  /* a black title bar from the left edge */
-  align-self: flex-start;
-  margin: 0 0 0 -16px;
-  padding: 6px 22px 6px 16px;
-  background: var(--char);
-  color: #fff;
-  font: 800 19px/1.1 var(--display);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
-}
 .carousel {
   position: relative;
   width: calc(100% + 32px);
@@ -3368,26 +2719,13 @@ body.duo .hud-btns {
   min-height: 250px;
   overflow: hidden;
   touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-  background: #fbf8f1;
 }
 #select {
-  --band: #2a4fd6;
   gap: 0;
-}
-#select[data-side='p2'] {
-  --band: #d9364a;
-}
-#select[data-side='arena'] {
-  --band: var(--char);
 }
 /* (the step pills are gone: the title bar says where you are) */
 #select .steps {
   display: none;
-}
-#select .step-head {
-  margin-bottom: 8px;
 }
 /* the target rings behind the fighter */
 .car-rings {
@@ -3398,7 +2736,6 @@ body.duo .hud-btns {
   aspect-ratio: 1;
   translate: -50% -50%;
   border-radius: 50%;
-  background: radial-gradient(circle, #fff 0 33%, var(--orange) 33% 47%, #fff 47% 54%, var(--orange) 54% 63%, #fde3d2 63% 71%, transparent 71%);
   pointer-events: none;
 }
 .car-rings i {
@@ -3414,31 +2751,17 @@ body.duo .hud-btns {
   }
 }
 .car-stage {
-  position: absolute;
-  inset: 0 0 96px;
   z-index: 2;
 }
 .car-stage canvas {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.car-stage.from-right canvas {
-  animation: car-in-r 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 .car-stage.from-left canvas {
   animation: car-in-l 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 .car-stage.switch canvas {
   animation: car-pop 0.3s ease-out;
-}
-@keyframes car-in-r {
-  from {
-    translate: 38% 0;
-    opacity: 0;
-  }
 }
 @keyframes car-in-l {
   from {
@@ -3457,7 +2780,6 @@ body.duo .hud-btns {
   visibility: hidden;
 }
 .car-shadow {
-  display: block;
   width: min(52vw, 210px);
   aspect-ratio: 120 / 136;
   margin-bottom: -40%;
@@ -3477,9 +2799,7 @@ body.duo .hud-btns {
   position: absolute;
   z-index: 3;
   left: 50%;
-  top: calc(50% - 46px);
   translate: -50% -50%;
-  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
@@ -3493,7 +2813,6 @@ body.duo .hud-btns {
   padding: 3px 9px;
   border-radius: 99px;
   background: var(--char);
-  color: #fff;
   font: 700 10px var(--body);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3515,8 +2834,6 @@ body.duo .hud-btns {
 /* the neighbours, cut off by the edges */
 .peek {
   position: absolute;
-  z-index: 1;
-  top: calc(50% - 46px);
   width: 34%;
   aspect-ratio: 4 / 5;
   translate: 0 -50%;
@@ -3560,7 +2877,6 @@ body.duo .hud-btns {
 .car-arrow {
   position: absolute;
   z-index: 4;
-  top: calc(50% - 46px);
   width: 58px;
   height: 52px;
   translate: 0 -50%;
@@ -3605,19 +2921,10 @@ body.duo .hud-btns {
 }
 /* the name band, a zig-zag top edge over the bottom */
 .car-band {
-  position: absolute;
   z-index: 5;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  min-height: 112px;
-  padding: 14px 16px 12px;
-  background: var(--band);
-  color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
   transition: background 0.25s;
 }
 .car-band.flash #pv-name {
@@ -3632,22 +2939,12 @@ body.duo .hud-btns {
 .car-tag {
   display: flex;
   gap: 10px;
-  font: 700 10px var(--body);
-  letter-spacing: 0.18em;
   opacity: 0.85;
-}
-.car-count {
-  font-family: var(--body);
-  letter-spacing: 0.04em;
 }
 #pv-name {
   font: 800 clamp(24px, 8vw, 34px) / 1 var(--display);
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  text-align: center;
-  color: #fff;
-  -webkit-text-stroke: 6px #111;
-  paint-order: stroke fill;
   text-shadow: 0 3px 0 #111;
 }
 .car-info {
@@ -3655,42 +2952,24 @@ body.duo .hud-btns {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
 }
 .car-info .info-tabs {
   display: flex;
   gap: 4px;
-  padding: 3px;
-  border-radius: 99px;
-  background: rgba(0, 0, 0, 0.25);
 }
 .car-info .info-tabs.hidden {
   display: none;
 }
 .car-info .info-tabs button {
-  padding: 3px 12px;
   border: 0;
-  border-radius: 99px;
   background: none;
-  color: rgba(255, 255, 255, 0.8);
-  font: 700 10px var(--body);
-  letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-.car-info .info-tabs button.on {
-  background: #fff;
-  color: var(--ink);
 }
 .car-info .meters {
   width: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 3px 14px;
-}
-.car-info .meters.hidden,
-.car-info .profile.hidden {
-  display: none;
 }
 .car-info .meter {
   display: flex;
@@ -3735,10 +3014,7 @@ body.duo .hud-btns {
   text-align: center;
 }
 .car-info .profile {
-  max-height: 92px;
-  overflow-y: auto;
   font: 500 11px/1.4 var(--body);
-  color: rgba(255, 255, 255, 0.9);
   text-align: left;
 }
 .car-info .profile p {
@@ -3769,7 +3045,6 @@ body.duo .hud-btns {
 .pick-strip {
   width: calc(100% + 32px);
   margin: 0 -16px;
-  flex: none;
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -3783,21 +3058,15 @@ body.duo .hud-btns {
 .pick-strip .tile {
   position: relative;
   flex: none;
-  width: 50px;
-  height: 50px;
-  padding: 3px;
   gap: 0;
-  border-radius: 12px;
 }
 .pick-strip.arenas .tile {
   width: 66px;
 }
 .pick-strip .tile i {
   flex: 1;
-  display: block;
   width: 100%;
   height: 100%;
-  border-radius: 9px;
   background: var(--char-2);
   overflow: hidden;
 }
@@ -3823,27 +3092,13 @@ body.duo .hud-btns {
   font-size: 13px;
   font-style: normal;
 }
-.pick-strip .tile.on {
-  outline: 3px solid var(--orange);
-  outline-offset: 1px;
-}
 #select-next:disabled {
   opacity: 0.45;
   pointer-events: none;
 }
-@media (max-height: 700px) {
-  .car-band {
-    min-height: 100px;
-    padding-top: 18px;
-  }
-  .car-info .profile {
-    max-height: 60px;
-  }
-}
 /* (the shared portrait and meter cards don't apply inside the carousel) */
 .peek img.portrait {
   background: none;
-  padding: 0;
   border-radius: 0;
   overflow: visible;
 }
@@ -3870,21 +3125,11 @@ body.duo .hud-btns {
 /* the band runs on into the arena width row and the buttons' bar, one colour to the bottom */
 #select .arena-width {
   width: calc(100% + 32px);
-  max-width: none;
   margin: 0 -16px;
   padding: 4px 16px 8px;
-  background: var(--band);
-  color: #fff;
 }
 #select .dev-actions {
-  margin-top: 0;
-  margin-bottom: calc(-1 * max(18px, env(safe-area-inset-bottom)));
-  background: var(--band);
-  border-top: 0;
   transition: background 0.25s;
-}
-#select .arena-width > b {
-  color: #fff;
 }
 .car-info .meters .pv-note {
   grid-column: 1 / -1;
@@ -3901,25 +3146,11 @@ body.duo .hud-btns {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  padding: 0;
   border-radius: 9px;
   background: none;
 }
-/* Back as an outline button on the band */
-#select #select-back {
-  background: transparent;
-  color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  box-shadow: none;
-  text-shadow: none;
-}
 #select #select-back:active {
   background: rgba(255, 255, 255, 0.14);
-}
-/* the top of the screen (title bar and strip) on the same light ground as the preview */
-#select.screen.device {
-  background: #fbf8f1;
-  box-shadow: none;
 }
 
 /* ================= home: a hero fighter over the rings, the modes as cards (after Netflix Playground) ================= */
@@ -3927,9 +3158,6 @@ body.duo .hud-btns {
   justify-content: flex-start;
   gap: 0;
   overflow: hidden;
-  padding-bottom: 0;
-  background: linear-gradient(#fbf8f1 0%, #fdeee2 70%);
-  box-shadow: none;
 }
 .home-bg {
   position: absolute;
@@ -3996,15 +3224,12 @@ body.duo .hud-btns {
   width: 100%;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
 }
 /* the logo as a sticker: thick white edge, a little tilted */
 .home-logo {
   display: flex;
   flex-direction: column;
   line-height: 0.86;
-  rotate: -4deg;
-  margin: 4px 0 0 2px;
 }
 .home-logo b {
   font: 800 38px var(--display);
@@ -4020,25 +3245,11 @@ body.duo .hud-btns {
 }
 .home-icons {
   display: flex;
-  gap: 10px;
 }
 .home-icon {
-  width: 48px;
-  height: 48px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  border: 4px solid #fff;
-  background: linear-gradient(160deg, #8f6ef0, #5b3fd0);
-  color: #fff;
-  font: 800 12px var(--display);
   letter-spacing: 0.04em;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.16);
-  cursor: pointer;
-}
-#settings-btn.home-icon {
-  font-size: 22px;
-  background: linear-gradient(160deg, #ff9a6a, var(--orange-lo));
 }
 .home-icon:active {
   scale: 0.92;
@@ -4050,7 +3261,6 @@ body.duo .hud-btns {
   margin: 8px 0 0;
   font: 700 10px var(--body);
   letter-spacing: 0.06em;
-  color: var(--muted);
 }
 .home-record:empty {
   display: none;
@@ -4060,7 +3270,6 @@ body.duo .hud-btns {
   z-index: 1;
   flex: 1;
   /* (a sideways drag turns your fighter; up and down still scroll) */
-  touch-action: pan-y;
   min-height: 160px;
   width: calc(100% + 32px);
   margin: 0 -16px;
@@ -4068,35 +3277,25 @@ body.duo .hud-btns {
 .home-hero canvas {
   position: absolute;
   inset: 0;
-  width: 100%;
   height: 100%;
-  display: block;
   /* cel ink round the silhouette */
   filter: drop-shadow(2px 0 0 #1b1916) drop-shadow(-2px 0 0 #1b1916) drop-shadow(0 2px 0 #1b1916) drop-shadow(0 -2px 0 #1b1916);
 }
 .home-name {
   position: relative;
   z-index: 2;
-  margin: -6px 0 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
 }
 .home-name span {
   font: 700 9px var(--body);
   letter-spacing: 0.2em;
-  color: var(--muted);
 }
 .home-name b {
-  padding: 4px 16px;
   border-radius: 99px;
-  background: var(--char);
-  color: #fff;
   font: 800 16px var(--display);
   letter-spacing: 0.04em;
-  border: 3px solid #fff;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
 }
 #title.home .tut-offer {
   position: relative;
@@ -4107,16 +3306,13 @@ body.duo .hud-btns {
 .home-cards {
   position: relative;
   z-index: 2;
-  flex: none;
   width: calc(100% + 32px);
   margin: 0 -16px;
   padding: 18px 16px max(22px, env(safe-area-inset-bottom));
-  display: flex;
   align-items: center;
   gap: 12px;
   overflow-x: auto;
   scrollbar-width: none;
-  background: radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.1) 0 5px, transparent 6px) 0 0 / 34px 34px, linear-gradient(#2f5fe6, #1f45c0);
 }
 .home-cards::-webkit-scrollbar {
   display: none;
@@ -4134,8 +3330,6 @@ body.duo .hud-btns {
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.22);
-  transition: width 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1), height 0.28s;
 }
 .mode-card.on {
   width: min(64vw, 272px);
@@ -4175,7 +3369,6 @@ body.duo .hud-btns {
   width: auto;
   max-width: 70%;
   margin: 0 -12%;
-  padding: 0;
   border-radius: 0;
   background: none;
   object-fit: contain;
@@ -4192,7 +3385,6 @@ body.duo .hud-btns {
   z-index: 1;
   font: 800 20px var(--display);
   font-style: normal;
-  color: #fff;
   -webkit-text-stroke: 5px #1b1916;
   paint-order: stroke fill;
 }
@@ -4291,15 +3483,12 @@ body.duo .hud-btns {
   position: relative;
   inset: auto;
   flex: 1;
-  min-height: 0;
-  margin-bottom: 20px;
 }
 .car-band {
   position: relative;
   left: auto;
   right: auto;
   bottom: auto;
-  flex: none;
 }
 .carousel.arena .car-stage {
   flex: none;
@@ -4309,11 +3498,6 @@ body.duo .hud-btns {
   translate: none;
   align-self: center;
   margin: auto 0 20px;
-}
-.peek,
-.car-arrow,
-.car-lock {
-  top: 38%;
 }
 /* the arena fills the whole preview area, edge to edge */
 .carousel.arena .car-stage {
@@ -4334,7 +3518,6 @@ body.duo .hud-btns {
 }
 /* the arena step: title, strip and preview all on the arena's own sky */
 #select.screen.device {
-  background: var(--top, #fbf8f1);
   transition: background 0.3s;
 }
 .carousel.arena {
@@ -4344,9 +3527,6 @@ body.duo .hud-btns {
 .home-cards {
   scroll-snap-type: x mandatory;
   scroll-padding: 0 16px;
-}
-.mode-card {
-  scroll-snap-align: start;
 }
 .mode-card.sel {
   outline: 4px solid var(--amber);
@@ -4407,17 +3587,6 @@ body.duo .hud-btns {
 /* the rules screen in the select screen's style: no step pills, the black title bar */
 #setup .steps {
   display: none;
-}
-#setup .step-head h2 {
-  align-self: flex-start;
-  margin: 0 0 0 -16px;
-  padding: 6px 22px 6px 16px;
-  background: var(--char);
-  color: #fff;
-  font: 800 19px/1.1 var(--display);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
 }
 .mode-card.on .card-custom {
   left: 14px;
@@ -5457,6 +4626,39 @@ body.arena-rules #special-btn.ready {
   animation-duration: 2.8s;
 }
 
+/* the short version: a strip across the top, under the HUD, while play runs on */
+#special-fx.cut .sfx-lines {
+  display: none;
+}
+#special-fx.cut .sfx-band {
+  top: calc(max(12px, env(safe-area-inset-top)) + 96px);
+  bottom: auto;
+  height: 64px;
+  gap: 10px;
+  border-width: 4px;
+  rotate: -3deg;
+}
+#special-fx.cut.foe .sfx-band {
+  rotate: 3deg;
+}
+#special-fx.cut.go .sfx-band {
+  animation-duration: 0.75s;
+}
+#special-fx.cut .sfx-face {
+  width: 50px;
+  height: 50px;
+  border-width: 3px;
+  border-radius: 12px;
+}
+#special-fx.cut .sfx-band span {
+  font-size: 11px;
+}
+#special-fx.cut .sfx-band b {
+  font-size: 24px;
+  -webkit-text-stroke-width: 5px;
+  text-shadow: 0 3px 0 var(--line);
+}
+
 /* the spirit shot's cinematic (and its strike shot): the HUD and controls step aside */
 body.cine-on #hud,
 body.cine-on #pad {
@@ -5538,13 +4740,13 @@ body.cine-on #pad {
   display: none;
 }
 #action .ac-bar span {
-  font: 700 10px var(--body);
+  font: 700 11px var(--body);
   letter-spacing: 0.06em;
   color: #fff;
   text-shadow: 0 1px 0 #000, 0 0 3px #000;
 }
 #action .ac-bar.me span {
-  color: #7affb0;
+  color: #9ad2ff;
 }
 #action .ac-bar i {
   position: relative;
@@ -5563,7 +4765,7 @@ body.cine-on #pad {
   inset: 0;
   display: grid;
   place-items: center;
-  font: 800 10px/1 var(--display);
+  font: 800 11px/1 var(--display);
   color: #fff;
   -webkit-text-stroke: 2.5px #14101c;
   paint-order: stroke fill;
@@ -5574,7 +4776,7 @@ body.cine-on #pad {
   background: linear-gradient(180deg, #ff6a5a, #d8323a);
 }
 #action .ac-bar.me i b {
-  background: linear-gradient(180deg, #7affb0, #2ac46a);
+  background: linear-gradient(180deg, #9ad2ff, var(--player));
 }
 /* Siege: your side in blue, and each fortress's long bar */
 #action .ac-bar.ally span {
@@ -5639,7 +4841,7 @@ body.cine-on #pad {
   height: 30px;
   padding: 0;
   border-radius: 10px;
-  font-size: 10px;
+  font-size: 11px;
 }
 #action .ac-quit {
   pointer-events: auto;
@@ -5662,7 +4864,7 @@ body.cine-on #pad {
 }
 #action .ac-title span,
 #action .ac-score span {
-  font: 700 10px var(--body);
+  font: 700 11px var(--body);
   letter-spacing: 0.14em;
 }
 #action .ac-title span {
@@ -6211,8 +5413,7 @@ body.cine-on #pad {
 .bs-mode[data-kind='arena'] {
   background: linear-gradient(135deg, #ff5a8a, #8a2ad8);
 }
-.bs-mode[data-kind='campaign'],
-.bs-mode[data-kind='more'] {
+.bs-mode[data-kind='campaign'] {
   background: linear-gradient(135deg, #22c3b8, #12707a);
 }
 .bs-mode > i {
@@ -6325,8 +5526,10 @@ body.cine-on #pad {
 .bs-card.mode[data-kind='campaign'] {
   background: linear-gradient(135deg, #22c3b8, #12707a);
 }
-.bs-card.mode[data-kind='more'] {
-  background: linear-gradient(135deg, #6a7488, #3a4258);
+/* with friends: its own family colour, so the social modes read as one group */
+.bs-card.mode[data-kind='friends'],
+.bs-mode[data-kind='friends'] {
+  background: linear-gradient(135deg, #3aa0ff, #2a4fd6);
 }
 .bs-card.mode.off {
   filter: grayscale(0.85) brightness(0.8);
@@ -6712,7 +5915,6 @@ body.cine-on #pad {
 
 /* ================= the fighter screen ================= */
 #select {
-  --band: #2a2545;
   padding-left: var(--ui-gutter);
   padding-right: var(--ui-gutter);
 }
@@ -8100,7 +7302,7 @@ html.land {
   text-align: left;
 }
 #action .ac-gear > small {
-  font: 700 9px var(--body);
+  font: 700 11px var(--body);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(241, 236, 228, 0.55);
@@ -8699,7 +7901,7 @@ html.land {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.1;
 }
 #hud .vs-bar .side.enemy .unit-name {
@@ -8760,8 +7962,8 @@ html.land {
   gap: 8px;
 }
 #action .ac-quit {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   font-size: 13px;
 }
 #action .ac-score {
@@ -8773,12 +7975,12 @@ html.land {
 }
 #action .ac-title span,
 #action .ac-score span {
-  font-size: 9px;
+  font-size: 11px;
 }
 #action .ac-goal {
   margin-top: 2px;
   padding: 4px 10px;
-  font-size: 10px;
+  font-size: 11px;
 }
 #action .ac-bossbar b {
   font-size: 13px;
@@ -8948,7 +8150,7 @@ html.land {
   border-radius: 7px;
   background: #3a6cf0;
   color: #fff;
-  font: 700 10px/1.2 var(--body);
+  font: 700 11px/1.2 var(--body);
   letter-spacing: 0.04em;
   translate: -50% 0;
 }
@@ -9021,7 +8223,8 @@ body:not(.thumbs):not(.teaching) #action .ac-right,
 body:not(.thumbs):not(.teaching) #action .ac-swap,
 body:not(.thumbs):not(.teaching) #pad .pad-dir,
 body:not(.thumbs):not(.teaching) #pad .pad-right {
-  opacity: 0.5;
+  /* (only a touch lighter: with no trays behind them they cover little, and at half they read as switched off) */
+  opacity: 0.85;
 }
 /* a locked fighter's shadow, edged so its shape can be guessed */
 .bs-card.fighter > i.dark img {
@@ -9708,4 +8911,608 @@ html.land #squad .sq-panel:has(.sq-hero:not(.hidden)) {
 }
 #online #ol-start:disabled {
   opacity: 0.5;
+}
+
+/* Storm Brawl: when the storm comes and that it's closing, under the counters; red edges as you near it */
+#action .ac-storm {
+  align-self: center;
+  margin: -4px 0 0;
+  padding: 4px 12px;
+  border: 2.5px solid var(--line);
+  border-radius: 99px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--line);
+  font: 400 12px/1 var(--display);
+  letter-spacing: 0.06em;
+  color: var(--line);
+}
+#action .ac-storm.hidden {
+  display: none;
+}
+#action .ac-storm.soon {
+  background: #ffd84a;
+  animation: badge-pulse 1s ease-in-out infinite;
+}
+#action .ac-storm.danger {
+  background: #ff4a3a;
+  color: #fff;
+  animation: badge-pulse 0.6s ease-in-out infinite;
+}
+#action .ac-stormglow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 60px 18px rgba(255, 50, 40, 0.75);
+  transition: opacity 0.25s;
+}
+
+/* a mouse and keyboard: no touch pad, a legend of the keys along the bottom instead */
+.keys-legend {
+  display: none;
+}
+body.kbd #pad,
+body.kbd #action .ac-joy,
+body.kbd #action .ac-right {
+  display: none !important;
+}
+body.kbd #pad.hidden + .keys-legend {
+  display: none;
+}
+body.kbd #pad + .keys-legend,
+body.kbd #action .ac-keys {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  translate: -50% 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 6px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 8px 14px;
+  border: 2.5px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 3px 0 var(--line);
+  font: 800 12px/1.2 var(--body);
+  color: var(--line);
+  pointer-events: none;
+}
+.keys-legend b {
+  padding: 2px 6px;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: 400 11px/1 var(--display);
+  letter-spacing: 0.04em;
+}
+.keys-legend b:not(:first-child) {
+  margin-left: 6px;
+}
+#action .ac-keys:has(+ .ac-panel:not(.hidden)) {
+  display: none !important;
+}
+
+/* the buttons hit mid-fight without looking: never under a thumb's 44px */
+#pad .icon-btn.view,
+.pad-right .pad-btn.dash,
+#action .ac-view,
+#action .ac-dash {
+  min-height: 44px;
+}
+
+/* the result on a short phone: the fighter gives up height first, and REMATCH and its row stay
+   pinned to the bottom (the stats scroll under them if they still don't fit) */
+html:not(.land) #result > .result-face.result-hero {
+  --h: clamp(120px, calc(100dvh - 600px), 250px);
+  height: var(--h);
+  width: calc(var(--h) * 0.92);
+}
+html:not(.land) #result .result-actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 2;
+  margin-bottom: -14px;
+  padding: 12px 0 14px;
+  background: linear-gradient(rgba(31, 69, 192, 0), rgb(31, 69, 192) 12px);
+}
+html:not(.land) #result #session {
+  order: 1;
+  margin: 0;
+}
+html:not(.land) #result .result-actions {
+  order: 2;
+}
+
+/* ================= the match in the cel language (2026-11) =================
+   the same grammar as the menus: white or ink fills, thick ink outlines, hard drop shadows,
+   Lilita numerals. Replaces the industrial skin's LCD timer, cream keys and dark trays */
+#hud #clock-wrap {
+  display: grid;
+  place-items: center;
+  min-width: 50px;
+  background: var(--line);
+  border: 2.5px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 3px 0 rgba(27, 25, 22, 0.35);
+}
+#hud #clock {
+  font: 400 24px/1 var(--display);
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: none;
+}
+#hud #clock.low {
+  color: #ffd84a;
+  animation: clock-pulse 0.5s ease-in-out infinite alternate;
+}
+@keyframes clock-pulse {
+  to {
+    color: #ff5a4a;
+    transform: scale(1.12);
+  }
+}
+#hud .vs-bar .unit-name {
+  font-size: 12px;
+}
+/* round pips: big enough to count, filled in the side's colour when won */
+#hud .vs-bar .rounds i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: none;
+}
+#hud .side.player .rounds i.won {
+  background: var(--player);
+  animation: pip-won 0.4s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+#hud .side.enemy .rounds i.won {
+  background: var(--enemy);
+  animation: pip-won 0.4s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+@keyframes pip-won {
+  from {
+    transform: scale(1.8);
+  }
+}
+/* the shield: a meter with a track, not a divider line */
+#hud .vs-bar .sp {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(27, 25, 22, 0.14);
+  overflow: hidden;
+}
+#hud .vs-bar .sp .fill {
+  border-radius: 99px;
+  background: #2ed3f0;
+}
+/* pause and the view switch: system controls, together in the top-right corner */
+html.land body:not(.duo) .hud-btns {
+  top: max(10px, env(safe-area-inset-top));
+  right: calc(var(--land-r, 16px) + 4px);
+}
+body:not(.duo) .hud-btns {
+  left: auto;
+  right: 12px;
+  transform: none;
+  display: flex;
+  gap: 8px;
+}
+.hud-btns .icon-btn,
+.hud-btns #view-btn,
+.hud-btns #pause-btn {
+  min-width: 44px;
+  height: 36px;
+  padding: 0 10px;
+  border: 2.5px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--line);
+  font: 400 12px/1 var(--display);
+  color: var(--line);
+}
+.hud-btns .icon-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+/* the thumb controls: no trays or frames over the arena, only the buttons themselves */
+#pad .pad-right,
+#pad #pad-actions,
+#pad .pad-dir {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#pad .pad-slider .track {
+  background: rgba(255, 255, 255, 0.92);
+  border: 2.5px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
+}
+#pad .pad-slider .thumb {
+  background: var(--line);
+  border-color: var(--line);
+  box-shadow: none;
+}
+/* FIRE: always solid and saturated (it never looked disabled on purpose) */
+#pad .pad-btn.fire,
+#action .ac-fire {
+  background: linear-gradient(#ff8a52, #f0522e);
+  border: 3px solid var(--line);
+  box-shadow: 0 5px 0 var(--line);
+  color: #fff;
+  font: 400 20px var(--display);
+  -webkit-text-stroke: 4px var(--line);
+  paint-order: stroke fill;
+  opacity: 1;
+}
+#pad .pad-btn.fire.held,
+#action .ac-fire.held {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--line);
+}
+/* SPECIAL: filling while it charges, then plainly ready (gold, a ring of light, a pulse) */
+body.arena-rules #special-btn.ready,
+#action .ac-special.ready {
+  background: linear-gradient(#ffe066, #ff9a2a);
+  box-shadow: 0 4px 0 var(--line), 0 0 0 3px #fff, 0 0 18px 4px rgba(255, 210, 62, 0.85);
+  animation: special-ready 0.9s ease-in-out infinite alternate;
+}
+@keyframes special-ready {
+  to {
+    box-shadow: 0 4px 0 var(--line), 0 0 0 3px #fff, 0 0 26px 8px rgba(255, 210, 62, 1);
+  }
+}
+/* the magazine: an outlined tube like the rest */
+#hud .magazine .mag-tube,
+.magazine .mag-tube {
+  border: 2.5px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
+}
+.magazine .mag-label {
+  font: 400 11px/1 var(--display);
+  color: #fff;
+  -webkit-text-stroke: 3px var(--line);
+  paint-order: stroke fill;
+  background: none;
+}
+/* (the view switch moved to the corner: its old slot on top of the thumb group goes) */
+#pad .pad-right .pad-top:empty {
+  display: none;
+}
+/* the arena modes' thumbs: the same, no tile behind the stick, no frame round the stack */
+#action .ac-joy,
+#action .ac-right {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#action .ac-move {
+  background: rgba(255, 255, 255, 0.5);
+  border: 2.5px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
+}
+#action .ac-move i {
+  background: #fff;
+  border: 2.5px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
+}
+#action .ac-view {
+  border: 2.5px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--line);
+  font: 400 12px/1 var(--display);
+  color: var(--line);
+}
+/* the view switch beside pause, top-left (a system control, out of the thumb's stack) */
+#action .ac-top,
+html.land #action .ac-top {
+  grid-template-columns: 1fr auto 1fr;
+}
+#action .ac-left .ac-view {
+  width: auto;
+  min-width: 52px;
+  height: 40px;
+  min-height: 0;
+  padding: 0 10px;
+}
+/* the arena modes' card (pause, results, picks): the same ink card as Duel's pause and result,
+   in place of the cream case */
+#action .ac-panel {
+  background: linear-gradient(rgb(58, 52, 82), rgb(37, 32, 56));
+  border: 3px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 6px 0 var(--line), 0 18px 40px rgba(0, 0, 0, 0.35), 0 0 0 1688px rgba(10, 8, 20, 0.7);
+  color: #fff;
+}
+#action .ac-panel h2 {
+  font: 400 36px/1 var(--display);
+  color: #fff;
+  -webkit-text-stroke: 7px var(--line);
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 var(--line);
+}
+#action .ac-panel .ac-unit {
+  color: #ffb08a;
+}
+#action .ac-panel .ac-text {
+  color: rgba(255, 255, 255, 0.88);
+}
+#action .ac-panel .ac-best {
+  color: rgba(255, 255, 255, 0.6);
+}
+#action .ac-buttons .key {
+  background: #fff;
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--line);
+  font: 400 17px var(--display);
+  color: var(--line);
+}
+#action .ac-buttons .key.primary {
+  background: linear-gradient(#ffe066, #ffc21a);
+  box-shadow: 0 5px 0 var(--line), inset 0 -5px 0 rgba(0, 0, 0, 0.12);
+  font-size: 22px;
+  color: #fff;
+  -webkit-text-stroke: 5px var(--line);
+  paint-order: stroke fill;
+}
+#action .ac-buttons .key.quit {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* the result in landscape: never clipped at the top (it scrolls if it must), the fighter sized to
+   the height there is, and both columns starting and ending on the same lines */
+html.land #result.screen.device {
+  align-content: safe center;
+}
+html.land #result > .result-face.result-hero {
+  --h: clamp(80px, calc(100dvh - 290px), 150px);
+  width: var(--h);
+  height: var(--h);
+}
+html.land #result > .xp-gain {
+  align-self: start;
+}
+html.land #result > .result-foe,
+html.land #result > .arcade-next {
+  grid-row: 4 / span 2;
+  align-self: end;
+}
+html.land #result > .result-next {
+  grid-column: 1;
+  grid-row: 4;
+  align-self: start;
+}
+html.land #result > .record {
+  grid-column: 1 / -1;
+}
+
+/* ================= the right thumb: an arc round FIRE (2026-11) =================
+   FIRE sits where the thumb rests; DASH, SPECIAL and the item fan out round it at one thumb's
+   reach (DASH, the one hit most mid-fight, a short slide left; SPECIAL up and to the left; the
+   item straight up), instead of a tall stack the thumb has to climb */
+#pad .pad-right,
+#action .ac-right {
+  --fire: 84px;
+  --skill: 60px;
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 4px);
+  display: block;
+  width: 184px;
+  height: 184px;
+  padding: 0;
+  gap: 0;
+  pointer-events: none;
+}
+#action .ac-right {
+  bottom: 0;
+}
+#pad .pad-right #pad-actions,
+#pad .pad-right .pad-fire.single {
+  display: contents;
+}
+/* FIRE: the anchor, bottom-right */
+#pad .pad-right .pad-fire.single .fire,
+#action .ac-right .ac-fire {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--fire);
+  height: var(--fire);
+  margin: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+}
+/* the skills: circles on an arc 88px out from FIRE's middle */
+#pad .pad-right #dash-btn,
+#pad .pad-right #special-btn,
+#pad .pad-right #item-btn,
+#action .ac-right .ac-dash,
+#action .ac-right .ac-special {
+  position: absolute;
+  width: var(--skill);
+  height: var(--skill);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: auto;
+}
+/* (FIRE's middle is 46px in from the corner: DASH at 185°, SPECIAL at 140°, the item at 95°) */
+#pad .pad-right #dash-btn,
+#action .ac-right .ac-dash {
+  left: calc(50px - var(--skill) / 2);
+  top: calc(146px - var(--skill) / 2);
+}
+#pad .pad-right #special-btn,
+#action .ac-right .ac-special {
+  left: calc(71px - var(--skill) / 2);
+  top: calc(81px - var(--skill) / 2);
+}
+#pad .pad-right #item-btn {
+  --skill: 50px;
+  left: calc(130px - var(--skill) / 2);
+  top: calc(50px - var(--skill) / 2);
+}
+#pad .pad-right #item-btn.empty {
+  display: none;
+}
+#pad .pad-right #dash-btn .dash-pips,
+#action .ac-right .ac-dash .dash-pips {
+  position: static;
+  width: 36px;
+  margin: 0;
+}
+/* (three FIRE buttons instead of one: they keep their own row, the skills stay on the arc) */
+body.triple #pad .pad-right .pad-fire.triple {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+/* (the item on the arc: its icon alone, the name and key hint have no room in a thumb button) */
+#pad .pad-right #item-btn .item-name,
+#pad .pad-right #item-btn .item-key,
+#pad .pad-right #item-btn::before {
+  display: none;
+}
+#pad .pad-right #item-btn .item-icon {
+  margin: 0;
+  transform: scale(0.9);
+}
+#pad .pad-right #item-btn {
+  background: #fff;
+  border: 3px solid var(--line);
+  box-shadow: 0 4px 0 var(--line);
+}
+/* the team modes' SWITCH: on the arc too, straight above FIRE (the item's place in Duel) */
+#action .ac-tray .ac-swap {
+  left: auto;
+  right: calc(max(12px, env(safe-area-inset-right)) + 66px - 28px);
+  bottom: calc(140px - 28px);
+  width: 56px;
+  height: 56px;
+  translate: none;
+  border-color: var(--line);
+  box-shadow: 0 4px 0 var(--line);
+}
+
+/* the Duel card's two rule sets, picked on the card itself */
+.bs-card.mode.with-rules {
+  cursor: pointer;
+}
+.bs-card.mode .rules-seg {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 3px;
+  border: 2.5px solid var(--line);
+  border-radius: 99px;
+  background: rgba(27, 25, 22, 0.35);
+}
+.bs-card.mode .rules-seg button {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 99px;
+  background: none;
+  font: 400 12px/1 var(--display);
+  color: #fff;
+  cursor: pointer;
+}
+.bs-card.mode .rules-seg button.on {
+  background: #fff;
+  color: var(--line);
+  box-shadow: 0 2px 0 var(--line);
+}
+
+/* the Fighters grid while its portraits render: a fighter's silhouette with a sheen running over
+   it (not a flat colour tile), and each picture fades in as it lands */
+.bs-card.fighter > i > [data-portrait] {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.32) 50%, transparent 65%) -100% 0 / 220% 100% no-repeat,
+    radial-gradient(circle at 50% 36%, rgba(27, 25, 22, 0.3) 0 17%, transparent 18%),
+    radial-gradient(ellipse 40% 30% at 50% 96%, rgba(27, 25, 22, 0.3) 0 98%, transparent 100%);
+  animation: portrait-sheen 1.1s linear infinite;
+}
+@keyframes portrait-sheen {
+  to {
+    background-position: 200% 0, 0 0, 0 0;
+  }
+}
+.bs-card.fighter > i > img.portrait {
+  animation: portrait-in 0.15s ease-out;
+}
+@keyframes portrait-in {
+  from {
+    opacity: 0;
+  }
+}
+/* a fighter's tag passing under the top counters: faded right down, so they never print over each other */
+#action .ac-bar.under {
+  opacity: 0.2;
+}
+
+/* the thumb buttons as icons: a crosshair to fire, a star for the special, chevrons to dash */
+.btn-ic {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+  pointer-events: none;
+}
+.btn-ic.solid,
+.btn-ic .dot {
+  fill: currentColor;
+}
+/* FIRE and SPECIAL: white on colour, with an ink edge so they read on any fill */
+.pad-btn.fire .btn-ic,
+#action .ac-fire .btn-ic,
+#special-btn .btn-ic,
+#action .ac-special .btn-ic {
+  color: #fff;
+  filter: drop-shadow(0 0 0 var(--line)) drop-shadow(1.5px 1.5px 0 var(--line)) drop-shadow(-1px -1px 0 var(--line)) drop-shadow(1.5px -1px 0 var(--line)) drop-shadow(-1px 1.5px 0 var(--line));
+}
+.pad-btn.fire .btn-ic,
+#action .ac-fire .btn-ic {
+  width: 40px;
+  height: 40px;
+}
+#dash-btn .btn-ic,
+#action .ac-dash .btn-ic {
+  width: 26px;
+  height: 26px;
+  color: var(--line);
 }

@@ -1091,8 +1091,12 @@ interface FaceShape {
   /** the same, measured on the fine grid (see FINE), for drawing the lines (only near the edges) */
   field: { on: Uint8Array; dist: Float32Array; nxs: Float32Array; nys: Float32Array; W2: number; H2: number };
 }
-/** sub-texels a texel on a block with a slanted face (its lines are drawn at this grain) */
-const FINE = 4;
+/**
+ * sub-texels a texel on a block with a slanted face (its lines are drawn at this grain). A phone
+ * takes half: a twenty-fighter brawl at 4 holds well over 100 MB of armour on the GPU, more than
+ * a phone's browser can spare (its other textures, the floor first, go to garbage)
+ */
+const FINE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 2 : 4;
 
 /** a CSS colour as [r, g, b, a] (0-255, alpha 0-1) */
 const rgbaCache = new Map<string, [number, number, number, number]>();
@@ -1607,6 +1611,9 @@ export function paintPixel(
     tex.generateMipmaps = false;
     if (outlines.length)
       later(() => {
+        // (a bigger picture can't go into the GPU texture already made for the small one: free it
+        // first, so the next draw makes a new one at the new size)
+        tex.dispose();
         tex.image = draw(FINE);
         tex.needsUpdate = true;
       });

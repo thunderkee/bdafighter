@@ -3,7 +3,7 @@ import { traitMul } from './roster';
 import { setPixelStyle } from './decals';
 import { computeStats, STARTER_BUILD } from './parts';
 import { CHARGE, Game, MOVE_NAMES, SPIRIT_MOVES, SPIRIT_OF, STEP, chargeLevel, showDashPips, slotTeam, type Shooter } from './game';
-import { View } from './view';
+import { View, reducedMotion } from './view';
 import { DuoInput, Input, PadTracker } from './input';
 import { AIController } from './ai';
 import { Fx2D } from './fx2d';
@@ -494,6 +494,10 @@ export function boot() {
 
   const setTouchClass = () => document.body.classList.toggle('touch', input.mode === 'touch');
   setTouchClass();
+  // a mouse and keyboard: the touch controls step aside for a legend of the keys (until a finger
+  // touches the screen, for a laptop that has both)
+  document.body.classList.toggle('kbd', matchMedia('(hover: hover) and (pointer: fine)').matches);
+  window.addEventListener('pointerdown', (e) => e.pointerType === 'touch' && document.body.classList.remove('kbd'), { capture: true });
 
   // ---------- hit feedback: damage numbers, the combo counter, callouts ----------
   const dmgLayer = $('dmg-layer');
@@ -823,7 +827,11 @@ export function boot() {
     // (a story chapter: they jump in, then they talk, then they fight)
     arrival = scene ?? null;
     beginIntro();
+    // (a rematch against the same opponent goes straight to the round: you've just seen the VS)
+    if (quickRematch && !arrival) endIntro();
+    quickRematch = false;
   };
+  let quickRematch = false;
   /** the VS intro, straight after the match is set up (a story chapter's stops once both have landed, and goes to its talk) */
   const beginIntro = () => {
     flow = 'intro';
@@ -889,6 +897,7 @@ export function boot() {
     flow = 'replay';
     flowT = 0;
     strikeT = 0;
+    cutT = 0;
     document.body.classList.remove('cine-on');
     finalRound = final;
     replayGame = new ReplayGame(recorder, game);
@@ -1772,7 +1781,10 @@ export function boot() {
       arcade.next = undefined;
     }
     if (arcade) showTower(startMatch);
-    else startMatch();
+    else {
+      quickRematch = !online;
+      startMatch();
+    }
   };
   /** leave the arcade run: back to the title with your own table */
   const quitArcade = () => {
@@ -1815,7 +1827,48 @@ export function boot() {
   /** then the strike itself: the shot leaves in slow motion, framed close on the robot's move */
   const STRIKE = { time: 1.2, scale: 0.28 };
   let strikeT = 0;
+  /**
+   * the short version: a cut-in strip at the top while play runs on in slow motion, then the shot
+   * leaves. The CPU's special always plays it (losing four seconds of control to the other side's
+   * move is what grates), and yours does once you've seen that move in full
+   */
+  const CUT = { time: 0.7, scale: 0.35 };
+  let cutT = 0;
+  const SEEN_KEY = 'marble-fighter:seen-specials';
+  const seenMoves = (): string[] => {
+    try {
+      return JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]');
+    } catch {
+      return [];
+    }
+  };
   const startSpecial = (slot: number) => {
+    const s0 = game.shooters[slot];
+    const move = baseOf(unitIds()[slot] ?? saveData.settings.character);
+    // (online and on one device both sides are people, and online both ends must keep the same time: the full version)
+    const cut = !online && !duo && (s0.team !== 0 || seenMoves().includes(move) || reducedMotion());
+    if (!online && !duo && s0.team === 0 && !cut) {
+      try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify([...seenMoves(), move]));
+      } catch {
+        /* (private mode: it plays in full again next time) */
+      }
+    }
+    if (cut) {
+      const id = unitIds()[slot] ?? saveData.settings.character;
+      cutT = CUT.time;
+      $('sfx-who').textContent = `${characterById(id).name.toUpperCase()}${s0.team === 0 ? '' : ' // CPU'}`;
+      $('sfx-name').textContent = (MOVE_NAMES[baseOf(id)] ?? 'SPIRIT SHOT') + '!';
+      $('sfx-face').innerHTML = `<i data-portrait="${id}" data-crop="bust"></i>`;
+      fillPortraits($('sfx-face'));
+      sfxEl.classList.toggle('foe', s0.team !== 0);
+      sfxEl.classList.add('cut');
+      sfxEl.classList.remove('hidden');
+      replay(sfxEl, 'go');
+      sfx.play('charge');
+      return;
+    }
+    sfxEl.classList.remove('cut');
     flow = 'special';
     flowT = 0;
     const s = game.shooters[slot];
@@ -2135,16 +2188,11 @@ export function boot() {
     document.body.classList.toggle('hud-tags', st.hudMode === 'tags');
     document.body.classList.toggle('slider', st.layout === 'buttons' && st.moveControl === 'slider');
     $('pad').classList.toggle('hidden', st.layout !== 'buttons');
-    // with the on-screen pad, the view switch and the special weapon join the
-    // right-thumb group (view, item, shield, fire); otherwise they keep their own spots
-    if (st.layout === 'buttons') {
-      $('pad-top').append($('view-btn'));
-      $('pad-actions').prepend($('item-btn'));
-    }
-    else {
-      document.querySelector('.hud-btns')?.prepend($('view-btn'));
-      $('effects').before($('item-btn'));
-    }
+    // with the on-screen pad, the special weapon joins the right-thumb group; otherwise it keeps its own spot
+    // (the view switch is a system control, not a combat one: it sits with pause in the corner)
+    document.querySelector('.hud-btns')?.prepend($('view-btn'));
+    if (st.layout === 'buttons') $('pad-actions').prepend($('item-btn'));
+    else $('effects').before($('item-btn'));
     padDir[0].textContent = st.arrows === 'aim' ? '↶' : '◀';
     padDir[1].textContent = st.arrows === 'aim' ? '↷' : '▶';
     document.querySelectorAll<HTMLElement>('.seg[data-setting]').forEach((seg) => {
@@ -2381,6 +2429,7 @@ export function boot() {
   type Entry = { id: string; color: string; lock?: string };
   let entries: Entry[] = [];
   let cur = 0;
+  const nextLabel = () => (arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : selectMode === 'home' ? 'Use this fighter ✓' : 'Next ▶');
   const lockText = (e: Entry) => (e.lock === 'Opponent' ? 'Your opponent this stage' : `Unlocks at ${e.lock}`);
   /** the neighbours peeking in from either side */
   const showPeeks = () => {
@@ -2415,6 +2464,8 @@ export function boot() {
     $('car-lock').classList.toggle('hidden', !locked);
     if (e && locked) $('car-lock-text').textContent = lockText(e);
     ($('select-next') as HTMLButtonElement).disabled = locked;
+    // (a locked fighter: the button says how to get it, not "use this fighter ✓" greyed out)
+    $('select-next').textContent = locked && e && step !== 'arena' ? `🔒 ${lockText(e)}` : nextLabel();
     if (selectMode === 'arcade' && !arcadeSwap && step === 'fighter') {
       const r = e && runOf(e.id);
       $('select-next').textContent = r ? `Continue stage ${r.stage} ▶` : 'Start arcade ▶';
@@ -2641,31 +2692,32 @@ export function boot() {
     lab: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   };
   const modeIcon = (id: string) => `<svg class="mode-ic" viewBox="0 0 24 24" aria-hidden="true">${MODE_ICON[id]}</svg>`;
-  type HomeMode = { id: string; name: string; sub: string; kind: 'duel' | 'arena' | 'campaign' | 'more'; go: () => void };
+  type HomeMode = { id: string; name: string; sub: string; kind: 'duel' | 'arena' | 'campaign' | 'friends'; tab: ModeTab | null; go: () => void };
+  /** the sheet's tabs: by what you want to do, not by how each mode was built */
+  type ModeTab = 'solo' | 'story' | 'friends';
   const press = (id: string) => () => $(id).click();
   const arena = (kind: ActionKind) => () => {
     actionKind = kind;
     $('action-btn').click();
   };
+  // (Solo runs from the core duel to the most involved; Classic Duel is the Duel card's other rules, not a card)
   const MODES: HomeMode[] = [
-    { id: 'versus', name: 'Duel', sub: 'Arena rules: grab ammo, fill Overdrive, unleash a special', kind: 'duel', go: press('play-btn') },
-    { id: 'classic', name: 'Classic Duel', sub: 'The original rules: auto-reload, no specials', kind: 'duel', go: press('classic-btn') },
-    { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', go: press('squad-btn') },
-    { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'duel', go: press('duo-btn') },
-    { id: 'online', name: 'Online Clash', sub: 'Fight a friend on another device with a room code', kind: 'duel', go: () => openLobby('', '', 'clash') },
-    { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', go: arena('ffa') },
-    { id: 'onlinebrawl', name: 'Online Brawl', sub: 'Storm Brawl with up to 5 friends on a room code', kind: 'arena', go: () => openLobby('', '', 'ffa') },
-    { id: 'onlineko', name: 'Online Knockout', sub: 'Team Knockout with friends, three a side', kind: 'arena', go: () => openLobby('', '', 'knockout') },
-    { id: 'mega', name: 'Mega Brawl', sub: 'Twenty fighters, a stage eight times the size, portals to jump across', kind: 'arena', go: arena('mega') },
-    { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', go: arena('knockout') },
-    { id: 'siege', name: 'Castle Crash', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', go: arena('siege') },
-    { id: 'zone', name: 'King of the Ring', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', go: arena('zone') },
-    { id: 'boss', name: 'Giant Slayer', sub: 'You and two more against one giant fighter', kind: 'arena', go: arena('boss') },
-    { id: 'story', name: 'League Story', sub: 'Your fighter’s path through the League', kind: 'campaign', go: press('story-btn') },
-    { id: 'arcade', name: 'Boss Ladder', sub: 'A ladder of stages and four bosses', kind: 'campaign', go: press('arcade-btn') },
-    { id: 'gauntlet', name: 'Dungeon Run', sub: 'Seven stages deep: traps, loot, keys and bosses', kind: 'campaign', go: arena('gauntlet') },
-    { id: 'tutorial', name: 'Tutorial', sub: 'Move, shoot, shield and parry in a minute', kind: 'more', go: press('tut-card') },
-    { id: 'lab', name: 'Unit Lab', sub: 'Edit and build fighters', kind: 'more', go: () => (location.href = './editor.html') },
+    { id: 'versus', name: 'Duel', sub: 'Grab ammo, fill Overdrive, unleash a special', kind: 'duel', tab: 'solo', go: press('play-btn') },
+    { id: 'classic', name: 'Classic Duel', sub: 'The original rules: auto-reload, no specials', kind: 'duel', tab: null, go: press('classic-btn') },
+    { id: 'ffa', name: 'Storm Brawl', sub: 'You and five fighters, bushes, crates and a closing storm', kind: 'arena', tab: 'solo', go: arena('ffa') },
+    { id: 'knockout', name: 'Team Knockout', sub: 'Three on three, no respawns, best of three rounds', kind: 'arena', tab: 'solo', go: arena('knockout') },
+    { id: 'zone', name: 'King of the Ring', sub: 'Hold the ring in the middle, first to 100%', kind: 'arena', tab: 'solo', go: arena('zone') },
+    { id: 'siege', name: 'Castle Crash', sub: 'Knock down their fortress before they knock down yours', kind: 'arena', tab: 'solo', go: arena('siege') },
+    { id: 'boss', name: 'Giant Slayer', sub: 'You and two more against one giant fighter', kind: 'arena', tab: 'solo', go: arena('boss') },
+    { id: 'mega', name: 'Mega Brawl', sub: 'Twenty fighters, a stage eight times the size, portals to jump across', kind: 'arena', tab: 'solo', go: arena('mega') },
+    { id: 'squad', name: 'Gate Rush', sub: 'Grow a squad through the gates, beat the boss', kind: 'duel', tab: 'solo', go: press('squad-btn') },
+    { id: 'story', name: 'League Story', sub: 'Your fighter’s path through the League', kind: 'campaign', tab: 'story', go: press('story-btn') },
+    { id: 'arcade', name: 'Boss Ladder', sub: 'A ladder of stages and four bosses', kind: 'campaign', tab: 'story', go: press('arcade-btn') },
+    { id: 'gauntlet', name: 'Dungeon Run', sub: 'Seven stages deep: traps, loot, keys and bosses', kind: 'campaign', tab: 'story', go: arena('gauntlet') },
+    { id: 'duo', name: 'Couch Clash', sub: 'Head to head on one device', kind: 'friends', tab: 'friends', go: press('duo-btn') },
+    { id: 'online', name: 'Online Clash', sub: 'Fight a friend on another device with a room code', kind: 'friends', tab: 'friends', go: () => openLobby('', '', 'clash') },
+    { id: 'onlinebrawl', name: 'Online Brawl', sub: 'Storm Brawl with up to 5 friends on a room code', kind: 'friends', tab: 'friends', go: () => openLobby('', '', 'ffa') },
+    { id: 'onlineko', name: 'Online Knockout', sub: 'Team Knockout with friends, three a side', kind: 'friends', tab: 'friends', go: () => openLobby('', '', 'knockout') },
   ];
   const modeById = (id: string) => MODES.find((m) => m.id === id);
   // the rotation: Siege, Hot Zone and Boss Fight take turns as the event, a few hours each
@@ -2683,7 +2735,8 @@ export function boot() {
   /** every mode can be played any time (the rotation only picks which one is featured as the event) */
   const available = (_id: string) => true;
   const featured = () => {
-    const id = S().playMode ?? 'ffa';
+    // (a new player starts on the core marble duel: the game's own identity, before the brawls)
+    const id = S().playMode ?? 'versus';
     return modeById(id) && available(id) ? modeById(id)! : modeById('versus')!;
   };
   const showHome = () => {
@@ -2703,43 +2756,60 @@ export function boot() {
   };
   setInterval(() => !$('title').classList.contains('hidden') && showHome(), 20000);
   /** Game Modes: one tab at a time, a grid of cards; tap one and it's the mode on PLAY */
-  let modeTab: 'duel' | 'arena' | 'campaign' = 'duel';
+  let modeTab: ModeTab = 'solo';
+  const tabOf = (m: HomeMode): ModeTab => m.tab ?? 'solo';
   const showModes = () => {
     const body = $('sheet-body');
     body.innerHTML = '';
     const r = rotation();
     document.querySelectorAll<HTMLElement>('#sheet-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === modeTab));
-    const list = MODES.filter((m) => m.kind === modeTab || (modeTab === 'campaign' && m.kind === 'more'));
+    const list = MODES.filter((m) => m.tab === modeTab);
+    // (the event mode comes right after Duel, so the one on now is near the top)
+    const ev = list.findIndex((m) => m.id === r.now);
+    if (ev > 1) list.splice(1, 0, ...list.splice(ev, 1));
+    const pick = (id: string) => {
+      sfx.play('tick', 0.5);
+      $('mode-sheet').classList.add('hidden');
+      saveSetting({ playMode: id });
+      showHome();
+    };
     for (const m of list) {
       const live = available(m.id);
-      const b = document.createElement('button');
-      b.className = 'bs-card mode' + (m.id === featured().id ? ' on' : '') + (live ? '' : ' off');
+      const duel = m.id === 'versus';
+      const on = m.id === featured().id || (duel && featured().id === 'classic');
+      const b = document.createElement(duel ? 'div' : 'button');
+      b.className = 'bs-card mode' + (on ? ' on' : '') + (live ? '' : ' off') + (duel ? ' with-rules' : '');
       b.dataset.kind = m.kind;
       // the strip over the card: only on the event mode, and when it hands over
       const strip = r.now === m.id ? `Event · ends in ${hhmm(r.left)}` : '';
       b.innerHTML = `${strip ? `<em class="${live && ROTATION.includes(m.id) ? 'live' : ''}">${strip}</em>` : ''}<i>${modeIcon(m.id)}</i><b>${m.name}</b><small>${m.sub}</small>`;
-      b.disabled = !live;
-      b.addEventListener('click', () => {
-        sfx.play('tick', 0.5);
-        $('mode-sheet').classList.add('hidden');
-        // (the Unit Lab and the tutorial open straight away; anything else goes on PLAY)
-        if (m.id === 'lab' || m.id === 'tutorial') return m.go();
-        saveSetting({ playMode: m.id });
-        showHome();
-      });
+      if (duel) {
+        // the Duel card holds both rule sets: Arena (specials, ammo boxes) or the original Classic
+        const classic = featured().id === 'classic';
+        const row = document.createElement('span');
+        row.className = 'rules-seg';
+        row.innerHTML = `<button type="button" data-id="versus" class="${classic ? '' : 'on'}">Arena</button><button type="button" data-id="classic" class="${classic ? 'on' : ''}">Classic</button>`;
+        row.querySelectorAll<HTMLElement>('button').forEach((x) => x.addEventListener('click', (e) => (e.stopPropagation(), pick(x.dataset.id!))));
+        b.appendChild(row);
+        b.setAttribute('role', 'button');
+        b.tabIndex = 0;
+        b.addEventListener('click', () => pick(featured().id === 'classic' ? 'classic' : 'versus'));
+      } else {
+        (b as HTMLButtonElement).disabled = !live;
+        b.addEventListener('click', () => pick(m.id));
+      }
       body.appendChild(b);
     }
   };
   document.querySelectorAll<HTMLElement>('#sheet-tabs button').forEach((b) =>
     b.addEventListener('click', () => {
-      modeTab = b.dataset.tab as typeof modeTab;
+      modeTab = b.dataset.tab as ModeTab;
       sfx.play('tick', 0.4);
       showModes();
     }),
   );
   const openModes = () => {
-    const k = featured().kind;
-    modeTab = k === 'more' ? 'campaign' : k;
+    modeTab = tabOf(featured());
     showModes();
     $('mode-sheet').classList.remove('hidden');
   };
@@ -2802,7 +2872,7 @@ export function boot() {
     show('select');
     $('select-title').textContent =
       step === 'fighter' ? (selectMode === 'duo' ? 'Player 1 fighter' : 'Select fighter') : step === 'rival' ? (selectMode === 'duo' ? 'Player 2 fighter' : 'Select rival') : 'Select arena';
-    $('select-next').textContent = arcadeSwap ? `Retry stage ${arcade?.stage ?? ''} ▶` : selectMode === 'arcade' ? 'Start arcade ▶' : selectMode === 'home' ? 'Use this fighter ✓' : 'Next ▶';
+    $('select-next').textContent = nextLabel();
     if (selectMode === 'home') $('select-title').textContent = 'Your fighter';
     $('select').classList.toggle('from-home', selectMode === 'home');
     if (arcadeSwap) $('select-title').textContent = 'Change fighter';
@@ -2960,6 +3030,8 @@ export function boot() {
     view.game = game;
     view.cine = null;
     strikeT = 0;
+    cutT = 0;
+    sfxEl.classList.add('hidden');
     document.body.classList.remove('cine-on');
     controls(false);
     input.release();
@@ -3341,6 +3413,8 @@ export function boot() {
       ? 'In Safari, tap the Share button (the square with an arrow), then Add to Home Screen.'
       : 'Open your browser menu and choose Install app (or Add to Home screen).';
   });
+  // (the Unit Lab is a tool, not a mode: it lives here rather than in Game Modes)
+  $('open-lab').addEventListener('click', () => (location.href = './editor.html'));
   $('replay-tutorial').addEventListener('click', () => {
     $('settings').classList.add('hidden');
     startTutorial();
@@ -3522,7 +3596,16 @@ export function boot() {
         game.hitstop -= dt;
       } else {
         // KO slow-mo, or the Slow-Mo item (the whole match at half speed)
-        const timeScale = strikeT > 0 ? STRIKE.scale : game.phase === 'ko' ? 0.3 : game.slowT > 0 ? SLOWMO.world : 1;
+        const timeScale = strikeT > 0 ? STRIKE.scale : cutT > 0 ? CUT.scale : game.phase === 'ko' ? 0.3 : game.slowT > 0 ? SLOWMO.world : 1;
+        if (cutT > 0) {
+          cutT -= dt;
+          if (cutT <= 0) {
+            sfxEl.classList.add('hidden');
+            game.releaseSpecial();
+            sfx.play('super');
+            view.shake(0.4);
+          }
+        }
         if (strikeT > 0) {
           strikeT -= dt;
           if (strikeT <= 0) {

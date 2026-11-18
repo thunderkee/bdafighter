@@ -123,10 +123,10 @@
           <!-- group 1: the fighting keys, special weapon (once picked up) and fire -->
           <div class="pad-actions" id="pad-actions">
           <!-- a quick burst along the rail, the way you're moving (X on a keyboard) -->
-          <button class="pad-btn dash" id="dash-btn" data-btn="dash" aria-label="Dash">DASH<i class="dash-pips"><b></b><b></b><b></b></i></button>
+          <button class="pad-btn dash" id="dash-btn" data-btn="dash" aria-label="Dash"><svg class="btn-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l7 7-7 7M12 5l7 7-7 7"/></svg><i class="dash-pips"><b></b><b></b><b></b></i></button>
           <div class="pad-fire single">
-            <button class="pad-btn special" id="special-btn" aria-label="Special move">SPECIAL</button>
-            <button class="pad-btn fire" data-btn="fire" aria-label="Fire">FIRE</button>
+            <button class="pad-btn special" id="special-btn" aria-label="Special move"><svg class="btn-ic solid" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l2.6 6.4 6.9.5-5.3 4.4 1.7 6.7L12 16.2l-5.9 3.6 1.7-6.7-5.3-4.4 6.9-.5z"/></svg></button>
+            <button class="pad-btn fire" data-btn="fire" aria-label="Fire"><svg class="btn-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5"/><circle class="dot" cx="12" cy="12" r="2"/></svg></button>
           </div>
           <div class="pad-fire triple">
             <button class="pad-btn fire mini" data-btn="fire" aria-label="Fire front">▲<small>FRONT</small></button>
@@ -136,6 +136,8 @@
           </div>
           </div>
         </div>
+        <!-- a mouse and keyboard: the keys, in place of the touch pad -->
+        <p id="keys" class="keys-legend"><b>A D</b> move <b>Q E</b> aim <b>SPACE</b> fire <b>X</b> special <b>F</b> item <b>V</b> view <b>P</b> pause</p>
         <!-- split-screen 2 players: the screen's divider and each player's health, in their own half -->
         <div id="duo-hp"><i class="split-line"></i><!-- on the line between the two halves, so it belongs to neither player: the round score on one edge, pause on the other --><div class="duo-tab duo-score" aria-label="Rounds won"><b class="p1" id="duo-r1">0</b><i></i><b class="p2" id="duo-r2">0</b></div><button class="duo-tab duo-pause" id="duo-pause" aria-label="Pause"><span>PAUSE</span></button><div class="bar p1"><span>P1</span><i><b></b></i></div><div class="bar p2"><span>P2</span><i><b></b></i></div></div>
         <!-- the tutorial: one step at a time, over the practice match -->
@@ -217,10 +219,10 @@
             <button id="play-main" class="play-main">PLAY</button>
           </div>
         </div>
-        <!-- Game Modes: a grid of cards, by tab (Duel / Arena / Campaign); tap one, it's on PLAY -->
+        <!-- Game Modes: a grid of cards, by what you want to do (Solo / Story / Friends); tap one, it's on PLAY -->
         <div id="mode-sheet" class="bs-screen hidden" role="dialog" aria-label="Game modes">
           <header class="bs-head"><button id="sheet-close" class="key round" aria-label="Back"><svg class="ui-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Game Modes</b></header>
-          <nav class="bs-tabs" id="sheet-tabs"><button data-tab="duel">Duel</button><button data-tab="arena">Arena</button><button data-tab="campaign">Campaign</button></nav>
+          <nav class="bs-tabs" id="sheet-tabs"><button data-tab="solo">Solo</button><button data-tab="story">Story</button><button data-tab="friends">Friends</button></nav>
           <div id="sheet-body" class="bs-grid modes"></div>
         </div>
         <!-- Fighters: every fighter as a card; tap one to see it and pick it -->
@@ -484,6 +486,7 @@
             </div>
             <div class="set-links">
               <button class="key more-settings" id="replay-tutorial">Play the tutorial</button>
+              <button class="key more-settings" id="open-lab">Unit Lab: build fighters</button>
               <button class="key more-settings" id="more-settings">More settings<svg class="ui-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
             </div>
           </section>

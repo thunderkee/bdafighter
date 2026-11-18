@@ -26,6 +26,9 @@ import { hex, type Fx2D, type Glow, type Marker, type Streak } from './fx2d';
 import * as sfx from './audio';
 import { celify } from './cel';
 
+/** the system asks for less motion (Settings > Accessibility): shakes stay small, the camera holds still */
+export const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // Physics (x, y) maps to three.js (x, 0, -y): the player sits near the
 // camera at +z and the opponent sits far away at -z.
 
@@ -687,7 +690,8 @@ export class View {
   }
 
   shake(amount: number) {
-    this.trauma = Math.min(1, this.trauma + amount);
+    // (the system's reduced-motion setting: a nudge at most, never a hard shake)
+    this.trauma = Math.min(reducedMotion() ? 0.2 : 1, this.trauma + amount);
   }
 
   burst(x: number, y: number, color: THREE.ColorRepresentation, count: number, speed: number, opts: { h?: number; float?: boolean; size?: number } = {}) {

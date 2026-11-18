@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DashFx } from './dashfx';
 import { celify } from './cel';
 import { InkOnly } from './post';
+import { reducedMotion } from './view';
 import { showResultHero } from './resulthero';
 import { ShooterMesh, characterById, playable, propModel, studioEnv, type CharacterDef } from './robot';
 import { traitMul } from './roster';
@@ -20,6 +21,8 @@ import { landmark } from './landmarks';
 import { coverProp, decorate } from './scenery';
 import { BOSSES, MONSTERS } from './monsters';
 import { makeDungeon, rollGear, gearPower, RARITY, PERKS, STARTER, D_ROCK, type Dungeon, type DRoom, type Gear } from './dungeon';
+
+const FIRE_ICON = '<svg class="btn-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5"/><circle class="dot" cx="12" cy="12" r="2"/></svg>';
 
 /**
  * Action: walk the whole stage freely and take the other fighters down, seen from above.
@@ -891,6 +894,7 @@ export class ActionMode {
   /** Dungeon Run's own view: near unless you change it there (the other modes share the Settings one) */
   private dView: ActionView = 'near';
   private skyFor: Theme | null = null;
+  private skyOn = 0;
   private lift = 0;
   private vw = 1;
   private vh = 1;
@@ -927,14 +931,16 @@ export class ActionMode {
       <div class="ac-vignette"></div>
       <div class="ac-speed"></div>
       <div class="ac-bars"></div>
+      <i class="ac-stormglow" aria-hidden="true"></i>
       <canvas class="ac-map" aria-hidden="true"></canvas>
       <p class="ac-level" aria-live="polite"></p>
       <div class="ac-hud">
         <div class="ac-top">
-          <div class="ac-left"><button class="ac-quit key round" aria-label="Back">✕</button></div>
+          <div class="ac-left"><button class="ac-quit key round" aria-label="Pause"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1.5" fill="currentColor"/><rect x="14" y="4" width="5" height="16" rx="1.5" fill="currentColor"/></svg></button><button class="icon-btn view ac-view" aria-label="Switch view">NEAR</button></div>
           <div class="ac-title"><b></b><span></span></div>
           <div class="ac-score"><b>0</b><span>KOS</span></div>
         </div>
+        <p class="ac-storm hidden"></p>
         <div class="ac-bossbar" aria-hidden="true"><b></b><i><s></s><u></u></i></div>
         <p class="ac-goal hidden"></p>
         <div class="ac-say" aria-live="polite"><b></b><p></p></div>
@@ -950,16 +956,15 @@ export class ActionMode {
       <div class="ac-tray">
         <div class="pad-dir ac-joy" aria-label="Move"><div class="ac-move"><i></i></div></div>
         <div class="pad-right ac-right">
-          <!-- the view switch, where the other modes keep it: on top of the right thumb's group -->
-          <button class="icon-btn view ac-view" aria-label="Switch view">NEAR</button>
-          <button class="ac-special" aria-label="Special move">SPECIAL</button>
+          <button class="ac-special" aria-label="Special move"><svg class="btn-ic solid" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l2.6 6.4 6.9.5-5.3 4.4 1.7 6.7L12 16.2l-5.9 3.6 1.7-6.7-5.3-4.4 6.9-.5z"/></svg></button>
           <!-- a quick burst the way the stick points (X on a keyboard) -->
-          <button class="ac-dash" aria-label="Dash">DASH<i class="dash-pips"><b></b><b></b><b></b></i></button>
-          <button class="pad-btn fire ac-fire" aria-label="Fire">FIRE</button>
+          <button class="ac-dash" aria-label="Dash"><svg class="btn-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l7 7-7 7M12 5l7 7-7 7"/></svg><i class="dash-pips"><b></b><b></b><b></b></i></button>
+          <button class="pad-btn fire ac-fire" aria-label="Fire"><svg class="btn-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5"/><circle class="dot" cx="12" cy="12" r="2"/></svg></button>
         </div>
         <!-- the team modes: take over a teammate (its face shows who's next) -->
         <button class="ac-swap" aria-label="Switch fighter"><img alt="" /><span>SWITCH</span></button>
       </div>
+      <p class="keys-legend ac-keys"><b>WASD</b> move <b>MOUSE</b> aim, hold to fire <b>SPACE</b> fire <b>F</b> special <b>X</b> dash <b>V</b> view <b>P</b> pause</p>
       <div class="ac-panel">
         <div class="ac-hero hidden"></div>
         <h2>Action</h2>
@@ -972,7 +977,7 @@ export class ActionMode {
       </div>`;
     host.appendChild(this.el);
     this.canvas = this.el.querySelector('canvas')!;
-    for (const k of ['level', 'say', 'swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'dash', 'fire', 'charge']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
+    for (const k of ['level', 'say', 'swap', 'respawn', 'goal', 'bossbar', 'fade', 'bars', 'title', 'score', 'callout', 'supername', 'flash', 'vignette', 'speed', 'hint', 'panel', 'special', 'dash', 'fire', 'charge', 'storm', 'stormglow']) this.hud[k] = this.el.querySelector(`.ac-${k}`)!;
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -1004,6 +1009,7 @@ export class ActionMode {
     this.scene.add(this.aimGuide);
     this.skyDome.visible = false;
     this.scene.add(this.skyDome);
+    this.scene.fog = new THREE.Fog(0x000000, 1e4, 1e4 + 1);
     // the lock-on: a gold ring on the floor with four pointers, drawn over everything
     this.lockRing = new THREE.Group();
     const lockMat = new THREE.MeshBasicMaterial({ color: 0xffd23e, transparent: true, opacity: 0.95, depthTest: false });
@@ -1066,7 +1072,7 @@ export class ActionMode {
     this.aimRing.visible = false;
     this.scene.add(this.aimRing);
 
-    this.el.querySelector('.ac-quit')!.addEventListener('click', () => this.exit());
+    this.el.querySelector('.ac-quit')!.addEventListener('click', () => this.pauseTap());
     this.el.querySelector('.ac-view')!.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -3399,7 +3405,8 @@ export class ActionMode {
       this.lockOn = tgt;
       this.punch = 1;
       // the camera drops behind you, looking where it'll go, for the pose; then back to your view
-      this.spCine = true;
+      // (not with reduced motion asked for: the camera stays put and the move's name says it)
+      this.spCine = !reducedMotion();
       this.spMax = 3;
       this.spYaw = angle;
       const sl = this.hud.speed;
@@ -4703,6 +4710,44 @@ export class ActionMode {
     this.burst(x, 0.8, z, color, 14, 3, { float: true });
   }
 
+  /**
+   * the storm as a rule you can see: a pill under the counters (when it comes, then that it's
+   * closing), and the screen's edges glowing red as you near it, fully once you're in it
+   */
+  private stormText = '';
+  private stormGlow = -1;
+  private stormHud() {
+    const on = this.kind === 'ffa' && !this.over;
+    let text = '';
+    let glow = 0;
+    let danger = false;
+    if (on) {
+      const [s0, s1] = this.mega ? [MEGA.stormStart, MEGA.stormEnd] : [STORM_START, STORM_END];
+      const me = this.me;
+      const edge = me?.alive ? this.storm - Math.max(Math.abs(me.x), Math.abs(me.z)) : 99;
+      danger = edge < 0;
+      glow = this.time < s0 ? 0 : Math.max(0, Math.min(1, (3 - edge) / 3));
+      if (danger) text = 'IN THE STORM · GET INSIDE';
+      else if (this.time < s0) {
+        const left = Math.ceil(s0 - this.time);
+        text = `STORM IN ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      } else text = this.time < s1 ? 'STORM CLOSING IN' : 'FINAL ZONE';
+    }
+    const el = this.hud.storm;
+    if (text !== this.stormText) {
+      this.stormText = text;
+      el.textContent = text;
+      el.classList.toggle('hidden', !text);
+      el.classList.toggle('danger', danger);
+      el.classList.toggle('soon', on && !danger && text.startsWith('STORM IN') && this.time > (this.mega ? MEGA.stormStart : STORM_START) - 10);
+    }
+    const g = Math.round(glow * 20) / 20;
+    if (g !== this.stormGlow) {
+      this.stormGlow = g;
+      this.hud.stormglow.style.opacity = String(g);
+    }
+  }
+
   private tickStorm(dt: number) {
     const half = this.W / 2;
     const [s0, s1] = this.mega ? [MEGA.stormStart, MEGA.stormEnd] : [STORM_START, STORM_END];
@@ -5909,13 +5954,26 @@ export class ActionMode {
   }
 
   private v = new THREE.Vector3();
+  /** where the top HUD (counters, storm pill) ends, measured now and then: a tag under it fades */
+  private hudLine = 0;
+  private hudLineT = 0;
   private placeBars() {
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
+    if (--this.hudLineT <= 0) {
+      this.hudLineT = 30;
+      const top = this.canvas.getBoundingClientRect().top;
+      const storm = this.hud.storm;
+      const edge = !storm.classList.contains('hidden') ? storm : (this.el.querySelector('.ac-top') as HTMLElement);
+      this.hudLine = edge.getBoundingClientRect().bottom - top;
+    }
     for (const u of this.units) {
       if (!u.alive) continue;
       this.v.set(u.x, (u.giant ? 3.4 : u.boss ? 2.4 : 1.75) - (behind(this.view) ? 0.35 : 0) + (this.elev ? this.heightAt(u.x, u.z) : 0), u.z).project(this.camera);
-      u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${((1 - this.v.y) / 2) * h}px) translate(-50%, -100%)`;
+      const ty = ((1 - this.v.y) / 2) * h;
+      u.bar.style.transform = `translate(${((this.v.x + 1) / 2) * w}px, ${ty}px) translate(-50%, -100%)`;
+      // (a tag that would sit over the counters fades right down, so the two never print over each other)
+      u.bar.classList.toggle('under', u !== this.me && ty - 30 < this.hudLine);
       (u.bar.querySelector('b') as HTMLElement).style.width = `${(u.hp / u.max) * 100}%`;
       // (health is a share everywhere: the bars, the hits, the top of the duel)
       const pct = Math.max(1, Math.ceil((u.hp / u.max) * 100));
@@ -5991,6 +6049,7 @@ export class ActionMode {
       title.querySelector('span')!.textContent = `STAGE ${this.stage} · ${this.isBossRoom() ? 'BOSS' : this.hasKey ? 'KEY FOUND' : 'ROOMS'} · ${'♥'.repeat(this.lives)}`;
     }
     this.hud.score.querySelector('b')!.textContent = String(this.kos);
+    this.stormHud();
     // the boss's health across the top, while one's up (the dark part trails behind, showing the last hit)
     const boss = this.units.find((u) => u.boss && u.alive && u.cpu && (!this.me || u.team !== this.me.team));
     const bb = this.hud.bossbar;
@@ -6036,7 +6095,13 @@ export class ActionMode {
       meter.querySelector('b')!.textContent = !armed ? 'HOLD TO CHARGE' : me.stored ? `CHARGE ×${me.stored}` : 'CHARGING';
       meter.style.setProperty('--arm', String(armed ? 1 : next));
     }
-    this.hud.fire.textContent = me?.item === 'dragon' ? 'DRAGON' : me?.item === 'steel' ? 'STEEL' : 'FIRE';
+    // (FIRE is its crosshair; holding a Dragon Shot or Steel Ball, the button names it instead)
+    const label = me?.item === 'dragon' ? 'DRAGON' : me?.item === 'steel' ? 'STEEL' : '';
+    if (this.hud.fire.dataset.label !== label) {
+      this.hud.fire.dataset.label = label;
+      if (label) this.hud.fire.textContent = label;
+      else this.hud.fire.innerHTML = FIRE_ICON;
+    }
     this.hud.fire.classList.toggle('item', !!me?.item);
     this.hud.special.style.setProperty('--p', String(Math.round(c * 100)));
   }
@@ -6116,7 +6181,7 @@ export class ActionMode {
     const mx = me ? me.x : 0;
     const mz = me ? me.z : 0;
     this.shake = Math.max(0, this.shake - dt);
-    const j = this.shake * 0.4;
+    const j = Math.min(this.shake, reducedMotion() ? 0.2 : 1) * 0.4;
     const pos = new THREE.Vector3();
     const at = new THREE.Vector3();
     // (the cockpit view starts looking into the stage: up the room, or toward the middle)
@@ -6141,11 +6206,27 @@ export class ActionMode {
     }
     // it sees the horizon: a sky, and a haze over the far side
     const sky = behind(view);
-    if (sky !== !!this.scene.fog || (sky && this.skyFor !== this.theme)) {
+    // (a special's cinematic is a close shot of you and your target: its haze closes in, so the far
+    // fighters, each a hundred-odd parts, fade out and aren't drawn at all)
+    const haze = !sky ? 0 : cine ? 1 : 2;
+    if (haze !== this.skyOn || (sky && this.skyFor !== this.theme)) {
+      this.skyOn = haze;
       this.skyFor = this.theme;
       this.skyDome.visible = sky;
       (this.skyDome.material as THREE.MeshBasicMaterial).color.setHex(this.theme.sky);
-      this.scene.fog = sky ? new THREE.Fog(this.theme.sky, 16, 42) : null;
+      // (the haze stays on in every view, only pushed out of sight from above: switching it on and
+      // off rebuilds every material's shader, a stall on a phone the first time a special's
+      // cinematic drops the camera behind you)
+      const fog = this.scene.fog as THREE.Fog;
+      fog.color.setHex(this.theme.sky);
+      const [near, far] = haze === 1 ? [12, 28] : haze === 2 ? [16, 42] : [1e4, 1e4 + 1];
+      fog.near = near;
+      fog.far = far;
+      // (nothing past the haze is drawn: the sky sits just beyond it and the camera stops there, so
+      // the far side of a big stage, all haze anyway, costs nothing)
+      this.skyDome.scale.setScalar(sky ? (far + 1.5) / 120 : 1);
+      this.camera.far = sky ? far + 2 : 200;
+      this.camera.updateProjectionMatrix();
     }
     if (cine) {
       // the pose: close in behind you, looking where it'll go (closer than the cockpit view)
@@ -6174,14 +6255,18 @@ export class ActionMode {
       const wideK = this.camera.aspect > 1.6 ? 1.25 : 1;
       // (near is the exception: sideways it comes in closer, so your fighter reads big)
       const k = view === 'near' ? (this.camera.aspect > 1.2 ? 0.78 : 1) : wideK;
-      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 13, near: tall ? 10.5 : 8.5 }[view] * k;
+      // (sideways the screen is short front to back: the camera stands a little further off)
+      const h = { far: tall ? 26 : 19, mid: this.kind !== 'gauntlet' ? (tall ? 13.5 : 11) : tall ? 17 : 13, near: tall ? 10.5 : 8.5 }[view] * k * (tall ? 1 : 1.1);
       const back = { far: 0.22, mid: 0.55, near: 0.85 }[view];
       const room = false;
       const half = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * h * 1.5;
       const fx = room ? THREE.MathUtils.clamp(mx, -Math.max(0, this.W / 2 - half + 0.3), Math.max(0, this.W / 2 - half + 0.3)) : mx;
       const fz = room ? THREE.MathUtils.clamp(mz, -this.H / 2 + 6, this.H / 2 - 6.5) : mz;
-      pos.set(fx, h, fz + h * back);
-      at.set(fx, 0, fz - (tall ? 0.5 : 0));
+      // (and it looks a little ahead of you, so you stand in the lower part of the picture with the
+      // fight in front of you, rather than in the middle with the floor behind you taking the room)
+      const ahead = tall ? 0.5 : h * 0.09;
+      pos.set(fx, h, fz + h * back - (tall ? 0 : ahead));
+      at.set(fx, 0, fz - ahead);
     }
     if (this.camSnap) {
       this.camPos.copy(pos);
@@ -6197,7 +6282,7 @@ export class ActionMode {
     // pushing in: a punch for your special (easing out), and a lean in while you charge
     this.punch = Math.max(0, this.punch - dt * 1.6);
     const charge = me && me.alive && me.chargeHold >= CHARGE.hold ? 0.06 + (me.stored / CHARGE.max) * 0.1 : 0;
-    const zoom = 1 - Math.max(charge, cine ? 0 : this.punch * 0.3);
+    const zoom = 1 - Math.max(charge, cine || reducedMotion() ? 0 : this.punch * 0.3);
     const cp = this.camAt.clone().add(this.camPos.clone().sub(this.camAt).multiplyScalar(zoom));
     this.camera.position.set(cp.x + (Math.random() - 0.5) * j, cp.y, cp.z + (Math.random() - 0.5) * j);
     this.camera.lookAt(this.camAt);
@@ -6292,12 +6377,32 @@ export class ActionMode {
     this.opts.reward?.(box, this.unitId, Math.max(10, gain));
   }
 
-  private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | 'loot' | 'stage' | null, place = 0) {
+  /**
+   * the corner button: a pause sheet over the match (a stray thumb there no longer throws the run
+   * away). On a menu or a result it leaves, as before
+   */
+  private pauseTap() {
+    if (this.panelKind === 'pause') return this.showPanel(null);
+    if (this.over || this.panelKind === 'start' || this.panelKind === 'win' || this.panelKind === 'lose') return this.exit();
+    if (this.panelKind) return;
+    this.showPanel('pause');
+  }
+
+  private showPanel(kind: 'start' | 'win' | 'lose' | 'upgrade' | 'loot' | 'stage' | 'pause' | null, place = 0) {
     const p = this.hud.panel;
     p.classList.toggle('hidden', !kind);
     this.panelKind = kind;
     this.panelAt = performance.now();
-    this.paused = kind === 'upgrade' || kind === 'loot' || kind === 'stage';
+    // (online the match runs on under the pause sheet: the others are still playing)
+    this.paused = kind === 'upgrade' || kind === 'loot' || kind === 'stage' || (kind === 'pause' && !this.net);
+    this.stormHud();
+    if (kind === 'pause') {
+      // (thumbs let go: nothing stays held under the sheet)
+      this.keyFire = this.mouseFire = false;
+      this.aimStick = this.moveStick = null;
+      this.stickEl(null);
+      this.hud.fire.classList.remove('held');
+    }
     if (!kind) return;
     const h = p.querySelector('h2')!;
     const text = p.querySelector('.ac-text') as HTMLElement;
@@ -6334,6 +6439,15 @@ export class ActionMode {
         button('Retry chapter', () => this.begin(f.kind), 'primary');
         button('Leave story', () => this.endStory(false));
       }
+      return;
+    }
+    if (kind === 'pause') {
+      h.textContent = 'Paused';
+      const where = this.kind === 'gauntlet' ? `Stage ${this.stage} · ${themeName(this.theme)}` : themeName(this.theme);
+      text.textContent = this.net ? `${where} · the match carries on while you're here` : where;
+      button('Resume', () => this.showPanel(null), 'primary');
+      if (!this.net && !this.story) button('Restart', () => this.begin(this.mega ? 'mega' : this.kind));
+      button('Quit to menu', () => this.exit(), 'quit');
       return;
     }
     if (kind === 'start') {
@@ -6743,12 +6857,12 @@ export class ActionMode {
     if (e.code === 'Space' && !e.repeat && (this.panelKind === 'loot' || this.panelKind === 'upgrade' || this.panelKind === 'stage')) return this.dismissBonus(true);
     // (Q: switch fighter, even while yours is down)
     if (e.code === 'KeyQ' && !e.repeat) return this.switchFighter();
+    if ((e.code === 'Escape' || e.code === 'KeyP') && !e.repeat) return this.pauseTap();
     if (this.over || this.paused || !this.me?.alive) return;
     if (e.code === 'Space') this.keyFire = true;
     if ((e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) this.special(this.me, this.autoAim());
     if (e.code === 'KeyX' && !e.repeat) this.dashWanted = true;
     if (e.code === 'KeyV') this.cycleView();
-    if (e.code === 'Escape') this.exit();
   };
   private keyup = (e: KeyboardEvent) => {
     this.keys.delete(e.code);
